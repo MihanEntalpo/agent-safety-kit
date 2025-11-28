@@ -1,12 +1,14 @@
+[README.md на русском](README-ru.md)
+
 # Agent Safety Kit
 
-Набор инструментов для запуска AI-агентов в изолированной среде внутри виртуальной машины Multipass.
+A toolkit for running AI agents in an isolated environment inside a Multipass virtual machine.
 
-## Немного ликбеза, если вы не понимаете зачем это:
+## Why this matters
 
 <img width="437" height="379" alt="image" src="https://github.com/user-attachments/assets/c3486072-e96a-4197-8b1f-d6ac228c2cc6" />
 
-Немного ссылок (нагуглить такого можно море):
+Some stories (you can find plenty more):
 
 * [Qwen Coder agent destroys working builds](https://github.com/QwenLM/qwen-code/issues/354)
 * [Codex keeps deleting unrelated and uncommitted files! even ignoring rejected requests](https://github.com/openai/codex/issues/4969)
@@ -15,49 +17,89 @@
 * [I Asked Claude Code to Fix All Bugs, and It Deleted the Whole Repo](https://levelup.gitconnected.com/i-asked-claude-code-to-fix-all-bugs-and-it-deleted-the-whole-repo-e7f24f5390c5)
 * [Codex has twice deleted and corrupted my files (r/ClaudeAI comment)](https://www.reddit.com/r/ClaudeAI/comments/1nhvyu0/openai_drops_gpt5_codex_cli_right_after/)
 
-Понятно, что "все понимают" и "у всех должны быть бэкапы" и "у вас всё должно быть в git", но пока "песочница" которую предоставляют консольные ИИ-агенты не имеет встроенных снапшотов, позволяющих откатываться назад после каждой правки, сделанной ИИ, нужен некий инструмент, который позволит сделать это самостоятельно.
+Everyone says "you should have backups" and "everything must live in git", but console AI agents still lack built-in snapshots to roll back after every change they make. Until sandboxes catch up, this toolkit helps you manage that yourself.
 
-## Ключевые идеи
+## Key ideas
 
-- Агент работает только в виртуальной машине.
-- Виртуальная машина запускается через Multipass (это простой инструмент от Canonnical для запуска ubuntu в виртуалке в 1 команду)
-- Внутрь ВМ монтируются проектные папки из указанной пользователем директории; параллельно запускается автоматическое резервное копирование в соседнюю папку с настраиваемой частотой (по умолчанию раз в пять минут и только при изменениях), использующее `rsync` и hardlink'и для экономии места.
-- Настройки виртуальной машины и агентов делаются через env-переменные, можно задавать через .env снаружи виртуалки
-- Агент можно запускать, не входя в гостевую систему через `multipass shell` — фактически он всё равно исполняется внутри ВМ.
+- The agent only works inside a virtual machine.
+- The VM is launched via Multipass (a simple Canonical tool to start Ubuntu VMs with a single command).
+- Project folders from the host are mounted into the VM; an automatic backup job runs in parallel to a sibling directory at a configurable interval (defaults to every five minutes and only when changes are detected), using `rsync` with hardlinks to save space.
+- VM, mount, and cloud-init settings are stored in a YAML config.
+- You can run the agent without entering the guest via `multipass shell`—it still executes inside the VM.
 
-## Быстрый старт
+## Quick start
 
-1. Установка Multipass (потребуется sudo, работает пока только в debian-based системах):
+1. Clone the repository and enter it:
    ```bash
-   ./install_multipass.sh
-   ```
-   
-2. Подготовьте файл окружения для будущей ВМ:
-   ```bash
-   cp example.env .env
-   # при необходимости отредактируйте значения
-   ```
-   В `.env` должны быть заданы параметры машины (имя, CPU, память, диск), и параметры агентов
-   
-4. Создайте виртуальную машину с установленными параметрами:
-   ```bash
-   ./create_vm.sh
+   git clone https://github.com/<your-org>/agent-safety-kit.git
+   cd agent-safety-kit
    ```
 
-   Если ВМ уже существует, скрипт сравнит заданные в `.env` ресурсы с текущими, сообщит об отличающихся параметрах. Пока изменить параметры уже работающей машины нельзя
+2. Set up the Python environment and dependencies:
+   ```bash
+   python3 -m venv .venv
+   source .venv/bin/activate
+   pip install -r requirements.txt
+   ```
+
+3. Create a YAML configuration (defaults to `config.yaml`; override with `CONFIG_PATH` if needed):
+   ```bash
+   cp config-example.yaml config.yaml
+   # edit vm/mounts/cloud-init to your needs
+   ```
+
+4. Install Multipass (requires sudo; currently works only on Debian-based systems):
+   ```bash
+   ./agsekit prepare
+   ```
+
+5. Create the VM with parameters from YAML:
+   ```bash
+   ./agsekit create-vm
+   ```
+
+   If the VM already exists, the command compares the desired resources with the current ones and reports any differences. Changing resources of an existing VM is not supported yet.
+
+## YAML configuration
+
+`config.yaml` (or the path from `CONFIG_PATH`) describes VM parameters, mounted directories, and any `cloud-init` settings. A base example lives in `config-example.yaml`:
+
+```yaml
+vm: # VM parameters for Multipass
+  cpu: 2      # number of vCPUs
+  ram: 4G     # RAM size (supports 2G, 4096M, etc.)
+  disk: 20G   # disk size
+  name: agent-ubuntu # VM name
+mounts:
+  - source: /host/path/project            # path to the source folder on the host
+    target: /home/ubuntu/project          # mount point inside the VM; defaults to /home/ubuntu/<source_basename>
+    backup: /host/backups/project         # backup directory; defaults to backups-<source_basename> next to source
+cloud-init: {} # place your standard cloud-init config here if needed
+```
 
 
-## Резервное копирование
+## Backups
 
-### Разовая резервная копия
+### One-off backup
 
-`libs/make_single_backup.sh` — однократный запуск резервного копирования исходной директории в указанную папку с помощью `rsync`.
-Скрипт создаёт каталог с отметкой времени и суффиксом `-partial`, поддерживает инкрементальные копии через `--link-dest` на предыдущий бэкап и учитывает списки исключений из `.backupignore` и аргументов `--exclude`. После завершения выполнения временная папка переименовывается в финальную с тем же timestamp без суффикса. Если изменений относительно последнего бэкапа нет, новый снапшот не создаётся, и утилита сообщает об отсутствии обновлений.
+`./agsekit backup-once --source-dir <path> --dest-dir <path> [--exclude <pattern> ...]` — runs a single backup of the source directory into the specified destination using `rsync`.
+The command creates a timestamped directory with a `-partial` suffix, supports incremental copies via `--link-dest` to the previous backup, and honors exclusions from `.backupignore` and `--exclude` arguments. When finished, the temporary folder is renamed to a final timestamp without the suffix. If nothing changed relative to the last backup, no new snapshot is created and the tool reports the absence of updates.
 
-Примеры строк для `.backupignore`:
-- `venv/`, `node_modules/` — исключить виртуальные окружения и зависимости.
-- `*.log`, `*.tmp` — игнорировать временные и лог-файлы по маске.
-- `!logs/important.log` — вернуть в бэкап конкретный файл внутри исключённой папки.
-- `docs/build/` — пропустить артефакты сборки документации.
+`.backupignore` examples:
+```
+# exclude virtual environments and dependencies
+venv/
+node_modules/
 
-Бэкап использует `rsync` с инкрементальными ссылками (`--link-dest`) на предыдущую копию: если изменился только небольшой набор файлов, в новой копии хранятся лишь изменённые данные, а неизменённые файлы представляют собой hardlink'и на прошлый снапшот. Это позволяет поддерживать цепочку датированных каталогов, занимая минимум места при редких изменениях.
+# ignore temporary and log files by pattern
+*.log
+*.tmp
+
+# include a specific file inside an excluded folder
+!logs/important.log
+
+# skip documentation build artifacts
+docs/build/
+```
+
+Backups use `rsync` with incremental links (`--link-dest`) to the previous copy: if only a small set of files changed, the new snapshot stores just the updated data, while unchanged files are hardlinked to the prior snapshot. This keeps a chain of dated directories while consuming minimal space when changes are rare.

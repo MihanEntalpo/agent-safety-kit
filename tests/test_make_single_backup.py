@@ -5,18 +5,11 @@ import time
 from pathlib import Path
 
 
-SCRIPT_PATH = Path(__file__).resolve().parent.parent / "libs" / "make_single_backup.sh"
+SCRIPT_PATH = Path(__file__).resolve().parent.parent / "agsekit"
 
 
 def run_backup(source: Path, dest: Path, *extra_args: str, capture_output: bool = False) -> subprocess.CompletedProcess[str]:
-    command = [
-        "python3",
-        str(SCRIPT_PATH),
-        "--source-dir",
-        str(source),
-        "--dest-dir",
-        str(dest),
-    ]
+    command = ["python3", str(SCRIPT_PATH), "backup-once", "--source-dir", str(source), "--dest-dir", str(dest)]
     command.extend(extra_args)
     return subprocess.run(command, check=True, capture_output=capture_output, text=True)
 
@@ -239,7 +232,8 @@ def test_partial_directory_removed_after_restart(tmp_path: Path) -> None:
 
     command = [
         "python3",
-        str(Path(__file__).resolve().parent.parent / "libs" / "make_single_backup.sh"),
+        str(Path(__file__).resolve().parent.parent / "agsekit"),
+        "backup-once",
         "--source-dir",
         str(source),
         "--dest-dir",
@@ -359,6 +353,7 @@ def test_errors_reported_to_stderr_and_nonzero_exit(tmp_path: Path) -> None:
     command = [
         "python3",
         str(SCRIPT_PATH),
+        "backup-once",
         "--source-dir",
         str(missing_source),
         "--dest-dir",

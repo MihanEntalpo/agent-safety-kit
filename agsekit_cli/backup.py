@@ -1,34 +1,15 @@
-#!/usr/bin/env python3
-"""Single-run backup helper built around rsync.
+from __future__ import annotations
 
-This script performs an incremental backup from a source directory to a
-destination directory, optionally using hard links to the previous backup and
-applying exclusion rules from `.backupignore` files and command-line flags.
-"""
-
-import argparse
 import os
+import sys
 import shutil
 import subprocess
+import time
 from datetime import datetime
 from pathlib import Path
-import sys
 from typing import Iterable, List, Tuple
 
 FilterRule = Tuple[str, str]
-
-
-def parse_args() -> argparse.Namespace:
-    parser = argparse.ArgumentParser(description="Create a single backup snapshot with optional hard links.")
-    parser.add_argument("--source-dir", required=True, help="Directory to back up")
-    parser.add_argument("--dest-dir", required=True, help="Destination directory for backups")
-    parser.add_argument(
-        "--exclude",
-        action="append",
-        default=[],
-        help="Additional rsync-style exclude pattern; can be provided multiple times",
-    )
-    return parser.parse_args()
 
 
 def gather_backupignore_rules(source_dir: Path) -> List[FilterRule]:
@@ -137,10 +118,9 @@ def dry_run_has_changes(command: List[str]) -> bool:
     return False
 
 
-def main() -> None:
-    args = parse_args()
-    source_dir = Path(args.source_dir).expanduser().resolve()
-    dest_dir = Path(args.dest_dir).expanduser().resolve()
+def backup_once(source_dir: Path, dest_dir: Path, extra_excludes: Iterable[str] | None = None) -> None:
+    source_dir = source_dir.expanduser().resolve()
+    dest_dir = dest_dir.expanduser().resolve()
 
     if not source_dir.is_dir():
         print(f"Source directory does not exist: {source_dir}", file=sys.stderr)
@@ -154,7 +134,7 @@ def main() -> None:
     previous_backup = find_previous_backup(dest_dir)
 
     rules = gather_backupignore_rules(source_dir)
-    for cli_pattern in args.exclude:
+    for cli_pattern in extra_excludes or []:
         if cli_pattern:
             rules.append(("-", cli_pattern))
 
@@ -174,6 +154,7 @@ def main() -> None:
     inprogress_dir = dest_dir / f"{timestamp}-partial"
     final_dir = dest_dir / timestamp
     inprogress_dir.mkdir(parents=True, exist_ok=True)
+    time.sleep(0.1)
 
     command = build_rsync_command(source_dir, inprogress_dir, previous_backup, rules)
 
@@ -188,7 +169,3 @@ def main() -> None:
 
     inprogress_dir.rename(final_dir)
     print(f"Snapshot created: {final_dir}")
-
-
-if __name__ == "__main__":
-    main()
