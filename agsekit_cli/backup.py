@@ -7,7 +7,7 @@ import subprocess
 import time
 from datetime import datetime
 from pathlib import Path
-from typing import Iterable, List, Tuple
+from typing import Callable, Iterable, List, Tuple
 
 FilterRule = Tuple[str, str]
 
@@ -169,3 +169,34 @@ def backup_once(source_dir: Path, dest_dir: Path, extra_excludes: Iterable[str] 
 
     inprogress_dir.rename(final_dir)
     print(f"Snapshot created: {final_dir}")
+
+
+def backup_repeated(
+    source_dir: Path,
+    dest_dir: Path,
+    *,
+    interval_minutes: int = 5,
+    extra_excludes: Iterable[str] | None = None,
+    sleep_func: Callable[[float], None] = time.sleep,
+    max_runs: int | None = None,
+) -> None:
+    """Run backups in a loop with the given interval.
+
+    The function starts with an immediate backup and then repeats it every
+    ``interval_minutes``. ``sleep_func`` and ``max_runs`` are provided to
+    simplify testing and should not be customized in normal usage.
+    """
+
+    if interval_minutes <= 0:
+        raise ValueError("Interval must be greater than zero minutes")
+
+    runs_completed = 0
+    while True:
+        backup_once(source_dir, dest_dir, extra_excludes=extra_excludes)
+        runs_completed += 1
+        print(f"Done, waiting {interval_minutes} minutes")
+
+        if max_runs is not None and runs_completed >= max_runs:
+            return
+
+        sleep_func(interval_minutes * 60)
