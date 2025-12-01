@@ -3,5 +3,9 @@ vm: # параметры виртуальной машины для Multipass
   ram: 4G     # объём оперативной памяти
   disk: 20G   # размер диска
   name: agent-ubuntu # имя виртуальной машины
-mounts: [] # список монтирований (пример в README-ru.md/README.md)
+mounts:
+  - source: /host/path/project            # путь к исходной папке на хосте
+    target: /home/ubuntu/project          # точка монтирования внутри ВМ; если не указана, будет /home/ubuntu/<имя_папки_source>
+    backup: /host/backups/project         # каталог для бэкапов; если не указан, будет backups-<имя_папки> рядом с source
+    interval: 5                           # интервал бэкапа в минутах; по умолчанию 5
 cloud-init: {} # опциональный блок cloud-init; можно оставить пустым

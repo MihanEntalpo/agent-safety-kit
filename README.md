@@ -74,6 +74,7 @@ mounts:
   - source: /host/path/project            # path to the source folder on the host
     target: /home/ubuntu/project          # mount point inside the VM; defaults to /home/ubuntu/<source_basename>
     backup: /host/backups/project         # backup directory; defaults to backups-<source_basename> next to source
+    interval: 5                           # backup interval in minutes; defaults to 5 if omitted
 cloud-init: {} # place your standard cloud-init config here if needed
 ```
 
@@ -103,3 +104,9 @@ docs/build/
 ```
 
 Backups use `rsync` with incremental links (`--link-dest`) to the previous copy: if only a small set of files changed, the new snapshot stores just the updated data, while unchanged files are hardlinked to the prior snapshot. This keeps a chain of dated directories while consuming minimal space when changes are rare.
+
+### Repeated backups
+
+* `./agsekit backup-repeated --source-dir <path> --dest-dir <path> [--exclude <pattern> ...] [--interval <minutes>]` — runs an immediate backup and then repeats it every `interval` minutes (defaults to five minutes). After each run it prints `Done, waiting N minutes` with the actual interval value.
+* `./agsekit backup-repeated-mount --mount <path> [--config <path>]` — looks up the mount by its `source` path in `config.yaml` (or the path from `CONFIG_PATH`/`--config`) and launches repeated backups using the paths and interval from the config. Fails if the mount is missing.
+* `./agsekit backup-repeated-all [--config <path>]` — reads all mounts from the config (defaults to `config.yaml` or the path from `CONFIG_PATH`/`--config`) and starts concurrent repeated backups for each entry within a single process. Use Ctrl+C to stop the loops.
