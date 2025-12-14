@@ -52,6 +52,11 @@ def test_backup_repeated_mount_command_uses_config(monkeypatch, tmp_path):
     config_path = tmp_path / "config.yaml"
     config_path.write_text(
         f"""
+vms:
+  agent:
+    cpu: 1
+    ram: 1G
+    disk: 5G
 mounts:
   - source: {mount_source}
     target: {mount_target}
@@ -80,7 +85,17 @@ mounts:
 
 def test_backup_repeated_mount_command_errors_on_missing_mount(tmp_path):
     config_path = tmp_path / "config.yaml"
-    config_path.write_text("mounts: []\n", encoding="utf-8")
+    config_path.write_text(
+        """
+vms:
+  agent:
+    cpu: 1
+    ram: 1G
+    disk: 5G
+mounts: []
+""",
+        encoding="utf-8",
+    )
 
     runner = CliRunner()
     result = runner.invoke(
@@ -101,6 +116,11 @@ def test_backup_repeated_all_command_starts_threads(monkeypatch, tmp_path):
     config_path = tmp_path / "config.yaml"
     config_path.write_text(
         f"""
+vms:
+  agent:
+    cpu: 1
+    ram: 1G
+    disk: 5G
 mounts:
   - source: {source_one}
     backup: {backup_one}
