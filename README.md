@@ -60,6 +60,11 @@ Everyone says "you should have backups" and "everything must live in git", but c
 
    To launch just one VM, use `./agsekit create-vm <name>`. If a VM already exists, the command compares the desired resources with the current ones and reports any differences. Changing resources of an existing VM is not supported yet.
 
+6. Mount your folders (assuming mounts are already configured in the YAML file):
+   ```bash
+   ./agsekit mount --all
+   ```
+
 ## YAML configuration
 
 `config.yaml` (or the path from `CONFIG_PATH`) describes VM parameters, mounted directories, and any `cloud-init` settings. A base example lives in `config-example.yaml`:
@@ -111,3 +116,8 @@ Backups use `rsync` with incremental links (`--link-dest`) to the previous copy:
 * `./agsekit backup-repeated --source-dir <path> --dest-dir <path> [--exclude <pattern> ...] [--interval <minutes>]` — runs an immediate backup and then repeats it every `interval` minutes (defaults to five minutes). After each run it prints `Done, waiting N minutes` with the actual interval value.
 * `./agsekit backup-repeated-mount --mount <path> [--config <path>]` — looks up the mount by its `source` path in `config.yaml` (or the path from `CONFIG_PATH`/`--config`) and launches repeated backups using the paths and interval from the config. Fails if the mount is missing.
 * `./agsekit backup-repeated-all [--config <path>]` — reads all mounts from the config (defaults to `config.yaml` or the path from `CONFIG_PATH`/`--config`) and starts concurrent repeated backups for each entry within a single process. Use Ctrl+C to stop the loops.
+
+### Mount management
+
+* `./agsekit mount --source-dir <path> [--config <path>]` — mounts the directory described by `source` in `config.yaml` (or the path from `CONFIG_PATH`/`--config`) into its VM using `multipass mount`. Use `--all` to mount every entry from the config.
+* `./agsekit umount --source-dir <path> [--config <path>]` — unmounts the directory described by `source` in the config (or `CONFIG_PATH`/`--config`); `--all` unmounts every configured path.

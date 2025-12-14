@@ -6,11 +6,8 @@ from pathlib import Path
 import click
 
 from ..backup import backup_repeated
-from ..config import ConfigError, MountConfig, load_config, load_mounts_config, resolve_config_path
-
-
-def _normalize_path(path: Path) -> Path:
-    return path.expanduser().resolve()
+from ..config import ConfigError
+from ..mounts import find_mount_by_source, load_mounts_from_config, normalize_path
 
 
 @click.command(name="backup-repeated")
@@ -34,27 +31,13 @@ def backup_repeated_command(source_dir: Path, dest_dir: Path, excludes: tuple[st
 
     try:
         backup_repeated(
-            _normalize_path(source_dir),
-            _normalize_path(dest_dir),
+            normalize_path(source_dir),
+            normalize_path(dest_dir),
             interval_minutes=interval,
             extra_excludes=list(excludes),
         )
     except ValueError as exc:
         raise click.ClickException(str(exc))
-
-
-def _load_mounts(config_path: str | None) -> list[MountConfig]:
-    resolved_path = resolve_config_path(Path(config_path) if config_path else None)
-    config = load_config(resolved_path)
-    return load_mounts_config(config)
-
-
-def _find_mount_by_source(mounts, source: Path):
-    normalized = _normalize_path(source)
-    for mount in mounts:
-        if mount.source == normalized:
-            return mount
-    return None
 
 
 @click.command(name="backup-repeated-mount")
@@ -71,11 +54,11 @@ def backup_repeated_mount_command(mount_path: Path, config_path: str | None) -> 
     """Запускает циклический бэкап для монтирования из конфига."""
 
     try:
-        mounts = _load_mounts(config_path)
+        mounts = load_mounts_from_config(config_path)
     except ConfigError as exc:
         raise click.ClickException(str(exc))
 
-    mount_entry = _find_mount_by_source(mounts, mount_path)
+    mount_entry = find_mount_by_source(mounts, mount_path)
     if mount_entry is None:
         raise click.ClickException(f"Монтирование с путем {mount_path} не найдено в конфигурации")
 
@@ -95,7 +78,7 @@ def backup_repeated_all_command(config_path: str | None) -> None:
     """Запускает циклические бэкапы для всех монтирований из config.yaml."""
 
     try:
-        mounts = _load_mounts(config_path)
+        mounts = load_mounts_from_config(config_path)
     except ConfigError as exc:
         raise click.ClickException(str(exc))
 
