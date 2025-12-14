@@ -65,6 +65,11 @@ Everyone says "you should have backups" and "everything must live in git", but c
    ./agsekit mount --all
    ```
 
+7. Install all configured agents into their default VMs:
+   ```bash
+   ./agsekit setup-agents --all-agents
+   ```
+
 ## YAML configuration
 
 `config.yaml` (or the path from `CONFIG_PATH`) describes VM parameters, mounted directories, and any `cloud-init` settings. A base example lives in `config-example.yaml`:
@@ -82,6 +87,15 @@ mounts:
     backup: /host/backups/project         # backup directory; defaults to backups-<source_basename> next to source
     interval: 5                           # backup interval in minutes; defaults to 5 if omitted
     vm: agent-ubuntu # VM name; defaults to the first VM in the configuration
+agents:
+  qwen: # agent name; add as many as you need
+    type: qwen-code # agent type: one of qwen-code, codex-cli, or claude-code (other types are not supported yet)
+    env: # arbitrary environment variables passed to the agent process
+      OPENAI_API_KEY: "my_local_key"
+      OPENAI_BASE_URL: "https://127.0.0.1:11556/v1"
+      OPENAI_MODEL: "Qwen/Qwen3-Coder-30B-A3B-Instruct-FP8"
+    socks5_proxy: 10.0.0.2:1234 # optional SOCKS5 proxy for the agent traffic via proxychains
+    vm: qwen-ubuntu # default VM for this agent; falls back to the mount VM or the first VM in the list
 ```
 
 
@@ -121,3 +135,14 @@ Backups use `rsync` with incremental links (`--link-dest`) to the previous copy:
 
 * `./agsekit mount --source-dir <path> [--config <path>]` — mounts the directory described by `source` in `config.yaml` (or the path from `CONFIG_PATH`/`--config`) into its VM using `multipass mount`. Use `--all` to mount every entry from the config.
 * `./agsekit umount --source-dir <path> [--config <path>]` — unmounts the directory described by `source` in the config (or `CONFIG_PATH`/`--config`); `--all` unmounts every configured path.
+
+### Agent installation
+
+* `./agsekit setup-agents <agent_name> [<vm>|--all-vms] [--config <path>]` — runs the prepared installation script for the chosen agent type inside the specified VM (or the agent's default VM if none is provided).
+* `./agsekit setup-agents --all-agents [--all-vms] [--config <path>]` — installs every configured agent either into their default VM or into every VM when `--all-vms` is set.
+
+The installation scripts live in `agsekit_cli/agent_scripts/` and mirror the standard setup steps for codex-cli, qwen-code, and claude-code. Other agent types are not supported yet.
+
+### Running agents
+
+* `./agsekit run <agent_name> [<source_dir>|--vm <vm_name>] [--config <path>] [--disable-backups] -- <agent_args...>` — starts an interactive agent command inside Multipass. Environment variables from the config are passed to the process. If a `source_dir` from the mounts list is provided, the agent starts inside the mounted target path in the matching VM; otherwise it launches in the home directory of the default VM. Unless `--disable-backups` is set, background repeated backups for the selected mount are started for the duration of the run.

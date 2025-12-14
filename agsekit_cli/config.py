@@ -9,6 +9,13 @@ import yaml
 
 CONFIG_ENV_VAR = "CONFIG_PATH"
 DEFAULT_CONFIG_PATH = Path("config.yaml")
+ALLOWED_AGENT_TYPES = {
+    "qwen": "qwen-code",
+    "qwen-code": "qwen-code",
+    "codex": "codex",
+    "claude": "claude-code",
+    "claude-code": "claude-code",
+}
 
 
 @dataclass
@@ -27,6 +34,15 @@ class VmConfig:
     ram: str
     disk: str
     cloud_init: Dict[str, Any]
+
+
+@dataclass
+class AgentConfig:
+    name: str
+    type: str
+    env: Dict[str, str]
+    socks5_proxy: Optional[str]
+    vm_name: Optional[str]
 
 
 class ConfigError(RuntimeError):
@@ -117,6 +133,62 @@ def _default_vm_name(config: Dict[str, Any]) -> Optional[str]:
     if isinstance(vms_section, dict) and vms_section:
         return next(iter(vms_section.keys()))
     return None
+
+
+def _normalize_agent_type(value: Any) -> str:
+    if not isinstance(value, str) or not value.strip():
+        raise ConfigError("Agent `type` must be a non-empty string")
+
+    normalized = ALLOWED_AGENT_TYPES.get(value.strip().lower())
+    if normalized is None:
+        allowed = ", ".join(sorted({key for key in ALLOWED_AGENT_TYPES if "-" not in key}))
+        raise ConfigError(f"Unknown agent type: {value}. Supported types: {allowed}")
+    return normalized
+
+
+def _normalize_env_vars(value: Any) -> Dict[str, str]:
+    if value is None:
+        return {}
+    if not isinstance(value, dict):
+        raise ConfigError("Agent `env` must be a mapping of variable names to values")
+
+    normalized: Dict[str, str] = {}
+    for raw_key, raw_value in value.items():
+        if not isinstance(raw_key, str) or not raw_key.strip():
+            raise ConfigError("Environment variable names must be non-empty strings")
+        normalized[str(raw_key)] = "" if raw_value is None else str(raw_value)
+    return normalized
+
+
+def load_agents_config(config: Dict[str, Any]) -> Dict[str, AgentConfig]:
+    raw_agents = config.get("agents") or {}
+    if not isinstance(raw_agents, dict):
+        raise ConfigError("Config `agents` must be a mapping")
+
+    default_vm = _default_vm_name(config)
+    agents: Dict[str, AgentConfig] = {}
+    for agent_name, raw_entry in raw_agents.items():
+        if not isinstance(raw_entry, dict):
+            raise ConfigError(f"Agent `{agent_name}` must be a mapping of its parameters")
+
+        agent_type = _normalize_agent_type(raw_entry.get("type"))
+        env_vars = _normalize_env_vars(raw_entry.get("env"))
+        socks5_proxy = raw_entry.get("socks5_proxy")
+        if socks5_proxy is not None and (not isinstance(socks5_proxy, str) or not socks5_proxy.strip()):
+            raise ConfigError(f"Agent `{agent_name}` socks5_proxy must be a non-empty string if provided")
+
+        vm_name = raw_entry.get("vm") or default_vm
+        vm_name = str(vm_name) if vm_name else None
+
+        agents[agent_name] = AgentConfig(
+            name=str(agent_name),
+            type=agent_type,
+            env=env_vars,
+            socks5_proxy=str(socks5_proxy) if socks5_proxy else None,
+            vm_name=vm_name,
+        )
+
+    return agents
 
 
 def _normalize_interval(raw_value: Any) -> int:

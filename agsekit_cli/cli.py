@@ -7,6 +7,8 @@ from .commands.backup_once import backup_once_command
 from .commands.create_vm import create_vm_command, create_vms_command
 from .commands.mounts import mount_command, umount_command
 from .commands.prepare import prepare_command
+from .commands.run import run_command
+from .commands.setup_agents import setup_agents_command
 
 
 @click.group()
@@ -25,6 +27,8 @@ def main() -> None:
         backup_repeated_all_command,
         mount_command,
         umount_command,
+        setup_agents_command,
+        run_command,
     ):
         cli.add_command(command)
     cli(prog_name="agsekit")
