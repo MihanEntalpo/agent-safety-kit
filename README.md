@@ -45,37 +45,38 @@ Everyone says "you should have backups" and "everything must live in git", but c
 3. Create a YAML configuration (defaults to `config.yaml`; override with `CONFIG_PATH` if needed):
    ```bash
    cp config-example.yaml config.yaml
-   # edit vm/mounts/cloud-init to your needs
+   # edit vms/mounts/cloud-init to your needs
    ```
 
-4. Install Multipass (requires sudo; currently works only on Debian-based systems):
+4. Install required system dependencies (in particular, Multipass; requires sudo and currently works only on Debian-based systems):
    ```bash
    ./agsekit prepare
    ```
 
-5. Create the VM with parameters from YAML:
+5. Create the virtual machines defined in YAML:
    ```bash
-   ./agsekit create-vm
+   ./agsekit create-vms
    ```
 
-   If the VM already exists, the command compares the desired resources with the current ones and reports any differences. Changing resources of an existing VM is not supported yet.
+   To launch just one VM, use `./agsekit create-vm <name>`. If a VM already exists, the command compares the desired resources with the current ones and reports any differences. Changing resources of an existing VM is not supported yet.
 
 ## YAML configuration
 
 `config.yaml` (or the path from `CONFIG_PATH`) describes VM parameters, mounted directories, and any `cloud-init` settings. A base example lives in `config-example.yaml`:
 
 ```yaml
-vm: # VM parameters for Multipass
-  cpu: 2      # number of vCPUs
-  ram: 4G     # RAM size (supports 2G, 4096M, etc.)
-  disk: 20G   # disk size
-  name: agent-ubuntu # VM name
+vms: # VM parameters for Multipass (you can define several)
+  agent-ubuntu: # VM name
+    cpu: 2      # number of vCPUs
+    ram: 4G     # RAM size (supports 2G, 4096M, etc.)
+    disk: 20G   # disk size
+    cloud-init: {} # place your standard cloud-init config here if needed
 mounts:
   - source: /host/path/project            # path to the source folder on the host
     target: /home/ubuntu/project          # mount point inside the VM; defaults to /home/ubuntu/<source_basename>
     backup: /host/backups/project         # backup directory; defaults to backups-<source_basename> next to source
     interval: 5                           # backup interval in minutes; defaults to 5 if omitted
-cloud-init: {} # place your standard cloud-init config here if needed
+    vm: agent-ubuntu # VM name; defaults to the first VM in the configuration
 ```
 
 
