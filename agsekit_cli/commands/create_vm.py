@@ -4,11 +4,14 @@ from pathlib import Path
 
 import click
 
+from . import non_interactive_option
+
 from ..config import ConfigError, resolve_config_path
 from ..vm import MultipassError, create_all_vms_from_config, create_vm_from_config
 
 
 @click.command(name="create-vm")
+@non_interactive_option
 @click.argument("vm_name")
 @click.option(
     "config_path",
@@ -18,7 +21,7 @@ from ..vm import MultipassError, create_all_vms_from_config, create_vm_from_conf
     default=None,
     help="Path to the YAML config (defaults to config.yaml or $CONFIG_PATH).",
 )
-def create_vm_command(vm_name: str, config_path: str | None) -> None:
+def create_vm_command(vm_name: str, config_path: str | None, non_interactive: bool) -> None:
     """Create a single VM by name from the YAML configuration."""
 
     resolved_path = resolve_config_path(Path(config_path) if config_path else None)
@@ -34,6 +37,7 @@ def create_vm_command(vm_name: str, config_path: str | None) -> None:
 
 
 @click.command(name="create-vms")
+@non_interactive_option
 @click.option(
     "config_path",
     "--config",
@@ -42,7 +46,7 @@ def create_vm_command(vm_name: str, config_path: str | None) -> None:
     default=None,
     help="Path to the YAML config (defaults to config.yaml or $CONFIG_PATH).",
 )
-def create_vms_command(config_path: str | None) -> None:
+def create_vms_command(config_path: str | None, non_interactive: bool) -> None:
     """Create all VMs described in the YAML configuration."""
 
     resolved_path = resolve_config_path(Path(config_path) if config_path else None)

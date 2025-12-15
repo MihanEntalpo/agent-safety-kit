@@ -5,12 +5,15 @@ from pathlib import Path
 
 import click
 
+from . import non_interactive_option
+
 from ..backup import backup_repeated
 from ..config import ConfigError
 from ..mounts import find_mount_by_source, load_mounts_from_config, normalize_path
 
 
 @click.command(name="backup-repeated")
+@non_interactive_option
 @click.option("--source-dir", required=True, type=click.Path(file_okay=False, path_type=Path), help="Директория для бэкапа")
 @click.option("--dest-dir", required=True, type=click.Path(file_okay=False, path_type=Path), help="Куда складывать снапшоты")
 @click.option(
@@ -26,7 +29,9 @@ from ..mounts import find_mount_by_source, load_mounts_from_config, normalize_pa
     type=int,
     help="Интервал в минутах между бэкапами",
 )
-def backup_repeated_command(source_dir: Path, dest_dir: Path, excludes: tuple[str, ...], interval: int) -> None:
+def backup_repeated_command(
+    source_dir: Path, dest_dir: Path, excludes: tuple[str, ...], interval: int, non_interactive: bool
+) -> None:
     """Start repeated backups of a directory."""
 
     click.echo(
@@ -45,6 +50,7 @@ def backup_repeated_command(source_dir: Path, dest_dir: Path, excludes: tuple[st
 
 
 @click.command(name="backup-repeated-mount")
+@non_interactive_option
 @click.option("--mount", "mount_path", required=True, type=click.Path(file_okay=False, path_type=Path), help="Путь к монтируемой папке из config.yaml")
 @click.option(
     "config_path",
@@ -54,7 +60,7 @@ def backup_repeated_command(source_dir: Path, dest_dir: Path, excludes: tuple[st
     default=None,
     help="Путь к YAML-конфигурации (по умолчанию config.yaml или $CONFIG_PATH).",
 )
-def backup_repeated_mount_command(mount_path: Path, config_path: str | None) -> None:
+def backup_repeated_mount_command(mount_path: Path, config_path: str | None, non_interactive: bool) -> None:
     """Start a repeated backup for a mount from the config."""
 
     try:
@@ -73,6 +79,7 @@ def backup_repeated_mount_command(mount_path: Path, config_path: str | None) -> 
 
 
 @click.command(name="backup-repeated-all")
+@non_interactive_option
 @click.option(
     "config_path",
     "--config",
@@ -81,7 +88,7 @@ def backup_repeated_mount_command(mount_path: Path, config_path: str | None) -> 
     default=None,
     help="Путь к YAML-конфигурации (по умолчанию config.yaml или $CONFIG_PATH).",
 )
-def backup_repeated_all_command(config_path: str | None) -> None:
+def backup_repeated_all_command(config_path: str | None, non_interactive: bool) -> None:
     """Start repeated backups for every mount from config.yaml."""
 
     try:
