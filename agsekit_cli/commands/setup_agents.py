@@ -10,6 +10,7 @@ import click
 from ..agents import find_agent
 from ..config import AgentConfig, ConfigError, load_agents_config, load_config, load_vms_config, resolve_config_path
 from ..vm import MultipassError, ensure_multipass_available
+from . import non_interactive_option
 
 SCRIPTS_DIR = Path(__file__).resolve().parents[1] / "agent_scripts"
 
@@ -43,6 +44,7 @@ def _default_vm(agent: AgentConfig, available: Iterable[str]) -> str:
 
 
 @click.command(name="setup-agents")
+@non_interactive_option
 @click.argument("agent_name", required=False)
 @click.argument("vm", required=False)
 @click.option("--all-vms", is_flag=True, help="Install the agent into every VM from the configuration")
@@ -55,7 +57,9 @@ def _default_vm(agent: AgentConfig, available: Iterable[str]) -> str:
     default=None,
     help="Path to the YAML config (defaults to config.yaml or $CONFIG_PATH).",
 )
-def setup_agents_command(agent_name: str | None, vm: str | None, all_vms: bool, all_agents: bool, config_path: str | None) -> None:
+def setup_agents_command(
+    agent_name: str | None, vm: str | None, all_vms: bool, all_agents: bool, config_path: str | None, non_interactive: bool
+) -> None:
     """Install configured agents into Multipass VMs."""
 
     click.echo("Preparing agent installation targets...")

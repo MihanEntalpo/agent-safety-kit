@@ -20,6 +20,7 @@ from ..agents import (
 from ..config import ConfigError, load_agents_config, load_config, load_mounts_config, load_vms_config, resolve_config_path
 from ..vm import MultipassError
 from ..mounts import MountConfig
+from . import non_interactive_option
 
 ROOT_DIR = Path(__file__).resolve().parents[2]
 CLI_ENTRY = ROOT_DIR / "agsekit"
@@ -27,6 +28,7 @@ DEFAULT_WORKDIR = Path("/home/ubuntu")
 
 
 @click.command(name="run", context_settings={"ignore_unknown_options": True})
+@non_interactive_option
 @click.argument("agent_name")
 @click.argument("source_dir", required=False, type=click.Path(file_okay=False, path_type=Path))
 @click.option("--vm", "vm_name", help="Имя ВМ для запуска агента")
@@ -47,6 +49,7 @@ def run_command(
     config_path: Optional[str],
     disable_backups: bool,
     agent_args: Sequence[str],
+    non_interactive: bool,
 ) -> None:
     """Запускает интерактивную сессию агента в Multipass ВМ."""
 

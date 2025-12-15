@@ -8,6 +8,7 @@ import click
 from ..config import ConfigError, MountConfig
 from ..mounts import find_mount_by_source, load_mounts_from_config, mount_directory, normalize_path, umount_directory
 from ..vm import MultipassError
+from . import non_interactive_option
 
 
 def _select_mounts(source_dir: Path | None, mount_all: bool, config_path: str | None) -> List[MountConfig]:
@@ -32,6 +33,7 @@ def _select_mounts(source_dir: Path | None, mount_all: bool, config_path: str | 
 
 
 @click.command(name="mount")
+@non_interactive_option
 @click.option("--source-dir", type=click.Path(file_okay=False, path_type=Path), help="Путь к папке из config.yaml")
 @click.option("--all", "mount_all", is_flag=True, help="Смонтировать все папки из config.yaml")
 @click.option(
@@ -42,7 +44,7 @@ def _select_mounts(source_dir: Path | None, mount_all: bool, config_path: str | 
     default=None,
     help="Путь к YAML-конфигурации (по умолчанию config.yaml или $CONFIG_PATH).",
 )
-def mount_command(source_dir: Path | None, mount_all: bool, config_path: str | None) -> None:
+def mount_command(source_dir: Path | None, mount_all: bool, config_path: str | None, non_interactive: bool) -> None:
     """Mount directories from config.yaml into VMs."""
 
     click.echo("Mounting requested directories via multipass...")
@@ -58,6 +60,7 @@ def mount_command(source_dir: Path | None, mount_all: bool, config_path: str | N
 
 
 @click.command(name="umount")
+@non_interactive_option
 @click.option("--source-dir", type=click.Path(file_okay=False, path_type=Path), help="Путь к папке из config.yaml")
 @click.option("--all", "mount_all", is_flag=True, help="Отмонтировать все папки из config.yaml")
 @click.option(
@@ -68,7 +71,7 @@ def mount_command(source_dir: Path | None, mount_all: bool, config_path: str | N
     default=None,
     help="Путь к YAML-конфигурации (по умолчанию config.yaml или $CONFIG_PATH).",
 )
-def umount_command(source_dir: Path | None, mount_all: bool, config_path: str | None) -> None:
+def umount_command(source_dir: Path | None, mount_all: bool, config_path: str | None, non_interactive: bool) -> None:
     """Unmount directories from config.yaml."""
 
     click.echo("Unmounting selected directories via multipass...")

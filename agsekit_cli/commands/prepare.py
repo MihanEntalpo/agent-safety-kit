@@ -6,9 +6,12 @@ import subprocess
 
 import click
 
+from . import non_interactive_option
+
 
 @click.command(name="prepare")
-def prepare_command() -> None:
+@non_interactive_option
+def prepare_command(non_interactive: bool) -> None:
     """Install Multipass dependencies on Debian-based systems."""
 
     if shutil.which("multipass") is not None:
