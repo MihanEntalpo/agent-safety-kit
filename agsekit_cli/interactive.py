@@ -216,11 +216,14 @@ def build_setup_agents(session: InteractiveSession) -> List[str]:
     agent_choices.extend(questionary.Choice(name, value=name) for name in agents)
     agent_choice = _select_from_list("Какого агента установить?", agent_choices)
 
-    vm_choices: list[questionary.QuestionChoice] = [
-        questionary.Choice("Все виртуалки", value="__all_vms__"),
-        questionary.Choice("Использовать ВМ по умолчанию", value=None),
-    ]
+    default_vm = next(iter(vms.keys())) if vms else None
+    default_vm_label = "Использовать ВМ по умолчанию"
+    if default_vm:
+        default_vm_label += f" ({default_vm})"
+
+    vm_choices: list[questionary.QuestionChoice] = [questionary.Choice(default_vm_label, value="__default__")]
     vm_choices.extend(questionary.Choice(name, value=name) for name in vms)
+    vm_choices.append(questionary.Choice("Все виртуалки", value="__all_vms__"))
     vm_choice = _select_from_list("Куда устанавливать агента?", vm_choices)
 
     args = ["setup-agents", *session.config_option()]
@@ -231,7 +234,7 @@ def build_setup_agents(session: InteractiveSession) -> List[str]:
 
     if vm_choice == "__all_vms__":
         args.append("--all-vms")
-    elif vm_choice:
+    elif vm_choice and vm_choice != "__default__":
         args.append(str(vm_choice))
 
     return args
