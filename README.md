@@ -31,14 +31,14 @@ Everyone says "you should have backups" and "everything must live in git", but c
 
 1. Clone the repository and enter it:
    ```bash
-   git clone https://github.com/<your-org>/agent-safety-kit.git
+   git clone https://github.com/MihanEntalpo/agent-safety-kit/
    cd agent-safety-kit
    ```
 
 2. Set up the Python environment and dependencies:
    ```bash
-   python3 -m venv .venv
-   source .venv/bin/activate
+   python3 -m venv ./venv
+   source ./venv/bin/activate
    pip install -r requirements.txt
    ```
 
@@ -68,6 +68,16 @@ Everyone says "you should have backups" and "everything must live in git", but c
 7. Install all configured agents into their default VMs:
    ```bash
    ./agsekit setup-agents --all-agents
+   ```
+
+8. (Optional) Start repeated backups for every configured mount to validate the setup:
+   ```bash
+   ./agsekit backup-repeated-all --config config.yaml
+   ```
+
+9. Launch an agent inside its VM (example runs `qwen` inside its mount with backups enabled by default):
+   ```bash
+   ./agsekit run qwen /host/path/project --vm agent-ubuntu --config config.yaml -- --help
    ```
 
 ## YAML configuration

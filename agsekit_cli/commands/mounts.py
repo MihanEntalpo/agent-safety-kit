@@ -12,7 +12,7 @@ from ..vm import MultipassError
 
 def _select_mounts(source_dir: Path | None, mount_all: bool, config_path: str | None) -> List[MountConfig]:
     if bool(source_dir) == mount_all:
-        raise click.ClickException("Укажите либо конкретный путь через --source-dir, либо флаг --all.")
+        raise click.ClickException("Provide either --source-dir or --all, but not both.")
 
     try:
         mounts = load_mounts_from_config(config_path)
@@ -21,13 +21,13 @@ def _select_mounts(source_dir: Path | None, mount_all: bool, config_path: str | 
 
     if mount_all:
         if not mounts:
-            raise click.ClickException("В конфигурации нет монтирований.")
+            raise click.ClickException("No mounts found in the configuration.")
         return list(mounts)
 
     assert source_dir is not None
     mount_entry = find_mount_by_source(mounts, source_dir)
     if mount_entry is None:
-        raise click.ClickException(f"Монтирование с путем {source_dir} не найдено в конфигурации")
+        raise click.ClickException(f"Mount with source {source_dir} is not defined in the configuration.")
     return [mount_entry]
 
 
@@ -43,7 +43,9 @@ def _select_mounts(source_dir: Path | None, mount_all: bool, config_path: str | 
     help="Путь к YAML-конфигурации (по умолчанию config.yaml или $CONFIG_PATH).",
 )
 def mount_command(source_dir: Path | None, mount_all: bool, config_path: str | None) -> None:
-    """Монтирует директории из config.yaml в ВМ."""
+    """Mount directories from config.yaml into VMs."""
+
+    click.echo("Mounting requested directories via multipass...")
 
     mounts = _select_mounts(source_dir, mount_all, config_path)
 
@@ -52,7 +54,7 @@ def mount_command(source_dir: Path | None, mount_all: bool, config_path: str | N
             mount_directory(mount)
         except MultipassError as exc:
             raise click.ClickException(str(exc))
-        click.echo(f"Смонтировано {normalize_path(mount.source)} -> {mount.vm_name}:{mount.target}")
+        click.echo(f"Mounted {normalize_path(mount.source)} -> {mount.vm_name}:{mount.target}")
 
 
 @click.command(name="umount")
@@ -67,7 +69,9 @@ def mount_command(source_dir: Path | None, mount_all: bool, config_path: str | N
     help="Путь к YAML-конфигурации (по умолчанию config.yaml или $CONFIG_PATH).",
 )
 def umount_command(source_dir: Path | None, mount_all: bool, config_path: str | None) -> None:
-    """Отмонтирует директории из config.yaml."""
+    """Unmount directories from config.yaml."""
+
+    click.echo("Unmounting selected directories via multipass...")
 
     mounts = _select_mounts(source_dir, mount_all, config_path)
 
@@ -76,4 +80,4 @@ def umount_command(source_dir: Path | None, mount_all: bool, config_path: str | 
             umount_directory(mount)
         except MultipassError as exc:
             raise click.ClickException(str(exc))
-        click.echo(f"Отмонтировано {mount.vm_name}:{mount.target}")
+        click.echo(f"Unmounted {mount.vm_name}:{mount.target}")

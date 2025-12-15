@@ -31,14 +31,14 @@
 
 1. Склонируйте репозиторий и перейдите в него:
    ```bash
-   git clone https://github.com/<your-org>/agent-safety-kit.git
+   git clone https://github.com/MihanEntalpo/agent-safety-kit/
    cd agent-safety-kit
    ```
 
 2. Подготовьте Python-окружение и зависимости:
    ```bash
-   python3 -m venv .venv
-   source .venv/bin/activate
+   python3 -m venv ./venv
+   source ./venv/bin/activate
    pip install -r requirements.txt
    ```
 
@@ -68,6 +68,16 @@
 7. Установите все описанные агенты в их ВМ по умолчанию:
    ```bash
    ./agsekit setup-agents --all-agents
+   ```
+
+8. (Опционально) Запустите циклические бэкапы для всех монтирований, чтобы убедиться, что всё настроено корректно:
+   ```bash
+   ./agsekit backup-repeated-all --config config.yaml
+   ```
+
+9. Запустите агента внутри его ВМ (пример запускает `qwen` в его монтировании, бэкапы включены по умолчанию):
+   ```bash
+   ./agsekit run qwen /host/path/project --vm agent-ubuntu --config config.yaml -- --help
    ```
 
 ## Конфигурация YAML

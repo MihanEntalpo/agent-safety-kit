@@ -75,6 +75,7 @@ def test_run_command_starts_backup_and_agent(monkeypatch, tmp_path):
 
     monkeypatch.setattr(run_module, "run_in_vm", fake_run_in_vm)
     monkeypatch.setattr(run_module, "start_backup_process", fake_start_backup_process)
+    monkeypatch.setattr(run_module, "ensure_agent_binary_available", lambda *_, **__: None)
 
     runner = CliRunner()
     result = runner.invoke(run_command, ["qwen", str(source), "--config", str(config_path), "--", "--flag"])
@@ -97,6 +98,7 @@ def test_run_command_can_disable_backups(monkeypatch, tmp_path):
         return 0
 
     monkeypatch.setattr(run_module, "run_in_vm", fake_run_in_vm)
+    monkeypatch.setattr(run_module, "ensure_agent_binary_available", lambda *_, **__: None)
 
     started = []
 

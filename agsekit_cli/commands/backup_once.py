@@ -17,6 +17,7 @@ from ..backup import backup_once
     help="Дополнительный паттерн исключений rsync; можно указать несколько раз",
 )
 def backup_once_command(source_dir: Path, dest_dir: Path, excludes: tuple[str, ...]) -> None:
-    """Выполняет однократный бэкап каталога."""
+    """Run a single backup of a directory."""
 
+    click.echo(f"Running one-off backup from {source_dir} to {dest_dir}...")
     backup_once(source_dir, dest_dir, extra_excludes=list(excludes))

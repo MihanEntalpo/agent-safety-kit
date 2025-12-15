@@ -9,6 +9,7 @@ import click
 from ..agents import (
     agent_command_sequence,
     build_agent_env,
+    ensure_agent_binary_available,
     ensure_vm_exists,
     find_agent,
     resolve_vm,
@@ -73,12 +74,26 @@ def run_command(
     env_vars = build_agent_env(agent)
     workdir = mount_entry.target if mount_entry else DEFAULT_WORKDIR
 
+    agent_command = agent_command_sequence(agent, agent_args)
+
+    click.echo(
+        f"Starting agent `{agent.name}` in VM `{vm_to_use}` (workdir: {workdir})."
+    )
+
+    try:
+        ensure_agent_binary_available(agent_command, vm_to_use)
+    except MultipassError as exc:
+        raise click.ClickException(str(exc))
+
     backup_process = None
     if not disable_backups and mount_entry is not None:
+        click.echo(
+            f"Starting background repeated backups for mount {mount_entry.source} -> {mount_entry.backup}."
+        )
         backup_process = start_backup_process(mount_entry, CLI_ENTRY)
 
     try:
-        exit_code = run_in_vm(vm_to_use, workdir, agent_command_sequence(agent, agent_args), env_vars)
+        exit_code = run_in_vm(vm_to_use, workdir, agent_command, env_vars)
     except (ConfigError, MultipassError) as exc:
         raise click.ClickException(str(exc))
     finally:

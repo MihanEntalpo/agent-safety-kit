@@ -9,10 +9,12 @@ import click
 
 @click.command(name="prepare")
 def prepare_command() -> None:
-    """Устанавливает зависимости multipass в deb-based системах."""
+    """Install Multipass dependencies on Debian-based systems."""
+
+    click.echo("Installing required packages for Multipass...")
 
     if shutil.which("apt-get") is None:
-        raise click.ClickException("Поддерживаются только deb-based системы с apt.")
+        raise click.ClickException("Only Debian-based systems with apt are supported.")
 
     env = {**os.environ, "DEBIAN_FRONTEND": "noninteractive"}
 
@@ -24,7 +26,7 @@ def prepare_command() -> None:
     )
 
     if shutil.which("snap") is None:
-        raise click.ClickException("snap недоступен после установки snapd. Проверьте установку и повторите попытку.")
+        raise click.ClickException("snap is unavailable after installing snapd. Please check the installation and retry.")
 
     subprocess.run(["sudo", "snap", "install", "multipass", "--classic"], check=True)
-    click.echo("Multipass установлен.")
+    click.echo("Multipass installation completed.")

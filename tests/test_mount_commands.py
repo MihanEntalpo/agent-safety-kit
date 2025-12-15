@@ -54,7 +54,7 @@ def test_mount_command_uses_config(monkeypatch, tmp_path):
 
     assert result.exit_code == 0
     assert calls == [(mount_source.resolve(), Path(target), "agent")]
-    assert "Смонтировано" in result.output
+    assert "Mounted" in result.output
 
 
 def test_mount_command_all_mounts(monkeypatch, tmp_path):
@@ -83,7 +83,7 @@ def test_mount_command_all_mounts(monkeypatch, tmp_path):
 
     assert result.exit_code == 0
     assert calls == [first.resolve(), second.resolve()]
-    assert "Смонтировано" in result.output
+    assert "Mounted" in result.output
 
 
 def test_umount_uses_env_config(monkeypatch, tmp_path):
@@ -114,7 +114,7 @@ def test_umount_uses_env_config(monkeypatch, tmp_path):
 
     assert result.exit_code == 0
     assert calls == [("agent", Path("/home/ubuntu/data"))]
-    assert "Отмонтировано" in result.output
+    assert "Unmounted" in result.output
 
 
 def test_mount_command_requires_selector(tmp_path):
