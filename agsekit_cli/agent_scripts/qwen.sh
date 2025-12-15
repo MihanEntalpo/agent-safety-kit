@@ -47,7 +47,13 @@ fi
 echo "Installing qwen-code CLI globally..."
 npm install -g @qwen-code/qwen-code@latest
 
-QWEN_BIN_DIR="$(npm bin -g)"
+QWEN_PREFIX="$(npm prefix -g 2>/dev/null || true)"
+if [ -z "$QWEN_PREFIX" ]; then
+  echo "Failed to detect the global npm prefix. Please verify your npm installation."
+  exit 1
+fi
+
+QWEN_BIN_DIR="$QWEN_PREFIX/bin"
 QWEN_PATH="$QWEN_BIN_DIR/qwen"
 
 if ! command -v qwen >/dev/null 2>&1 && [ -x "$QWEN_PATH" ]; then
