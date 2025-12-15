@@ -100,7 +100,17 @@ def run_in_vm(vm_name: str, workdir: Path, agent_command: Sequence[str], env_var
     ensure_multipass_available()
     shell_command = build_shell_command(workdir, agent_command, env_vars)
     result = subprocess.run(
-        ["multipass", "exec", vm_name, "--", "bash", "-lc", shell_command],
+        [
+            "multipass",
+            "exec",
+            vm_name,
+            "--workdir",
+            str(workdir),
+            "--",
+            "bash",
+            "-lc",
+            shell_command,
+        ],
         check=False,
     )
     return int(result.returncode)
@@ -141,7 +151,13 @@ def start_backup_process(mount: MountConfig, cli_path: Path) -> subprocess.Popen
         "--interval",
         str(mount.interval_minutes),
     ]
-    return subprocess.Popen(command)
+
+    mount.backup.mkdir(parents=True, exist_ok=True)
+    log_file = open(mount.backup / "backup.log", "a", buffering=1)
+
+    process = subprocess.Popen(command, stdout=log_file, stderr=subprocess.STDOUT)
+    process.log_file = log_file  # type: ignore[attr-defined]
+    return process
 
 
 def agent_command_sequence(agent: AgentConfig, extra_args: Sequence[str]) -> List[str]:

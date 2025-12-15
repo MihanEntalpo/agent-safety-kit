@@ -107,5 +107,9 @@ def run_command(
             except subprocess.TimeoutExpired:
                 backup_process.kill()
 
+            log_file = getattr(backup_process, "log_file", None)
+            if log_file:
+                log_file.close()
+
     if exit_code != 0:
         raise SystemExit(exit_code)
