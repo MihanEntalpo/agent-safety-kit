@@ -104,8 +104,6 @@ def run_in_vm(vm_name: str, workdir: Path, agent_command: Sequence[str], env_var
             "multipass",
             "exec",
             vm_name,
-            "--workdir",
-            str(workdir),
             "--",
             "bash",
             "-lc",
