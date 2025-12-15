@@ -3,11 +3,14 @@ from __future__ import annotations
 import sys
 from typing import Any, Dict
 
+from pathlib import Path
+
 import click
 import pytest
 
 import agsekit_cli.cli as cli_module
 import agsekit_cli.interactive as interactive
+from agsekit_cli.config import AgentConfig, MountConfig
 
 
 class DummyPrompt:
@@ -137,3 +140,59 @@ def test_main_reports_missing_params_without_interactive_when_flag_is_set(monkey
 
     assert excinfo.value.code == 2
     assert called["interactive"] is False
+
+
+def test_build_run_skips_vm_argument_when_auto_selected(monkeypatch, tmp_path):
+    agent = AgentConfig(name="qwen", type="qwen", env={}, socks5_proxy=None, vm_name=None)
+    mount = MountConfig(
+        source=tmp_path,
+        target=Path("/home/ubuntu/project"),
+        backup=tmp_path / "backups",
+        interval_minutes=5,
+        vm_name="agents-ubuntu",
+    )
+
+    class DummySession:
+        def load_agents(self):
+            return {"qwen": agent}
+
+        def load_mounts(self):
+            return [mount]
+
+        def load_vms(self):
+            return {"agents-ubuntu": object()}
+
+        def config_option(self):
+            return ["--config", "config.yaml"]
+
+    selections = [agent, mount, "__auto_vm__"]
+    confirms = [False]
+    texts = [""]
+
+    class Prompt:
+        def __init__(self, value):
+            self.value = value
+
+        def ask(self):
+            return self.value
+
+    class FakeQuestionary:
+        @staticmethod
+        def select(*_args, **_kwargs):
+            return Prompt(selections.pop(0))
+
+        @staticmethod
+        def confirm(*_args, **_kwargs):
+            return Prompt(confirms.pop(0))
+
+        @staticmethod
+        def text(*_args, **_kwargs):
+            return Prompt(texts.pop(0))
+
+    FakeQuestionary.Choice = interactive.questionary.Choice
+
+    monkeypatch.setattr(interactive, "questionary", FakeQuestionary)
+
+    args = interactive.build_run(DummySession())
+
+    assert args == ["run", "qwen", str(tmp_path), "--config", "config.yaml"]
