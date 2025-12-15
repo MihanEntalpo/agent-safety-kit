@@ -10,8 +10,8 @@ import yaml
 CONFIG_ENV_VAR = "CONFIG_PATH"
 DEFAULT_CONFIG_PATH = Path("config.yaml")
 ALLOWED_AGENT_TYPES = {
-    "qwen": "qwen-code",
-    "qwen-code": "qwen-code",
+    "qwen": "qwen",
+    "qwen-code": "qwen",
     "codex": "codex",
     "claude": "claude-code",
     "claude-code": "claude-code",

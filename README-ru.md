@@ -99,7 +99,7 @@ mounts:
     vm: agent-ubuntu # имя VM, если не указан - берётся первая VM из конфигурации
 agents:
   qwen: # имя агента, можно добавить столько, сколько нужно
-    type: qwen-code # тип агента: qwen-code, codex-cli или claude-code (другие пока не поддерживаются)
+    type: qwen-code # тип агента: qwen-code (используется бинарник qwen), codex-cli или claude-code (другие пока не поддерживаются)
     env: # произвольные переменные окружения, которые будут переданы агенту
       OPENAI_API_KEY: "my_local_key"
       OPENAI_BASE_URL: "https://127.0.0.1:11556/v1"

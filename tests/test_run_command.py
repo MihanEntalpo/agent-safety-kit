@@ -83,7 +83,7 @@ def test_run_command_starts_backup_and_agent(monkeypatch, tmp_path):
     assert result.exit_code == 0
     assert calls["vm"] == "agent"
     assert calls["workdir"] == Path("/home/ubuntu/project")
-    assert calls["command"] == ["qwen-code", "--flag"]
+    assert calls["command"] == ["qwen", "--flag"]
     assert calls["env"]["TOKEN"] == "abc"
     assert calls["env"]["ALL_PROXY"].startswith("socks5://10.0.0.2:1234")
     assert backups and backups[0][0] == source.resolve()
