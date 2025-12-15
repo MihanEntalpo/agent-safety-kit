@@ -41,6 +41,7 @@ DEFAULT_WORKDIR = Path("/home/ubuntu")
     help="Путь к YAML-конфигурации (по умолчанию config.yaml или $CONFIG_PATH).",
 )
 @click.option("--disable-backups", is_flag=True, help="Не запускать фоновые бэкапы во время работы агента")
+@click.option("--debug", is_flag=True, help="Выводить запускаемые команды перед их выполнением")
 @click.argument("agent_args", nargs=-1, type=click.UNPROCESSED)
 def run_command(
     agent_name: str,
@@ -48,6 +49,7 @@ def run_command(
     vm_name: Optional[str],
     config_path: Optional[str],
     disable_backups: bool,
+    debug: bool,
     agent_args: Sequence[str],
     non_interactive: bool,
 ) -> None:
@@ -84,7 +86,7 @@ def run_command(
     )
 
     try:
-        ensure_agent_binary_available(agent_command, vm_to_use)
+        ensure_agent_binary_available(agent_command, vm_to_use, debug=debug)
     except MultipassError as exc:
         raise click.ClickException(str(exc))
 
@@ -93,10 +95,10 @@ def run_command(
         click.echo(
             f"Starting background repeated backups for mount {mount_entry.source} -> {mount_entry.backup}."
         )
-        backup_process = start_backup_process(mount_entry, CLI_ENTRY)
+        backup_process = start_backup_process(mount_entry, CLI_ENTRY, debug=debug)
 
     try:
-        exit_code = run_in_vm(vm_to_use, workdir, agent_command, env_vars)
+        exit_code = run_in_vm(vm_to_use, workdir, agent_command, env_vars, debug=debug)
     except (ConfigError, MultipassError) as exc:
         raise click.ClickException(str(exc))
     finally:
