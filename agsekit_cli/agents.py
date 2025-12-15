@@ -73,6 +73,8 @@ def build_agent_env(agent: AgentConfig) -> Dict[str, str]:
     env_vars = dict(agent.env)
     if agent.socks5_proxy:
         proxy = f"socks5://{agent.socks5_proxy}"
+        if agent.type == "qwen" and not proxy.startswith(("http://", "https://")):
+            return env_vars
         env_vars.setdefault("ALL_PROXY", proxy)
         env_vars.setdefault("HTTPS_PROXY", proxy)
         env_vars.setdefault("HTTP_PROXY", proxy)

@@ -13,7 +13,7 @@ import agsekit_cli.commands.run as run_module
 from agsekit_cli.commands.run import run_command
 
 
-def _write_config(config_path: Path, source: Path) -> None:
+def _write_config(config_path: Path, source: Path, *, agent_type: str = "qwen-code") -> None:
     config_path.write_text(
         f"""
 vms:
@@ -29,7 +29,7 @@ mounts:
     backup: {source.parent / "backups"}
 agents:
   qwen:
-    type: qwen-code
+    type: {agent_type}
     env:
       TOKEN: abc
     socks5_proxy: 10.0.0.2:1234
@@ -86,8 +86,35 @@ def test_run_command_starts_backup_and_agent(monkeypatch, tmp_path):
     assert calls["workdir"] == Path("/home/ubuntu/project")
     assert calls["command"] == ["qwen", "--flag"]
     assert calls["env"]["TOKEN"] == "abc"
-    assert calls["env"]["ALL_PROXY"].startswith("socks5://10.0.0.2:1234")
+    assert "ALL_PROXY" not in calls["env"]
     assert backups and backups[0][0] == source.resolve()
+
+
+def test_run_command_sets_proxy_for_non_qwen_agent(monkeypatch, tmp_path):
+    source = tmp_path / "project"
+    config_path = tmp_path / "config.yaml"
+    _write_config(config_path, source, agent_type="codex")
+
+    calls: Dict[str, object] = {}
+
+    def fake_run_in_vm(vm_name, workdir, command, env_vars, debug=False):
+        calls.update({
+            "vm": vm_name,
+            "workdir": workdir,
+            "command": command,
+            "env": env_vars,
+        })
+        return 0
+
+    monkeypatch.setattr(run_module, "run_in_vm", fake_run_in_vm)
+    monkeypatch.setattr(run_module, "start_backup_process", lambda *_, **__: None)
+    monkeypatch.setattr(run_module, "ensure_agent_binary_available", lambda *_, **__: None)
+
+    runner = CliRunner()
+    result = runner.invoke(run_command, ["qwen", str(source), "--config", str(config_path), "--", "--flag"])
+
+    assert result.exit_code == 0
+    assert calls["env"]["ALL_PROXY"].startswith("socks5://10.0.0.2:1234")
 
 
 def test_run_command_can_disable_backups(monkeypatch, tmp_path):
