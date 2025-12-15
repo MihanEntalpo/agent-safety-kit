@@ -24,7 +24,7 @@ def test_load_agents_config_defaults(tmp_path):
     agents = load_agents_config(config)
     agent = agents["qwen"]
 
-    assert agent.type == "qwen-code"
+    assert agent.type == "qwen"
     assert agent.env == {"TOKEN": "123"}
     assert agent.vm_name == "agent"
     assert agent.socks5_proxy is None

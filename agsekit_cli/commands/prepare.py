@@ -11,6 +11,10 @@ import click
 def prepare_command() -> None:
     """Install Multipass dependencies on Debian-based systems."""
 
+    if shutil.which("multipass") is not None:
+        click.echo("Multipass is already installed, skipping preparation steps.")
+        return
+
     click.echo("Installing required packages for Multipass...")
 
     if shutil.which("apt-get") is None:
