@@ -265,9 +265,15 @@ def build_run(session: InteractiveSession) -> List[str]:
     elif mount_choice == "__custom__":
         source_dir = _select_directory("Путь к директории:")
 
-    vm_choices: list[questionary.QuestionChoice] = [questionary.Choice("Определить автоматически", value=None)]
+    auto_vm_value = "__auto_vm__"
+    vm_choices: list[questionary.QuestionChoice] = [
+        questionary.Choice("Определить автоматически", value=auto_vm_value)
+    ]
     vm_choices.extend(questionary.Choice(name, value=name) for name in vms)
     vm_choice = _select_from_list("Какую ВМ использовать?", vm_choices)
+
+    if vm_choice == auto_vm_value:
+        vm_choice = None
 
     disable_backups = questionary.confirm("Отключить фоновые бэкапы?", default=False).ask()
     if disable_backups is None:
