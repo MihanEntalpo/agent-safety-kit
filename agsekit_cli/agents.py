@@ -2,10 +2,10 @@ from __future__ import annotations
 
 import shlex
 import subprocess
-import shlex
-import subprocess
 from pathlib import Path
 from typing import Dict, Iterable, List, Sequence, Tuple
+
+import click
 
 from .config import AgentConfig, ConfigError, load_agents_config, load_config, load_mounts_config, load_vms_config, resolve_config_path
 from .mounts import MountConfig, normalize_path
@@ -96,41 +96,56 @@ def build_shell_command(workdir: Path, agent_command: Sequence[str], env_vars: D
     return " && ".join(parts)
 
 
-def run_in_vm(vm_name: str, workdir: Path, agent_command: Sequence[str], env_vars: Dict[str, str]) -> int:
+def _debug_print(command: Sequence[str] | str, debug: bool) -> None:
+    if not debug:
+        return
+
+    if isinstance(command, str):
+        click.echo(f"[DEBUG] {command}")
+    else:
+        click.echo(f"[DEBUG] {shlex.join(command)}")
+
+
+def run_in_vm(
+    vm_name: str,
+    workdir: Path,
+    agent_command: Sequence[str],
+    env_vars: Dict[str, str],
+    *,
+    debug: bool = False,
+) -> int:
     ensure_multipass_available()
     shell_command = build_shell_command(workdir, agent_command, env_vars)
-    result = subprocess.run(
-        [
-            "multipass",
-            "exec",
-            vm_name,
-            "--",
-            "bash",
-            "-lc",
-            shell_command,
-        ],
-        check=False,
-    )
+    command = [
+        "multipass",
+        "exec",
+        vm_name,
+        "--",
+        "bash",
+        "-lc",
+        shell_command,
+    ]
+    _debug_print(command, debug)
+    result = subprocess.run(command, check=False)
     return int(result.returncode)
 
 
-def ensure_agent_binary_available(agent_command: Sequence[str], vm_name: str) -> None:
+def ensure_agent_binary_available(
+    agent_command: Sequence[str], vm_name: str, *, debug: bool = False
+) -> None:
     ensure_multipass_available()
     binary = agent_command[0]
-    result = subprocess.run(
-        [
-            "multipass",
-            "exec",
-            vm_name,
-            "--",
-            "bash",
-            "-lc",
-            f"{NVM_LOAD_SNIPPET} && command -v {shlex.quote(binary)} >/dev/null 2>&1",
-        ],
-        check=False,
-        capture_output=True,
-        text=True,
-    )
+    command = [
+        "multipass",
+        "exec",
+        vm_name,
+        "--",
+        "bash",
+        "-lc",
+        f"{NVM_LOAD_SNIPPET} && command -v {shlex.quote(binary)} >/dev/null 2>&1",
+    ]
+    _debug_print(command, debug)
+    result = subprocess.run(command, check=False, capture_output=True, text=True)
 
     if result.returncode != 0:
         raise MultipassError(
@@ -138,7 +153,9 @@ def ensure_agent_binary_available(agent_command: Sequence[str], vm_name: str) ->
         )
 
 
-def start_backup_process(mount: MountConfig, cli_path: Path) -> subprocess.Popen[bytes]:
+def start_backup_process(
+    mount: MountConfig, cli_path: Path, *, debug: bool = False
+) -> subprocess.Popen[bytes]:
     command = [
         str(cli_path),
         "backup-repeated",
@@ -153,6 +170,7 @@ def start_backup_process(mount: MountConfig, cli_path: Path) -> subprocess.Popen
     mount.backup.mkdir(parents=True, exist_ok=True)
     log_file = open(mount.backup / "backup.log", "a", buffering=1)
 
+    _debug_print(command, debug)
     process = subprocess.Popen(command, stdout=log_file, stderr=subprocess.STDOUT)
     process.log_file = log_file  # type: ignore[attr-defined]
     return process
