@@ -2,12 +2,14 @@ from __future__ import annotations
 
 import shlex
 import subprocess
+import shlex
+import subprocess
 from pathlib import Path
 from typing import Dict, Iterable, List, Sequence, Tuple
 
 from .config import AgentConfig, ConfigError, load_agents_config, load_config, load_mounts_config, load_vms_config, resolve_config_path
 from .mounts import MountConfig, normalize_path
-from .vm import ensure_multipass_available
+from .vm import MultipassError, ensure_multipass_available
 
 
 def load_agents_from_file(config_path: str | Path | None) -> Dict[str, AgentConfig]:
@@ -95,6 +97,30 @@ def run_in_vm(vm_name: str, workdir: Path, agent_command: Sequence[str], env_var
         check=False,
     )
     return int(result.returncode)
+
+
+def ensure_agent_binary_available(agent_command: Sequence[str], vm_name: str) -> None:
+    ensure_multipass_available()
+    binary = agent_command[0]
+    result = subprocess.run(
+        [
+            "multipass",
+            "exec",
+            vm_name,
+            "--",
+            "bash",
+            "-lc",
+            f"command -v {shlex.quote(binary)} >/dev/null 2>&1",
+        ],
+        check=False,
+        capture_output=True,
+        text=True,
+    )
+
+    if result.returncode != 0:
+        raise MultipassError(
+            f"Agent binary `{binary}` was not found inside VM `{vm_name}`. Did you run ./agsekit setup-agents?"
+        )
 
 
 def start_backup_process(mount: MountConfig, cli_path: Path) -> subprocess.Popen[bytes]:

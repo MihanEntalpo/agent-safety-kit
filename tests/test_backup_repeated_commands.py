@@ -104,7 +104,7 @@ mounts: []
     )
 
     assert result.exit_code != 0
-    assert "не найдено" in result.output
+    assert "is not defined in the configuration" in result.output
 
 
 def test_backup_repeated_all_command_starts_threads(monkeypatch, tmp_path):
@@ -152,4 +152,4 @@ mounts:
             (source_two.resolve(), backup_two.resolve(), 5),
         ]
     )
-    assert "Запущено 2 циклических бэкапов" in result.output
+    assert "Started 2 repeated backup job(s)" in result.output

@@ -27,7 +27,11 @@ from ..mounts import find_mount_by_source, load_mounts_from_config, normalize_pa
     help="Интервал в минутах между бэкапами",
 )
 def backup_repeated_command(source_dir: Path, dest_dir: Path, excludes: tuple[str, ...], interval: int) -> None:
-    """Запускает циклическое резервное копирование каталога."""
+    """Start repeated backups of a directory."""
+
+    click.echo(
+        f"Starting repeated backup from {source_dir} to {dest_dir} every {interval} minute(s)..."
+    )
 
     try:
         backup_repeated(
@@ -51,7 +55,7 @@ def backup_repeated_command(source_dir: Path, dest_dir: Path, excludes: tuple[st
     help="Путь к YAML-конфигурации (по умолчанию config.yaml или $CONFIG_PATH).",
 )
 def backup_repeated_mount_command(mount_path: Path, config_path: str | None) -> None:
-    """Запускает циклический бэкап для монтирования из конфига."""
+    """Start a repeated backup for a mount from the config."""
 
     try:
         mounts = load_mounts_from_config(config_path)
@@ -60,8 +64,11 @@ def backup_repeated_mount_command(mount_path: Path, config_path: str | None) -> 
 
     mount_entry = find_mount_by_source(mounts, mount_path)
     if mount_entry is None:
-        raise click.ClickException(f"Монтирование с путем {mount_path} не найдено в конфигурации")
+        raise click.ClickException(f"Mount with source {mount_path} is not defined in the configuration.")
 
+    click.echo(
+        f"Starting repeated backup for mount {mount_entry.source} -> {mount_entry.backup} every {mount_entry.interval_minutes} minute(s)..."
+    )
     backup_repeated(mount_entry.source, mount_entry.backup, interval_minutes=mount_entry.interval_minutes)
 
 
@@ -75,7 +82,7 @@ def backup_repeated_mount_command(mount_path: Path, config_path: str | None) -> 
     help="Путь к YAML-конфигурации (по умолчанию config.yaml или $CONFIG_PATH).",
 )
 def backup_repeated_all_command(config_path: str | None) -> None:
-    """Запускает циклические бэкапы для всех монтирований из config.yaml."""
+    """Start repeated backups for every mount from config.yaml."""
 
     try:
         mounts = load_mounts_from_config(config_path)
@@ -83,7 +90,7 @@ def backup_repeated_all_command(config_path: str | None) -> None:
         raise click.ClickException(str(exc))
 
     if not mounts:
-        raise click.ClickException("В конфигурации нет монтирований для бэкапа")
+        raise click.ClickException("No mounts configured for backups.")
 
     threads = []
     for mount in mounts:
@@ -96,10 +103,12 @@ def backup_repeated_all_command(config_path: str | None) -> None:
         thread.start()
         threads.append(thread)
 
-    click.echo(f"Запущено {len(threads)} циклических бэкапов. Нажмите Ctrl+C для остановки.")
+    click.echo(
+        f"Started {len(threads)} repeated backup job(s). Press Ctrl+C to stop when you're done."
+    )
 
     try:
         for thread in threads:
             thread.join()
     except KeyboardInterrupt:
-        click.echo("Остановка циклических бэкапов по запросу пользователя.")
+        click.echo("Stopping repeated backups on user request.")
