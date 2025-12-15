@@ -12,6 +12,13 @@ from .mounts import MountConfig, normalize_path
 from .vm import MultipassError, ensure_multipass_available
 
 
+NVM_LOAD_SNIPPET = (
+    "export NVM_DIR=${NVM_DIR:-$HOME/.nvm}; "
+    "if [ -s \"$NVM_DIR/nvm.sh\" ]; then . \"$NVM_DIR/nvm.sh\"; "
+    "elif [ -s \"$NVM_DIR/bash_completion\" ]; then . \"$NVM_DIR/bash_completion\"; fi"
+)
+
+
 def load_agents_from_file(config_path: str | Path | None) -> Dict[str, AgentConfig]:
     resolved_path = resolve_config_path(Path(config_path) if config_path else None)
     config = load_config(resolved_path)
@@ -80,7 +87,7 @@ def _export_statements(env_vars: Dict[str, str]) -> List[str]:
 
 
 def build_shell_command(workdir: Path, agent_command: Sequence[str], env_vars: Dict[str, str]) -> str:
-    parts: List[str] = []
+    parts: List[str] = [NVM_LOAD_SNIPPET]
     exports = _export_statements(env_vars)
     if exports:
         parts.append("; ".join(exports))
@@ -110,7 +117,7 @@ def ensure_agent_binary_available(agent_command: Sequence[str], vm_name: str) ->
             "--",
             "bash",
             "-lc",
-            f"command -v {shlex.quote(binary)} >/dev/null 2>&1",
+            f"{NVM_LOAD_SNIPPET} && command -v {shlex.quote(binary)} >/dev/null 2>&1",
         ],
         check=False,
         capture_output=True,

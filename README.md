@@ -35,7 +35,7 @@ Everyone says "you should have backups" and "everything must live in git", but c
    cd agent-safety-kit
    ```
 
-2. Set up the Python environment and dependencies:
+2. Set up the Python environment and dependencies (requires Python 3.10 or newer):
    ```bash
    python3 -m venv ./venv
    source ./venv/bin/activate
