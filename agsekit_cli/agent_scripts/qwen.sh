@@ -46,3 +46,24 @@ fi
 
 echo "Installing qwen-code CLI globally..."
 npm install -g @qwen-code/qwen-code@latest
+
+QWEN_BIN_DIR="$(npm bin -g)"
+QWEN_PATH="$QWEN_BIN_DIR/qwen"
+
+if ! command -v qwen >/dev/null 2>&1 && [ -x "$QWEN_PATH" ]; then
+  if command -v sudo >/dev/null 2>&1 && sudo -n true >/dev/null 2>&1; then
+    sudo ln -sf "$QWEN_PATH" /usr/local/bin/qwen
+    echo "Linked qwen binary to /usr/local/bin/qwen using sudo."
+  elif [ -w /usr/local/bin ]; then
+    ln -sf "$QWEN_PATH" /usr/local/bin/qwen
+    echo "Linked qwen binary to /usr/local/bin/qwen."
+  else
+    mkdir -p "$HOME/.local/bin"
+    ln -sf "$QWEN_PATH" "$HOME/.local/bin/qwen"
+    if ! grep -q 'export PATH="$HOME/.local/bin:$PATH"' "$HOME/.profile" 2>/dev/null; then
+      echo 'export PATH="$HOME/.local/bin:$PATH"' >> "$HOME/.profile"
+      echo "Added $HOME/.local/bin to PATH in ~/.profile."
+    fi
+    echo "Linked qwen binary to $HOME/.local/bin/qwen."
+  fi
+fi

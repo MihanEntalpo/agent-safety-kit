@@ -1,1 +1,6 @@
 .env
+.python-version
+config.yaml
+venv/
+agsekit_cli/__pycache__/
+agsekit_cli/commands/__pycache__/

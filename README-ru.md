@@ -35,7 +35,7 @@
    cd agent-safety-kit
    ```
 
-2. Подготовьте Python-окружение и зависимости:
+2. Подготовьте Python-окружение и зависимости (требуется Python 3.10 или новее):
    ```bash
    python3 -m venv ./venv
    source ./venv/bin/activate
