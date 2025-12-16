@@ -156,3 +156,10 @@ The installation scripts live in `agsekit_cli/agent_scripts/` and mirror the sta
 ### Running agents
 
 * `./agsekit run <agent_name> [<source_dir>|--vm <vm_name>] [--config <path>] [--disable-backups] [--debug] -- <agent_args...>` — starts an interactive agent command inside Multipass. Environment variables from the config are passed to the process. If a `source_dir` from the mounts list is provided, the agent starts inside the mounted target path in the matching VM; otherwise it launches in the home directory of the default VM. Unless `--disable-backups` is set, background repeated backups for the selected mount are started for the duration of the run. With `--debug`, the CLI prints every external command before executing it to help troubleshoot agent launches.
+
+### Interactive mode
+
+In a TTY you don’t have to type full commands every time: the CLI can guide you through an interactive menu that fills in parameters for you.
+
+* Run `./agsekit` without arguments to open the interactive menu, choose a command, and select options such as the config path, mounts, or agent parameters.
+* Start a command without mandatory arguments (for example, `./agsekit run`) to automatically fall back to the interactive flow after the CLI prints a “not enough parameters” hint. Use `--non-interactive` if you prefer the usual help output instead of prompts.
