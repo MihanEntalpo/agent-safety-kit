@@ -12,7 +12,8 @@ from .commands.create_vm import create_vm_command, create_vms_command
 from .commands.mounts import mount_command, umount_command
 from .commands.prepare import prepare_command
 from .commands.run import run_command
-from .commands.setup_agents import setup_agents_command
+from .commands.shell import shell_command
+from .commands.install_agents import install_agents_command
 from .interactive import is_interactive_terminal, run_interactive
 
 
@@ -37,8 +38,9 @@ def main() -> None:
         backup_repeated_all_command,
         mount_command,
         umount_command,
-        setup_agents_command,
+        install_agents_command,
         run_command,
+        shell_command,
     ):
         cli.add_command(command)
 

@@ -151,7 +151,7 @@ def ensure_agent_binary_available(
 
     if result.returncode != 0:
         raise MultipassError(
-            f"Agent binary `{binary}` was not found inside VM `{vm_name}`. Did you run ./agsekit setup-agents?"
+            f"Agent binary `{binary}` was not found inside VM `{vm_name}`. Did you run ./agsekit install-agents?"
         )
 
 

@@ -67,7 +67,7 @@ Everyone says "you should have backups" and "everything must live in git", but c
 
 7. Install all configured agents into their default VMs:
    ```bash
-   ./agsekit setup-agents --all-agents
+   ./agsekit install-agents --all-agents
    ```
 
 8. (Optional) Start repeated backups for every configured mount to validate the setup:
@@ -75,7 +75,14 @@ Everyone says "you should have backups" and "everything must live in git", but c
    ./agsekit backup-repeated-all --config config.yaml
    ```
 
-9. Launch an agent inside its VM (example runs `qwen` inside its mount with backups enabled by default):
+9. Open an interactive shell inside a VM (defaults to `config.yaml` or `CONFIG_PATH`):
+   ```bash
+   ./agsekit shell agent-ubuntu --config config.yaml
+   ```
+   If you omit the VM name and only one VM exists in the config, the shell connects there automatically. When several VMs are
+   listed and you run the command in a TTY, the CLI asks which one to use. In non-interactive mode, the VM name is required.
+
+10. Launch an agent inside its VM (example runs `qwen` in the folder where `/host/path/project` is mounted, with backups enabled by default):
    ```bash
    ./agsekit run qwen /host/path/project --vm agent-ubuntu --config config.yaml -- --help
    ```
@@ -146,10 +153,16 @@ Backups use `rsync` with incremental links (`--link-dest`) to the previous copy:
 * `./agsekit mount --source-dir <path> [--config <path>]` — mounts the directory described by `source` in `config.yaml` (or the path from `CONFIG_PATH`/`--config`) into its VM using `multipass mount`. Use `--all` to mount every entry from the config.
 * `./agsekit umount --source-dir <path> [--config <path>]` — unmounts the directory described by `source` in the config (or `CONFIG_PATH`/`--config`); `--all` unmounts every configured path.
 
+### VM shell access
+
+* `./agsekit shell [<vm_name>] [--config <path>]` — opens an interactive `multipass shell` session inside the chosen VM. If only
+  one VM is defined in the config, the CLI connects there even without `vm_name`. When several VMs exist and the command runs in
+  a TTY, the CLI prompts you to pick one; in non-interactive mode, an explicit `vm_name` is required.
+
 ### Agent installation
 
-* `./agsekit setup-agents <agent_name> [<vm>|--all-vms] [--config <path>]` — runs the prepared installation script for the chosen agent type inside the specified VM (or the agent's default VM if none is provided).
-* `./agsekit setup-agents --all-agents [--all-vms] [--config <path>]` — installs every configured agent either into their default VM or into every VM when `--all-vms` is set.
+* `./agsekit install-agents <agent_name> [<vm>|--all-vms] [--config <path>]` — runs the prepared installation script for the chosen agent type inside the specified VM (or the agent's default VM if none is provided).
+* `./agsekit install-agents --all-agents [--all-vms] [--config <path>]` — installs every configured agent either into their default VM or into every VM when `--all-vms` is set.
 
 The installation scripts live in `agsekit_cli/agent_scripts/` and mirror the standard setup steps for codex-cli, qwen-code, and claude-code. Other agent types are not supported yet.
 

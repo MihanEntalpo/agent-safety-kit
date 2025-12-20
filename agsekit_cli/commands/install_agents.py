@@ -43,7 +43,7 @@ def _default_vm(agent: AgentConfig, available: Iterable[str]) -> str:
         raise ConfigError("No VMs are available in the configuration for agent installation")
 
 
-@click.command(name="setup-agents")
+@click.command(name="install-agents")
 @non_interactive_option
 @click.argument("agent_name", required=False)
 @click.argument("vm", required=False)
@@ -57,7 +57,7 @@ def _default_vm(agent: AgentConfig, available: Iterable[str]) -> str:
     default=None,
     help="Path to the YAML config (defaults to config.yaml or $CONFIG_PATH).",
 )
-def setup_agents_command(
+def install_agents_command(
     agent_name: str | None, vm: str | None, all_vms: bool, all_agents: bool, config_path: str | None, non_interactive: bool
 ) -> None:
     """Install configured agents into Multipass VMs."""
