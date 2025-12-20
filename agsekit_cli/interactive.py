@@ -206,7 +206,7 @@ def build_umount(session: InteractiveSession) -> List[str]:
     return ["umount", *selection, *session.config_option()]
 
 
-def build_setup_agents(session: InteractiveSession) -> List[str]:
+def build_install_agents(session: InteractiveSession) -> List[str]:
     agents = session.load_agents()
     if not agents:
         raise click.ClickException("Агенты в конфигурации не найдены.")
@@ -226,7 +226,7 @@ def build_setup_agents(session: InteractiveSession) -> List[str]:
     vm_choices.append(questionary.Choice("Все виртуалки", value="__all_vms__"))
     vm_choice = _select_from_list("Куда устанавливать агента?", vm_choices)
 
-    args = ["setup-agents", *session.config_option()]
+    args = ["install-agents", *session.config_option()]
     if agent_choice == "__all__":
         args.append("--all-agents")
     else:
@@ -300,6 +300,16 @@ def build_prepare(_: InteractiveSession) -> List[str]:
     return ["prepare"]
 
 
+def build_shell(session: InteractiveSession) -> List[str]:
+    vms = session.load_vms()
+    if not vms:
+        raise click.ClickException("В конфигурации не найдено ВМ.")
+
+    choices = [questionary.Choice(name, value=name) for name in vms]
+    vm_name = _select_from_list("В какую ВМ зайти?", choices)
+    return ["shell", str(vm_name), *session.config_option()]
+
+
 def _command_builders() -> Dict[str, CommandBuilder]:
     return {
         "backup-once": build_backup_once,
@@ -310,8 +320,9 @@ def _command_builders() -> Dict[str, CommandBuilder]:
         "create-vms": build_create_vms,
         "mount": build_mount,
         "prepare": build_prepare,
+        "shell": build_shell,
         "run": build_run,
-        "setup-agents": build_setup_agents,
+        "install-agents": build_install_agents,
         "umount": build_umount,
     }
 
@@ -326,8 +337,9 @@ def _ordered_commands(cli: click.Group) -> List[click.Command]:
         "create-vms",
         "mount",
         "prepare",
+        "shell",
         "run",
-        "setup-agents",
+        "install-agents",
         "umount",
     ]
     commands: Dict[str, click.Command] = cli.commands
