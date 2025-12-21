@@ -82,7 +82,13 @@ Everyone says "you should have backups" and "everything must live in git", but c
    If you omit the VM name and only one VM exists in the config, the shell connects there automatically. When several VMs are
    listed and you run the command in a TTY, the CLI asks which one to use. In non-interactive mode, the VM name is required.
 
-10. Launch an agent inside its VM (example runs `qwen` in the folder where `/host/path/project` is mounted, with backups enabled by default):
+10. Stop a VM or every VM from the config when you need to free resources:
+   ```bash
+   ./agsekit stop agent-ubuntu --config config.yaml
+   ./agsekit stop --all-vms --config config.yaml
+   ```
+
+11. Launch an agent inside its VM (example runs `qwen` in the folder where `/host/path/project` is mounted, with backups enabled by default):
    ```bash
    ./agsekit run qwen /host/path/project --vm agent-ubuntu --config config.yaml -- --help
    ```
@@ -158,6 +164,11 @@ Backups use `rsync` with incremental links (`--link-dest`) to the previous copy:
 * `./agsekit shell [<vm_name>] [--config <path>]` — opens an interactive `multipass shell` session inside the chosen VM. If only
   one VM is defined in the config, the CLI connects there even without `vm_name`. When several VMs exist and the command runs in
   a TTY, the CLI prompts you to pick one; in non-interactive mode, an explicit `vm_name` is required.
+
+### VM lifecycle
+
+* `./agsekit stop <vm_name> [--config <path>]` — stops the specified VM from the configuration.
+* `./agsekit stop --all-vms [--config <path>]` — stops every VM declared in the config file.
 
 ### Agent installation
 
