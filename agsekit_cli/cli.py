@@ -14,6 +14,7 @@ from .commands.prepare import prepare_command
 from .commands.run import run_command
 from .commands.shell import shell_command
 from .commands.install_agents import install_agents_command
+from .commands.stop import stop_command
 from .interactive import is_interactive_terminal, run_interactive
 
 
@@ -39,6 +40,7 @@ def main() -> None:
         mount_command,
         umount_command,
         install_agents_command,
+        stop_command,
         run_command,
         shell_command,
     ):
