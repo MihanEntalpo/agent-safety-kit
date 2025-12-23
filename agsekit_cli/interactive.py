@@ -27,8 +27,8 @@ def is_interactive_terminal() -> bool:
 
 
 class InteractiveSession:
-    def __init__(self) -> None:
-        self.config_path = resolve_config_path(None)
+    def __init__(self, default_config_path: Path | None = None) -> None:
+        self.config_path = resolve_config_path(default_config_path)
         self._config_cache: Dict[str, object] | None = None
 
     def _prompt_config_path(self) -> Path:
@@ -183,7 +183,7 @@ def _select_mount_choice(session: InteractiveSession, action: str) -> List[str]:
     if not mounts:
         raise click.ClickException("В конфигурации не найдено монтирований.")
 
-    all_choice = questionary.Choice("Все папки из config.yaml", value="__all__")
+    all_choice = questionary.Choice("Все папки из конфигурации", value="__all__")
     choices: list[questionary.QuestionChoice] = [all_choice]
     for mount in mounts:
         label = f"{mount.source} -> {mount.vm_name}:{mount.target}"
@@ -398,9 +398,11 @@ def _confirm_and_run(cli: click.Group, args: List[str]) -> None:
     cli.main(args=args, prog_name="agsekit")
 
 
-def run_interactive(cli: click.Group, preselected_command: str | None = None) -> None:
+def run_interactive(
+    cli: click.Group, preselected_command: str | None = None, default_config_path: Path | None = None
+) -> None:
     builders = _command_builders()
-    session = InteractiveSession()
+    session = InteractiveSession(default_config_path)
     command = _select_command(cli, preselected_command)
     builder = builders.get(command.name)
     if builder is None:

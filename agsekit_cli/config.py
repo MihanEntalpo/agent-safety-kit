@@ -8,7 +8,7 @@ from typing import Any, Dict, List, Optional
 import yaml
 
 CONFIG_ENV_VAR = "CONFIG_PATH"
-DEFAULT_CONFIG_PATH = Path("config.yaml")
+DEFAULT_CONFIG_PATH = Path.home() / ".config" / "agsekit" / "config.yaml"
 ALLOWED_AGENT_TYPES = {
     "qwen": "qwen",
     "qwen-code": "qwen",

@@ -10,6 +10,7 @@ import pytest
 
 import agsekit_cli.cli as cli_module
 import agsekit_cli.interactive as interactive
+import agsekit_cli.config as config_module
 from agsekit_cli.config import AgentConfig, MountConfig
 
 
@@ -45,9 +46,10 @@ def test_main_triggers_interactive_without_args(monkeypatch):
     monkeypatch.setattr(cli_module, "is_interactive_terminal", lambda: True)
     monkeypatch.setattr(sys, "argv", ["agsekit"])
 
-    def fake_run(cli, preselected_command=None):
+    def fake_run(cli, preselected_command=None, default_config_path=None):
         called["cli"] = cli
         called["preselected"] = preselected_command
+        called["default_config_path"] = default_config_path
 
     monkeypatch.setattr(cli_module, "run_interactive", fake_run)
 
@@ -63,9 +65,10 @@ def test_main_falls_back_to_interactive_on_missing_params(monkeypatch):
     monkeypatch.setattr(cli_module, "is_interactive_terminal", lambda: True)
     monkeypatch.setattr(sys, "argv", ["agsekit", "create-vm"])
 
-    def fake_run(cli, preselected_command=None):
+    def fake_run(cli, preselected_command=None, default_config_path=None):
         called["cli"] = cli
         called["preselected"] = preselected_command
+        called["default_config_path"] = default_config_path
 
     monkeypatch.setattr(cli_module, "run_interactive", fake_run)
 
@@ -73,6 +76,29 @@ def test_main_falls_back_to_interactive_on_missing_params(monkeypatch):
 
     assert called["cli"] is cli_module.cli
     assert called["preselected"] == "create-vm"
+    assert called["default_config_path"] == config_module.DEFAULT_CONFIG_PATH
+
+
+def test_main_prompts_for_config_when_missing(monkeypatch, tmp_path):
+    called: Dict[str, Any] = {}
+    missing_config = tmp_path / "absent.yaml"
+
+    monkeypatch.setattr(cli_module, "is_interactive_terminal", lambda: True)
+    monkeypatch.setattr(sys, "argv", ["agsekit", "run", "qwen", str(tmp_path)])
+    monkeypatch.setattr(cli_module, "resolve_config_path", lambda _path=None: missing_config)
+
+    def fake_run(cli, preselected_command=None, default_config_path=None):
+        called["cli"] = cli
+        called["preselected"] = preselected_command
+        called["default_config_path"] = default_config_path
+
+    monkeypatch.setattr(cli_module, "run_interactive", fake_run)
+
+    cli_module.main()
+
+    assert called["cli"] is cli_module.cli
+    assert called["preselected"] == "run"
+    assert called["default_config_path"] == missing_config
 
 
 def test_run_interactive_executes_selected_command(monkeypatch):
@@ -139,6 +165,26 @@ def test_main_reports_missing_params_without_interactive_when_flag_is_set(monkey
         cli_module.main()
 
     assert excinfo.value.code == 2
+    assert called["interactive"] is False
+
+
+def test_main_reports_missing_config_without_interactive(monkeypatch, tmp_path):
+    missing_config = tmp_path / "absent.yaml"
+    called: Dict[str, Any] = {"interactive": False}
+
+    monkeypatch.setattr(cli_module, "is_interactive_terminal", lambda: True)
+    monkeypatch.setattr(sys, "argv", ["agsekit", "run", "qwen", str(tmp_path), "--non-interactive"])
+    monkeypatch.setattr(config_module, "DEFAULT_CONFIG_PATH", missing_config)
+
+    def mark_called(*_args: Any, **_kwargs: Any) -> None:  # pragma: no cover - defensive
+        called["interactive"] = True
+
+    monkeypatch.setattr(cli_module, "run_interactive", mark_called)
+
+    with pytest.raises(SystemExit) as excinfo:
+        cli_module.main()
+
+    assert excinfo.value.code == 1
     assert called["interactive"] is False
 
 

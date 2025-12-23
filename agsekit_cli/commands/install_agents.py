@@ -55,7 +55,7 @@ def _default_vm(agent: AgentConfig, available: Iterable[str]) -> str:
     type=click.Path(dir_okay=False, exists=False, path_type=str),
     envvar="CONFIG_PATH",
     default=None,
-    help="Path to the YAML config (defaults to config.yaml or $CONFIG_PATH).",
+    help="Path to the YAML config (defaults to ~/.config/agsekit/config.yaml or $CONFIG_PATH).",
 )
 def install_agents_command(
     agent_name: str | None, vm: str | None, all_vms: bool, all_agents: bool, config_path: str | None, non_interactive: bool
