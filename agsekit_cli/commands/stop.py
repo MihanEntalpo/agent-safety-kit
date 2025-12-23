@@ -30,7 +30,7 @@ def _stop_vm(vm_name: str) -> None:
     type=click.Path(dir_okay=False, exists=False, path_type=str),
     envvar="CONFIG_PATH",
     default=None,
-    help="Путь к YAML-конфигурации (по умолчанию config.yaml или $CONFIG_PATH).",
+    help="Путь к YAML-конфигурации (по умолчанию ~/.config/agsekit/config.yaml или $CONFIG_PATH).",
 )
 def stop_command(vm_name: str | None, all_vms: bool, config_path: str | None, non_interactive: bool) -> None:
     """Останавливает одну или все Multipass ВМ."""

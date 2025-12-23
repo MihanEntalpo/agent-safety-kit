@@ -42,7 +42,7 @@ def _select_mounts(source_dir: Path | None, mount_all: bool, config_path: str | 
     type=click.Path(dir_okay=False, exists=False, path_type=str),
     envvar="CONFIG_PATH",
     default=None,
-    help="Путь к YAML-конфигурации (по умолчанию config.yaml или $CONFIG_PATH).",
+    help="Путь к YAML-конфигурации (по умолчанию ~/.config/agsekit/config.yaml или $CONFIG_PATH).",
 )
 def mount_command(source_dir: Path | None, mount_all: bool, config_path: str | None, non_interactive: bool) -> None:
     """Mount directories from config.yaml into VMs."""
@@ -69,7 +69,7 @@ def mount_command(source_dir: Path | None, mount_all: bool, config_path: str | N
     type=click.Path(dir_okay=False, exists=False, path_type=str),
     envvar="CONFIG_PATH",
     default=None,
-    help="Путь к YAML-конфигурации (по умолчанию config.yaml или $CONFIG_PATH).",
+    help="Путь к YAML-конфигурации (по умолчанию ~/.config/agsekit/config.yaml или $CONFIG_PATH).",
 )
 def umount_command(source_dir: Path | None, mount_all: bool, config_path: str | None, non_interactive: bool) -> None:
     """Unmount directories from config.yaml."""

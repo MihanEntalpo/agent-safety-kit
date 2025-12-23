@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import sys
+from pathlib import Path
 from typing import Sequence
 
 import click
@@ -15,11 +16,41 @@ from .commands.run import run_command
 from .commands.shell import shell_command
 from .commands.install_agents import install_agents_command
 from .commands.stop import stop_command
+from .config import resolve_config_path
 from .interactive import is_interactive_terminal, run_interactive
+
+COMMANDS_REQUIRING_CONFIG = {
+    "backup-repeated-all",
+    "backup-repeated-mount",
+    "create-vm",
+    "create-vms",
+    "install-agents",
+    "mount",
+    "run",
+    "shell",
+    "stop",
+    "umount",
+}
 
 
 def _has_non_interactive_flag(args: Sequence[str]) -> bool:
     return "--non-interactive" in args
+
+
+def _extract_command(args: Sequence[str]) -> str | None:
+    for arg in args:
+        if not arg.startswith("-"):
+            return arg
+    return None
+
+
+def _extract_config_argument(args: Sequence[str]) -> Path | None:
+    for index, arg in enumerate(args):
+        if arg == "--config" and index + 1 < len(args):
+            return Path(args[index + 1])
+        if arg.startswith("--config="):
+            return Path(arg.split("=", 1)[1])
+    return None
 
 
 @click.group()
@@ -49,11 +80,28 @@ def main() -> None:
     args = sys.argv[1:]
     non_interactive = _has_non_interactive_flag(args)
     filtered_args = [arg for arg in args if arg != "--non-interactive"]
+    command = _extract_command(filtered_args)
+    explicit_config_path = _extract_config_argument(filtered_args)
+    resolved_config_path = resolve_config_path(explicit_config_path)
 
     if is_interactive_terminal() and not non_interactive:
         if not args:
             try:
                 run_interactive(cli)
+            except click.ClickException as exc:
+                exc.show()
+                raise SystemExit(exc.exit_code)
+            except click.Abort:
+                raise SystemExit(1)
+            return
+
+        if command in COMMANDS_REQUIRING_CONFIG and not resolved_config_path.exists():
+            click.echo(
+                "Конфигурация не найдена (проверены --config, $CONFIG_PATH и ~/.config/agsekit/config.yaml).\n"
+                "Запускается интерактивный режим: укажите путь через --config."
+            )
+            try:
+                run_interactive(cli, preselected_command=command, default_config_path=resolved_config_path)
             except click.ClickException as exc:
                 exc.show()
                 raise SystemExit(exc.exit_code)

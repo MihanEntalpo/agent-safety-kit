@@ -42,9 +42,10 @@ Everyone says "you should have backups" and "everything must live in git", but c
    pip install -r requirements.txt
    ```
 
-3. Create a YAML configuration (defaults to `config.yaml`; override with `CONFIG_PATH` if needed):
+3. Create a YAML configuration (the CLI checks `--config`, then `CONFIG_PATH`, then `~/.config/agsekit/config.yaml`):
    ```bash
-   cp config-example.yaml config.yaml
+   mkdir -p ~/.config/agsekit
+   cp config-example.yaml ~/.config/agsekit/config.yaml
    # edit vms/mounts/cloud-init to your needs
    ```
 
@@ -72,30 +73,30 @@ Everyone says "you should have backups" and "everything must live in git", but c
 
 8. (Optional) Start repeated backups for every configured mount to validate the setup:
    ```bash
-   ./agsekit backup-repeated-all --config config.yaml
+   ./agsekit backup-repeated-all
    ```
 
-9. Open an interactive shell inside a VM (defaults to `config.yaml` or `CONFIG_PATH`):
+9. Open an interactive shell inside a VM (defaults to `~/.config/agsekit/config.yaml` or `CONFIG_PATH`):
    ```bash
-   ./agsekit shell agent-ubuntu --config config.yaml
+   ./agsekit shell agent-ubuntu
    ```
    If you omit the VM name and only one VM exists in the config, the shell connects there automatically. When several VMs are
    listed and you run the command in a TTY, the CLI asks which one to use. In non-interactive mode, the VM name is required.
 
 10. Stop a VM or every VM from the config when you need to free resources:
    ```bash
-   ./agsekit stop agent-ubuntu --config config.yaml
-   ./agsekit stop --all-vms --config config.yaml
+   ./agsekit stop agent-ubuntu
+   ./agsekit stop --all-vms
    ```
 
 11. Launch an agent inside its VM (example runs `qwen` in the folder where `/host/path/project` is mounted, with backups enabled by default):
    ```bash
-   ./agsekit run qwen /host/path/project --vm agent-ubuntu --config config.yaml -- --help
+   ./agsekit run qwen /host/path/project --vm agent-ubuntu -- --help
    ```
 
 ## YAML configuration
 
-`config.yaml` (or the path from `CONFIG_PATH`) describes VM parameters, mounted directories, and any `cloud-init` settings. A base example lives in `config-example.yaml`:
+The configuration file (looked up via `--config`, `CONFIG_PATH`, or `~/.config/agsekit/config.yaml`) describes VM parameters, mounted directories, and any `cloud-init` settings. A base example lives in `config-example.yaml`:
 
 ```yaml
 vms: # VM parameters for Multipass (you can define several)
@@ -151,12 +152,12 @@ Backups use `rsync` with incremental links (`--link-dest`) to the previous copy:
 ### Repeated backups
 
 * `./agsekit backup-repeated --source-dir <path> --dest-dir <path> [--exclude <pattern> ...] [--interval <minutes>]` — runs an immediate backup and then repeats it every `interval` minutes (defaults to five minutes). After each run it prints `Done, waiting N minutes` with the actual interval value.
-* `./agsekit backup-repeated-mount --mount <path> [--config <path>]` — looks up the mount by its `source` path in `config.yaml` (or the path from `CONFIG_PATH`/`--config`) and launches repeated backups using the paths and interval from the config. Fails if the mount is missing.
-* `./agsekit backup-repeated-all [--config <path>]` — reads all mounts from the config (defaults to `config.yaml` or the path from `CONFIG_PATH`/`--config`) and starts concurrent repeated backups for each entry within a single process. Use Ctrl+C to stop the loops.
+* `./agsekit backup-repeated-mount --mount <path> [--config <path>]` — looks up the mount by its `source` path in the configuration file (default search: `--config`, `CONFIG_PATH`, `~/.config/agsekit/config.yaml`) and launches repeated backups using the paths and interval from the config. Fails if the mount is missing.
+* `./agsekit backup-repeated-all [--config <path>]` — reads all mounts from the config (default search: `--config`, `CONFIG_PATH`, `~/.config/agsekit/config.yaml`) and starts concurrent repeated backups for each entry within a single process. Use Ctrl+C to stop the loops.
 
 ### Mount management
 
-* `./agsekit mount --source-dir <path> [--config <path>]` — mounts the directory described by `source` in `config.yaml` (or the path from `CONFIG_PATH`/`--config`) into its VM using `multipass mount`. Use `--all` to mount every entry from the config.
+* `./agsekit mount --source-dir <path> [--config <path>]` — mounts the directory described by `source` in the configuration file (default search: `--config`, `CONFIG_PATH`, `~/.config/agsekit/config.yaml`) into its VM using `multipass mount`. Use `--all` to mount every entry from the config.
 * `./agsekit umount --source-dir <path> [--config <path>]` — unmounts the directory described by `source` in the config (or `CONFIG_PATH`/`--config`); `--all` unmounts every configured path.
 
 ### VM shell access

@@ -58,7 +58,7 @@ def backup_repeated_command(
     type=click.Path(dir_okay=False, exists=False, path_type=str),
     envvar="CONFIG_PATH",
     default=None,
-    help="Путь к YAML-конфигурации (по умолчанию config.yaml или $CONFIG_PATH).",
+    help="Путь к YAML-конфигурации (по умолчанию ~/.config/agsekit/config.yaml или $CONFIG_PATH).",
 )
 def backup_repeated_mount_command(mount_path: Path, config_path: str | None, non_interactive: bool) -> None:
     """Start a repeated backup for a mount from the config."""
@@ -86,7 +86,7 @@ def backup_repeated_mount_command(mount_path: Path, config_path: str | None, non
     type=click.Path(dir_okay=False, exists=False, path_type=str),
     envvar="CONFIG_PATH",
     default=None,
-    help="Путь к YAML-конфигурации (по умолчанию config.yaml или $CONFIG_PATH).",
+    help="Путь к YAML-конфигурации (по умолчанию ~/.config/agsekit/config.yaml или $CONFIG_PATH).",
 )
 def backup_repeated_all_command(config_path: str | None, non_interactive: bool) -> None:
     """Start repeated backups for every mount from config.yaml."""

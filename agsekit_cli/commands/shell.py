@@ -30,7 +30,7 @@ def _select_vm(vms: Dict[str, object]) -> str:
     type=click.Path(dir_okay=False, exists=False, path_type=str),
     envvar="CONFIG_PATH",
     default=None,
-    help="Путь к YAML-конфигурации (по умолчанию config.yaml или $CONFIG_PATH).",
+    help="Путь к YAML-конфигурации (по умолчанию ~/.config/agsekit/config.yaml или $CONFIG_PATH).",
 )
 def shell_command(vm_name: str | None, config_path: str | None, non_interactive: bool) -> None:
     """Открывает интерактивный shell в Multipass ВМ."""

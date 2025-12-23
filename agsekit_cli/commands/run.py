@@ -38,7 +38,7 @@ DEFAULT_WORKDIR = Path("/home/ubuntu")
     type=click.Path(dir_okay=False, exists=False, path_type=str),
     envvar="CONFIG_PATH",
     default=None,
-    help="Путь к YAML-конфигурации (по умолчанию config.yaml или $CONFIG_PATH).",
+    help="Путь к YAML-конфигурации (по умолчанию ~/.config/agsekit/config.yaml или $CONFIG_PATH).",
 )
 @click.option("--disable-backups", is_flag=True, help="Не запускать фоновые бэкапы во время работы агента")
 @click.option("--debug", is_flag=True, help="Выводить запускаемые команды перед их выполнением")

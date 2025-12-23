@@ -42,9 +42,10 @@
    pip install -r requirements.txt
    ```
 
-3. Создайте YAML-конфигурацию (по умолчанию ищется `config.yaml`, путь можно переопределить через `CONFIG_PATH`):
+3. Создайте YAML-конфигурацию (CLI ищет путь в `--config`, затем в `CONFIG_PATH`, затем в `~/.config/agsekit/config.yaml`):
    ```bash
-   cp config-example.yaml config.yaml
+   mkdir -p ~/.config/agsekit
+   cp config-example.yaml ~/.config/agsekit/config.yaml
    # отредактируйте параметры vms/mounts/cloud-init под себя
    ```
 
@@ -72,30 +73,30 @@
 
 8. (Опционально) Запустите циклические бэкапы для всех монтирований, чтобы убедиться, что всё настроено корректно:
    ```bash
-   ./agsekit backup-repeated-all --config config.yaml
+   ./agsekit backup-repeated-all
    ```
 
-9. Откройте интерактивный shell внутри ВМ (по умолчанию используется `config.yaml` или `CONFIG_PATH`):
+9. Откройте интерактивный shell внутри ВМ (по умолчанию используется `~/.config/agsekit/config.yaml` или `CONFIG_PATH`):
    ```bash
-   ./agsekit shell agent-ubuntu --config config.yaml
+   ./agsekit shell agent-ubuntu
    ```
    Если имя ВМ не передано и в конфиге есть только одна запись, shell подключится к ней автоматически. Если ВМ несколько и
    команда запускается в TTY, CLI предложит выбрать одну из них. В неинтерактивном режиме имя ВМ обязательно.
 
 10. Остановите одну или все ВМ из конфига, когда нужно освободить ресурсы:
    ```bash
-   ./agsekit stop agent-ubuntu --config config.yaml
-   ./agsekit stop --all-vms --config config.yaml
+   ./agsekit stop agent-ubuntu
+   ./agsekit stop --all-vms
    ```
 
 11. Запустите агента внутри его ВМ (пример запускает `qwen` в папке, куда смонтирована `/host/path/project`, бэкапы включены по умолчанию):
    ```bash
-   ./agsekit run qwen /host/path/project --vm agent-ubuntu --config config.yaml -- --help
+   ./agsekit run qwen /host/path/project --vm agent-ubuntu -- --help
    ```
 
 ## Конфигурация YAML
 
-`config.yaml` (или путь из `CONFIG_PATH`) описывает параметры ВМ, монтируемые директории и любые настройки `cloud-init`. Базовый пример есть в `config-example.yaml`:
+Файл конфигурации (ищется в `--config`, `CONFIG_PATH` или `~/.config/agsekit/config.yaml`) описывает параметры ВМ, монтируемые директории и любые настройки `cloud-init`. Базовый пример есть в `config-example.yaml`:
 
 ```yaml
 vms: # параметры виртуальных машин (можно иметь несколько)
@@ -151,12 +152,12 @@ docs/build/
 ### Циклические бэкапы
 
 * `./agsekit backup-repeated --source-dir <путь> --dest-dir <путь> [--exclude <паттерн> ...] [--interval <минуты>]` — сразу делает бэкап и повторяет его каждые `interval` минут (по умолчанию каждые пять минут). После каждого запуска выводит `Done, waiting N minutes` с фактическим интервалом.
-* `./agsekit backup-repeated-mount --mount <путь> [--config <путь>]` — ищет монтирование по полю `source` в `config.yaml` (или по пути из `CONFIG_PATH`/`--config`) и запускает циклические бэкапы с путями и интервалом из конфига. Если монтирования нет — ошибка.
-* `./agsekit backup-repeated-all [--config <путь>]` — читает все монтирования из конфига (по умолчанию `config.yaml` или путь из `CONFIG_PATH`/`--config`) и поднимает одновременные циклические бэкапы для каждого из них в одном процессе. Остановить можно через Ctrl+C.
+* `./agsekit backup-repeated-mount --mount <путь> [--config <путь>]` — ищет монтирование по полю `source` в файле конфигурации (порядок поиска: `--config`, `CONFIG_PATH`, `~/.config/agsekit/config.yaml`) и запускает циклические бэкапы с путями и интервалом из конфига. Если монтирования нет — ошибка.
+* `./agsekit backup-repeated-all [--config <путь>]` — читает все монтирования из конфига (порядок поиска: `--config`, `CONFIG_PATH`, `~/.config/agsekit/config.yaml`) и поднимает одновременные циклические бэкапы для каждого из них в одном процессе. Остановить можно через Ctrl+C.
 
 ### Управление монтированиями
 
-* `./agsekit mount --source-dir <путь> [--config <путь>]` — монтирует директорию с `source` из `config.yaml` (или пути из `CONFIG_PATH`/`--config`) в её ВМ через `multipass mount`. Флаг `--all` монтирует все записи из конфига.
+* `./agsekit mount --source-dir <путь> [--config <путь>]` — монтирует директорию с `source` из файла конфигурации (порядок поиска: `--config`, `CONFIG_PATH`, `~/.config/agsekit/config.yaml`) в её ВМ через `multipass mount`. Флаг `--all` монтирует все записи из конфига.
 * `./agsekit umount --source-dir <путь> [--config <путь>]` — отмонтирует директорию с `source` из конфига (или `CONFIG_PATH`/`--config`); `--all` отмонтирует все настроенные пути.
 
 ### Доступ к shell ВМ

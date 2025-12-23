@@ -19,7 +19,7 @@ from ..vm import MultipassError, create_all_vms_from_config, create_vm_from_conf
     type=click.Path(dir_okay=False, exists=False, path_type=str),
     envvar="CONFIG_PATH",
     default=None,
-    help="Path to the YAML config (defaults to config.yaml or $CONFIG_PATH).",
+    help="Path to the YAML config (defaults to ~/.config/agsekit/config.yaml or $CONFIG_PATH).",
 )
 def create_vm_command(vm_name: str, config_path: str | None, non_interactive: bool) -> None:
     """Create a single VM by name from the YAML configuration."""
@@ -44,7 +44,7 @@ def create_vm_command(vm_name: str, config_path: str | None, non_interactive: bo
     type=click.Path(dir_okay=False, exists=False, path_type=str),
     envvar="CONFIG_PATH",
     default=None,
-    help="Path to the YAML config (defaults to config.yaml or $CONFIG_PATH).",
+    help="Path to the YAML config (defaults to ~/.config/agsekit/config.yaml or $CONFIG_PATH).",
 )
 def create_vms_command(config_path: str | None, non_interactive: bool) -> None:
     """Create all VMs described in the YAML configuration."""
