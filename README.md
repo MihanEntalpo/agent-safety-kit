@@ -71,28 +71,78 @@ Everyone says "you should have backups" and "everything must live in git", but c
    ./agsekit install-agents --all-agents
    ```
 
-8. (Optional) Start repeated backups for every configured mount to validate the setup:
+8. Launch an agent inside its VM (example runs `qwen` in the folder where `/host/path/project` is mounted, with backups enabled by default):
    ```bash
-   ./agsekit backup-repeated-all
+   ./agsekit run qwen /host/path/project --vm agent-ubuntu
    ```
 
-9. Open an interactive shell inside a VM (defaults to `~/.config/agsekit/config.yaml` or `CONFIG_PATH`):
-   ```bash
-   ./agsekit shell agent-ubuntu
-   ```
-   If you omit the VM name and only one VM exists in the config, the shell connects there automatically. When several VMs are
-   listed and you run the command in a TTY, the CLI asks which one to use. In non-interactive mode, the VM name is required.
+## agsekit commands
 
-10. Stop a VM or every VM from the config when you need to free resources:
-   ```bash
-   ./agsekit stop agent-ubuntu
-   ./agsekit stop --all-vms
-   ```
+### Setup and VM lifecycle
 
-11. Launch an agent inside its VM (example runs `qwen` in the folder where `/host/path/project` is mounted, with backups enabled by default):
-   ```bash
-   ./agsekit run qwen /host/path/project --vm agent-ubuntu -- --help
-   ```
+* `./agsekit prepare` — installs required system dependencies (including Multipass; requires sudo and currently works only on Debian-based systems).
+* `./agsekit create-vms` — creates every VM defined in the YAML configuration.
+* `./agsekit create-vm <name>` — launches just one VM. If a VM already exists, the command compares the desired resources with the current ones and reports any differences. Changing resources of an existing VM is not supported yet.
+* `./agsekit shell [<vm_name>] [--config <path>]` — opens an interactive `multipass shell` session inside the chosen VM. If only
+  one VM is defined in the config, the CLI connects there even without `vm_name`. When several VMs exist and the command runs in
+  a TTY, the CLI prompts you to pick one; in non-interactive mode, an explicit `vm_name` is required.
+* `./agsekit stop <vm_name> [--config <path>]` — stops the specified VM from the configuration.
+* `./agsekit stop --all-vms [--config <path>]` — stops every VM declared in the config file.
+
+### Mount management
+
+* `./agsekit mount --source-dir <path> [--config <path>]` — mounts the directory described by `source` in the configuration file (default search: `--config`, `CONFIG_PATH`, `~/.config/agsekit/config.yaml`) into its VM using `multipass mount`. Use `--all` to mount every entry from the config.
+* `./agsekit umount --source-dir <path> [--config <path>]` — unmounts the directory described by `source` in the config (or `CONFIG_PATH`/`--config`); `--all` unmounts every configured path.
+
+### Backups
+
+#### One-off backup
+
+`./agsekit backup-once --source-dir <path> --dest-dir <path> [--exclude <pattern> ...]` — runs a single backup of the source directory into the specified destination using `rsync`.
+The command creates a timestamped directory with a `-partial` suffix, supports incremental copies via `--link-dest` to the previous backup, and honors exclusions from `.backupignore` and `--exclude` arguments. When finished, the temporary folder is renamed to a final timestamp without the suffix. If nothing changed relative to the last backup, no new snapshot is created and the tool reports the absence of updates.
+
+`.backupignore` examples:
+```
+# exclude virtual environments and dependencies
+venv/
+node_modules/
+
+# ignore temporary and log files by pattern
+*.log
+*.tmp
+
+# include a specific file inside an excluded folder
+!logs/important.log
+
+# skip documentation build artifacts
+docs/build/
+```
+
+Backups use `rsync` with incremental links (`--link-dest`) to the previous copy: if only a small set of files changed, the new snapshot stores just the updated data, while unchanged files are hardlinked to the prior snapshot. This keeps a chain of dated directories while consuming minimal space when changes are rare.
+
+#### Repeated backups
+
+* `./agsekit backup-repeated --source-dir <path> --dest-dir <path> [--exclude <pattern> ...] [--interval <minutes>]` — runs an immediate backup and then repeats it every `interval` minutes (defaults to five minutes). After each run it prints `Done, waiting N minutes` with the actual interval value.
+* `./agsekit backup-repeated-mount --mount <path> [--config <path>]` — looks up the mount by its `source` path in the configuration file (default search: `--config`, `CONFIG_PATH`, `~/.config/agsekit/config.yaml`) and launches repeated backups using the paths and interval from the config. Fails if the mount is missing.
+* `./agsekit backup-repeated-all [--config <path>]` — reads all mounts from the config (default search: `--config`, `CONFIG_PATH`, `~/.config/agsekit/config.yaml`) and starts concurrent repeated backups for each entry within a single process. Use Ctrl+C to stop the loops.
+
+### Agent installation
+
+* `./agsekit install-agents <agent_name> [<vm>|--all-vms] [--config <path>]` — runs the prepared installation script for the chosen agent type inside the specified VM (or the agent's default VM if none is provided).
+* `./agsekit install-agents --all-agents [--all-vms] [--config <path>]` — installs every configured agent either into their default VM or into every VM when `--all-vms` is set.
+
+The installation scripts live in `agsekit_cli/agent_scripts/` and mirror the standard setup steps for codex-cli, qwen-code, and claude-code. Other agent types are not supported yet.
+
+### Running agents
+
+* `./agsekit run <agent_name> [<source_dir>|--vm <vm_name>] [--config <path>] [--disable-backups] [--debug] -- <agent_args...>` — starts an interactive agent command inside Multipass. Environment variables from the config are passed to the process. If a `source_dir` from the mounts list is provided, the agent starts inside the mounted target path in the matching VM; otherwise it launches in the home directory of the default VM. Unless `--disable-backups` is set, background repeated backups for the selected mount are started for the duration of the run. With `--debug`, the CLI prints every external command before executing it to help troubleshoot agent launches.
+
+### Interactive mode
+
+In a TTY you don’t have to type full commands every time: the CLI can guide you through an interactive menu that fills in parameters for you.
+
+* Run `./agsekit` without arguments to open the interactive menu, choose a command, and select options such as the config path, mounts, or agent parameters.
+* Start a command without mandatory arguments (for example, `./agsekit run`) to automatically fall back to the interactive flow after the CLI prints a “not enough parameters” hint. Use `--non-interactive` if you prefer the usual help output instead of prompts.
 
 ## YAML configuration
 
