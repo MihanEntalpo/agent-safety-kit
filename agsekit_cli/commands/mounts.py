@@ -12,7 +12,7 @@ from . import non_interactive_option
 
 
 def _select_mounts(source_dir: Path | None, mount_all: bool, config_path: str | None) -> List[MountConfig]:
-    if bool(source_dir) == mount_all:
+    if source_dir and mount_all:
         raise click.ClickException("Provide either --source-dir or --all, but not both.")
 
     try:
@@ -25,11 +25,18 @@ def _select_mounts(source_dir: Path | None, mount_all: bool, config_path: str | 
             raise click.ClickException("No mounts found in the configuration.")
         return list(mounts)
 
-    assert source_dir is not None
-    mount_entry = find_mount_by_source(mounts, source_dir)
-    if mount_entry is None:
-        raise click.ClickException(f"Mount with source {source_dir} is not defined in the configuration.")
-    return [mount_entry]
+    if source_dir is not None:
+        mount_entry = find_mount_by_source(mounts, source_dir)
+        if mount_entry is None:
+            raise click.ClickException(f"Mount with source {source_dir} is not defined in the configuration.")
+        return [mount_entry]
+
+    if not mounts:
+        raise click.ClickException("No mounts found in the configuration.")
+    if len(mounts) == 1:
+        return [mounts[0]]
+
+    raise click.ClickException("Provide either --source-dir or --all when multiple mounts are configured.")
 
 
 @click.command(name="mount")

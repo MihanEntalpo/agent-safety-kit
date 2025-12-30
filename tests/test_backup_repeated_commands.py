@@ -7,8 +7,6 @@ ROOT = Path(__file__).resolve().parent.parent
 if str(ROOT) not in sys.path:
     sys.path.insert(0, str(ROOT))
 
-import pytest
-
 from agsekit_cli.commands import backup_repeated
 
 
@@ -105,6 +103,71 @@ mounts: []
 
     assert result.exit_code != 0
     assert "is not defined in the configuration" in result.output
+
+
+def test_backup_repeated_mount_defaults_to_single_entry(monkeypatch, tmp_path):
+    mount_source = tmp_path / "data"
+    backup_dir = tmp_path / "backups"
+
+    config_path = tmp_path / "config.yaml"
+    config_path.write_text(
+        f"""
+vms:
+  agent:
+    cpu: 1
+    ram: 1G
+    disk: 5G
+mounts:
+  - source: {mount_source}
+    backup: {backup_dir}
+    interval: 4
+""",
+        encoding="utf-8",
+    )
+
+    calls = []
+
+    def fake_repeated(src: Path, dst: Path, interval_minutes: int, **_):
+        calls.append((src, dst, interval_minutes))
+
+    monkeypatch.setattr(backup_repeated, "backup_repeated", fake_repeated)
+
+    runner = CliRunner()
+    result = runner.invoke(
+        backup_repeated.backup_repeated_mount_command,
+        ["--config", str(config_path)],
+    )
+
+    assert result.exit_code == 0
+    assert calls == [(mount_source.resolve(), backup_dir.resolve(), 4)]
+
+
+def test_backup_repeated_mount_requires_explicit_choice_when_multiple(tmp_path):
+    config_path = tmp_path / "config.yaml"
+    config_path.write_text(
+        """
+vms:
+  agent:
+    cpu: 1
+    ram: 1G
+    disk: 5G
+mounts:
+  - source: /data
+    backup: /backups
+  - source: /other
+    backup: /other-backups
+""",
+        encoding="utf-8",
+    )
+
+    runner = CliRunner()
+    result = runner.invoke(
+        backup_repeated.backup_repeated_mount_command,
+        ["--config", str(config_path)],
+    )
+
+    assert result.exit_code != 0
+    assert "--mount" in result.output or "Несколько монтирований" in result.output
 
 
 def test_backup_repeated_all_command_starts_threads(monkeypatch, tmp_path):

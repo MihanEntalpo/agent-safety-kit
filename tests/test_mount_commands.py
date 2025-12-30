@@ -86,6 +86,34 @@ def test_mount_command_all_mounts(monkeypatch, tmp_path):
     assert "Mounted" in result.output
 
 
+def test_mount_command_defaults_to_single_mount(monkeypatch, tmp_path):
+    mount_source = tmp_path / "data"
+    target = "/home/ubuntu/data"
+    config_path = tmp_path / "config.yaml"
+    _write_config(
+        config_path,
+        [
+            f"  - source: {mount_source}",
+            f"    target: {target}",
+            "    vm: agent",
+        ],
+    )
+
+    calls = []
+
+    def fake_mount(mount):
+        calls.append((mount.source, mount.target, mount.vm_name))
+
+    monkeypatch.setattr(mount_commands, "mount_directory", fake_mount)
+
+    runner = CliRunner()
+    result = runner.invoke(mount_commands.mount_command, ["--config", str(config_path)])
+
+    assert result.exit_code == 0
+    assert calls == [(mount_source.resolve(), Path(target), "agent")]
+    assert "Mounted" in result.output
+
+
 def test_umount_uses_env_config(monkeypatch, tmp_path):
     mount_source = tmp_path / "data"
     config_path = tmp_path / "config.yaml"
@@ -117,13 +145,42 @@ def test_umount_uses_env_config(monkeypatch, tmp_path):
     assert "Unmounted" in result.output
 
 
-def test_mount_command_requires_selector(tmp_path):
+def test_umount_defaults_to_single_mount(monkeypatch, tmp_path):
+    mount_source = tmp_path / "data"
+    config_path = tmp_path / "config.yaml"
+    _write_config(
+        config_path,
+        [
+            f"  - source: {mount_source}",
+            "    target: /home/ubuntu/data",
+            "    vm: agent",
+        ],
+    )
+
+    calls = []
+
+    def fake_umount(mount):
+        calls.append((mount.vm_name, mount.target))
+
+    monkeypatch.setattr(mount_commands, "umount_directory", fake_umount)
+
+    runner = CliRunner()
+    result = runner.invoke(mount_commands.umount_command, ["--config", str(config_path)])
+
+    assert result.exit_code == 0
+    assert calls == [("agent", Path("/home/ubuntu/data"))]
+    assert "Unmounted" in result.output
+
+
+def test_mount_command_requires_selector_when_multiple(tmp_path):
     config_path = tmp_path / "config.yaml"
     _write_config(
         config_path,
         [
             "  - source: /data",
             "    target: /home/ubuntu/data",
+            "  - source: /other",
+            "    target: /home/ubuntu/other",
         ],
     )
 

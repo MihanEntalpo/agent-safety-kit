@@ -82,9 +82,13 @@ def install_agents_command(
     if all_agents:
         agent_names = list(agents_config.keys())
     else:
-        if not agent_name:
+        if agent_name:
+            agent_names = [agent_name]
+        elif len(agents_config) == 1:
+            agent_names = [next(iter(agents_config.keys()))]
+            click.echo(f"Agent name not provided: using the only configured agent `{agent_names[0]}`.")
+        else:
             raise click.ClickException("Provide an agent name or use --all-agents.")
-        agent_names = [agent_name]
 
     selected_vms = list(vms_config.keys())
     if vm:

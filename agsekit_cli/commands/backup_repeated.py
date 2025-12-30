@@ -51,7 +51,7 @@ def backup_repeated_command(
 
 @click.command(name="backup-repeated-mount")
 @non_interactive_option
-@click.option("--mount", "mount_path", required=True, type=click.Path(file_okay=False, path_type=Path), help="Путь к монтируемой папке из config.yaml")
+@click.option("--mount", "mount_path", required=False, type=click.Path(file_okay=False, path_type=Path), help="Путь к монтируемой папке из config.yaml")
 @click.option(
     "config_path",
     "--config",
@@ -68,9 +68,18 @@ def backup_repeated_mount_command(mount_path: Path, config_path: str | None, non
     except ConfigError as exc:
         raise click.ClickException(str(exc))
 
-    mount_entry = find_mount_by_source(mounts, mount_path)
-    if mount_entry is None:
-        raise click.ClickException(f"Mount with source {mount_path} is not defined in the configuration.")
+    mount_entry = None
+    if mount_path:
+        mount_entry = find_mount_by_source(mounts, mount_path)
+        if mount_entry is None:
+            raise click.ClickException(f"Mount with source {mount_path} is not defined in the configuration.")
+    else:
+        if not mounts:
+            raise click.ClickException("No mounts configured for backups.")
+        if len(mounts) == 1:
+            mount_entry = mounts[0]
+        else:
+            raise click.ClickException("Несколько монтирований в конфигурации. Укажите путь через --mount.")
 
     click.echo(
         f"Starting repeated backup for mount {mount_entry.source} -> {mount_entry.backup} every {mount_entry.interval_minutes} minute(s)..."
