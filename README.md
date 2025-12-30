@@ -48,6 +48,7 @@ Everyone says "you should have backups" and "everything must live in git", but c
    cp config-example.yaml ~/.config/agsekit/config.yaml
    # edit vms/mounts/cloud-init to your needs
    ```
+   You can also run `./agsekit config-gen` to answer a few questions and save the config (defaults to `~/.config/agsekit/config.yaml`; use `--overwrite` to replace an existing file).
 
 4. Install required system dependencies (in particular, Multipass; requires sudo and currently works only on Debian-based systems):
    ```bash
@@ -81,6 +82,7 @@ Everyone says "you should have backups" and "everything must live in git", but c
 ### Setup and VM lifecycle
 
 * `./agsekit prepare` — installs required system dependencies (including Multipass; requires sudo and currently works only on Debian-based systems).
+* `./agsekit config-gen [--config <path>] [--overwrite]` — interactive wizard that asks about VMs, mounts, and agents, then writes a YAML config to the chosen path (defaults to `~/.config/agsekit/config.yaml`). Without `--overwrite`, the command warns if the file already exists.
 * `./agsekit create-vms` — creates every VM defined in the YAML configuration.
 * `./agsekit create-vm <name>` — launches just one VM. If a VM already exists, the command compares the desired resources with the current ones and reports any differences. Changing resources of an existing VM is not supported yet.
 * `./agsekit shell [<vm_name>] [--config <path>]` — opens an interactive `multipass shell` session inside the chosen VM. If only

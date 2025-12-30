@@ -296,6 +296,10 @@ def build_run(session: InteractiveSession) -> List[str]:
     return args
 
 
+def build_config_gen(_: InteractiveSession) -> List[str]:
+    return ["config-gen"]
+
+
 def build_prepare(_: InteractiveSession) -> List[str]:
     return ["prepare"]
 
@@ -333,6 +337,7 @@ def _command_builders() -> Dict[str, CommandBuilder]:
         "backup-repeated": build_backup_repeated,
         "backup-repeated-all": build_backup_repeated_all,
         "backup-repeated-mount": build_backup_repeated_mount,
+        "config-gen": build_config_gen,
         "create-vm": build_create_vm,
         "create-vms": build_create_vms,
         "mount": build_mount,
@@ -351,6 +356,7 @@ def _ordered_commands(cli: click.Group) -> List[click.Command]:
         "backup-repeated",
         "backup-repeated-all",
         "backup-repeated-mount",
+        "config-gen",
         "create-vm",
         "create-vms",
         "mount",
