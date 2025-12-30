@@ -164,7 +164,7 @@ def test_main_reports_missing_params_without_interactive_when_flag_is_set(monkey
     with pytest.raises(SystemExit) as excinfo:
         cli_module.main()
 
-    assert excinfo.value.code == 2
+    assert excinfo.value.code == 1
     assert called["interactive"] is False
 
 

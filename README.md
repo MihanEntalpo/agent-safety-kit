@@ -60,7 +60,7 @@ Everyone says "you should have backups" and "everything must live in git", but c
    ./agsekit create-vms
    ```
 
-   To launch just one VM, use `./agsekit create-vm <name>`. If a VM already exists, the command compares the desired resources with the current ones and reports any differences. Changing resources of an existing VM is not supported yet.
+   To launch just one VM, use `./agsekit create-vm <name>`. If the config contains only one VM, you can omit `<name>` and it will be used automatically. If a VM already exists, the command compares the desired resources with the current ones and reports any differences. Changing resources of an existing VM is not supported yet.
 
 6. Mount your folders (assuming mounts are already configured in the YAML file):
    ```bash
@@ -84,17 +84,17 @@ Everyone says "you should have backups" and "everything must live in git", but c
 * `./agsekit prepare` — installs required system dependencies (including Multipass; requires sudo and currently works only on Debian-based systems).
 * `./agsekit config-gen [--config <path>] [--overwrite]` — interactive wizard that asks about VMs, mounts, and agents, then writes a YAML config to the chosen path (defaults to `~/.config/agsekit/config.yaml`). Without `--overwrite`, the command warns if the file already exists.
 * `./agsekit create-vms` — creates every VM defined in the YAML configuration.
-* `./agsekit create-vm <name>` — launches just one VM. If a VM already exists, the command compares the desired resources with the current ones and reports any differences. Changing resources of an existing VM is not supported yet.
+* `./agsekit create-vm <name>` — launches just one VM. If the config contains only one VM, you can omit `<name>` and it will be used automatically. If a VM already exists, the command compares the desired resources with the current ones and reports any differences. Changing resources of an existing VM is not supported yet.
 * `./agsekit shell [<vm_name>] [--config <path>]` — opens an interactive `multipass shell` session inside the chosen VM. If only
   one VM is defined in the config, the CLI connects there even without `vm_name`. When several VMs exist and the command runs in
   a TTY, the CLI prompts you to pick one; in non-interactive mode, an explicit `vm_name` is required.
-* `./agsekit stop <vm_name> [--config <path>]` — stops the specified VM from the configuration.
+* `./agsekit stop <vm_name> [--config <path>]` — stops the specified VM from the configuration. If only one VM is configured, the name can be omitted.
 * `./agsekit stop --all-vms [--config <path>]` — stops every VM declared in the config file.
 
 ### Mount management
 
-* `./agsekit mount --source-dir <path> [--config <path>]` — mounts the directory described by `source` in the configuration file (default search: `--config`, `CONFIG_PATH`, `~/.config/agsekit/config.yaml`) into its VM using `multipass mount`. Use `--all` to mount every entry from the config.
-* `./agsekit umount --source-dir <path> [--config <path>]` — unmounts the directory described by `source` in the config (or `CONFIG_PATH`/`--config`); `--all` unmounts every configured path.
+* `./agsekit mount --source-dir <path> [--config <path>]` — mounts the directory described by `source` in the configuration file (default search: `--config`, `CONFIG_PATH`, `~/.config/agsekit/config.yaml`) into its VM using `multipass mount`. Use `--all` to mount every entry from the config. When there is only one mount in the config, the command can be run without `--source-dir` or `--all`.
+* `./agsekit umount --source-dir <path> [--config <path>]` — unmounts the directory described by `source` in the config (or `CONFIG_PATH`/`--config`); `--all` unmounts every configured path. If only one mount is configured, the command will unmount it even without explicit flags.
 
 ### Backups
 
@@ -125,12 +125,12 @@ Backups use `rsync` with incremental links (`--link-dest`) to the previous copy:
 #### Repeated backups
 
 * `./agsekit backup-repeated --source-dir <path> --dest-dir <path> [--exclude <pattern> ...] [--interval <minutes>]` — runs an immediate backup and then repeats it every `interval` minutes (defaults to five minutes). After each run it prints `Done, waiting N minutes` with the actual interval value.
-* `./agsekit backup-repeated-mount --mount <path> [--config <path>]` — looks up the mount by its `source` path in the configuration file (default search: `--config`, `CONFIG_PATH`, `~/.config/agsekit/config.yaml`) and launches repeated backups using the paths and interval from the config. Fails if the mount is missing.
+* `./agsekit backup-repeated-mount --mount <path> [--config <path>]` — looks up the mount by its `source` path in the configuration file (default search: `--config`, `CONFIG_PATH`, `~/.config/agsekit/config.yaml`) and launches repeated backups using the paths and interval from the config. When only one mount is present, `--mount` can be omitted; with multiple mounts, an explicit choice is required.
 * `./agsekit backup-repeated-all [--config <path>]` — reads all mounts from the config (default search: `--config`, `CONFIG_PATH`, `~/.config/agsekit/config.yaml`) and starts concurrent repeated backups for each entry within a single process. Use Ctrl+C to stop the loops.
 
 ### Agent installation
 
-* `./agsekit install-agents <agent_name> [<vm>|--all-vms] [--config <path>]` — runs the prepared installation script for the chosen agent type inside the specified VM (or the agent's default VM if none is provided).
+* `./agsekit install-agents <agent_name> [<vm>|--all-vms] [--config <path>]` — runs the prepared installation script for the chosen agent type inside the specified VM (or the agent's default VM if none is provided). If the config defines only one agent, you can skip `<agent_name>` and it will be picked automatically.
 * `./agsekit install-agents --all-agents [--all-vms] [--config <path>]` — installs every configured agent either into their default VM or into every VM when `--all-vms` is set.
 
 The installation scripts live in `agsekit_cli/agent_scripts/` and mirror the standard setup steps for codex-cli, qwen-code, and claude-code. Other agent types are not supported yet.
@@ -204,13 +204,13 @@ Backups use `rsync` with incremental links (`--link-dest`) to the previous copy:
 ### Repeated backups
 
 * `./agsekit backup-repeated --source-dir <path> --dest-dir <path> [--exclude <pattern> ...] [--interval <minutes>]` — runs an immediate backup and then repeats it every `interval` minutes (defaults to five minutes). After each run it prints `Done, waiting N minutes` with the actual interval value.
-* `./agsekit backup-repeated-mount --mount <path> [--config <path>]` — looks up the mount by its `source` path in the configuration file (default search: `--config`, `CONFIG_PATH`, `~/.config/agsekit/config.yaml`) and launches repeated backups using the paths and interval from the config. Fails if the mount is missing.
+* `./agsekit backup-repeated-mount --mount <path> [--config <path>]` — looks up the mount by its `source` path in the configuration file (default search: `--config`, `CONFIG_PATH`, `~/.config/agsekit/config.yaml`) and launches repeated backups using the paths and interval from the config. When only one mount is present, `--mount` can be omitted; with multiple mounts, an explicit choice is required.
 * `./agsekit backup-repeated-all [--config <path>]` — reads all mounts from the config (default search: `--config`, `CONFIG_PATH`, `~/.config/agsekit/config.yaml`) and starts concurrent repeated backups for each entry within a single process. Use Ctrl+C to stop the loops.
 
 ### Mount management
 
-* `./agsekit mount --source-dir <path> [--config <path>]` — mounts the directory described by `source` in the configuration file (default search: `--config`, `CONFIG_PATH`, `~/.config/agsekit/config.yaml`) into its VM using `multipass mount`. Use `--all` to mount every entry from the config.
-* `./agsekit umount --source-dir <path> [--config <path>]` — unmounts the directory described by `source` in the config (or `CONFIG_PATH`/`--config`); `--all` unmounts every configured path.
+* `./agsekit mount --source-dir <path> [--config <path>]` — mounts the directory described by `source` in the configuration file (default search: `--config`, `CONFIG_PATH`, `~/.config/agsekit/config.yaml`) into its VM using `multipass mount`. Use `--all` to mount every entry from the config. When there is only one mount in the config, the command can be run without `--source-dir` or `--all`.
+* `./agsekit umount --source-dir <path> [--config <path>]` — unmounts the directory described by `source` in the config (or `CONFIG_PATH`/`--config`); `--all` unmounts every configured path. If only one mount is configured, the command will unmount it even without explicit flags.
 
 ### VM shell access
 
@@ -220,12 +220,12 @@ Backups use `rsync` with incremental links (`--link-dest`) to the previous copy:
 
 ### VM lifecycle
 
-* `./agsekit stop <vm_name> [--config <path>]` — stops the specified VM from the configuration.
+* `./agsekit stop <vm_name> [--config <path>]` — stops the specified VM from the configuration. If only one VM is configured, the name can be omitted.
 * `./agsekit stop --all-vms [--config <path>]` — stops every VM declared in the config file.
 
 ### Agent installation
 
-* `./agsekit install-agents <agent_name> [<vm>|--all-vms] [--config <path>]` — runs the prepared installation script for the chosen agent type inside the specified VM (or the agent's default VM if none is provided).
+* `./agsekit install-agents <agent_name> [<vm>|--all-vms] [--config <path>]` — runs the prepared installation script for the chosen agent type inside the specified VM (or the agent's default VM if none is provided). If the config defines only one agent, you can skip `<agent_name>` and it will be picked automatically.
 * `./agsekit install-agents --all-agents [--all-vms] [--config <path>]` — installs every configured agent either into their default VM or into every VM when `--all-vms` is set.
 
 The installation scripts live in `agsekit_cli/agent_scripts/` and mirror the standard setup steps for codex-cli, qwen-code, and claude-code. Other agent types are not supported yet.

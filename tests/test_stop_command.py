@@ -42,6 +42,32 @@ def test_stop_single_vm(monkeypatch, tmp_path):
     assert calls == [["multipass", "stop", "agent"]]
 
 
+def test_stop_defaults_to_single_vm(monkeypatch, tmp_path):
+    config_path = tmp_path / "config.yaml"
+    _write_config(config_path, ["agent"])
+
+    calls: list[list[str]] = []
+
+    def fake_run(command, check=False, capture_output=False, text=False):
+        calls.append(command)
+
+        class Result:
+            returncode = 0
+            stderr = ""
+            stdout = ""
+
+        return Result()
+
+    monkeypatch.setattr(stop_module, "ensure_multipass_available", lambda: None)
+    monkeypatch.setattr(stop_module.subprocess, "run", fake_run)
+
+    runner = CliRunner()
+    result = runner.invoke(stop_command, ["--config", str(config_path)])
+
+    assert result.exit_code == 0
+    assert calls == [["multipass", "stop", "agent"]]
+
+
 def test_stop_all_vms(monkeypatch, tmp_path):
     config_path = tmp_path / "config.yaml"
     _write_config(config_path, ["vm1", "vm2"])
@@ -68,9 +94,9 @@ def test_stop_all_vms(monkeypatch, tmp_path):
     assert calls == [["multipass", "stop", "vm1"], ["multipass", "stop", "vm2"]]
 
 
-def test_stop_requires_vm_name(monkeypatch, tmp_path):
+def test_stop_requires_vm_name_when_multiple(monkeypatch, tmp_path):
     config_path = tmp_path / "config.yaml"
-    _write_config(config_path, ["agent"])
+    _write_config(config_path, ["first", "second"])
 
     monkeypatch.setattr(stop_module, "ensure_multipass_available", lambda: None)
 

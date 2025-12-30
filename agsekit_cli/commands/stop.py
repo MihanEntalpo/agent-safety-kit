@@ -49,11 +49,16 @@ def stop_command(vm_name: str | None, all_vms: bool, config_path: str | None, no
     if all_vms:
         targets = list(vms.keys())
     else:
-        if not vm_name:
-            raise click.ClickException("Укажите имя ВМ или используйте флаг --all-vms")
-        if vm_name not in vms:
-            raise click.ClickException(f"ВМ `{vm_name}` отсутствует в конфигурации")
-        targets = [vm_name]
+        target_vm = vm_name
+        if not target_vm:
+            if len(vms) == 1:
+                target_vm = next(iter(vms.keys()))
+                click.echo(f"Имя ВМ не указано: используется единственная ВМ `{target_vm}` из конфигурации.")
+            else:
+                raise click.ClickException("Укажите имя ВМ или используйте флаг --all-vms")
+        if target_vm not in vms:
+            raise click.ClickException(f"ВМ `{target_vm}` отсутствует в конфигурации")
+        targets = [target_vm]
 
     try:
         ensure_multipass_available()
