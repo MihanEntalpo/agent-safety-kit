@@ -18,10 +18,11 @@ from . import non_interactive_option
     multiple=True,
     help="Дополнительный паттерн исключений rsync; можно указать несколько раз",
 )
+@click.option("--progress", "show_progress", is_flag=True, help="Показывать прогресс rsync и индикатор выполнения")
 def backup_once_command(
-    source_dir: Path, dest_dir: Path, excludes: tuple[str, ...], non_interactive: bool
+    source_dir: Path, dest_dir: Path, excludes: tuple[str, ...], show_progress: bool, non_interactive: bool
 ) -> None:
     """Run a single backup of a directory."""
 
     click.echo(f"Running one-off backup from {source_dir} to {dest_dir}...")
-    backup_once(source_dir, dest_dir, extra_excludes=list(excludes))
+    backup_once(source_dir, dest_dir, extra_excludes=list(excludes), show_progress=show_progress)

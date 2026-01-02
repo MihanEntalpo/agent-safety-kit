@@ -6,6 +6,7 @@ from typing import Optional, Sequence
 
 import click
 
+from ..backup import backup_once, find_previous_backup
 from ..agents import (
     agent_command_sequence,
     build_agent_env,
@@ -25,6 +26,15 @@ from . import non_interactive_option
 ROOT_DIR = Path(__file__).resolve().parents[2]
 CLI_ENTRY = ROOT_DIR / "agsekit"
 DEFAULT_WORKDIR = Path("/home/ubuntu")
+
+
+def _has_existing_backup(dest_dir: Path) -> bool:
+    if not dest_dir.exists() or not dest_dir.is_dir():
+        return False
+    try:
+        return find_previous_backup(dest_dir) is not None
+    except FileNotFoundError:
+        return False
 
 
 @click.command(name="run", context_settings={"ignore_unknown_options": True})
@@ -92,10 +102,18 @@ def run_command(
 
     backup_process = None
     if not disable_backups and mount_entry is not None:
+        skip_first_repeated_backup = False
+        if not _has_existing_backup(mount_entry.backup):
+            click.echo(f"Делаем ваш первый бэкап папки {mount_entry.source.name}")
+            backup_once(mount_entry.source, mount_entry.backup, show_progress=True)
+            skip_first_repeated_backup = True
+
         click.echo(
             f"Starting background repeated backups for mount {mount_entry.source} -> {mount_entry.backup}."
         )
-        backup_process = start_backup_process(mount_entry, CLI_ENTRY, debug=debug)
+        backup_process = start_backup_process(
+            mount_entry, CLI_ENTRY, skip_first=skip_first_repeated_backup, debug=debug
+        )
 
     try:
         exit_code = run_in_vm(vm_to_use, workdir, agent_command, env_vars, debug=debug)

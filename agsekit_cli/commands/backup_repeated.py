@@ -29,8 +29,9 @@ from ..mounts import find_mount_by_source, load_mounts_from_config, normalize_pa
     type=int,
     help="Интервал в минутах между бэкапами",
 )
+@click.option("--skip-first", is_flag=True, help="Не выполнять первый бэкап сразу после запуска")
 def backup_repeated_command(
-    source_dir: Path, dest_dir: Path, excludes: tuple[str, ...], interval: int, non_interactive: bool
+    source_dir: Path, dest_dir: Path, excludes: tuple[str, ...], interval: int, skip_first: bool, non_interactive: bool
 ) -> None:
     """Start repeated backups of a directory."""
 
@@ -44,6 +45,7 @@ def backup_repeated_command(
             normalize_path(dest_dir),
             interval_minutes=interval,
             extra_excludes=list(excludes),
+            skip_first=skip_first,
         )
     except ValueError as exc:
         raise click.ClickException(str(exc))

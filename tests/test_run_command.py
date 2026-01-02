@@ -70,12 +70,19 @@ def test_run_command_starts_backup_and_agent(monkeypatch, tmp_path):
 
     backups = []
 
-    def fake_start_backup_process(mount, cli_path, debug=False):
-        backups.append((mount.source, mount.backup, cli_path))
+    def fake_start_backup_process(mount, cli_path, skip_first=False, debug=False):
+        backups.append((mount.source, mount.backup, cli_path, skip_first))
         return DummyProcess()
 
+    one_off_calls = []
+
+    def fake_backup_once(src, dst, show_progress=False, extra_excludes=None):
+        one_off_calls.append((src, dst, show_progress))
+
+    monkeypatch.setattr(run_module, "_has_existing_backup", lambda *_: False)
     monkeypatch.setattr(run_module, "run_in_vm", fake_run_in_vm)
     monkeypatch.setattr(run_module, "start_backup_process", fake_start_backup_process)
+    monkeypatch.setattr(run_module, "backup_once", fake_backup_once)
     monkeypatch.setattr(run_module, "ensure_agent_binary_available", lambda *_, **__: None)
 
     runner = CliRunner()
@@ -87,7 +94,9 @@ def test_run_command_starts_backup_and_agent(monkeypatch, tmp_path):
     assert calls["command"] == ["qwen", "--flag"]
     assert calls["env"]["TOKEN"] == "abc"
     assert "ALL_PROXY" not in calls["env"]
+    assert one_off_calls == [(source.resolve(), (source.parent / "backups").resolve(), True)]
     assert backups and backups[0][0] == source.resolve()
+    assert backups[0][3] is True
 
 
 def test_run_command_sets_proxy_for_non_qwen_agent(monkeypatch, tmp_path):
@@ -106,9 +115,11 @@ def test_run_command_sets_proxy_for_non_qwen_agent(monkeypatch, tmp_path):
         })
         return 0
 
+    monkeypatch.setattr(run_module, "_has_existing_backup", lambda *_: True)
     monkeypatch.setattr(run_module, "run_in_vm", fake_run_in_vm)
     monkeypatch.setattr(run_module, "start_backup_process", lambda *_, **__: None)
     monkeypatch.setattr(run_module, "ensure_agent_binary_available", lambda *_, **__: None)
+    monkeypatch.setattr(run_module, "backup_once", lambda *_, **__: None)
 
     runner = CliRunner()
     result = runner.invoke(run_command, ["qwen", str(source), "--config", str(config_path), "--", "--flag"])
@@ -125,12 +136,14 @@ def test_run_command_can_disable_backups(monkeypatch, tmp_path):
     def fake_run_in_vm(vm_name, workdir, command, env_vars, debug=False):
         return 0
 
+    monkeypatch.setattr(run_module, "_has_existing_backup", lambda *_: True)
     monkeypatch.setattr(run_module, "run_in_vm", fake_run_in_vm)
     monkeypatch.setattr(run_module, "ensure_agent_binary_available", lambda *_, **__: None)
+    monkeypatch.setattr(run_module, "backup_once", lambda *_, **__: None)
 
     started = []
 
-    def fake_start_backup_process(mount, cli_path, debug=False):
+    def fake_start_backup_process(mount, cli_path, skip_first=False, debug=False):
         started.append("backup")
         return None
 
@@ -163,7 +176,7 @@ def test_run_command_prints_debug_commands(monkeypatch, tmp_path):
             click.echo(f"[DEBUG] run_in_vm {vm_name} {workdir}")
         return 0
 
-    def fake_start_backup_process(mount, cli_path, debug=False):
+    def fake_start_backup_process(mount, cli_path, skip_first=False, debug=False):
         if debug:
             click.echo(f"[DEBUG] start_backup_process {mount.source} -> {mount.backup}")
         return DummyProcess()
@@ -172,9 +185,11 @@ def test_run_command_prints_debug_commands(monkeypatch, tmp_path):
         if debug:
             click.echo(f"[DEBUG] ensure_agent_binary_available {vm_name}")
 
+    monkeypatch.setattr(run_module, "_has_existing_backup", lambda *_: True)
     monkeypatch.setattr(run_module, "run_in_vm", fake_run_in_vm)
     monkeypatch.setattr(run_module, "start_backup_process", fake_start_backup_process)
     monkeypatch.setattr(run_module, "ensure_agent_binary_available", fake_ensure_agent_binary_available)
+    monkeypatch.setattr(run_module, "backup_once", lambda *_, **__: None)
 
     runner = CliRunner()
     result = runner.invoke(

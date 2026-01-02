@@ -42,6 +42,33 @@ def test_backup_repeated_runs_immediately_and_respects_interval(monkeypatch, cap
     assert output.count("Done, waiting 2 minutes") == 2
 
 
+def test_backup_repeated_can_skip_first(monkeypatch, capsys):
+    calls = []
+
+    def fake_backup_once(source_dir: Path, dest_dir: Path, extra_excludes=None):
+        calls.append((source_dir, dest_dir, tuple(extra_excludes or ())))
+
+    sleep_calls = []
+
+    def fake_sleep(seconds: float) -> None:
+        sleep_calls.append(seconds)
+
+    monkeypatch.setattr(backup, "backup_once", fake_backup_once)
+
+    backup.backup_repeated(
+        Path("/src"),
+        Path("/dst"),
+        interval_minutes=2,
+        sleep_func=fake_sleep,
+        max_runs=1,
+        skip_first=True,
+    )
+
+    assert calls == [(Path("/src"), Path("/dst"), ())]
+    assert sleep_calls == [120]
+    assert "Done, waiting 2 minutes" in capsys.readouterr().out
+
+
 def test_backup_repeated_requires_positive_interval():
     with pytest.raises(ValueError):
         backup.backup_repeated(Path("/a"), Path("/b"), interval_minutes=0, max_runs=1)
