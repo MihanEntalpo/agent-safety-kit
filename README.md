@@ -176,6 +176,8 @@ agents:
     vm: qwen-ubuntu # default VM for this agent; falls back to the mount VM or the first VM in the list
 ```
 
+> **Note:** Prefer ASCII-only paths for both `source` and `target` mount points: AppArmor may refuse to mount directories whose paths contain non-ASCII characters.
+
 
 ## Backups
 
