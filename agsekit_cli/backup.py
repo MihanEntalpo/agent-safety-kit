@@ -94,6 +94,65 @@ def build_rsync_command(
     return command
 
 
+def _extract_progress_percentage(line: str) -> int | None:
+    for chunk in line.split():
+        if not chunk.endswith("%"):
+            continue
+        numeric = chunk.rstrip("%")
+        if numeric.isdigit():
+            percent = int(numeric)
+            if 0 <= percent <= 100:
+                return percent
+    return None
+
+
+def _render_progress_bar(percent: int) -> None:
+    percent = max(0, min(100, percent))
+    bar_width = 30
+    filled = int(bar_width * percent / 100)
+    bar = "#" * filled + "-" * (bar_width - filled)
+    print(f"\rProgress: [{bar}] {percent}%", end="", flush=True)
+
+
+def _run_rsync(command: List[str], *, show_progress: bool) -> subprocess.CompletedProcess[str]:
+    if not show_progress:
+        return subprocess.run(command, check=False, capture_output=True, text=True)
+
+    process = subprocess.Popen(command, stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True, bufsize=1)
+    stdout_chunks: List[str] = []
+    stderr_chunks: List[str] = []
+    last_percent = None
+
+    try:
+        if process.stdout:
+            for line in process.stdout:
+                stdout_chunks.append(line)
+                progress = _extract_progress_percentage(line)
+                if progress is not None and progress != last_percent:
+                    _render_progress_bar(progress)
+                    last_percent = progress
+
+        if process.stderr:
+            stderr_chunks.append(process.stderr.read())
+
+        process.wait()
+    finally:
+        if process.stdout:
+            process.stdout.close()
+        if process.stderr:
+            process.stderr.close()
+
+    if last_percent is not None:
+        print()
+
+    return subprocess.CompletedProcess(
+        command,
+        process.returncode,
+        stdout="".join(stdout_chunks),
+        stderr="".join(stderr_chunks),
+    )
+
+
 def dry_run_has_changes(command: List[str]) -> bool:
     result = subprocess.run(command, check=False, capture_output=True, text=True)
     if result.returncode != 0:
@@ -118,7 +177,9 @@ def dry_run_has_changes(command: List[str]) -> bool:
     return False
 
 
-def backup_once(source_dir: Path, dest_dir: Path, extra_excludes: Iterable[str] | None = None) -> None:
+def backup_once(
+    source_dir: Path, dest_dir: Path, extra_excludes: Iterable[str] | None = None, *, show_progress: bool = False
+) -> None:
     source_dir = source_dir.expanduser().resolve()
     dest_dir = dest_dir.expanduser().resolve()
 
@@ -156,10 +217,11 @@ def backup_once(source_dir: Path, dest_dir: Path, extra_excludes: Iterable[str] 
     inprogress_dir.mkdir(parents=True, exist_ok=True)
     time.sleep(0.1)
 
-    command = build_rsync_command(source_dir, inprogress_dir, previous_backup, rules)
+    extra_flags = ["--progress", "--info=progress2"] if show_progress else None
+    command = build_rsync_command(source_dir, inprogress_dir, previous_backup, rules, extra_flags=extra_flags)
 
     print(f"Running rsync to create snapshot: {inprogress_dir}")
-    result = subprocess.run(command, check=False, capture_output=True, text=True)
+    result = _run_rsync(command, show_progress=show_progress)
     if result.returncode != 0:
         if result.stderr:
             print(result.stderr, file=sys.stderr, end="" if result.stderr.endswith("\n") else "\n")
@@ -179,6 +241,7 @@ def backup_repeated(
     extra_excludes: Iterable[str] | None = None,
     sleep_func: Callable[[float], None] = time.sleep,
     max_runs: int | None = None,
+    skip_first: bool = False,
 ) -> None:
     """Run backups in a loop with the given interval.
 
@@ -191,8 +254,15 @@ def backup_repeated(
         raise ValueError("Interval must be greater than zero minutes")
 
     runs_completed = 0
+    first_cycle = True
     while True:
+        if skip_first and first_cycle:
+            first_cycle = False
+            sleep_func(interval_minutes * 60)
+            continue
+
         backup_once(source_dir, dest_dir, extra_excludes=extra_excludes)
+        first_cycle = False
         runs_completed += 1
         print(f"Done, waiting {interval_minutes} minutes")
 

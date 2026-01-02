@@ -16,8 +16,8 @@ def test_backup_repeated_command_invokes_loop(monkeypatch, tmp_path):
 
     calls = []
 
-    def fake_repeated(src: Path, dst: Path, interval_minutes: int, extra_excludes):
-        calls.append((src, dst, interval_minutes, tuple(extra_excludes)))
+    def fake_repeated(src: Path, dst: Path, interval_minutes: int, extra_excludes, skip_first=False):
+        calls.append((src, dst, interval_minutes, tuple(extra_excludes), skip_first))
 
     monkeypatch.setattr(backup_repeated, "backup_repeated", fake_repeated)
 
@@ -39,7 +39,34 @@ def test_backup_repeated_command_invokes_loop(monkeypatch, tmp_path):
     )
 
     assert result.exit_code == 0
-    assert calls == [(source.resolve(), dest.resolve(), 7, ("*.log", "cache/"))]
+    assert calls == [(source.resolve(), dest.resolve(), 7, ("*.log", "cache/"), False)]
+
+
+def test_backup_repeated_command_can_skip_first(monkeypatch, tmp_path):
+    source = tmp_path / "src"
+    dest = tmp_path / "dst"
+
+    calls = []
+
+    def fake_repeated(src: Path, dst: Path, interval_minutes: int, extra_excludes, skip_first=False):
+        calls.append(skip_first)
+
+    monkeypatch.setattr(backup_repeated, "backup_repeated", fake_repeated)
+
+    runner = CliRunner()
+    result = runner.invoke(
+        backup_repeated.backup_repeated_command,
+        [
+            "--source-dir",
+            str(source),
+            "--dest-dir",
+            str(dest),
+            "--skip-first",
+        ],
+    )
+
+    assert result.exit_code == 0
+    assert calls == [True]
 
 
 def test_backup_repeated_mount_command_uses_config(monkeypatch, tmp_path):

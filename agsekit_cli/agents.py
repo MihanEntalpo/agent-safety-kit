@@ -156,7 +156,7 @@ def ensure_agent_binary_available(
 
 
 def start_backup_process(
-    mount: MountConfig, cli_path: Path, *, debug: bool = False
+    mount: MountConfig, cli_path: Path, *, skip_first: bool = False, debug: bool = False
 ) -> subprocess.Popen[bytes]:
     command = [
         str(cli_path),
@@ -168,6 +168,9 @@ def start_backup_process(
         "--interval",
         str(mount.interval_minutes),
     ]
+
+    if skip_first:
+        command.append("--skip-first")
 
     mount.backup.mkdir(parents=True, exist_ok=True)
     log_file = open(mount.backup / "backup.log", "a", buffering=1)
