@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import threading
 from pathlib import Path
+from typing import Optional
 
 import click
 
@@ -62,7 +63,7 @@ def backup_repeated_command(
     default=None,
     help="Путь к YAML-конфигурации (по умолчанию ~/.config/agsekit/config.yaml или $CONFIG_PATH).",
 )
-def backup_repeated_mount_command(mount_path: Path, config_path: str | None, non_interactive: bool) -> None:
+def backup_repeated_mount_command(mount_path: Optional[Path], config_path: Optional[str], non_interactive: bool) -> None:
     """Start a repeated backup for a mount from the config."""
 
     try:
@@ -99,7 +100,7 @@ def backup_repeated_mount_command(mount_path: Path, config_path: str | None, non
     default=None,
     help="Путь к YAML-конфигурации (по умолчанию ~/.config/agsekit/config.yaml или $CONFIG_PATH).",
 )
-def backup_repeated_all_command(config_path: str | None, non_interactive: bool) -> None:
+def backup_repeated_all_command(config_path: Optional[str], non_interactive: bool) -> None:
     """Start repeated backups for every mount from config.yaml."""
 
     try:

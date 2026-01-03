@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 from pathlib import Path
-from typing import Dict, List
+from typing import Dict, List, Optional
 
 import click
 import yaml
@@ -168,7 +168,7 @@ def _prompt_agents(vm_names: List[str]) -> Dict[str, Dict[str, object]]:
     is_flag=True,
     help="Пересоздать конфиг, даже если файл уже существует.",
 )
-def config_gen_command(config_path: str | None, overwrite: bool, non_interactive: bool) -> None:
+def config_gen_command(config_path: Optional[str], overwrite: bool, non_interactive: bool) -> None:
     """Интерактивно собирает YAML-конфиг agsekit и сохраняет его на диск."""
 
     del non_interactive

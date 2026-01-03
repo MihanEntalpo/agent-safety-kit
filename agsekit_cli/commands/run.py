@@ -92,7 +92,7 @@ def run_command(
 
     agent = find_agent(agents_config, agent_name)
 
-    mount_entry: MountConfig | None = None
+    mount_entry: Optional[MountConfig] = None
     if source_dir is not None:
         try:
             mount_entry = select_mount_for_source(mounts, source_dir, vm_name)

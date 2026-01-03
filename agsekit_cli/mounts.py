@@ -2,7 +2,7 @@ from __future__ import annotations
 
 import subprocess
 from pathlib import Path
-from typing import Iterable, List
+from typing import Iterable, List, Optional, Union
 
 from .config import MountConfig, load_config, load_mounts_config, resolve_config_path
 from .vm import MultipassError, ensure_multipass_available
@@ -12,13 +12,13 @@ def normalize_path(path: Path) -> Path:
     return path.expanduser().resolve()
 
 
-def load_mounts_from_config(config_path: str | Path | None) -> List[MountConfig]:
+def load_mounts_from_config(config_path: Optional[Union[str, Path]]) -> List[MountConfig]:
     resolved_path = resolve_config_path(Path(config_path) if config_path else None)
     config = load_config(resolved_path)
     return load_mounts_config(config)
 
 
-def find_mount_by_source(mounts: Iterable[MountConfig], source: Path) -> MountConfig | None:
+def find_mount_by_source(mounts: Iterable[MountConfig], source: Path) -> Optional[MountConfig]:
     normalized = normalize_path(source)
     for mount in mounts:
         if mount.source == normalized:

@@ -12,8 +12,10 @@ if ! command -v rustup >/dev/null 2>&1; then
   echo "Downloading rustup installer to $RUSTUP_INSTALLER ..."
   curl --proto '=https' --tlsv1.2 -fL https://sh.rustup.rs -o "$RUSTUP_INSTALLER"
   echo "Running rustup installer in batch mode (-y)..."
-  ( set -x; sh "$RUSTUP_INSTALLER" -y )
+  export RUSTUP_INIT_SKIP_PATH_CHECK=yes
+  ( set -x; sh "$RUSTUP_INSTALLER" -y --no-modify-path )
   rm -f "$RUSTUP_INSTALLER"
+  echo "Rustup installation finished."
 fi
 
 if [ -f "$HOME/.cargo/env" ]; then

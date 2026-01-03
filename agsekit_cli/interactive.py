@@ -3,7 +3,7 @@ from __future__ import annotations
 import shlex
 import sys
 from pathlib import Path
-from typing import Callable, Dict, Iterable, List, Sequence
+from typing import Callable, Dict, List, Optional, Sequence, Union
 
 import click
 import questionary
@@ -27,9 +27,9 @@ def is_interactive_terminal() -> bool:
 
 
 class InteractiveSession:
-    def __init__(self, default_config_path: Path | None = None) -> None:
+    def __init__(self, default_config_path: Optional[Path] = None) -> None:
         self.config_path = resolve_config_path(default_config_path)
-        self._config_cache: Dict[str, object] | None = None
+        self._config_cache: Optional[Dict[str, object]] = None
 
     def _prompt_config_path(self) -> Path:
         path = questionary.path(
@@ -57,8 +57,8 @@ class InteractiveSession:
                 self._config_cache = None
 
     def _load_from_config(
-        self, loader: Callable[[Dict[str, object]], Dict[str, object] | List[object]], description: str
-    ) -> Dict[str, object] | List[object]:
+        self, loader: Callable[[Dict[str, object]], Union[Dict[str, object], List[object]]], description: str
+    ) -> Union[Dict[str, object], List[object]]:
         while True:
             config = self._load_config()
             try:
@@ -259,7 +259,7 @@ def build_run(session: InteractiveSession) -> List[str]:
     mount_choices.append(questionary.Choice("Указать путь вручную", value="__custom__"))
     mount_choice = _select_from_list("Какую директорию использовать?", mount_choices)
 
-    source_dir: Path | None = None
+    source_dir: Optional[Path] = None
     if isinstance(mount_choice, MountConfig):
         source_dir = mount_choice.source
     elif mount_choice == "__custom__":
@@ -379,7 +379,7 @@ def _ordered_commands(cli: click.Group) -> List[click.Command]:
     return ordered
 
 
-def _select_command(cli: click.Group, preselected: str | None) -> click.Command:
+def _select_command(cli: click.Group, preselected: Optional[str]) -> click.Command:
     commands = _ordered_commands(cli)
     choices = [
         questionary.Choice(f"{cmd.name:<22} {cmd.help or cmd.short_help or ''}", value=cmd)
@@ -405,7 +405,7 @@ def _confirm_and_run(cli: click.Group, args: List[str]) -> None:
 
 
 def run_interactive(
-    cli: click.Group, preselected_command: str | None = None, default_config_path: Path | None = None
+    cli: click.Group, preselected_command: Optional[str] = None, default_config_path: Optional[Path] = None
 ) -> None:
     builders = _command_builders()
     session = InteractiveSession(default_config_path)

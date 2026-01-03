@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 from pathlib import Path
+from typing import Optional
 
 import click
 
@@ -21,7 +22,7 @@ from ..vm import MultipassError, create_all_vms_from_config, create_vm_from_conf
     default=None,
     help="Path to the YAML config (defaults to ~/.config/agsekit/config.yaml or $CONFIG_PATH).",
 )
-def create_vm_command(vm_name: str | None, config_path: str | None, non_interactive: bool) -> None:
+def create_vm_command(vm_name: Optional[str], config_path: Optional[str], non_interactive: bool) -> None:
     """Create a single VM by name from the YAML configuration."""
 
     resolved_path = resolve_config_path(Path(config_path) if config_path else None)
@@ -61,7 +62,7 @@ def create_vm_command(vm_name: str | None, config_path: str | None, non_interact
     default=None,
     help="Path to the YAML config (defaults to ~/.config/agsekit/config.yaml or $CONFIG_PATH).",
 )
-def create_vms_command(config_path: str | None, non_interactive: bool) -> None:
+def create_vms_command(config_path: Optional[str], non_interactive: bool) -> None:
     """Create all VMs described in the YAML configuration."""
 
     resolved_path = resolve_config_path(Path(config_path) if config_path else None)

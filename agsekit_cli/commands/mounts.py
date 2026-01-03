@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 from pathlib import Path
-from typing import List
+from typing import List, Optional
 
 import click
 
@@ -11,7 +11,7 @@ from ..vm import MultipassError
 from . import non_interactive_option
 
 
-def _select_mounts(source_dir: Path | None, mount_all: bool, config_path: str | None) -> List[MountConfig]:
+def _select_mounts(source_dir: Optional[Path], mount_all: bool, config_path: Optional[str]) -> List[MountConfig]:
     if source_dir and mount_all:
         raise click.ClickException("Provide either --source-dir or --all, but not both.")
 
@@ -51,7 +51,7 @@ def _select_mounts(source_dir: Path | None, mount_all: bool, config_path: str | 
     default=None,
     help="Путь к YAML-конфигурации (по умолчанию ~/.config/agsekit/config.yaml или $CONFIG_PATH).",
 )
-def mount_command(source_dir: Path | None, mount_all: bool, config_path: str | None, non_interactive: bool) -> None:
+def mount_command(source_dir: Optional[Path], mount_all: bool, config_path: Optional[str], non_interactive: bool) -> None:
     """Mount directories from config.yaml into VMs."""
 
     click.echo("Mounting requested directories via multipass...")
@@ -78,7 +78,7 @@ def mount_command(source_dir: Path | None, mount_all: bool, config_path: str | N
     default=None,
     help="Путь к YAML-конфигурации (по умолчанию ~/.config/agsekit/config.yaml или $CONFIG_PATH).",
 )
-def umount_command(source_dir: Path | None, mount_all: bool, config_path: str | None, non_interactive: bool) -> None:
+def umount_command(source_dir: Optional[Path], mount_all: bool, config_path: Optional[str], non_interactive: bool) -> None:
     """Unmount directories from config.yaml."""
 
     click.echo("Unmounting selected directories via multipass...")
