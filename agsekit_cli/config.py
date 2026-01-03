@@ -49,13 +49,13 @@ class ConfigError(RuntimeError):
     """Raised when configuration cannot be loaded."""
 
 
-def resolve_config_path(explicit_path: Path | None = None) -> Path:
+def resolve_config_path(explicit_path: Optional[Path] = None) -> Path:
     env_path = os.environ.get(CONFIG_ENV_VAR)
     base_path = explicit_path or (Path(env_path) if env_path else DEFAULT_CONFIG_PATH)
     return base_path.expanduser()
 
 
-def load_config(path: Path | None = None) -> Dict[str, Any]:
+def load_config(path: Optional[Path] = None) -> Dict[str, Any]:
     config_path = resolve_config_path(path)
     if not config_path.exists():
         raise ConfigError(f"Config file not found: {config_path}")

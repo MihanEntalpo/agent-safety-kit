@@ -2,7 +2,7 @@ from __future__ import annotations
 
 import sys
 from pathlib import Path
-from typing import Sequence
+from typing import Optional, Sequence
 
 import click
 
@@ -38,14 +38,14 @@ def _has_non_interactive_flag(args: Sequence[str]) -> bool:
     return "--non-interactive" in args
 
 
-def _extract_command(args: Sequence[str]) -> str | None:
+def _extract_command(args: Sequence[str]) -> Optional[str]:
     for arg in args:
         if not arg.startswith("-"):
             return arg
     return None
 
 
-def _extract_config_argument(args: Sequence[str]) -> Path | None:
+def _extract_config_argument(args: Sequence[str]) -> Optional[Path]:
     for index, arg in enumerate(args):
         if arg == "--config" and index + 1 < len(args):
             return Path(args[index + 1])

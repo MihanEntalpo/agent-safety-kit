@@ -7,7 +7,7 @@ import subprocess
 import time
 from datetime import datetime
 from pathlib import Path
-from typing import Callable, Iterable, List, Tuple
+from typing import Callable, Iterable, List, Optional, Tuple
 
 FilterRule = Tuple[str, str]
 
@@ -51,7 +51,7 @@ def normalize_pattern(pattern: str, rel_prefix: Path) -> str:
     return full_pattern.replace("\\", "/")
 
 
-def find_previous_backup(dest_dir: Path) -> Path | None:
+def find_previous_backup(dest_dir: Path) -> Optional[Path]:
     candidates = [path for path in dest_dir.iterdir() if path.is_dir()]
     filtered: List[Path] = []
     for path in candidates:
@@ -76,9 +76,9 @@ def remove_inprogress_dirs(dest_dir: Path) -> None:
 def build_rsync_command(
     source_dir: Path,
     destination: Path,
-    link_dest: Path | None,
+    link_dest: Optional[Path],
     filters: Iterable[FilterRule],
-    extra_flags: Iterable[str] | None = None,
+    extra_flags: Optional[Iterable[str]] = None,
 ) -> List[str]:
     command = ["rsync", "-avz", "--delete"]
 
@@ -94,7 +94,7 @@ def build_rsync_command(
     return command
 
 
-def _extract_progress_percentage(line: str) -> int | None:
+def _extract_progress_percentage(line: str) -> Optional[int]:
     for chunk in line.split():
         if not chunk.endswith("%"):
             continue
@@ -178,7 +178,7 @@ def dry_run_has_changes(command: List[str]) -> bool:
 
 
 def backup_once(
-    source_dir: Path, dest_dir: Path, extra_excludes: Iterable[str] | None = None, *, show_progress: bool = False
+    source_dir: Path, dest_dir: Path, extra_excludes: Optional[Iterable[str]] = None, *, show_progress: bool = False
 ) -> None:
     source_dir = source_dir.expanduser().resolve()
     dest_dir = dest_dir.expanduser().resolve()
@@ -238,9 +238,9 @@ def backup_repeated(
     dest_dir: Path,
     *,
     interval_minutes: int = 5,
-    extra_excludes: Iterable[str] | None = None,
+    extra_excludes: Optional[Iterable[str]] = None,
     sleep_func: Callable[[float], None] = time.sleep,
-    max_runs: int | None = None,
+    max_runs: Optional[int] = None,
     skip_first: bool = False,
 ) -> None:
     """Run backups in a loop with the given interval.

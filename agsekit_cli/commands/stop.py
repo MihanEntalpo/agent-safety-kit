@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import subprocess
 from pathlib import Path
+from typing import Optional
 
 import click
 
@@ -32,7 +33,7 @@ def _stop_vm(vm_name: str) -> None:
     default=None,
     help="Путь к YAML-конфигурации (по умолчанию ~/.config/agsekit/config.yaml или $CONFIG_PATH).",
 )
-def stop_command(vm_name: str | None, all_vms: bool, config_path: str | None, non_interactive: bool) -> None:
+def stop_command(vm_name: Optional[str], all_vms: bool, config_path: Optional[str], non_interactive: bool) -> None:
     """Останавливает одну или все Multipass ВМ."""
 
     resolved_path = resolve_config_path(Path(config_path) if config_path else None)

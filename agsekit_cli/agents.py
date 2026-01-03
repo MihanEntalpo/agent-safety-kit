@@ -3,7 +3,7 @@ from __future__ import annotations
 import shlex
 import subprocess
 from pathlib import Path
-from typing import Dict, Iterable, List, Sequence, Tuple
+from typing import Dict, Iterable, List, Optional, Sequence, Tuple, Union
 
 import click
 
@@ -19,13 +19,13 @@ NVM_LOAD_SNIPPET = (
 )
 
 
-def load_agents_from_file(config_path: str | Path | None) -> Dict[str, AgentConfig]:
+def load_agents_from_file(config_path: Optional[Union[str, Path]]) -> Dict[str, AgentConfig]:
     resolved_path = resolve_config_path(Path(config_path) if config_path else None)
     config = load_config(resolved_path)
     return load_agents_config(config)
 
 
-def load_mounts_and_vms(config_path: str | Path | None) -> Tuple[list[MountConfig], Dict[str, object]]:
+def load_mounts_and_vms(config_path: Optional[Union[str, Path]]) -> Tuple[list[MountConfig], Dict[str, object]]:
     resolved_path = resolve_config_path(Path(config_path) if config_path else None)
     config = load_config(resolved_path)
     mounts = load_mounts_config(config)
@@ -40,7 +40,7 @@ def find_agent(agents: Dict[str, AgentConfig], name: str) -> AgentConfig:
         raise ConfigError(f"Агент `{name}` не найден в конфигурации")
 
 
-def select_mount_for_source(mounts: Iterable[MountConfig], source_dir: Path, vm_name: str | None) -> MountConfig:
+def select_mount_for_source(mounts: Iterable[MountConfig], source_dir: Path, vm_name: Optional[str]) -> MountConfig:
     normalized = normalize_path(source_dir)
     matches = [mount for mount in mounts if mount.source == normalized]
     if vm_name:
@@ -54,7 +54,7 @@ def select_mount_for_source(mounts: Iterable[MountConfig], source_dir: Path, vm_
     return matches[0]
 
 
-def resolve_vm(agent: AgentConfig, mount: MountConfig | None, vm_override: str | None, config: Dict[str, object]) -> str:
+def resolve_vm(agent: AgentConfig, mount: Optional[MountConfig], vm_override: Optional[str], config: Dict[str, object]) -> str:
     if vm_override:
         return vm_override
     if mount is not None:
@@ -98,7 +98,7 @@ def build_shell_command(workdir: Path, agent_command: Sequence[str], env_vars: D
     return " && ".join(parts)
 
 
-def _debug_print(command: Sequence[str] | str, debug: bool) -> None:
+def _debug_print(command: Union[Sequence[str], str], debug: bool) -> None:
     if not debug:
         return
 

@@ -2,7 +2,7 @@ from __future__ import annotations
 
 import subprocess
 from pathlib import Path
-from typing import Dict
+from typing import Dict, Optional
 
 import click
 import questionary
@@ -32,7 +32,7 @@ def _select_vm(vms: Dict[str, object]) -> str:
     default=None,
     help="Путь к YAML-конфигурации (по умолчанию ~/.config/agsekit/config.yaml или $CONFIG_PATH).",
 )
-def shell_command(vm_name: str | None, config_path: str | None, non_interactive: bool) -> None:
+def shell_command(vm_name: Optional[str], config_path: Optional[str], non_interactive: bool) -> None:
     """Открывает интерактивный shell в Multipass ВМ."""
 
     resolved_path = resolve_config_path(Path(config_path) if config_path else None)

@@ -3,7 +3,7 @@ from __future__ import annotations
 import subprocess
 import uuid
 from pathlib import Path
-from typing import Iterable, List
+from typing import Iterable, List, Optional, Tuple
 
 import click
 
@@ -67,7 +67,7 @@ def _default_vm(agent: AgentConfig, available: Iterable[str]) -> str:
     help="Path to the YAML config (defaults to ~/.config/agsekit/config.yaml or $CONFIG_PATH).",
 )
 def install_agents_command(
-    agent_name: str | None, vm: str | None, all_vms: bool, all_agents: bool, config_path: str | None, non_interactive: bool
+    agent_name: Optional[str], vm: Optional[str], all_vms: bool, all_agents: bool, config_path: Optional[str], non_interactive: bool
 ) -> None:
     """Install configured agents into Multipass VMs."""
 
@@ -105,7 +105,7 @@ def install_agents_command(
             raise click.ClickException(f"VM `{vm}` is not defined in the configuration")
         selected_vms = [vm]
 
-    targets: List[tuple[str, str | None]] = []
+    targets: List[Tuple[str, Optional[str]]] = []
     for name in agent_names:
         agent = find_agent(agents_config, name)
         if all_vms:
