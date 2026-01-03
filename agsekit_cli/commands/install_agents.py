@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 import subprocess
-import subprocess
+import uuid
 from pathlib import Path
 from typing import Iterable, List
 
@@ -24,14 +24,23 @@ def _script_for(agent: AgentConfig) -> Path:
 
 def _run_install_script(vm_name: str, script_path: Path) -> None:
     ensure_multipass_available()
-    with script_path.open("rb") as handle:
+    remote_path = f"/tmp/agsekit-{script_path.stem}-{uuid.uuid4().hex}.sh"
+    transfer_result = subprocess.run(
+        ["multipass", "transfer", str(script_path), f"{vm_name}:{remote_path}"],
+        check=False,
+    )
+    if transfer_result.returncode != 0:
+        raise MultipassError(f"Failed to copy installer {script_path.name} to VM {vm_name}.")
+
+    try:
         result = subprocess.run(
-            ["multipass", "exec", vm_name, "--", "bash", "-s"],
+            ["multipass", "exec", vm_name, "--", "bash", remote_path],
             check=False,
-            stdin=handle,
         )
-    if result.returncode != 0:
-        raise MultipassError(f"Agent installation in VM {vm_name} failed with exit code {result.returncode}.")
+        if result.returncode != 0:
+            raise MultipassError(f"Agent installation in VM {vm_name} failed with exit code {result.returncode}.")
+    finally:
+        subprocess.run(["multipass", "exec", vm_name, "--", "rm", "-f", remote_path], check=False)
 
 
 def _default_vm(agent: AgentConfig, available: Iterable[str]) -> str:

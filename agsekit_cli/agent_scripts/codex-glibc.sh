@@ -8,7 +8,12 @@ sudo apt-get install -y build-essential pkg-config libssl-dev curl git
 
 if ! command -v rustup >/dev/null 2>&1; then
   echo "Installing Rust toolchain via rustup..."
-  curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh -s -- -y
+  RUSTUP_INSTALLER="$(mktemp -t rustup-init-XXXXXX.sh)"
+  echo "Downloading rustup installer to $RUSTUP_INSTALLER ..."
+  curl --proto '=https' --tlsv1.2 -fL https://sh.rustup.rs -o "$RUSTUP_INSTALLER"
+  echo "Running rustup installer in batch mode (-y)..."
+  ( set -x; sh "$RUSTUP_INSTALLER" -y )
+  rm -f "$RUSTUP_INSTALLER"
 fi
 
 if [ -f "$HOME/.cargo/env" ]; then
