@@ -11,7 +11,7 @@ from typing import Dict, Iterable, List, Optional
 
 import yaml
 
-from .config import ConfigError, VmConfig, load_config, load_vms_config
+from .config import ConfigError, PortForwardingRule, VmConfig, load_config, load_vms_config
 
 SIZE_MAP: Dict[str, int] = {
     "": 1,
@@ -245,6 +245,18 @@ def do_launch(vm_config: VmConfig, existing_info: str) -> str:
     if launch_result.returncode != 0:
         raise MultipassError(launch_result.stderr.strip() or "Не удалось создать ВМ")
     return f"ВМ {vm_config.name} создана."
+
+
+def build_port_forwarding_args(rules: Iterable[PortForwardingRule]) -> List[str]:
+    args: List[str] = []
+    for rule in rules:
+        if rule.type == "local":
+            args.extend(["-L", f"{rule.host_addr}:{rule.vm_addr}"])
+        elif rule.type == "remote":
+            args.extend(["-R", f"{rule.host_addr}:{rule.vm_addr}"])
+        elif rule.type == "socks5":
+            args.extend(["-D", rule.vm_addr])
+    return args
 
 
 def _load_vms(path: Optional[str] = None) -> Dict[str, VmConfig]:

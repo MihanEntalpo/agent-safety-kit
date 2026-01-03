@@ -37,7 +37,7 @@ def test_shell_command_uses_explicit_vm(monkeypatch, tmp_path):
     result = runner.invoke(shell_command, ["agent", "--config", str(config_path)])
 
     assert result.exit_code == 0
-    assert calls["command"] == ["multipass", "shell", "agent"]
+    assert calls["command"] == ["multipass", "ssh", "agent"]
 
 
 def test_shell_command_uses_single_vm_when_missing_arg(monkeypatch, tmp_path):
@@ -61,7 +61,7 @@ def test_shell_command_uses_single_vm_when_missing_arg(monkeypatch, tmp_path):
     result = runner.invoke(shell_command, ["--config", str(config_path)])
 
     assert result.exit_code == 0
-    assert captured["command"] == ["multipass", "shell", "default"]
+    assert captured["command"] == ["multipass", "ssh", "default"]
 
 
 def test_shell_command_prompts_for_vm_when_several(monkeypatch, tmp_path):

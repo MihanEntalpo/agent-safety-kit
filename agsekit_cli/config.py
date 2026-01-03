@@ -34,6 +34,7 @@ class VmConfig:
     ram: str
     disk: str
     cloud_init: Dict[str, Any]
+    port_forwarding: List["PortForwardingRule"]
 
 
 @dataclass
@@ -85,6 +86,77 @@ def _validate_size_field(value: Any, field_name: str) -> str:
     raise ConfigError(f"{field_name} must be a non-empty string or number")
 
 
+def _normalize_address(value: Any, field_name: str) -> str:
+    if not isinstance(value, (str, int, float)):
+        raise ConfigError(f"{field_name} must be a host:port string")
+
+    text = str(value).strip()
+    if ":" not in text:
+        raise ConfigError(f"{field_name} must include host and port separated by colon")
+
+    host, port_text = text.rsplit(":", 1)
+    if not host:
+        raise ConfigError(f"{field_name} must include host before port")
+    try:
+        port = int(port_text)
+    except ValueError:
+        raise ConfigError(f"{field_name} must contain a numeric port")
+    if port <= 0 or port > 65535:
+        raise ConfigError(f"{field_name} must contain a valid TCP port")
+
+    return f"{host}:{port}"
+
+
+@dataclass
+class PortForwardingRule:
+    type: str
+    host_addr: Optional[str]
+    vm_addr: str
+
+
+def _normalize_port_forwarding(raw_entry: Any, vm_name: str) -> List[PortForwardingRule]:
+    if raw_entry is None:
+        return []
+    if not isinstance(raw_entry, list):
+        raise ConfigError(f"vms.{vm_name}.port-forwarding must be a list")
+
+    rules: List[PortForwardingRule] = []
+    for index, rule in enumerate(raw_entry):
+        if not isinstance(rule, dict):
+            raise ConfigError(f"vms.{vm_name}.port-forwarding[{index}] must be a mapping")
+
+        raw_type = rule.get("type")
+        if raw_type not in {"local", "remote", "socks5"}:
+            raise ConfigError(
+                f"vms.{vm_name}.port-forwarding[{index}].type must be one of: local, remote, socks5"
+            )
+
+        vm_addr_raw = rule.get("vm-addr")
+        if vm_addr_raw is None:
+            raise ConfigError(f"vms.{vm_name}.port-forwarding[{index}] is missing vm-addr")
+
+        host_addr: Optional[str]
+        if raw_type in {"local", "remote"}:
+            host_addr_raw = rule.get("host-addr")
+            if host_addr_raw is None:
+                raise ConfigError(f"vms.{vm_name}.port-forwarding[{index}] is missing host-addr")
+            host_addr = _normalize_address(host_addr_raw, f"vms.{vm_name}.port-forwarding[{index}].host-addr")
+        else:
+            host_addr = None
+
+        vm_addr = _normalize_address(vm_addr_raw, f"vms.{vm_name}.port-forwarding[{index}].vm-addr")
+
+        rules.append(
+            PortForwardingRule(
+                type=str(raw_type),
+                host_addr=host_addr,
+                vm_addr=vm_addr,
+            )
+        )
+
+    return rules
+
+
 def load_vms_config(config: Dict[str, Any]) -> Dict[str, VmConfig]:
     raw_vms = config.get("vms")
     if not isinstance(raw_vms, dict) or not raw_vms:
@@ -105,6 +177,7 @@ def load_vms_config(config: Dict[str, Any]) -> Dict[str, VmConfig]:
             ram=_validate_size_field(raw_entry.get("ram"), f"vms.{vm_name}.ram"),
             disk=_validate_size_field(raw_entry.get("disk"), f"vms.{vm_name}.disk"),
             cloud_init=raw_entry.get("cloud-init") or {},
+            port_forwarding=_normalize_port_forwarding(raw_entry.get("port-forwarding"), vm_name),
         )
 
     return vms
