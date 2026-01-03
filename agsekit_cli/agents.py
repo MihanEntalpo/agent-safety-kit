@@ -7,9 +7,9 @@ from typing import Dict, Iterable, List, Optional, Sequence, Tuple, Union
 
 import click
 
-from .config import AgentConfig, ConfigError, load_agents_config, load_config, load_mounts_config, load_vms_config, resolve_config_path
+from .config import AgentConfig, ConfigError, VmConfig, load_agents_config, load_config, load_mounts_config, load_vms_config, resolve_config_path
 from .mounts import MountConfig, normalize_path
-from .vm import MultipassError, ensure_multipass_available
+from .vm import MultipassError, build_port_forwarding_args, ensure_multipass_available
 
 
 NVM_LOAD_SNIPPET = (
@@ -109,7 +109,7 @@ def _debug_print(command: Union[Sequence[str], str], debug: bool) -> None:
 
 
 def run_in_vm(
-    vm_name: str,
+    vm: VmConfig,
     workdir: Path,
     agent_command: Sequence[str],
     env_vars: Dict[str, str],
@@ -118,29 +118,22 @@ def run_in_vm(
 ) -> int:
     ensure_multipass_available()
     shell_command = build_shell_command(workdir, agent_command, env_vars)
-    command = [
-        "multipass",
-        "exec",
-        vm_name,
-        "--",
-        "bash",
-        "-lc",
-        shell_command,
-    ]
+    command = ["multipass", "ssh", vm.name, *build_port_forwarding_args(vm.port_forwarding), "--", "bash", "-lc", shell_command]
     _debug_print(command, debug)
     result = subprocess.run(command, check=False)
     return int(result.returncode)
 
 
 def ensure_agent_binary_available(
-    agent_command: Sequence[str], vm_name: str, *, debug: bool = False
+    agent_command: Sequence[str], vm: VmConfig, *, debug: bool = False
 ) -> None:
     ensure_multipass_available()
     binary = agent_command[0]
     command = [
         "multipass",
-        "exec",
-        vm_name,
+        "ssh",
+        vm.name,
+        *build_port_forwarding_args(vm.port_forwarding),
         "--",
         "bash",
         "-lc",
@@ -151,7 +144,7 @@ def ensure_agent_binary_available(
 
     if result.returncode != 0:
         raise MultipassError(
-            f"Agent binary `{binary}` was not found inside VM `{vm_name}`. Did you run ./agsekit install-agents?"
+            f"Agent binary `{binary}` was not found inside VM `{vm.name}`. Did you run ./agsekit install-agents?"
         )
 
 

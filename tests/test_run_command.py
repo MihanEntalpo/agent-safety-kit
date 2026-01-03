@@ -45,9 +45,9 @@ def test_run_command_starts_backup_and_agent(monkeypatch, tmp_path):
 
     calls: Dict[str, object] = {}
 
-    def fake_run_in_vm(vm_name, workdir, command, env_vars, debug=False):
+    def fake_run_in_vm(vm_config, workdir, command, env_vars, debug=False):
         calls.update({
-            "vm": vm_name,
+            "vm": vm_config.name,
             "workdir": workdir,
             "command": command,
             "env": env_vars,
@@ -106,9 +106,9 @@ def test_run_command_sets_proxy_for_non_qwen_agent(monkeypatch, tmp_path):
 
     calls: Dict[str, object] = {}
 
-    def fake_run_in_vm(vm_name, workdir, command, env_vars, debug=False):
+    def fake_run_in_vm(vm_config, workdir, command, env_vars, debug=False):
         calls.update({
-            "vm": vm_name,
+            "vm": vm_config.name,
             "workdir": workdir,
             "command": command,
             "env": env_vars,
@@ -133,7 +133,7 @@ def test_run_command_can_disable_backups(monkeypatch, tmp_path):
     config_path = tmp_path / "config.yaml"
     _write_config(config_path, source)
 
-    def fake_run_in_vm(vm_name, workdir, command, env_vars, debug=False):
+    def fake_run_in_vm(vm_config, workdir, command, env_vars, debug=False):
         return 0
 
     monkeypatch.setattr(run_module, "_has_existing_backup", lambda *_: True)
@@ -171,9 +171,9 @@ def test_run_command_prints_debug_commands(monkeypatch, tmp_path):
         def wait(self, timeout=None):
             return 0
 
-    def fake_run_in_vm(vm_name, workdir, command, env_vars, debug=False):
+    def fake_run_in_vm(vm_config, workdir, command, env_vars, debug=False):
         if debug:
-            click.echo(f"[DEBUG] run_in_vm {vm_name} {workdir}")
+            click.echo(f"[DEBUG] run_in_vm {vm_config.name} {workdir}")
         return 0
 
     def fake_start_backup_process(mount, cli_path, skip_first=False, debug=False):
@@ -181,9 +181,9 @@ def test_run_command_prints_debug_commands(monkeypatch, tmp_path):
             click.echo(f"[DEBUG] start_backup_process {mount.source} -> {mount.backup}")
         return DummyProcess()
 
-    def fake_ensure_agent_binary_available(agent_command, vm_name, debug=False):
+    def fake_ensure_agent_binary_available(agent_command, vm_config, debug=False):
         if debug:
-            click.echo(f"[DEBUG] ensure_agent_binary_available {vm_name}")
+            click.echo(f"[DEBUG] ensure_agent_binary_available {vm_config.name}")
 
     monkeypatch.setattr(run_module, "_has_existing_backup", lambda *_: True)
     monkeypatch.setattr(run_module, "run_in_vm", fake_run_in_vm)

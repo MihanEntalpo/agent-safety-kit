@@ -4,6 +4,15 @@ vms: # параметры виртуальных машин (можно имет
     ram: 4G     # объём оперативной памяти
     disk: 20G   # размер диска
     cloud-init: {} # здесь можно разместить стандартный конфиг cloud-init, но он не обязателен
+    port-forwarding: # проброс портов через multipass ssh при запуске агента и установке
+      - type: remote
+        host-addr: 127.0.0.1:8080
+        vm-addr: 127.0.0.1:80
+      - type: local
+        host-addr: 0.0.0.0:15432
+        vm-addr: 127.0.0.1:5432
+      - type: socks5
+        vm-addr: 127.0.0.1:8088
 mounts:
   - source: /host/path/project            # путь к исходной папке на хосте
     target: /home/ubuntu/project          # точка монтирования внутри ВМ; если не указана, будет /home/ubuntu/<имя_папки_source>

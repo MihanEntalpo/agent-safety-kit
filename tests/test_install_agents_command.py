@@ -35,8 +35,8 @@ def test_install_agents_defaults_to_single_agent(monkeypatch, tmp_path):
 
     calls: list[tuple[str, str]] = []
 
-    def fake_run_install_script(vm_name: str, script_path: Path) -> None:
-        calls.append((vm_name, script_path.name))
+    def fake_run_install_script(vm, script_path: Path) -> None:
+        calls.append((vm.name, script_path.name))
 
     monkeypatch.setattr(install_agents_module, "_run_install_script", fake_run_install_script)
 

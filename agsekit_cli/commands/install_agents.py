@@ -3,13 +3,13 @@ from __future__ import annotations
 import subprocess
 import uuid
 from pathlib import Path
-from typing import Iterable, List, Optional, Tuple
+from typing import Iterable, List, Optional
 
 import click
 
 from ..agents import find_agent
-from ..config import AgentConfig, ConfigError, load_agents_config, load_config, load_vms_config, resolve_config_path
-from ..vm import MultipassError, ensure_multipass_available
+from ..config import AgentConfig, ConfigError, VmConfig, load_agents_config, load_config, load_vms_config, resolve_config_path
+from ..vm import MultipassError, build_port_forwarding_args, ensure_multipass_available
 from . import non_interactive_option
 
 SCRIPTS_DIR = Path(__file__).resolve().parents[1] / "agent_scripts"
@@ -22,25 +22,28 @@ def _script_for(agent: AgentConfig) -> Path:
     return candidate
 
 
-def _run_install_script(vm_name: str, script_path: Path) -> None:
+def _run_install_script(vm: VmConfig, script_path: Path) -> None:
     ensure_multipass_available()
     remote_path = f"/tmp/agsekit-{script_path.stem}-{uuid.uuid4().hex}.sh"
     transfer_result = subprocess.run(
-        ["multipass", "transfer", str(script_path), f"{vm_name}:{remote_path}"],
+        ["multipass", "transfer", str(script_path), f"{vm.name}:{remote_path}"],
         check=False,
     )
     if transfer_result.returncode != 0:
-        raise MultipassError(f"Failed to copy installer {script_path.name} to VM {vm_name}.")
+        raise MultipassError(f"Failed to copy installer {script_path.name} to VM {vm.name}.")
 
     try:
         result = subprocess.run(
-            ["multipass", "exec", vm_name, "--", "bash", remote_path],
+            ["multipass", "ssh", vm.name, *build_port_forwarding_args(vm.port_forwarding), "--", "bash", remote_path],
             check=False,
         )
         if result.returncode != 0:
-            raise MultipassError(f"Agent installation in VM {vm_name} failed with exit code {result.returncode}.")
+            raise MultipassError(f"Agent installation in VM {vm.name} failed with exit code {result.returncode}.")
     finally:
-        subprocess.run(["multipass", "exec", vm_name, "--", "rm", "-f", remote_path], check=False)
+        subprocess.run(
+            ["multipass", "ssh", vm.name, *build_port_forwarding_args(vm.port_forwarding), "--", "rm", "-f", remote_path],
+            check=False,
+        )
 
 
 def _default_vm(agent: AgentConfig, available: Iterable[str]) -> str:
@@ -105,24 +108,24 @@ def install_agents_command(
             raise click.ClickException(f"VM `{vm}` is not defined in the configuration")
         selected_vms = [vm]
 
-    targets: List[Tuple[str, Optional[str]]] = []
+    targets: List[Tuple[str, VmConfig]] = []
     for name in agent_names:
         agent = find_agent(agents_config, name)
         if all_vms:
             for vm_name in vms_config:
-                targets.append((agent.name, vm_name))
+                targets.append((agent.name, vms_config[vm_name]))
         else:
             chosen_vm = selected_vms[0] if vm else _default_vm(agent, vms_config.keys())
             if chosen_vm not in vms_config:
                 raise click.ClickException(f"VM `{chosen_vm}` is not defined in the configuration")
-            targets.append((agent.name, chosen_vm))
+            targets.append((agent.name, vms_config[chosen_vm]))
 
     for target_agent_name, target_vm in targets:
         agent = find_agent(agents_config, target_agent_name)
         script_path = _script_for(agent)
-        click.echo(f"Installing {agent.name} ({agent.type}) into VM {target_vm} using {script_path.name}...")
+        click.echo(f"Installing {agent.name} ({agent.type}) into VM {target_vm.name} using {script_path.name}...")
         try:
             _run_install_script(target_vm, script_path)
         except (MultipassError, ConfigError) as exc:
             raise click.ClickException(str(exc))
-        click.echo(f"Agent {agent.name} ({agent.type}) installed into VM {target_vm}.")
+        click.echo(f"Agent {agent.name} ({agent.type}) installed into VM {target_vm.name}.")

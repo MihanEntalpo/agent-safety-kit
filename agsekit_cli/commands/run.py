@@ -101,6 +101,7 @@ def run_command(
 
     vm_to_use = resolve_vm(agent, mount_entry, vm_name, config)
     ensure_vm_exists(vm_to_use, vms)
+    vm_config = vms[vm_to_use]
 
     env_vars = build_agent_env(agent)
     workdir = mount_entry.target if mount_entry else DEFAULT_WORKDIR
@@ -112,7 +113,7 @@ def run_command(
     )
 
     try:
-        ensure_agent_binary_available(agent_command, vm_to_use, debug=debug)
+        ensure_agent_binary_available(agent_command, vm_config, debug=debug)
     except MultipassError as exc:
         raise click.ClickException(str(exc))
 
@@ -132,7 +133,7 @@ def run_command(
         )
 
     try:
-        exit_code = run_in_vm(vm_to_use, workdir, agent_command, env_vars, debug=debug)
+        exit_code = run_in_vm(vm_config, workdir, agent_command, env_vars, debug=debug)
     except (ConfigError, MultipassError) as exc:
         raise click.ClickException(str(exc))
     finally:
