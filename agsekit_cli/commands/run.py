@@ -1,6 +1,8 @@
 from __future__ import annotations
 
+import shutil
 import subprocess
+import sys
 from pathlib import Path
 from typing import Optional, Sequence
 
@@ -23,8 +25,6 @@ from ..vm import MultipassError
 from ..mounts import MountConfig
 from . import non_interactive_option
 
-ROOT_DIR = Path(__file__).resolve().parents[2]
-CLI_ENTRY = ROOT_DIR / "agsekit"
 DEFAULT_WORKDIR = Path("/home/ubuntu")
 
 
@@ -35,6 +35,22 @@ def _has_existing_backup(dest_dir: Path) -> bool:
         return find_previous_backup(dest_dir) is not None
     except FileNotFoundError:
         return False
+
+
+def _cli_entry_path() -> Path:
+    argv_path = Path(sys.argv[0])
+    if argv_path.name == "agsekit" and argv_path.exists():
+        return argv_path.resolve()
+
+    discovered = shutil.which("agsekit")
+    if discovered:
+        return Path(discovered).resolve()
+
+    repo_entry = Path(__file__).resolve().parents[2] / "agsekit"
+    if repo_entry.exists():
+        return repo_entry
+
+    raise click.ClickException("Не удалось найти исполняемый файл agsekit для запуска бэкапов.")
 
 
 @click.command(name="run", context_settings={"ignore_unknown_options": True})
@@ -112,7 +128,7 @@ def run_command(
             f"Starting background repeated backups for mount {mount_entry.source} -> {mount_entry.backup}."
         )
         backup_process = start_backup_process(
-            mount_entry, CLI_ENTRY, skip_first=skip_first_repeated_backup, debug=debug
+            mount_entry, _cli_entry_path(), skip_first=skip_first_repeated_backup, debug=debug
         )
 
     try:
