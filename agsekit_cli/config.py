@@ -35,6 +35,7 @@ class VmConfig:
     disk: str
     cloud_init: Dict[str, Any]
     port_forwarding: List["PortForwardingRule"]
+    proxypass: Optional[str] = None
 
 
 @dataclass
@@ -157,6 +158,17 @@ def _normalize_port_forwarding(raw_entry: Any, vm_name: str) -> List[PortForward
     return rules
 
 
+def _normalize_proxypass(value: Any, vm_name: str) -> Optional[str]:
+    if value is None:
+        return None
+    if not isinstance(value, str):
+        raise ConfigError(f"vms.{vm_name}.proxypass must be a string")
+    cleaned = value.strip()
+    if not cleaned:
+        return None
+    return cleaned
+
+
 def load_vms_config(config: Dict[str, Any]) -> Dict[str, VmConfig]:
     raw_vms = config.get("vms")
     if not isinstance(raw_vms, dict) or not raw_vms:
@@ -178,6 +190,7 @@ def load_vms_config(config: Dict[str, Any]) -> Dict[str, VmConfig]:
             disk=_validate_size_field(raw_entry.get("disk"), f"vms.{vm_name}.disk"),
             cloud_init=raw_entry.get("cloud-init") or {},
             port_forwarding=_normalize_port_forwarding(raw_entry.get("port-forwarding"), vm_name),
+            proxypass=_normalize_proxypass(raw_entry.get("proxypass"), vm_name),
         )
 
     return vms

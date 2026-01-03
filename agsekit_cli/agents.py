@@ -9,7 +9,7 @@ import click
 
 from .config import AgentConfig, ConfigError, VmConfig, load_agents_config, load_config, load_mounts_config, load_vms_config, resolve_config_path
 from .mounts import MountConfig, normalize_path
-from .vm import MultipassError, build_port_forwarding_args, ensure_multipass_available
+from .vm import MultipassError, build_port_forwarding_args, ensure_multipass_available, resolve_proxypass, wrap_with_proxypass
 
 
 NVM_LOAD_SNIPPET = (
@@ -114,31 +114,40 @@ def run_in_vm(
     agent_command: Sequence[str],
     env_vars: Dict[str, str],
     *,
+    proxypass: Optional[str] = None,
     debug: bool = False,
 ) -> int:
     ensure_multipass_available()
     shell_command = build_shell_command(workdir, agent_command, env_vars)
-    command = ["multipass", "ssh", vm.name, *build_port_forwarding_args(vm.port_forwarding), "--", "bash", "-lc", shell_command]
+    effective_proxypass = resolve_proxypass(vm, proxypass)
+    command = wrap_with_proxypass(
+        ["multipass", "ssh", vm.name, *build_port_forwarding_args(vm.port_forwarding), "--", "bash", "-lc", shell_command],
+        effective_proxypass,
+    )
     _debug_print(command, debug)
     result = subprocess.run(command, check=False)
     return int(result.returncode)
 
 
 def ensure_agent_binary_available(
-    agent_command: Sequence[str], vm: VmConfig, *, debug: bool = False
+    agent_command: Sequence[str], vm: VmConfig, *, proxypass: Optional[str] = None, debug: bool = False
 ) -> None:
     ensure_multipass_available()
     binary = agent_command[0]
-    command = [
-        "multipass",
-        "ssh",
-        vm.name,
-        *build_port_forwarding_args(vm.port_forwarding),
-        "--",
-        "bash",
-        "-lc",
-        f"{NVM_LOAD_SNIPPET} && command -v {shlex.quote(binary)} >/dev/null 2>&1",
-    ]
+    effective_proxypass = resolve_proxypass(vm, proxypass)
+    command = wrap_with_proxypass(
+        [
+            "multipass",
+            "ssh",
+            vm.name,
+            *build_port_forwarding_args(vm.port_forwarding),
+            "--",
+            "bash",
+            "-lc",
+            f"{NVM_LOAD_SNIPPET} && command -v {shlex.quote(binary)} >/dev/null 2>&1",
+        ],
+        effective_proxypass,
+    )
     _debug_print(command, debug)
     result = subprocess.run(command, check=False, capture_output=True, text=True)
 

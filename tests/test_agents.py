@@ -48,3 +48,42 @@ def test_run_in_vm_uses_cd_and_no_workdir_flag(monkeypatch):
     assert args[-1].startswith("export NVM_DIR=")
     assert f"cd {workdir}" in args[-1]
     assert "qwen --flag" in args[-1]
+
+
+def test_run_in_vm_wraps_with_proxypass(monkeypatch):
+    calls = {}
+
+    def fake_run(args, check):
+        calls["args"] = args
+
+        class Result:
+            returncode = 0
+
+        return Result()
+
+    monkeypatch.setattr(agents, "ensure_multipass_available", lambda: None)
+    monkeypatch.setattr(agents.subprocess, "run", fake_run)
+
+    workdir = Path("/home/ubuntu/project")
+    env_vars = {}
+
+    vm_config = VmConfig(
+        name="agent-vm",
+        cpu=2,
+        ram="2G",
+        disk="10G",
+        cloud_init={},
+        port_forwarding=[],
+        proxypass="socks5://127.0.0.1:8080",
+    )
+
+    agents.run_in_vm(vm_config, workdir, ["qwen"], env_vars)
+
+    args = calls["args"]
+    assert args[:2] == ["proxypass4", "socks5://127.0.0.1:8080"]
+    assert args[2:5] == ["--", "multipass", "ssh"]
+
+    calls.clear()
+    agents.run_in_vm(vm_config, workdir, ["qwen"], env_vars, proxypass="")
+    args = calls["args"]
+    assert args[0] == "multipass"
