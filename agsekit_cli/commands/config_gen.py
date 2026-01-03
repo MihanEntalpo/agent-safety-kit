@@ -116,7 +116,7 @@ def _prompt_agents(vm_names: List[str]) -> Dict[str, Dict[str, object]]:
         name = click.prompt("Имя агента", default=f"agent{len(agents) + 1}" if agents else "qwen")
         agent_type = click.prompt(
             "Тип агента",
-            default="qwen-code",
+            default="qwen",
             type=click.Choice(agent_type_choices),
         )
         vm_choice = click.prompt(

@@ -136,7 +136,7 @@ Backups use `rsync` with incremental links (`--link-dest`) to the previous copy:
 * `agsekit install-agents <agent_name> [<vm>|--all-vms] [--config <path>]` — runs the prepared installation script for the chosen agent type inside the specified VM (or the agent's default VM if none is provided). If the config defines only one agent, you can skip `<agent_name>` and it will be picked automatically.
 * `agsekit install-agents --all-agents [--all-vms] [--config <path>]` — installs every configured agent either into their default VM or into every VM when `--all-vms` is set.
 
-The installation scripts live in `agsekit_cli/agent_scripts/` and mirror the standard setup steps for codex-cli, qwen-code, and claude-code. Other agent types are not supported yet.
+The installation scripts live in `agsekit_cli/agent_scripts/`: `codex` installs the npm CLI, `codex-glibc` builds the Rust sources with the glibc target and installs the binary as `codex-glibc`, and `qwen`/`claude-code` follow their upstream steps (the `qwen` script installs the qwen-code CLI). Other agent types are not supported yet.
 
 ### Running agents
 
@@ -168,7 +168,7 @@ mounts:
     vm: agent-ubuntu # VM name; defaults to the first VM in the configuration
 agents:
   qwen: # agent name; add as many as you need
-    type: qwen-code # agent type: qwen-code (uses the `qwen` binary), codex-cli, or claude-code (other types are not supported yet)
+    type: qwen # agent type: qwen (installs and uses the `qwen` binary), codex, codex-glibc (installs the `codex-glibc` binary), or claude-code (other types are not supported yet)
     env: # arbitrary environment variables passed to the agent process
       OPENAI_API_KEY: "my_local_key"
       OPENAI_BASE_URL: "https://127.0.0.1:11556/v1"
@@ -233,7 +233,7 @@ Backups use `rsync` with incremental links (`--link-dest`) to the previous copy:
 * `agsekit install-agents <agent_name> [<vm>|--all-vms] [--config <path>]` — runs the prepared installation script for the chosen agent type inside the specified VM (or the agent's default VM if none is provided). If the config defines only one agent, you can skip `<agent_name>` and it will be picked automatically.
 * `agsekit install-agents --all-agents [--all-vms] [--config <path>]` — installs every configured agent either into their default VM or into every VM when `--all-vms` is set.
 
-The installation scripts live in `agsekit_cli/agent_scripts/` and mirror the standard setup steps for codex-cli, qwen-code, and claude-code. Other agent types are not supported yet.
+The installation scripts live in `agsekit_cli/agent_scripts/`: `codex` installs the npm CLI, `codex-glibc` builds the Rust sources with the glibc target and installs the binary as `codex-glibc`, and `qwen`/`claude-code` follow their upstream steps (the `qwen` script installs the qwen-code CLI). Other agent types are not supported yet.
 
 ### Running agents
 
