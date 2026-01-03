@@ -1,3 +1,0 @@
-click>=8.1,<9
-PyYAML>=6.0,<7
-questionary>=2.0,<3
