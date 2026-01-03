@@ -1,5 +1,6 @@
 import sys
 from pathlib import Path
+from typing import Optional
 
 from click.testing import CliRunner
 
@@ -11,8 +12,11 @@ import agsekit_cli.commands.shell as shell_module
 from agsekit_cli.commands.shell import shell_command
 
 
-def _write_config(config_path: Path, vm_names: list[str]) -> None:
-    entries = "\n".join(f"  {name}:\n    cpu: 1\n    ram: 1G\n    disk: 5G" for name in vm_names)
+def _write_config(config_path: Path, vm_names: list[str], proxypass: Optional[str] = None) -> None:
+    entries = "\n".join(
+        f"  {name}:\n    cpu: 1\n    ram: 1G\n    disk: 5G{f'\n    proxypass: \"{proxypass}\"' if proxypass is not None else ''}"
+        for name in vm_names
+    )
     config_path.write_text(f"vms:\n{entries}\n", encoding="utf-8")
 
 
@@ -102,3 +106,29 @@ def test_shell_command_requires_vm_name_in_non_interactive(monkeypatch, tmp_path
 
     assert result.exit_code != 0
     assert "Укажите имя ВМ" in result.output
+
+
+def test_shell_command_uses_proxypass_from_config(monkeypatch, tmp_path):
+    config_path = tmp_path / "config.yaml"
+    _write_config(config_path, ["agent"], proxypass="socks5://127.0.0.1:8080")
+
+    calls: dict[str, object] = {}
+
+    def fake_run(command, check=False):
+        calls["command"] = command
+
+        class Result:
+            returncode = 0
+
+        return Result()
+
+    monkeypatch.setattr(shell_module, "ensure_multipass_available", lambda: None)
+    monkeypatch.setattr(shell_module.subprocess, "run", fake_run)
+
+    runner = CliRunner()
+    result = runner.invoke(shell_command, ["agent", "--config", str(config_path)])
+
+    assert result.exit_code == 0
+    command = calls["command"]
+    assert command[:2] == ["proxypass4", "socks5://127.0.0.1:8080"]
+    assert command[2:5] == ["--", "multipass", "ssh"]

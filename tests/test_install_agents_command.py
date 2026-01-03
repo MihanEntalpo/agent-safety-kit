@@ -35,8 +35,8 @@ def test_install_agents_defaults_to_single_agent(monkeypatch, tmp_path):
 
     calls: list[tuple[str, str]] = []
 
-    def fake_run_install_script(vm, script_path: Path) -> None:
-        calls.append((vm.name, script_path.name))
+    def fake_run_install_script(vm, script_path: Path, proxypass=None) -> None:
+        calls.append((vm.name, script_path.name, proxypass))
 
     monkeypatch.setattr(install_agents_module, "_run_install_script", fake_run_install_script)
 
@@ -46,6 +46,7 @@ def test_install_agents_defaults_to_single_agent(monkeypatch, tmp_path):
     assert result.exit_code == 0
     assert calls and calls[0][0] == "agent"
     assert calls[0][1] == "qwen.sh"
+    assert calls[0][2] is None
 
 
 def test_install_agents_requires_choice_when_multiple(tmp_path):
@@ -57,3 +58,24 @@ def test_install_agents_requires_choice_when_multiple(tmp_path):
 
     assert result.exit_code != 0
     assert "Provide an agent name" in result.output
+
+
+def test_install_agents_passes_proxypass_override(monkeypatch, tmp_path):
+    config_path = tmp_path / "config.yaml"
+    _write_config(config_path, [("qwen", "qwen")])
+
+    calls: list[tuple[str, str, object]] = []
+
+    def fake_run_install_script(vm, script_path: Path, proxypass=None) -> None:
+        calls.append((vm.name, script_path.name, proxypass))
+
+    monkeypatch.setattr(install_agents_module, "_run_install_script", fake_run_install_script)
+
+    runner = CliRunner()
+    result = runner.invoke(
+        install_agents_command,
+        ["--config", str(config_path), "--proxypass", "socks5://127.0.0.1:8080"],
+    )
+
+    assert result.exit_code == 0
+    assert calls and calls[0][2] == "socks5://127.0.0.1:8080"

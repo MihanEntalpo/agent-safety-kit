@@ -259,6 +259,27 @@ def build_port_forwarding_args(rules: Iterable[PortForwardingRule]) -> List[str]
     return args
 
 
+def wrap_with_proxypass(command: List[str], proxypass: Optional[str]) -> List[str]:
+    if proxypass is None:
+        return command
+
+    proxypass_value = str(proxypass).strip()
+    if not proxypass_value:
+        return command
+
+    return ["proxypass4", proxypass_value, "--", *command]
+
+
+def resolve_proxypass(vm: VmConfig, override: Optional[str]) -> Optional[str]:
+    if override is None:
+        return vm.proxypass
+
+    cleaned = str(override).strip()
+    if not cleaned:
+        return None
+    return cleaned
+
+
 def _load_vms(path: Optional[str] = None) -> Dict[str, VmConfig]:
     config = load_config(Path(path) if path else None)
     return load_vms_config(config)

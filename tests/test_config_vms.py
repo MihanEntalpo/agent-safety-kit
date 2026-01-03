@@ -54,3 +54,51 @@ def test_load_vms_config_validates_port_forwarding_host():
 
     with pytest.raises(ConfigError):
         load_vms_config(config)
+
+
+def test_load_vms_config_accepts_proxypass():
+    config = {
+        "vms": {
+            "agent": {
+                "cpu": 2,
+                "ram": "2G",
+                "disk": "10G",
+                "proxypass": "socks5://127.0.0.1:8080",
+            }
+        }
+    }
+
+    vms = load_vms_config(config)
+    assert vms["agent"].proxypass == "socks5://127.0.0.1:8080"
+
+
+def test_load_vms_config_discards_empty_proxypass():
+    config = {
+        "vms": {
+            "agent": {
+                "cpu": 2,
+                "ram": "2G",
+                "disk": "10G",
+                "proxypass": "   ",
+            }
+        }
+    }
+
+    vms = load_vms_config(config)
+    assert vms["agent"].proxypass is None
+
+
+def test_load_vms_config_rejects_non_string_proxypass():
+    config = {
+        "vms": {
+            "agent": {
+                "cpu": 2,
+                "ram": "2G",
+                "disk": "10G",
+                "proxypass": 123,
+            }
+        }
+    }
+
+    with pytest.raises(ConfigError):
+        load_vms_config(config)
