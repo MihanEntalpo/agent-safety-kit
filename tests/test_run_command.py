@@ -13,7 +13,7 @@ import agsekit_cli.commands.run as run_module
 from agsekit_cli.commands.run import run_command
 
 
-def _write_config(config_path: Path, source: Path, *, agent_type: str = "qwen-code") -> None:
+def _write_config(config_path: Path, source: Path, *, agent_type: str = "qwen") -> None:
     config_path.write_text(
         f"""
 vms:

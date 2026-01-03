@@ -15,7 +15,7 @@ def test_load_agents_config_defaults(tmp_path):
         "vms": {"agent": {"cpu": 1, "ram": "1G", "disk": "5G"}},
         "agents": {
             "qwen": {
-                "type": "qwen-code",
+                "type": "qwen",
                 "env": {"TOKEN": 123},
             }
         },
@@ -38,7 +38,7 @@ def test_load_agents_config_validates_type():
 
 
 def test_load_agents_config_rejects_bad_env():
-    config = {"agents": {"demo": {"type": "qwen-code", "env": "oops"}}}
+    config = {"agents": {"demo": {"type": "qwen", "env": "oops"}}}
 
     with pytest.raises(ConfigError):
         load_agents_config(config)

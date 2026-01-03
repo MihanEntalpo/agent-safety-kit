@@ -11,8 +11,8 @@ CONFIG_ENV_VAR = "CONFIG_PATH"
 DEFAULT_CONFIG_PATH = Path.home() / ".config" / "agsekit" / "config.yaml"
 ALLOWED_AGENT_TYPES = {
     "qwen": "qwen",
-    "qwen-code": "qwen",
     "codex": "codex",
+    "codex-glibc": "codex-glibc",
     "claude": "claude-code",
     "claude-code": "claude-code",
 }
