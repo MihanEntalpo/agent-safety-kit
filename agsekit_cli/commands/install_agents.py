@@ -9,7 +9,7 @@ import click
 
 from ..agents import find_agent
 from ..config import AgentConfig, ConfigError, VmConfig, load_agents_config, load_config, load_vms_config, resolve_config_path
-from ..vm import MultipassError, build_port_forwarding_args, ensure_multipass_available, resolve_proxychains, wrap_with_proxychains
+from ..vm import MultipassError, ensure_multipass_available, resolve_proxychains, wrap_with_proxychains
 from . import non_interactive_option
 
 SCRIPTS_DIR = Path(__file__).resolve().parents[1] / "agent_scripts"
@@ -36,7 +36,7 @@ def _run_install_script(vm: VmConfig, script_path: Path, proxychains: Optional[s
     try:
         result = subprocess.run(
             wrap_with_proxychains(
-                ["multipass", "ssh", vm.name, *build_port_forwarding_args(vm.port_forwarding), "--", "bash", remote_path],
+                ["multipass", "shell", vm.name, "--", "bash", remote_path],
                 effective_proxychains,
             ),
             check=False,
@@ -46,7 +46,7 @@ def _run_install_script(vm: VmConfig, script_path: Path, proxychains: Optional[s
     finally:
         subprocess.run(
             wrap_with_proxychains(
-                ["multipass", "ssh", vm.name, *build_port_forwarding_args(vm.port_forwarding), "--", "rm", "-f", remote_path],
+                ["multipass", "shell", vm.name, "--", "rm", "-f", remote_path],
                 effective_proxychains,
             ),
             check=False,

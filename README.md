@@ -25,7 +25,7 @@ Everyone says "you should have backups" and "everything must live in git", but c
 - The VM is launched via Multipass (a simple Canonical tool to start Ubuntu VMs with a single command).
 - Project folders from the host are mounted into the VM; an automatic backup job runs in parallel to a sibling directory at a configurable interval (defaults to every five minutes and only when changes are detected), using `rsync` with hardlinks to save space.
 - VM, mount, and cloud-init settings are stored in a YAML config.
-- You can run the agent without entering the guest via `multipass ssh`—it still executes inside the VM.
+- You can run the agent without entering the guest via `multipass shell`—it still executes inside the VM.
 - Multipass commands and agent runs can be wrapped in proxychains: set a proxy URL per VM or override it once with `--proxychains` to generate a temporary proxychains config automatically.
 - Per-VM port forwarding is supported (local, remote, SOCKS5), which can be used to expose a proxy from the VM to the host—for example, an SSH dynamic port (`ssh -D`) running inside the VM.
 - All agents can work through a proxychains-defined proxy except the `codex` type; for that case, use `codex-glibc`, which builds the binary inside the VM instead of downloading it.
@@ -90,7 +90,7 @@ Everyone says "you should have backups" and "everything must live in git", but c
 * `agsekit config-gen [--config <path>] [--overwrite]` — interactive wizard that asks about VMs, mounts, and agents, then writes a YAML config to the chosen path (defaults to `~/.config/agsekit/config.yaml`). Without `--overwrite`, the command warns if the file already exists.
 * `agsekit create-vms` — creates every VM defined in the YAML configuration.
 * `agsekit create-vm <name>` — launches just one VM. If the config contains only one VM, you can omit `<name>` and it will be used automatically. If a VM already exists, the command compares the desired resources with the current ones and reports any differences. Changing resources of an existing VM is not supported yet.
-* `agsekit shell [<vm_name>] [--config <path>]` — opens an interactive `multipass ssh` session inside the chosen VM, applying any configured port forwarding. If only
+* `agsekit shell [<vm_name>] [--config <path>]` — opens an interactive `multipass shell` session inside the chosen VM, applying any configured port forwarding. If only
   one VM is defined in the config, the CLI connects there even without `vm_name`. When several VMs exist and the command runs in
   a TTY, the CLI prompts you to pick one; in non-interactive mode, an explicit `vm_name` is required.
 * `agsekit stop <vm_name> [--config <path>]` — stops the specified VM from the configuration. If only one VM is configured, the name can be omitted.
@@ -164,7 +164,7 @@ vms: # VM parameters for Multipass (you can define several)
     disk: 20G   # disk size
     proxychains: "" # optional proxy URL (scheme://host:port); agsekit writes a temporary proxychains.conf and wraps Multipass commands automatically
     cloud-init: {} # place your standard cloud-init config here if needed
-    port-forwarding: # SSH port forwarding applied via multipass ssh when entering the VM
+    port-forwarding: # SSH port forwarding applied during agsekit run/install-agents (via multipass shell)
       - type: remote
         host-addr: 127.0.0.1:8080
         vm-addr: 127.0.0.1:80
@@ -192,7 +192,7 @@ agents:
 
 > **Note:** Prefer ASCII-only paths for both `source` and `target` mount points: AppArmor may refuse to mount directories whose paths contain non-ASCII characters.
 
-If a VM defines `port-forwarding`, the CLI uses `multipass ssh` with the corresponding `-L`, `-R`, and `-D` flags whenever it enters the VM—for example, when installing agents, starting an agent run, or opening a shell. The example above forwards HTTP from the host to the VM, exposes Postgres from the VM to any host interface, and opens a local SOCKS5 proxy on `127.0.0.1:8088`.
+If a VM defines `port-forwarding`, the CLI uses `multipass shell` with the corresponding `-L`, `-R`, and `-D` flags when installing agents or starting an agent run. The example above forwards HTTP from the host to the VM, exposes Postgres from the VM to any host interface, and opens a local SOCKS5 proxy on `127.0.0.1:8088`.
 If you set `proxychains` for a VM (for example, `socks5://127.0.0.1:8080`), agsekit uses the bundled `run_with_proxychains.sh` helper to write a temporary proxychains4 config with that proxy, install `proxychains4` via `sudo apt-get` when missing, and wrap Multipass SSH/transfer calls during agent installation and agent runs. You can override the configured value for a single `run` or `install-agents` command with `--proxychains <scheme://host:port>` or disable it temporarily with `--proxychains ""`. The `shell` command connects directly without proxychains by default.
 
 
@@ -235,7 +235,7 @@ Backups use `rsync` with incremental links (`--link-dest`) to the previous copy:
 
 ### VM shell access
 
-* `agsekit shell [<vm_name>] [--config <path>]` — opens an interactive `multipass ssh` session inside the chosen VM, applying any configured port forwarding. If only
+* `agsekit shell [<vm_name>] [--config <path>]` — opens an interactive `multipass shell` session inside the chosen VM, applying any configured port forwarding. If only
   one VM is defined in the config, the CLI connects there even without `vm_name`. When several VMs exist and the command runs in
   a TTY, the CLI prompts you to pick one; in non-interactive mode, an explicit `vm_name` is required.
 
