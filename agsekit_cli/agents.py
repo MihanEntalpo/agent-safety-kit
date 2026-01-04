@@ -9,7 +9,7 @@ import click
 
 from .config import AgentConfig, ConfigError, VmConfig, load_agents_config, load_config, load_mounts_config, load_vms_config, resolve_config_path
 from .mounts import MountConfig, normalize_path
-from .vm import MultipassError, build_port_forwarding_args, ensure_multipass_available, resolve_proxychains, wrap_with_proxychains
+from .vm import MultipassError, ensure_multipass_available, resolve_proxychains, wrap_with_proxychains
 
 
 NVM_LOAD_SNIPPET = (
@@ -121,7 +121,7 @@ def run_in_vm(
     shell_command = build_shell_command(workdir, agent_command, env_vars)
     effective_proxychains = resolve_proxychains(vm, proxychains)
     command = wrap_with_proxychains(
-        ["multipass", "ssh", vm.name, *build_port_forwarding_args(vm.port_forwarding), "--", "bash", "-lc", shell_command],
+        ["multipass", "shell", vm.name, "--", "bash", "-lc", shell_command],
         effective_proxychains,
     )
     _debug_print(command, debug)
@@ -138,9 +138,8 @@ def ensure_agent_binary_available(
     command = wrap_with_proxychains(
         [
             "multipass",
-            "ssh",
+            "shell",
             vm.name,
-            *build_port_forwarding_args(vm.port_forwarding),
             "--",
             "bash",
             "-lc",

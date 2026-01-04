@@ -42,9 +42,7 @@ def test_run_in_vm_uses_cd_and_no_workdir_flag(monkeypatch):
 
     assert exit_code == 0
     args = calls["args"]
-    assert args[:3] == ["multipass", "ssh", "agent-vm"]
-    assert "-L" in args and "-R" not in args
-    assert "-D" in args
+    assert args[:3] == ["multipass", "shell", "agent-vm"]
     assert args[-1].startswith("export NVM_DIR=")
     assert f"cd {workdir}" in args[-1]
     assert "qwen --flag" in args[-1]
@@ -82,7 +80,7 @@ def test_run_in_vm_wraps_with_proxychains(monkeypatch):
     args = calls["args"]
     runner_script = Path(agents.__file__).resolve().parent / "run_with_proxychains.sh"
     assert args[:4] == ["bash", str(runner_script), "--proxy", "socks5://127.0.0.1:1080"]
-    assert args[4:7] == ["multipass", "ssh", "agent-vm"]
+    assert args[4:7] == ["multipass", "shell", "agent-vm"]
 
     calls.clear()
     agents.run_in_vm(vm_config, workdir, ["qwen"], env_vars, proxychains="")

@@ -9,7 +9,7 @@ import questionary
 
 from ..config import ConfigError, load_config, load_vms_config, resolve_config_path
 from ..interactive import is_interactive_terminal
-from ..vm import MultipassError, build_port_forwarding_args, ensure_multipass_available
+from ..vm import MultipassError, ensure_multipass_available
 from . import non_interactive_option
 
 
@@ -65,7 +65,7 @@ def shell_command(vm_name: Optional[str], config_path: Optional[str], non_intera
     click.echo(f"Opening shell in VM `{target_vm}`...")
     vm_config = vms[target_vm]
 
-    command = ["multipass", "ssh", target_vm, *build_port_forwarding_args(vm_config.port_forwarding)]
+    command = ["multipass", "shell", target_vm]
     result = subprocess.run(command, check=False)
     if result.returncode != 0:
         raise SystemExit(result.returncode)
