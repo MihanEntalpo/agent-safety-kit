@@ -26,6 +26,9 @@ Everyone says "you should have backups" and "everything must live in git", but c
 - Project folders from the host are mounted into the VM; an automatic backup job runs in parallel to a sibling directory at a configurable interval (defaults to every five minutes and only when changes are detected), using `rsync` with hardlinks to save space.
 - VM, mount, and cloud-init settings are stored in a YAML config.
 - You can run the agent without entering the guest via `multipass ssh`—it still executes inside the VM.
+- Multipass commands and agent runs can be wrapped in proxychains: set a proxy URL per VM or override it once with `--proxychains` to generate a temporary proxychains config automatically.
+- Per-VM port forwarding is supported (local, remote, SOCKS5), which can be used to expose a proxy from the VM to the host—for example, an SSH dynamic port (`ssh -D`) running inside the VM.
+- All agents can work through a proxychains-defined proxy except the `codex` type; for that case, use `codex-glibc`, which builds the binary inside the VM instead of downloading it.
 
 ## Quick start
 
@@ -133,14 +136,14 @@ Backups use `rsync` with incremental links (`--link-dest`) to the previous copy:
 
 ### Agent installation
 
-* `agsekit install-agents <agent_name> [<vm>|--all-vms] [--config <path>] [--proxypass <value>]` — runs the prepared installation script for the chosen agent type inside the specified VM (or the agent's default VM if none is provided). If the config defines only one agent, you can skip `<agent_name>` and it will be picked automatically. Use `--proxypass ""` to ignore the VM's proxy for this installation.
-* `agsekit install-agents --all-agents [--all-vms] [--config <path>] [--proxypass <value>]` — installs every configured agent either into their default VM or into every VM when `--all-vms` is set.
+* `agsekit install-agents <agent_name> [<vm>|--all-vms] [--config <path>] [--proxychains <value>]` — runs the prepared installation script for the chosen agent type inside the specified VM (or the agent's default VM if none is provided). If the config defines only one agent, you can skip `<agent_name>` and it will be picked automatically. Use `--proxychains <scheme://host:port>` to override the VM proxy for this installation or `--proxychains ""` to ignore it once.
+* `agsekit install-agents --all-agents [--all-vms] [--config <path>] [--proxychains <value>]` — installs every configured agent either into their default VM or into every VM when `--all-vms` is set.
 
 The installation scripts live in `agsekit_cli/agent_scripts/`: `codex` installs the npm CLI, `codex-glibc` builds the Rust sources with the glibc target and installs the binary as `codex-glibc`, and `qwen`/`claude-code` follow their upstream steps (the `qwen` script installs the qwen-code CLI). Other agent types are not supported yet.
 
 ### Running agents
 
-* `agsekit run <agent_name> [<source_dir>|--vm <vm_name>] [--config <path>] [--proxypass <value>] [--disable-backups] [--debug] -- <agent_args...>` — starts an interactive agent command inside Multipass. Environment variables from the config are passed to the process. If a `source_dir` from the mounts list is provided, the agent starts inside the mounted target path in the matching VM; otherwise it launches in the home directory of the default VM. Unless `--disable-backups` is set, background repeated backups for the selected mount are started for the duration of the run. When no backups exist yet, the CLI first creates an initial snapshot with progress output before launching the agent and then starts the repeated loop with the initial run skipped. With `--debug`, the CLI prints every external command before executing it to help troubleshoot agent launches. Use `--proxypass` to override the VM setting for one run (pass an empty string to disable it).
+* `agsekit run <agent_name> [<source_dir>|--vm <vm_name>] [--config <path>] [--proxychains <value>] [--disable-backups] [--debug] -- <agent_args...>` — starts an interactive agent command inside Multipass. Environment variables from the config are passed to the process. If a `source_dir` from the mounts list is provided, the agent starts inside the mounted target path in the matching VM; otherwise it launches in the home directory of the default VM. Unless `--disable-backups` is set, background repeated backups for the selected mount are started for the duration of the run. When no backups exist yet, the CLI first creates an initial snapshot with progress output before launching the agent and then starts the repeated loop with the initial run skipped. With `--debug`, the CLI prints every external command before executing it to help troubleshoot agent launches. Use `--proxychains <scheme://host:port>` to override the VM setting for one run; pass an empty string to disable it temporarily.
 
 ### Interactive mode
 
@@ -159,7 +162,7 @@ vms: # VM parameters for Multipass (you can define several)
     cpu: 2      # number of vCPUs
     ram: 4G     # RAM size (supports 2G, 4096M, etc.)
     disk: 20G   # disk size
-    proxypass: "" # optional socks5://host:port value to wrap commands in proxypass4
+    proxychains: "" # optional proxy URL (scheme://host:port); agsekit writes a temporary proxychains.conf and wraps Multipass commands automatically
     cloud-init: {} # place your standard cloud-init config here if needed
     port-forwarding: # SSH port forwarding applied via multipass ssh when entering the VM
       - type: remote
@@ -190,7 +193,7 @@ agents:
 > **Note:** Prefer ASCII-only paths for both `source` and `target` mount points: AppArmor may refuse to mount directories whose paths contain non-ASCII characters.
 
 If a VM defines `port-forwarding`, the CLI uses `multipass ssh` with the corresponding `-L`, `-R`, and `-D` flags whenever it enters the VM—for example, when installing agents, starting an agent run, or opening a shell. The example above forwards HTTP from the host to the VM, exposes Postgres from the VM to any host interface, and opens a local SOCKS5 proxy on `127.0.0.1:8088`.
-If you set `proxypass` for a VM (for example, `socks5://127.0.0.1:8080`), agsekit wraps Multipass SSH/transfer calls in `proxypass4` for that VM during agent installation, agent runs, and shells. You can override the configured value for a single `run` or `install-agents` command with `--proxypass <value>` or disable it temporarily with `--proxypass ""`.
+If you set `proxychains` for a VM (for example, `socks5://127.0.0.1:8080`), agsekit uses the bundled `run_with_proxychains.sh` helper to write a temporary proxychains4 config with that proxy, install `proxychains4` via `sudo apt-get` when missing, and wrap Multipass SSH/transfer calls during agent installation and agent runs. You can override the configured value for a single `run` or `install-agents` command with `--proxychains <scheme://host:port>` or disable it temporarily with `--proxychains ""`. The `shell` command connects directly without proxychains by default.
 
 
 ## Backups
@@ -243,14 +246,14 @@ Backups use `rsync` with incremental links (`--link-dest`) to the previous copy:
 
 ### Agent installation
 
-* `agsekit install-agents <agent_name> [<vm>|--all-vms] [--config <path>] [--proxypass <value>]` — runs the prepared installation script for the chosen agent type inside the specified VM (or the agent's default VM if none is provided). If the config defines only one agent, you can skip `<agent_name>` and it will be picked automatically. Use `--proxypass ""` to ignore the VM's proxy for this installation.
-* `agsekit install-agents --all-agents [--all-vms] [--config <path>] [--proxypass <value>]` — installs every configured agent either into their default VM or into every VM when `--all-vms` is set.
+* `agsekit install-agents <agent_name> [<vm>|--all-vms] [--config <path>] [--proxychains <value>]` — runs the prepared installation script for the chosen agent type inside the specified VM (or the agent's default VM if none is provided). If the config defines only one agent, you can skip `<agent_name>` and it will be picked automatically. Use `--proxychains <scheme://host:port>` to override the VM proxy for this installation or `--proxychains ""` to ignore it once.
+* `agsekit install-agents --all-agents [--all-vms] [--config <path>] [--proxychains <value>]` — installs every configured agent either into their default VM or into every VM when `--all-vms` is set.
 
 The installation scripts live in `agsekit_cli/agent_scripts/`: `codex` installs the npm CLI, `codex-glibc` builds the Rust sources with the glibc target and installs the binary as `codex-glibc`, and `qwen`/`claude-code` follow their upstream steps (the `qwen` script installs the qwen-code CLI). Other agent types are not supported yet.
 
 ### Running agents
 
-* `agsekit run <agent_name> [<source_dir>|--vm <vm_name>] [--config <path>] [--proxypass <value>] [--disable-backups] [--debug] -- <agent_args...>` — starts an interactive agent command inside Multipass. Environment variables from the config are passed to the process. If a `source_dir` from the mounts list is provided, the agent starts inside the mounted target path in the matching VM; otherwise it launches in the home directory of the default VM. Unless `--disable-backups` is set, background repeated backups for the selected mount are started for the duration of the run. When no backups exist yet, the CLI first creates an initial snapshot with progress output before launching the agent and then starts the repeated loop with the initial run skipped. With `--debug`, the CLI prints every external command before executing it to help troubleshoot agent launches. Use `--proxypass` to override the VM setting for one run (pass an empty string to disable it).
+* `agsekit run <agent_name> [<source_dir>|--vm <vm_name>] [--config <path>] [--proxychains <value>] [--disable-backups] [--debug] -- <agent_args...>` — starts an interactive agent command inside Multipass. Environment variables from the config are passed to the process. If a `source_dir` from the mounts list is provided, the agent starts inside the mounted target path in the matching VM; otherwise it launches in the home directory of the default VM. Unless `--disable-backups` is set, background repeated backups for the selected mount are started for the duration of the run. When no backups exist yet, the CLI first creates an initial snapshot with progress output before launching the agent and then starts the repeated loop with the initial run skipped. With `--debug`, the CLI prints every external command before executing it to help troubleshoot agent launches. Use `--proxychains <scheme://host:port>` to override the VM setting for one run; pass an empty string to disable it temporarily.
 
 ### Interactive mode
 

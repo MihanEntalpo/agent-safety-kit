@@ -69,10 +69,10 @@ def _cli_entry_path() -> Path:
 @click.option("--disable-backups", is_flag=True, help="Не запускать фоновые бэкапы во время работы агента")
 @click.option("--debug", is_flag=True, help="Выводить запускаемые команды перед их выполнением")
 @click.option(
-    "--proxypass",
+    "--proxychains",
     default=None,
     show_default=False,
-    help="Перекрыть proxypass ВМ для одного запуска (укажите пустую строку, чтобы отключить прокси).",
+    help="Перекрыть прокси (scheme://host:port) из ВМ для одного запуска; пустая строка отключает обёртку.",
 )
 @click.argument("agent_args", nargs=-1, type=click.UNPROCESSED)
 def run_command(
@@ -82,7 +82,7 @@ def run_command(
     config_path: Optional[str],
     disable_backups: bool,
     debug: bool,
-    proxypass: Optional[str],
+    proxychains: Optional[str],
     agent_args: Sequence[str],
     non_interactive: bool,
 ) -> None:
@@ -120,7 +120,7 @@ def run_command(
     )
 
     try:
-        ensure_agent_binary_available(agent_command, vm_config, proxypass=proxypass, debug=debug)
+        ensure_agent_binary_available(agent_command, vm_config, proxychains=proxychains, debug=debug)
     except MultipassError as exc:
         raise click.ClickException(str(exc))
 
@@ -140,7 +140,7 @@ def run_command(
         )
 
     try:
-        exit_code = run_in_vm(vm_config, workdir, agent_command, env_vars, proxypass=proxypass, debug=debug)
+        exit_code = run_in_vm(vm_config, workdir, agent_command, env_vars, proxychains=proxychains, debug=debug)
     except (ConfigError, MultipassError) as exc:
         raise click.ClickException(str(exc))
     finally:

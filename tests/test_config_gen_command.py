@@ -22,7 +22,7 @@ def test_config_gen_creates_config_file(tmp_path):
             "",  # vCPU
             "",  # RAM
             "",  # disk
-            "",  # proxypass
+            "",  # proxychains
             "",  # cloud-init
             "n",  # добавить ещё ВМ
             "",  # подтвердить добавление монтирования
@@ -50,7 +50,7 @@ def test_config_gen_creates_config_file(tmp_path):
     assert vm["ram"] == "4G"
     assert vm["disk"] == "20G"
     assert vm["cloud-init"] == {}
-    assert "proxypass" not in vm
+    assert "proxychains" not in vm
 
     mount = config["mounts"][0]
     assert mount["source"] == str(project_dir)
@@ -71,7 +71,7 @@ def test_config_gen_refuses_to_overwrite(tmp_path):
             "",  # vCPU
             "",  # RAM
             "",  # disk
-            "",  # proxypass
+            "",  # proxychains
             "",  # cloud-init
             "n",  # добавить ещё ВМ
             "n",  # не добавлять монтирования

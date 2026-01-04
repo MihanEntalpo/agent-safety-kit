@@ -50,7 +50,7 @@ def test_run_in_vm_uses_cd_and_no_workdir_flag(monkeypatch):
     assert "qwen --flag" in args[-1]
 
 
-def test_run_in_vm_wraps_with_proxypass(monkeypatch):
+def test_run_in_vm_wraps_with_proxychains(monkeypatch):
     calls = {}
 
     def fake_run(args, check):
@@ -74,16 +74,17 @@ def test_run_in_vm_wraps_with_proxypass(monkeypatch):
         disk="10G",
         cloud_init={},
         port_forwarding=[],
-        proxypass="socks5://127.0.0.1:8080",
+        proxychains="socks5://127.0.0.1:1080",
     )
 
     agents.run_in_vm(vm_config, workdir, ["qwen"], env_vars)
 
     args = calls["args"]
-    assert args[:2] == ["proxypass4", "socks5://127.0.0.1:8080"]
-    assert args[2:5] == ["--", "multipass", "ssh"]
+    runner_script = Path(agents.__file__).resolve().parent / "run_with_proxychains.sh"
+    assert args[:4] == ["bash", str(runner_script), "--proxy", "socks5://127.0.0.1:1080"]
+    assert args[4:7] == ["multipass", "ssh", "agent-vm"]
 
     calls.clear()
-    agents.run_in_vm(vm_config, workdir, ["qwen"], env_vars, proxypass="")
+    agents.run_in_vm(vm_config, workdir, ["qwen"], env_vars, proxychains="")
     args = calls["args"]
     assert args[0] == "multipass"

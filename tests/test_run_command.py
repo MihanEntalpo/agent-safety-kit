@@ -13,8 +13,8 @@ import agsekit_cli.commands.run as run_module
 from agsekit_cli.commands.run import run_command
 
 
-def _write_config(config_path: Path, source: Path, *, agent_type: str = "qwen", vm_proxypass: Optional[str] = None) -> None:
-    proxypass_line = f"    proxypass: {vm_proxypass}\n" if vm_proxypass is not None else ""
+def _write_config(config_path: Path, source: Path, *, agent_type: str = "qwen", vm_proxychains: Optional[str] = None) -> None:
+    proxychains_line = f"    proxychains: {vm_proxychains}\n" if vm_proxychains is not None else ""
     config_path.write_text(
         f"""
 vms:
@@ -22,7 +22,7 @@ vms:
     cpu: 1
     ram: 1G
     disk: 5G
-{proxypass_line if proxypass_line else ''}mounts:
+{proxychains_line if proxychains_line else ''}mounts:
   - source: {source}
     target: /home/ubuntu/project
     vm: agent
@@ -46,13 +46,13 @@ def test_run_command_starts_backup_and_agent(monkeypatch, tmp_path):
 
     calls: Dict[str, object] = {}
 
-    def fake_run_in_vm(vm_config, workdir, command, env_vars, proxypass=None, debug=False):
+    def fake_run_in_vm(vm_config, workdir, command, env_vars, proxychains=None, debug=False):
         calls.update({
             "vm": vm_config.name,
             "workdir": workdir,
             "command": command,
             "env": env_vars,
-            "proxypass": proxypass,
+            "proxychains": proxychains,
         })
         return 0
 
@@ -99,7 +99,7 @@ def test_run_command_starts_backup_and_agent(monkeypatch, tmp_path):
     assert one_off_calls == [(source.resolve(), (source.parent / "backups").resolve(), True)]
     assert backups and backups[0][0] == source.resolve()
     assert backups[0][3] is True
-    assert calls["proxypass"] is None
+    assert calls["proxychains"] is None
 
 
 def test_run_command_sets_proxy_for_non_qwen_agent(monkeypatch, tmp_path):
@@ -109,13 +109,13 @@ def test_run_command_sets_proxy_for_non_qwen_agent(monkeypatch, tmp_path):
 
     calls: Dict[str, object] = {}
 
-    def fake_run_in_vm(vm_config, workdir, command, env_vars, proxypass=None, debug=False):
+    def fake_run_in_vm(vm_config, workdir, command, env_vars, proxychains=None, debug=False):
         calls.update({
             "vm": vm_config.name,
             "workdir": workdir,
             "command": command,
             "env": env_vars,
-            "proxypass": proxypass,
+            "proxychains": proxychains,
         })
         return 0
 
@@ -130,7 +130,7 @@ def test_run_command_sets_proxy_for_non_qwen_agent(monkeypatch, tmp_path):
 
     assert result.exit_code == 0
     assert calls["env"]["ALL_PROXY"].startswith("socks5://10.0.0.2:1234")
-    assert calls["proxypass"] is None
+    assert calls["proxychains"] is None
 
 
 def test_run_command_can_disable_backups(monkeypatch, tmp_path):
@@ -138,7 +138,7 @@ def test_run_command_can_disable_backups(monkeypatch, tmp_path):
     config_path = tmp_path / "config.yaml"
     _write_config(config_path, source)
 
-    def fake_run_in_vm(vm_config, workdir, command, env_vars, proxypass=None, debug=False):
+    def fake_run_in_vm(vm_config, workdir, command, env_vars, proxychains=None, debug=False):
         return 0
 
     monkeypatch.setattr(run_module, "_has_existing_backup", lambda *_: True)
@@ -176,7 +176,7 @@ def test_run_command_prints_debug_commands(monkeypatch, tmp_path):
         def wait(self, timeout=None):
             return 0
 
-    def fake_run_in_vm(vm_config, workdir, command, env_vars, proxypass=None, debug=False):
+    def fake_run_in_vm(vm_config, workdir, command, env_vars, proxychains=None, debug=False):
         if debug:
             click.echo(f"[DEBUG] run_in_vm {vm_config.name} {workdir}")
         return 0
@@ -186,7 +186,7 @@ def test_run_command_prints_debug_commands(monkeypatch, tmp_path):
             click.echo(f"[DEBUG] start_backup_process {mount.source} -> {mount.backup}")
         return DummyProcess()
 
-    def fake_ensure_agent_binary_available(agent_command, vm_config, proxypass=None, debug=False):
+    def fake_ensure_agent_binary_available(agent_command, vm_config, proxychains=None, debug=False):
         if debug:
             click.echo(f"[DEBUG] ensure_agent_binary_available {vm_config.name}")
 
@@ -205,26 +205,26 @@ def test_run_command_prints_debug_commands(monkeypatch, tmp_path):
     assert result.exit_code == 0
 
 
-def test_run_command_passes_proxypass_override(monkeypatch, tmp_path):
+def test_run_command_passes_proxychains_override(monkeypatch, tmp_path):
     source = tmp_path / "project"
     config_path = tmp_path / "config.yaml"
-    _write_config(config_path, source, vm_proxypass="socks5://from-config")
+    _write_config(config_path, source, vm_proxychains="socks5://127.0.0.1:8080")
 
     calls: Dict[str, object] = {}
     checks: Dict[str, object] = {}
 
-    def fake_run_in_vm(vm_config, workdir, command, env_vars, proxypass=None, debug=False):
+    def fake_run_in_vm(vm_config, workdir, command, env_vars, proxychains=None, debug=False):
         calls.update({
             "vm": vm_config.name,
             "workdir": workdir,
             "command": command,
             "env": env_vars,
-            "proxypass": proxypass,
+            "proxychains": proxychains,
         })
         return 0
 
-    def fake_ensure_agent_binary_available(agent_command, vm_config, proxypass=None, debug=False):
-        checks["proxypass"] = proxypass
+    def fake_ensure_agent_binary_available(agent_command, vm_config, proxychains=None, debug=False):
+        checks["proxychains"] = proxychains
 
     monkeypatch.setattr(run_module, "_has_existing_backup", lambda *_: True)
     monkeypatch.setattr(run_module, "run_in_vm", fake_run_in_vm)
@@ -235,19 +235,19 @@ def test_run_command_passes_proxypass_override(monkeypatch, tmp_path):
     runner = CliRunner()
     result = runner.invoke(
         run_command,
-        ["qwen", str(source), "--config", str(config_path), "--proxypass", "socks5://override"],
+        ["qwen", str(source), "--config", str(config_path), "--proxychains", "http://10.0.0.5:3128"],
     )
 
     assert result.exit_code == 0
-    assert calls["proxypass"] == "socks5://override"
-    assert checks["proxypass"] == "socks5://override"
+    assert calls["proxychains"] == "http://10.0.0.5:3128"
+    assert checks["proxychains"] == "http://10.0.0.5:3128"
 
     calls.clear()
     checks.clear()
     result = runner.invoke(
         run_command,
-        ["qwen", str(source), "--config", str(config_path), "--proxypass", ""],
+        ["qwen", str(source), "--config", str(config_path), "--proxychains", ""],
     )
     assert result.exit_code == 0
-    assert calls["proxypass"] == ""
-    assert checks["proxypass"] == ""
+    assert calls["proxychains"] == ""
+    assert checks["proxychains"] == ""

@@ -3,7 +3,7 @@ vms: # параметры виртуальных машин (можно имет
     cpu: 2      # количество vCPU
     ram: 4G     # объём оперативной памяти
     disk: 20G   # размер диска
-    proxypass: "" # при необходимости можно указать socks5://host:port, чтобы оборачивать команды в proxypass4
+    proxychains: "" # укажите адрес прокси (scheme://host:port) — agsekit сам создаст временный proxychains.conf и обернёт команды Multipass
     cloud-init: {} # здесь можно разместить стандартный конфиг cloud-init, но он не обязателен
     port-forwarding: # проброс портов через multipass ssh при запуске агента и установке
       - type: remote

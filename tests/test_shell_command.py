@@ -12,9 +12,9 @@ import agsekit_cli.commands.shell as shell_module
 from agsekit_cli.commands.shell import shell_command
 
 
-def _write_config(config_path: Path, vm_names: list[str], proxypass: Optional[str] = None) -> None:
+def _write_config(config_path: Path, vm_names: list[str], proxychains: Optional[str] = None) -> None:
     entries = "\n".join(
-        f"  {name}:\n    cpu: 1\n    ram: 1G\n    disk: 5G{f'\n    proxypass: \"{proxypass}\"' if proxypass is not None else ''}"
+        f"  {name}:\n    cpu: 1\n    ram: 1G\n    disk: 5G{f'\n    proxychains: \"{proxychains}\"' if proxychains is not None else ''}"
         for name in vm_names
     )
     config_path.write_text(f"vms:\n{entries}\n", encoding="utf-8")
@@ -108,9 +108,9 @@ def test_shell_command_requires_vm_name_in_non_interactive(monkeypatch, tmp_path
     assert "Укажите имя ВМ" in result.output
 
 
-def test_shell_command_uses_proxypass_from_config(monkeypatch, tmp_path):
+def test_shell_command_ignores_proxychains_from_config(monkeypatch, tmp_path):
     config_path = tmp_path / "config.yaml"
-    _write_config(config_path, ["agent"], proxypass="socks5://127.0.0.1:8080")
+    _write_config(config_path, ["agent"], proxychains="socks5://127.0.0.1:8080")
 
     calls: dict[str, object] = {}
 
@@ -129,6 +129,4 @@ def test_shell_command_uses_proxypass_from_config(monkeypatch, tmp_path):
     result = runner.invoke(shell_command, ["agent", "--config", str(config_path)])
 
     assert result.exit_code == 0
-    command = calls["command"]
-    assert command[:2] == ["proxypass4", "socks5://127.0.0.1:8080"]
-    assert command[2:5] == ["--", "multipass", "ssh"]
+    assert calls["command"] == ["multipass", "ssh", "agent"]
