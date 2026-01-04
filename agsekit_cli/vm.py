@@ -259,20 +259,21 @@ def build_port_forwarding_args(rules: Iterable[PortForwardingRule]) -> List[str]
     return args
 
 
-def wrap_with_proxypass(command: List[str], proxypass: Optional[str]) -> List[str]:
-    if proxypass is None:
+def wrap_with_proxychains(command: List[str], proxychains: Optional[str]) -> List[str]:
+    if proxychains is None:
         return command
 
-    proxypass_value = str(proxypass).strip()
-    if not proxypass_value:
+    proxychains_value = str(proxychains).strip()
+    if not proxychains_value:
         return command
 
-    return ["proxypass4", proxypass_value, "--", *command]
+    runner = Path(__file__).resolve().parent / "run_with_proxychains.sh"
+    return ["bash", str(runner), "--proxy", proxychains_value, *command]
 
 
-def resolve_proxypass(vm: VmConfig, override: Optional[str]) -> Optional[str]:
+def resolve_proxychains(vm: VmConfig, override: Optional[str]) -> Optional[str]:
     if override is None:
-        return vm.proxypass
+        return vm.proxychains
 
     cleaned = str(override).strip()
     if not cleaned:

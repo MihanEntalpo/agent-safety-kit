@@ -56,46 +56,62 @@ def test_load_vms_config_validates_port_forwarding_host():
         load_vms_config(config)
 
 
-def test_load_vms_config_accepts_proxypass():
+def test_load_vms_config_accepts_proxychains():
     config = {
         "vms": {
             "agent": {
                 "cpu": 2,
                 "ram": "2G",
                 "disk": "10G",
-                "proxypass": "socks5://127.0.0.1:8080",
+                "proxychains": "SOCKS5://Example.com:8080",
             }
         }
     }
 
     vms = load_vms_config(config)
-    assert vms["agent"].proxypass == "socks5://127.0.0.1:8080"
+    assert vms["agent"].proxychains == "socks5://example.com:8080"
 
 
-def test_load_vms_config_discards_empty_proxypass():
+def test_load_vms_config_discards_empty_proxychains():
     config = {
         "vms": {
             "agent": {
                 "cpu": 2,
                 "ram": "2G",
                 "disk": "10G",
-                "proxypass": "   ",
+                "proxychains": "   ",
             }
         }
     }
 
     vms = load_vms_config(config)
-    assert vms["agent"].proxypass is None
+    assert vms["agent"].proxychains is None
 
 
-def test_load_vms_config_rejects_non_string_proxypass():
+def test_load_vms_config_rejects_non_string_proxychains():
     config = {
         "vms": {
             "agent": {
                 "cpu": 2,
                 "ram": "2G",
                 "disk": "10G",
-                "proxypass": 123,
+                "proxychains": 123,
+            }
+        }
+    }
+
+    with pytest.raises(ConfigError):
+        load_vms_config(config)
+
+
+def test_load_vms_config_rejects_invalid_proxychains_format():
+    config = {
+        "vms": {
+            "agent": {
+                "cpu": 2,
+                "ram": "2G",
+                "disk": "10G",
+                "proxychains": "localhost:8080",
             }
         }
     }

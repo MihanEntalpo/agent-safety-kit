@@ -54,16 +54,16 @@ def _prompt_vms() -> Dict[str, Dict[str, object]]:
         cpu = _prompt_positive_int(f"Сколько vCPU выделить для {name}?", default=2)
         ram = click.prompt("Размер RAM (например, 4G)", default="4G")
         disk = click.prompt("Размер диска (например, 20G)", default="20G")
-        proxypass = click.prompt(
-            "proxypass для Multipass-команд (оставьте пустым, если не нужен)",
+        proxychains = click.prompt(
+            "Адрес прокси для proxychains (формат scheme://host:port, оставьте пустым если не нужен)",
             default="",
             show_default=False,
         ).strip()
         cloud_init = _prompt_cloud_init()
 
         vm_entry: Dict[str, object] = {"cpu": cpu, "ram": ram, "disk": disk, "cloud-init": cloud_init}
-        if proxypass:
-            vm_entry["proxypass"] = proxypass
+        if proxychains:
+            vm_entry["proxychains"] = proxychains
         vms[name] = vm_entry
 
         if not click.confirm("Добавить ещё одну ВМ?", default=False):

@@ -4,6 +4,7 @@ import os
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Any, Dict, List, Optional
+from urllib.parse import urlparse
 
 import yaml
 
@@ -35,7 +36,7 @@ class VmConfig:
     disk: str
     cloud_init: Dict[str, Any]
     port_forwarding: List["PortForwardingRule"]
-    proxypass: Optional[str] = None
+    proxychains: Optional[str] = None
 
 
 @dataclass
@@ -158,15 +159,31 @@ def _normalize_port_forwarding(raw_entry: Any, vm_name: str) -> List[PortForward
     return rules
 
 
-def _normalize_proxypass(value: Any, vm_name: str) -> Optional[str]:
+def _normalize_proxychains(value: Any, vm_name: str) -> Optional[str]:
     if value is None:
         return None
     if not isinstance(value, str):
-        raise ConfigError(f"vms.{vm_name}.proxypass must be a string")
+        raise ConfigError(f"vms.{vm_name}.proxychains must be a string")
     cleaned = value.strip()
     if not cleaned:
         return None
-    return cleaned
+
+    parsed = urlparse(cleaned)
+    if not parsed.scheme or not parsed.hostname or not parsed.port:
+        raise ConfigError(
+            f"vms.{vm_name}.proxychains must be a proxy URL in the form scheme://host:port (e.g. socks5://127.0.0.1:8080)"
+        )
+    if parsed.username or parsed.password or parsed.path not in {"", "/"} or parsed.params or parsed.query or parsed.fragment:
+        raise ConfigError(f"vms.{vm_name}.proxychains must not include credentials, paths, or query parameters")
+
+    scheme = parsed.scheme.lower()
+    allowed_schemes = {"http", "https", "socks4", "socks5"}
+    if scheme not in allowed_schemes:
+        raise ConfigError(
+            f"vms.{vm_name}.proxychains must use one of the supported schemes: {', '.join(sorted(allowed_schemes))}"
+        )
+
+    return f"{scheme}://{parsed.hostname}:{parsed.port}"
 
 
 def load_vms_config(config: Dict[str, Any]) -> Dict[str, VmConfig]:
@@ -190,7 +207,7 @@ def load_vms_config(config: Dict[str, Any]) -> Dict[str, VmConfig]:
             disk=_validate_size_field(raw_entry.get("disk"), f"vms.{vm_name}.disk"),
             cloud_init=raw_entry.get("cloud-init") or {},
             port_forwarding=_normalize_port_forwarding(raw_entry.get("port-forwarding"), vm_name),
-            proxypass=_normalize_proxypass(raw_entry.get("proxypass"), vm_name),
+            proxychains=_normalize_proxychains(raw_entry.get("proxychains"), vm_name),
         )
 
     return vms
