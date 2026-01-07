@@ -314,6 +314,21 @@ def build_shell(session: InteractiveSession) -> List[str]:
     return ["shell", str(vm_name), *session.config_option()]
 
 
+def build_ssh(session: InteractiveSession) -> List[str]:
+    vms = session.load_vms()
+    if not vms:
+        raise click.ClickException("В конфигурации не найдено ВМ.")
+
+    choices = [questionary.Choice(name, value=name) for name in vms]
+    vm_name = _select_from_list("В какую ВМ подключиться по SSH?", choices)
+
+    ssh_args_raw = questionary.text("Дополнительные аргументы ssh (через пробел):", default="").ask()
+    if ssh_args_raw is None:
+        raise click.Abort()
+    ssh_args = shlex.split(ssh_args_raw)
+    return ["ssh", str(vm_name), *session.config_option(), *ssh_args]
+
+
 def build_start_vm(session: InteractiveSession) -> List[str]:
     vms = session.load_vms()
     if not vms:
@@ -360,6 +375,7 @@ def _command_builders() -> Dict[str, CommandBuilder]:
         "mount": build_mount,
         "prepare": build_prepare,
         "shell": build_shell,
+        "ssh": build_ssh,
         "start-vm": build_start_vm,
         "stop-vm": build_stop_vm,
         "run": build_run,
@@ -380,6 +396,7 @@ def _ordered_commands(cli: click.Group) -> List[click.Command]:
         "mount",
         "prepare",
         "shell",
+        "ssh",
         "start-vm",
         "stop-vm",
         "run",
