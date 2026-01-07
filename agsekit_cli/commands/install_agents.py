@@ -1,9 +1,10 @@
 from __future__ import annotations
 
+import shlex
 import subprocess
 import uuid
 from pathlib import Path
-from typing import Iterable, List, Optional
+from typing import Iterable, List, Optional, Tuple
 
 import click
 
@@ -22,35 +23,72 @@ def _script_for(agent: AgentConfig) -> Path:
     return candidate
 
 
+def _format_command(command: List[str]) -> str:
+    return " ".join(shlex.quote(part) for part in command)
+
+
+def _log_failed_command(
+    command: List[str],
+    result: subprocess.CompletedProcess[str],
+    description: str,
+) -> None:
+    click.echo(f"{description} failed with exit code {result.returncode}.", err=True)
+    click.echo(f"Command: {_format_command(command)}", err=True)
+    stdout = result.stdout.strip() if result.stdout else ""
+    stderr = result.stderr.strip() if result.stderr else ""
+    if stdout:
+        click.echo(f"stdout:\n{stdout}", err=True)
+    if stderr:
+        click.echo(f"stderr:\n{stderr}", err=True)
+
+
+def _run_command(
+    command: List[str],
+    description: str,
+    proxychains: Optional[str] = None,
+) -> subprocess.CompletedProcess[str]:
+    full_command = wrap_with_proxychains(command, proxychains)
+    click.echo(f"{description}: {_format_command(full_command)}")
+    return subprocess.run(full_command, check=False, capture_output=True, text=True)
+
+
 def _run_install_script(vm: VmConfig, script_path: Path, proxychains: Optional[str] = None) -> None:
     ensure_multipass_available()
     effective_proxychains = resolve_proxychains(vm, proxychains)
     remote_path = f"/tmp/agsekit-{script_path.stem}-{uuid.uuid4().hex}.sh"
-    transfer_result = subprocess.run(
-        wrap_with_proxychains(["multipass", "transfer", str(script_path), f"{vm.name}:{remote_path}"], effective_proxychains),
-        check=False,
+    click.echo(f"Copying installer {script_path.name} to {vm.name}:{remote_path}.")
+    transfer_result = _run_command(
+        ["multipass", "transfer", str(script_path), f"{vm.name}:{remote_path}"],
+        "Multipass transfer",
+        proxychains=effective_proxychains,
     )
     if transfer_result.returncode != 0:
+        _log_failed_command(
+            ["multipass", "transfer", str(script_path), f"{vm.name}:{remote_path}"],
+            transfer_result,
+            "Multipass transfer",
+        )
         raise MultipassError(f"Failed to copy installer {script_path.name} to VM {vm.name}.")
 
     try:
-        result = subprocess.run(
-            wrap_with_proxychains(
-                ["multipass", "shell", vm.name, "--", "bash", remote_path],
-                effective_proxychains,
-            ),
-            check=False,
+        install_command = ["multipass", "exec", vm.name, "--", "bash", remote_path]
+        result = _run_command(
+            install_command,
+            f"Running installer {script_path.name} in {vm.name}",
+            proxychains=effective_proxychains,
         )
         if result.returncode != 0:
+            _log_failed_command(install_command, result, "Installer execution")
             raise MultipassError(f"Agent installation in VM {vm.name} failed with exit code {result.returncode}.")
     finally:
-        subprocess.run(
-            wrap_with_proxychains(
-                ["multipass", "shell", vm.name, "--", "rm", "-f", remote_path],
-                effective_proxychains,
-            ),
-            check=False,
+        cleanup_command = ["multipass", "exec", vm.name, "--", "rm", "-f", remote_path]
+        cleanup_result = _run_command(
+            cleanup_command,
+            f"Cleaning up installer {script_path.name} from {vm.name}",
+            proxychains=effective_proxychains,
         )
+        if cleanup_result.returncode != 0:
+            _log_failed_command(cleanup_command, cleanup_result, "Installer cleanup")
 
 
 def _default_vm(agent: AgentConfig, available: Iterable[str]) -> str:
