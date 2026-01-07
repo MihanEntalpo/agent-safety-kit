@@ -314,7 +314,24 @@ def build_shell(session: InteractiveSession) -> List[str]:
     return ["shell", str(vm_name), *session.config_option()]
 
 
-def build_stop(session: InteractiveSession) -> List[str]:
+def build_start_vm(session: InteractiveSession) -> List[str]:
+    vms = session.load_vms()
+    if not vms:
+        raise click.ClickException("В конфигурации не найдено ВМ.")
+
+    choices: list[questionary.QuestionChoice] = [questionary.Choice("Все виртуалки", value="__all__")]
+    choices.extend(questionary.Choice(name, value=name) for name in vms)
+    selection = _select_from_list("Какую ВМ запустить?", choices)
+
+    args = ["start-vm", *session.config_option()]
+    if selection == "__all__":
+        args.append("--all-vms")
+    else:
+        args.append(str(selection))
+    return args
+
+
+def build_stop_vm(session: InteractiveSession) -> List[str]:
     vms = session.load_vms()
     if not vms:
         raise click.ClickException("В конфигурации не найдено ВМ.")
@@ -323,7 +340,7 @@ def build_stop(session: InteractiveSession) -> List[str]:
     choices.extend(questionary.Choice(name, value=name) for name in vms)
     selection = _select_from_list("Какую ВМ остановить?", choices)
 
-    args = ["stop", *session.config_option()]
+    args = ["stop-vm", *session.config_option()]
     if selection == "__all__":
         args.append("--all-vms")
     else:
@@ -343,7 +360,8 @@ def _command_builders() -> Dict[str, CommandBuilder]:
         "mount": build_mount,
         "prepare": build_prepare,
         "shell": build_shell,
-        "stop": build_stop,
+        "start-vm": build_start_vm,
+        "stop-vm": build_stop_vm,
         "run": build_run,
         "install-agents": build_install_agents,
         "umount": build_umount,
@@ -362,7 +380,8 @@ def _ordered_commands(cli: click.Group) -> List[click.Command]:
         "mount",
         "prepare",
         "shell",
-        "stop",
+        "start-vm",
+        "stop-vm",
         "run",
         "install-agents",
         "umount",

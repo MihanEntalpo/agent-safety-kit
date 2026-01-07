@@ -91,8 +91,10 @@ Everyone says "you should have backups" and "everything must live in git", but c
 * `agsekit shell [<vm_name>] [--config <path>]` — opens an interactive `multipass shell` session inside the chosen VM, applying any configured port forwarding. If only
   one VM is defined in the config, the CLI connects there even without `vm_name`. When several VMs exist and the command runs in
   a TTY, the CLI prompts you to pick one; in non-interactive mode, an explicit `vm_name` is required.
-* `agsekit stop <vm_name> [--config <path>]` — stops the specified VM from the configuration. If only one VM is configured, the name can be omitted.
-* `agsekit stop --all-vms [--config <path>]` — stops every VM declared in the config file.
+* `agsekit start-vm <vm_name> [--config <path>]` — starts the specified VM from the configuration. If only one VM is configured, the name can be omitted.
+* `agsekit start-vm --all-vms [--config <path>]` — starts every VM declared in the config file.
+* `agsekit stop-vm <vm_name> [--config <path>]` — stops the specified VM from the configuration. If only one VM is configured, the name can be omitted.
+* `agsekit stop-vm --all-vms [--config <path>]` — stops every VM declared in the config file.
 
 ### Mount management
 
@@ -240,8 +242,10 @@ Backups use `rsync` with incremental links (`--link-dest`) to the previous copy:
 
 ### VM lifecycle
 
-* `agsekit stop <vm_name> [--config <path>]` — stops the specified VM from the configuration. If only one VM is configured, the name can be omitted.
-* `agsekit stop --all-vms [--config <path>]` — stops every VM declared in the config file.
+* `agsekit start-vm <vm_name> [--config <path>]` — starts the specified VM from the configuration. If only one VM is configured, the name can be omitted.
+* `agsekit start-vm --all-vms [--config <path>]` — starts every VM declared in the config file.
+* `agsekit stop-vm <vm_name> [--config <path>]` — stops the specified VM from the configuration. If only one VM is configured, the name can be omitted.
+* `agsekit stop-vm --all-vms [--config <path>]` — stops every VM declared in the config file.
 
 ### Agent installation
 
