@@ -91,6 +91,7 @@ Everyone says "you should have backups" and "everything must live in git", but c
 * `agsekit shell [<vm_name>] [--config <path>]` — opens an interactive `multipass shell` session inside the chosen VM, applying any configured port forwarding. If only
   one VM is defined in the config, the CLI connects there even without `vm_name`. When several VMs exist and the command runs in
   a TTY, the CLI prompts you to pick one; in non-interactive mode, an explicit `vm_name` is required.
+* `agsekit ssh <vm_name> [--config <path>] [<ssh_args...>]` — connects to the VM over SSH using `~/.config/agsekit/ssh/id_rsa` and forwards any extra arguments directly to the `ssh` command (for example, `-L`, `-R`, `-N`).
 * `agsekit start-vm <vm_name> [--config <path>]` — starts the specified VM from the configuration. If only one VM is configured, the name can be omitted.
 * `agsekit start-vm --all-vms [--config <path>]` — starts every VM declared in the config file.
 * `agsekit stop-vm <vm_name> [--config <path>]` — stops the specified VM from the configuration. If only one VM is configured, the name can be omitted.
@@ -239,6 +240,7 @@ Backups use `rsync` with incremental links (`--link-dest`) to the previous copy:
 * `agsekit shell [<vm_name>] [--config <path>]` — opens an interactive `multipass shell` session inside the chosen VM, applying any configured port forwarding. If only
   one VM is defined in the config, the CLI connects there even without `vm_name`. When several VMs exist and the command runs in
   a TTY, the CLI prompts you to pick one; in non-interactive mode, an explicit `vm_name` is required.
+* `agsekit ssh <vm_name> [--config <path>] [<ssh_args...>]` — uses the prepared SSH key `~/.config/agsekit/ssh/id_rsa` to connect to the VM and passes any extra arguments to `ssh`, so you can forward ports or run in `-N` mode as needed.
 
 ### VM lifecycle
 

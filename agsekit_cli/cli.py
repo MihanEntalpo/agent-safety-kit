@@ -15,6 +15,7 @@ from .commands.mounts import mount_command, umount_command
 from .commands.prepare import prepare_command
 from .commands.run import run_command
 from .commands.shell import shell_command
+from .commands.ssh import ssh_command
 from .commands.install_agents import install_agents_command
 from .commands.start_vm import start_vm_command
 from .commands.stop import stop_vm_command
@@ -30,6 +31,7 @@ COMMANDS_REQUIRING_CONFIG = {
     "mount",
     "run",
     "shell",
+    "ssh",
     "start-vm",
     "stop-vm",
     "umount",
@@ -78,6 +80,7 @@ def main() -> None:
         stop_vm_command,
         run_command,
         shell_command,
+        ssh_command,
         config_gen_command,
     ):
         cli.add_command(command)
