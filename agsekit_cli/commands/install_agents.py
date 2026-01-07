@@ -46,10 +46,13 @@ def _run_command(
     command: List[str],
     description: str,
     proxychains: Optional[str] = None,
+    capture_output: bool = True,
 ) -> subprocess.CompletedProcess[str]:
     full_command = wrap_with_proxychains(command, proxychains)
     click.echo(f"{description}: {_format_command(full_command)}")
-    return subprocess.run(full_command, check=False, capture_output=True, text=True)
+    if capture_output:
+        return subprocess.run(full_command, check=False, capture_output=True, text=True)
+    return subprocess.run(full_command, check=False, text=True)
 
 
 def _run_install_script(vm: VmConfig, script_path: Path, proxychains: Optional[str] = None) -> None:
@@ -76,6 +79,7 @@ def _run_install_script(vm: VmConfig, script_path: Path, proxychains: Optional[s
             install_command,
             f"Running installer {script_path.name} in {vm.name}",
             proxychains=effective_proxychains,
+            capture_output=False,
         )
         if result.returncode != 0:
             _log_failed_command(install_command, result, "Installer execution")
