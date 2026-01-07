@@ -320,6 +320,39 @@ def test_skips_backup_when_no_changes(tmp_path: Path) -> None:
     assert not any(p.name.endswith("-partial") for p in dest.iterdir())
 
 
+def test_inode_manifest_contains_sorted_entries(tmp_path: Path) -> None:
+    source = tmp_path / "source"
+    dest = tmp_path / "dest"
+    source.mkdir()
+    dest.mkdir()
+
+    (source / "project").mkdir()
+    (source / "project" / "readme.md").write_text("info", encoding="utf-8")
+    (source / "project" / "nested").mkdir()
+    (source / "project" / "nested" / "file.txt").write_text("data", encoding="utf-8")
+
+    run_backup(source, dest)
+
+    snapshots = list_snapshots(dest)
+    assert len(snapshots) == 1
+    snapshot = snapshots[0]
+
+    inode_file = snapshot / ".inodes"
+    assert inode_file.exists()
+
+    recorded_lines = inode_file.read_text(encoding="utf-8").splitlines()
+
+    expected_entries: list[str] = []
+    for dirpath, _dirnames, filenames in os.walk(snapshot):
+        for filename in filenames:
+            file_path = Path(dirpath) / filename
+            rel_path = file_path.relative_to(snapshot).as_posix()
+            inode = file_path.lstat().st_ino
+            expected_entries.append(f"{rel_path} {inode}")
+
+    assert recorded_lines == sorted(expected_entries)
+
+
 def test_logs_cleanup_and_creation(tmp_path: Path) -> None:
     source = tmp_path / "source"
     dest = tmp_path / "dest"
@@ -364,5 +397,4 @@ def test_errors_reported_to_stderr_and_nonzero_exit(tmp_path: Path) -> None:
 
     assert result.returncode != 0
     assert "Source directory does not exist" in (result.stderr or "")
-
 

@@ -73,6 +73,25 @@ def remove_inprogress_dirs(dest_dir: Path) -> None:
             print(f"Removed unfinished snapshot: {entry}")
 
 
+def write_inode_snapshot(snapshot_dir: Path) -> None:
+    inodes_path = snapshot_dir / ".inodes"
+    inodes_path.touch(exist_ok=True)
+
+    entries: List[Tuple[str, int]] = []
+    for dirpath, _dirnames, filenames in os.walk(snapshot_dir):
+        for filename in filenames:
+            file_path = Path(dirpath) / filename
+            rel_path = file_path.relative_to(snapshot_dir).as_posix()
+            inode = file_path.lstat().st_ino
+            entries.append((rel_path, inode))
+
+    entries.sort(key=lambda item: item[0])
+
+    with inodes_path.open("w", encoding="utf-8") as handle:
+        for rel_path, inode in entries:
+            handle.write(f"{rel_path} {inode}\n")
+
+
 def build_rsync_command(
     source_dir: Path,
     destination: Path,
@@ -231,6 +250,7 @@ def backup_once(
 
     inprogress_dir.rename(final_dir)
     print(f"Snapshot created: {final_dir}")
+    write_inode_snapshot(final_dir)
 
 
 def backup_repeated(
