@@ -11,20 +11,20 @@ from ..vm import MultipassError, ensure_multipass_available
 from . import non_interactive_option
 
 
-def _stop_vm(vm_name: str) -> None:
+def _start_vm(vm_name: str) -> None:
     result = subprocess.run(
-        ["multipass", "stop", vm_name], check=False, capture_output=True, text=True
+        ["multipass", "start", vm_name], check=False, capture_output=True, text=True
     )
     if result.returncode != 0:
         stderr = result.stderr.strip() or result.stdout.strip()
         details = f": {stderr}" if stderr else ""
-        raise MultipassError(f"Не удалось остановить ВМ `{vm_name}`{details}")
+        raise MultipassError(f"Не удалось запустить ВМ `{vm_name}`{details}")
 
 
-@click.command(name="stop-vm")
+@click.command(name="start-vm")
 @non_interactive_option
 @click.argument("vm_name", required=False)
-@click.option("--all-vms", is_flag=True, help="Остановить все ВМ из конфигурации")
+@click.option("--all-vms", is_flag=True, help="Запустить все ВМ из конфигурации")
 @click.option(
     "config_path",
     "--config",
@@ -33,8 +33,13 @@ def _stop_vm(vm_name: str) -> None:
     default=None,
     help="Путь к YAML-конфигурации (по умолчанию ~/.config/agsekit/config.yaml или $CONFIG_PATH).",
 )
-def stop_vm_command(vm_name: Optional[str], all_vms: bool, config_path: Optional[str], non_interactive: bool) -> None:
-    """Останавливает одну или все Multipass ВМ."""
+def start_vm_command(
+    vm_name: Optional[str],
+    all_vms: bool,
+    config_path: Optional[str],
+    non_interactive: bool,
+) -> None:
+    """Запускает одну или все Multipass ВМ."""
 
     resolved_path = resolve_config_path(Path(config_path) if config_path else None)
     try:
@@ -67,9 +72,9 @@ def stop_vm_command(vm_name: Optional[str], all_vms: bool, config_path: Optional
         raise click.ClickException(str(exc))
 
     for target in targets:
-        click.echo(f"Останавливается ВМ `{target}`...")
+        click.echo(f"Запускается ВМ `{target}`...")
         try:
-            _stop_vm(target)
+            _start_vm(target)
         except MultipassError as exc:
             raise click.ClickException(str(exc))
-        click.echo(f"ВМ `{target}` остановлена.")
+        click.echo(f"ВМ `{target}` запущена.")

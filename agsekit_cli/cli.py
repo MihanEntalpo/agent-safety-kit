@@ -16,7 +16,8 @@ from .commands.prepare import prepare_command
 from .commands.run import run_command
 from .commands.shell import shell_command
 from .commands.install_agents import install_agents_command
-from .commands.stop import stop_command
+from .commands.start_vm import start_vm_command
+from .commands.stop import stop_vm_command
 from .config import resolve_config_path
 from .interactive import is_interactive_terminal, run_interactive
 
@@ -29,7 +30,8 @@ COMMANDS_REQUIRING_CONFIG = {
     "mount",
     "run",
     "shell",
-    "stop",
+    "start-vm",
+    "stop-vm",
     "umount",
 }
 
@@ -72,7 +74,8 @@ def main() -> None:
         mount_command,
         umount_command,
         install_agents_command,
-        stop_command,
+        start_vm_command,
+        stop_vm_command,
         run_command,
         shell_command,
         config_gen_command,
