@@ -329,6 +329,11 @@ def build_ssh(session: InteractiveSession) -> List[str]:
     return ["ssh", str(vm_name), *session.config_option(), *ssh_args]
 
 
+def build_portforward(session: InteractiveSession) -> List[str]:
+    session.load_vms()
+    return ["portforward", *session.config_option()]
+
+
 def build_start_vm(session: InteractiveSession) -> List[str]:
     vms = session.load_vms()
     if not vms:
@@ -376,6 +381,7 @@ def _command_builders() -> Dict[str, CommandBuilder]:
         "prepare": build_prepare,
         "shell": build_shell,
         "ssh": build_ssh,
+        "portforward": build_portforward,
         "start-vm": build_start_vm,
         "stop-vm": build_stop_vm,
         "run": build_run,
@@ -397,6 +403,7 @@ def _ordered_commands(cli: click.Group) -> List[click.Command]:
         "prepare",
         "shell",
         "ssh",
+        "portforward",
         "start-vm",
         "stop-vm",
         "run",
