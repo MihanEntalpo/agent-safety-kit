@@ -97,6 +97,8 @@ Everyone says "you should have backups" and "everything must live in git", but c
 * `agsekit start-vm --all-vms [--config <path>]` — starts every VM declared in the config file.
 * `agsekit stop-vm <vm_name> [--config <path>]` — stops the specified VM from the configuration. If only one VM is configured, the name can be omitted.
 * `agsekit stop-vm --all-vms [--config <path>]` — stops every VM declared in the config file.
+* `agsekit systemd install [--config <path>]` — writes `~/.config/agsekit/systemd.env` with absolute paths to `agsekit`, the config, and the current project directory, then registers and starts the user unit from `systemd/agsekit-portforward.service` via `systemctl --user` (link, daemon-reload, start, enable).
+* `agsekit systemd uninstall` — stops and disables the user unit, then removes the linked `systemd/agsekit-portforward.service` from systemd via `systemctl --user`.
 
 ### Mount management
 

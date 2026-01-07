@@ -95,6 +95,8 @@
 * `agsekit start-vm --all-vms [--config <path>]` — запускает все ВМ, описанные в конфиге.
 * `agsekit stop-vm <vm_name> [--config <path>]` — останавливает выбранную ВМ из конфигурации. Если в конфиге только одна ВМ, имя можно опустить.
 * `agsekit stop-vm --all-vms [--config <path>]` — останавливает все ВМ, описанные в конфиге.
+* `agsekit systemd install [--config <path>]` — записывает `~/.config/agsekit/systemd.env` с абсолютными путями к `agsekit`, конфигу и текущему каталогу проекта, затем регистрирует и запускает user-юнит из `systemd/agsekit-portforward.service` через `systemctl --user` (link, daemon-reload, start, enable).
+* `agsekit systemd uninstall` — останавливает и отключает user-юнит, затем удаляет ссылку на `systemd/agsekit-portforward.service` из systemd через `systemctl --user`.
 
 ### Управление монтированием
 

@@ -15,6 +15,7 @@ from .commands.mounts import mount_command, umount_command
 from .commands.prepare import prepare_command
 from .commands.run import run_command
 from .commands.shell import shell_command
+from .commands.systemd import systemd_group
 from .commands.ssh import ssh_command
 from .commands.install_agents import install_agents_command
 from .commands.portforward import portforward_command
@@ -85,6 +86,7 @@ def main() -> None:
         ssh_command,
         portforward_command,
         config_gen_command,
+        systemd_group,
     ):
         cli.add_command(command)
 

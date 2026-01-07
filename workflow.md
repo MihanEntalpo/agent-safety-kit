@@ -485,3 +485,16 @@
 ### Решения и заметки
 - Реализована команда `agsekit portforward`, запускающая отдельные `agsekit ssh` процессы для каждого набора правил `port-forwarding`, с перезапуском при завершении и корректным завершением по сигналам.
 - Интерактивное меню и документация в README/README-ru обновлены, чтобы описать новую команду.
+
+## Задача: Добавить команду systemd install для portforward
+### Проблемы и blockers
+- Блокирующих проблем не выявлено.
+### Решения и заметки
+- Добавлена команда `agsekit systemd install`, которая генерирует `~/.config/agsekit/systemd.env`, регистрирует user-юнит `systemd/agsekit-portforward.service` и запускает его через `systemctl --user`.
+- В репозитории добавлен юнит systemd для запуска `agsekit portforward` с использованием переменных окружения.
+
+## Задача: Добавить команду systemd uninstall для portforward
+### Проблемы и blockers
+- Блокирующих проблем не выявлено.
+### Решения и заметки
+- Добавлена команда `agsekit systemd uninstall`, которая останавливает и отключает user-юнит, затем удаляет ссылку на `systemd/agsekit-portforward.service` через `systemctl --user`.

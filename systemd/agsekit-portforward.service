@@ -1,0 +1,14 @@
+[Unit]
+Description=agsekit portforward (user service)
+After=network-online.target
+
+[Service]
+Type=simple
+EnvironmentFile=%h/.config/agsekit/systemd.env
+WorkingDirectory=${AGSEKIT_PROJECT_DIR}
+ExecStart=${AGSEKIT_BIN} portforward --config ${AGSEKIT_CONFIG}
+Restart=always
+RestartSec=2
+
+[Install]
+WantedBy=default.target
