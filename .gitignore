@@ -4,3 +4,8 @@ config.yaml
 venv/
 agsekit_cli/__pycache__/
 agsekit_cli/commands/__pycache__/
+build/
+venv/
+.idea/
+agsekit.egg-info/
+

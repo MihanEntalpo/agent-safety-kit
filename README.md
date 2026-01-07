@@ -27,8 +27,6 @@ Everyone says "you should have backups" and "everything must live in git", but c
 - VM, mount, and cloud-init settings are stored in a YAML config.
 - You can run the agent without entering the guest via `multipass shell`—it still executes inside the VM.
 - Multipass commands and agent runs can be wrapped in proxychains: set a proxy URL per VM or override it once with `--proxychains` to generate a temporary proxychains config automatically.
-- Per-VM port forwarding is supported (local, remote, SOCKS5), which can be used to expose a proxy from the VM to the host—for example, an SSH dynamic port (`ssh -D`) running inside the VM.
-- All agents can work through a proxychains-defined proxy except the `codex` type; for that case, use `codex-glibc`, which builds the binary inside the VM instead of downloading it.
 
 ## Quick start
 
@@ -164,15 +162,15 @@ vms: # VM parameters for Multipass (you can define several)
     disk: 20G   # disk size
     proxychains: "" # optional proxy URL (scheme://host:port); agsekit writes a temporary proxychains.conf and wraps Multipass commands automatically
     cloud-init: {} # place your standard cloud-init config here if needed
-    port-forwarding: # SSH port forwarding applied during agsekit run/install-agents (via multipass shell)
-      - type: remote
+    port-forwarding: # Port forwarding config
+      - type: remote # Open port inside VM and pass connections to Host machine's port
         host-addr: 127.0.0.1:8080
         vm-addr: 127.0.0.1:80
-      - type: local
+      - type: local # Open port on Host manchine, and pass connections to VM's port
         host-addr: 0.0.0.0:15432
         vm-addr: 127.0.0.1:5432
-      - type: socks5
-        vm-addr: 127.0.0.1:8088
+      - type: socks5 # Open socks5-proxy port inside VM, directing traffic to Host machine's network
+        vm-addr: 127.0.0.1:8088        
 mounts:
   - source: /host/path/project            # path to the source folder on the host
     target: /home/ubuntu/project          # mount point inside the VM; defaults to /home/ubuntu/<source_basename>
@@ -185,16 +183,17 @@ agents:
     env: # arbitrary environment variables passed to the agent process
       OPENAI_API_KEY: "my_local_key"
       OPENAI_BASE_URL: "https://127.0.0.1:11556/v1"
-      OPENAI_MODEL: "Qwen/Qwen3-Coder-30B-A3B-Instruct-FP8"
-    socks5_proxy: 10.0.0.2:1234 # optional SOCKS5 proxy for the agent traffic via proxychains
+      OPENAI_MODEL: "Qwen/Qwen3-Coder-30B-A3B-Instruct-FP8"    
     vm: qwen-ubuntu # default VM for this agent; falls back to the mount VM or the first VM in the list
+  codex:
+    type: codex 
+  claude:
+    type: claude-code
+  codex2:
+    type: codex-glibc
 ```
 
 > **Note:** Prefer ASCII-only paths for both `source` and `target` mount points: AppArmor may refuse to mount directories whose paths contain non-ASCII characters.
-
-If a VM defines `port-forwarding`, the CLI uses `multipass shell` with the corresponding `-L`, `-R`, and `-D` flags when installing agents or starting an agent run. The example above forwards HTTP from the host to the VM, exposes Postgres from the VM to any host interface, and opens a local SOCKS5 proxy on `127.0.0.1:8088`.
-If you set `proxychains` for a VM (for example, `socks5://127.0.0.1:8080`), agsekit uses the bundled `run_with_proxychains.sh` helper to write a temporary proxychains4 config with that proxy, install `proxychains4` via `sudo apt-get` when missing, and wrap Multipass SSH/transfer calls during agent installation and agent runs. You can override the configured value for a single `run` or `install-agents` command with `--proxychains <scheme://host:port>` or disable it temporarily with `--proxychains ""`. The `shell` command connects directly without proxychains by default.
-
 
 ## Backups
 
