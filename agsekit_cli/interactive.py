@@ -334,6 +334,10 @@ def build_portforward(session: InteractiveSession) -> List[str]:
     return ["portforward", *session.config_option()]
 
 
+def build_systemd(_: InteractiveSession) -> List[str]:
+    return ["systemd", "install"]
+
+
 def build_start_vm(session: InteractiveSession) -> List[str]:
     vms = session.load_vms()
     if not vms:
@@ -382,6 +386,7 @@ def _command_builders() -> Dict[str, CommandBuilder]:
         "shell": build_shell,
         "ssh": build_ssh,
         "portforward": build_portforward,
+        "systemd": build_systemd,
         "start-vm": build_start_vm,
         "stop-vm": build_stop_vm,
         "run": build_run,
@@ -404,6 +409,7 @@ def _ordered_commands(cli: click.Group) -> List[click.Command]:
         "shell",
         "ssh",
         "portforward",
+        "systemd",
         "start-vm",
         "stop-vm",
         "run",
