@@ -1,5 +1,9 @@
 # Agent-Safety-Kit versions history
 
+## 0.9.2 - CLI localization
+
+* Added ru/en localization for CLI messages
+
 ## 0.9.1 - Destroy VM command
 
 * Added `destroy-vm` for deleting one or all Multipass VMs with confirmation or `-y`
