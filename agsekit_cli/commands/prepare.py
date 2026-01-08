@@ -6,7 +6,7 @@ import shlex
 import shutil
 import subprocess
 from pathlib import Path
-from typing import Dict, Optional, Tuple
+from typing import Dict, List, Optional, Tuple
 
 import click
 
@@ -106,17 +106,7 @@ def _ensure_vm_packages(vm_name: str) -> None:
         raise MultipassError(tr("prepare.install_failed", vm_name=vm_name))
 
 
-def _read_vm_file(vm_name: str, path: str) -> Optional[str]:
-    result = _run_multipass(
-        ["multipass", "exec", vm_name, "--", "bash", "-lc", f"sudo cat {shlex.quote(path)}"],
-        tr("prepare.reading_file", path=path, vm_name=vm_name),
-    )
-    if result.returncode != 0:
-        return None
-    return result.stdout
-
-
-def _ensure_vm_keypair(vm_name: str, private_key: Path, public_key: Path) -> None:
+def _ensure_vm_keypair(vm_name: str, public_key: Path) -> None:
     click.echo(tr("prepare.syncing_keys", vm_name=vm_name))
     prep_command = [
         "multipass",
@@ -131,42 +121,7 @@ def _ensure_vm_keypair(vm_name: str, private_key: Path, public_key: Path) -> Non
     if prep_result.returncode != 0:
         raise MultipassError(tr("prepare.ensure_ssh_dir_failed", vm_name=vm_name))
 
-    desired_private = private_key.read_text(encoding="utf-8")
     desired_public = public_key.read_text(encoding="utf-8")
-
-    current_private = _read_vm_file(vm_name, "/home/ubuntu/.ssh/id_rsa")
-    if current_private != desired_private:
-        click.echo(tr("prepare.updating_private_key", vm_name=vm_name))
-        transfer_result = _run_multipass(
-            ["multipass", "transfer", str(private_key), f"{vm_name}:/home/ubuntu/.ssh/id_rsa"],
-            tr("prepare.transferring_private_key", vm_name=vm_name),
-        )
-        if transfer_result.returncode != 0:
-            raise MultipassError(tr("prepare.transfer_private_failed", vm_name=vm_name))
-
-    current_public = _read_vm_file(vm_name, "/home/ubuntu/.ssh/id_rsa.pub")
-    if current_public != desired_public:
-        click.echo(tr("prepare.updating_public_key", vm_name=vm_name))
-        transfer_result = _run_multipass(
-            ["multipass", "transfer", str(public_key), f"{vm_name}:/home/ubuntu/.ssh/id_rsa.pub"],
-            tr("prepare.transferring_public_key", vm_name=vm_name),
-        )
-        if transfer_result.returncode != 0:
-            raise MultipassError(tr("prepare.transfer_public_failed", vm_name=vm_name))
-
-    permissions_command = [
-        "multipass",
-        "exec",
-        vm_name,
-        "--",
-        "bash",
-        "-lc",
-        "sudo chown ubuntu:ubuntu /home/ubuntu/.ssh/id_rsa /home/ubuntu/.ssh/id_rsa.pub && "
-        "sudo chmod 600 /home/ubuntu/.ssh/id_rsa && sudo chmod 644 /home/ubuntu/.ssh/id_rsa.pub",
-    ]
-    permissions_result = _run_multipass(permissions_command, tr("prepare.setting_permissions", vm_name=vm_name))
-    if permissions_result.returncode != 0:
-        raise MultipassError(tr("prepare.permissions_failed", vm_name=vm_name))
 
     public_key_line = desired_public.strip()
     click.echo(tr("prepare.ensure_authorized_keys", vm_name=vm_name))
@@ -186,6 +141,58 @@ def _ensure_vm_keypair(vm_name: str, private_key: Path, public_key: Path) -> Non
     authorized_result = _run_multipass(authorized_command, tr("prepare.ensure_authorized_keys_command", vm_name=vm_name))
     if authorized_result.returncode != 0:
         raise MultipassError(tr("prepare.authorized_keys_failed", vm_name=vm_name))
+
+
+def _fetch_vm_ips(vm_name: str) -> List[str]:
+    result = _run_multipass(
+        ["multipass", "info", vm_name, "--format", "json"],
+        tr("prepare.fetching_vm_info", vm_name=vm_name),
+    )
+    if result.returncode != 0:
+        raise MultipassError(tr("prepare.vm_info_failed", vm_name=vm_name))
+
+    try:
+        data = json.loads(result.stdout)
+    except json.JSONDecodeError as exc:
+        raise MultipassError(tr("prepare.vm_info_parse_failed", vm_name=vm_name)) from exc
+
+    info = data.get("info", {}) if isinstance(data, dict) else {}
+    vm_info = info.get(vm_name, {}) if isinstance(info, dict) else {}
+    ipv4 = vm_info.get("ipv4") or vm_info.get("IPv4") or []
+    if isinstance(ipv4, str):
+        return [ipv4] if ipv4 else []
+    if isinstance(ipv4, list):
+        return [item for item in ipv4 if isinstance(item, str) and item]
+    return []
+
+
+def _ensure_known_host(host: str) -> None:
+    ssh_dir = Path.home() / ".ssh"
+    ssh_dir.mkdir(parents=True, exist_ok=True)
+    known_hosts = ssh_dir / "known_hosts"
+
+    if known_hosts.exists():
+        check = subprocess.run(
+            ["ssh-keygen", "-F", host, "-f", str(known_hosts)],
+            check=False,
+            capture_output=True,
+            text=True,
+        )
+        if check.returncode == 0:
+            return
+
+    scan = subprocess.run(
+        ["ssh-keyscan", "-H", host],
+        check=False,
+        capture_output=True,
+        text=True,
+    )
+    if scan.returncode != 0 or not scan.stdout.strip():
+        raise MultipassError(tr("prepare.known_hosts_failed", host=host))
+
+    with known_hosts.open("a", encoding="utf-8") as handle:
+        handle.write(scan.stdout)
+    os.chmod(known_hosts, 0o644)
 
 
 def _existing_vm_names() -> set[str]:
@@ -217,7 +224,7 @@ def _prepare_vms(config_path: Optional[str]) -> None:
         return
 
     click.echo(tr("prepare.ensure_keypair"))
-    private_key, public_key = _ensure_host_ssh_keypair()
+    _private_key, public_key = _ensure_host_ssh_keypair()
 
     for vm in vms_config.values():
         if vm.name not in existing_vms:
@@ -227,7 +234,10 @@ def _prepare_vms(config_path: Optional[str]) -> None:
         click.echo(tr("prepare.preparing_vm", vm_name=vm.name))
         _run_multipass(["multipass", "start", vm.name], tr("prepare.starting_vm", vm_name=vm.name))
         _ensure_vm_packages(vm.name)
-        _ensure_vm_keypair(vm.name, private_key, public_key)
+        _ensure_vm_keypair(vm.name, public_key)
+        click.echo(tr("prepare.ensure_known_hosts", vm_name=vm.name))
+        for host in _fetch_vm_ips(vm.name):
+            _ensure_known_host(host)
         click.echo(tr("prepare.prepared_vm", vm_name=vm.name))
 
 
