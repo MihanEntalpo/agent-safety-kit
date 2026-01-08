@@ -157,7 +157,13 @@ fi
 
 echo "Compiling codex for target ${HOST_TARGET}..."
 echo "Using Cargo manifest at ${MANIFEST_PATH}."
-export CARGO_TARGET_DIR="$BUILD_ROOT/target"
+CARGO_CACHE_ROOT="${HOME}/.tmp/build-codex-glibc"
+export CARGO_TARGET_DIR="${CARGO_CACHE_ROOT}/target"
+mkdir -p "$CARGO_TARGET_DIR"
+export CARGO_BUILD_JOBS=1
+export CARGO_PROFILE_RELEASE_LTO=off
+export CARGO_PROFILE_RELEASE_CODEGEN_UNITS=1
+export CARGO_PROFILE_RELEASE_DEBUG=false
 run_with_proxychains cargo build --release --target "$HOST_TARGET" --manifest-path "$MANIFEST_PATH"
 
 BUILT_BINARY="$CARGO_TARGET_DIR/$HOST_TARGET/release/codex"
