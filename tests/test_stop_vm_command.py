@@ -95,6 +95,7 @@ def test_stop_all_vms(monkeypatch, tmp_path):
 
 
 def test_stop_requires_vm_name_when_multiple(monkeypatch, tmp_path):
+    monkeypatch.setenv("AGSEKIT_LANG", "ru")
     config_path = tmp_path / "config.yaml"
     _write_config(config_path, ["first", "second"])
 

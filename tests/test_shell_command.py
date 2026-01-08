@@ -95,6 +95,7 @@ def test_shell_command_prompts_for_vm_when_several(monkeypatch, tmp_path):
 
 
 def test_shell_command_requires_vm_name_in_non_interactive(monkeypatch, tmp_path):
+    monkeypatch.setenv("AGSEKIT_LANG", "ru")
     config_path = tmp_path / "config.yaml"
     _write_config(config_path, ["vm1", "vm2"])
 

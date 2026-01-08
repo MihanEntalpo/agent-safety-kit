@@ -12,6 +12,7 @@ from typing import Dict, Iterable, List, Optional
 import yaml
 
 from .config import ConfigError, PortForwardingRule, VmConfig, load_config, load_vms_config
+from .i18n import tr
 
 SIZE_MAP: Dict[str, int] = {
     "": 1,
@@ -96,7 +97,7 @@ def compare_vm(raw_info: str, name: str, expected_cpus: str, expected_mem_raw: s
 
 def ensure_multipass_available() -> None:
     if shutil.which("multipass") is None:
-        raise MultipassError("Multipass не установлен. Сначала запустите ./agsekit prepare.")
+        raise MultipassError(tr("vm.multipass_missing"))
 
 
 def fetch_existing_info() -> str:
@@ -107,14 +108,14 @@ def fetch_existing_info() -> str:
         "json",
     ], check=False, capture_output=True, text=True)
     if result.returncode != 0:
-        raise MultipassError(result.stderr.strip() or "Не удалось получить список ВМ multipass")
+        raise MultipassError(result.stderr.strip() or tr("vm.list_failed"))
     return result.stdout
 
 
 def _system_cpu_count() -> int:
     cpu_count = os.cpu_count()
     if cpu_count is None:
-        raise MultipassError("Не удалось определить количество CPU в системе")
+        raise MultipassError(tr("vm.cpu_count_failed"))
     return cpu_count
 
 
@@ -124,7 +125,7 @@ def _system_memory_bytes() -> int:
         page_count = os.sysconf("SC_PHYS_PAGES")  # type: ignore[arg-type]
         return int(page_size) * int(page_count)
     except (AttributeError, ValueError, OSError):
-        raise MultipassError("Не удалось определить объем оперативной памяти системы")
+        raise MultipassError(tr("vm.memory_total_failed"))
 
 
 def _sum_existing_allocations(raw_info: str) -> tuple[int, int]:
@@ -157,7 +158,7 @@ def _planned_resources(vms: Iterable[VmConfig]) -> tuple[int, int]:
         cpus += vm.cpu
         mem_bytes = to_bytes(vm.ram)
         if mem_bytes is None:
-            raise ConfigError(f"Не удалось разобрать объем памяти для ВМ {vm.name}: {vm.ram}")
+            raise ConfigError(tr("vm.memory_parse_failed", vm_name=vm.name, ram=vm.ram))
         mem += mem_bytes
     return cpus, mem
 
@@ -173,9 +174,24 @@ def ensure_resources_available(existing_info: str, planned: Iterable[VmConfig]) 
     remaining_mem = total_mem - existing_mem - planned_mem
 
     if remaining_cpus < 1 or remaining_mem < 1024 ** 3:
-        raise MultipassError(
-            "Недостаточно ресурсов для создания ВМ: после выделения должно оставаться минимум 1 CPU и 1 ГБ RAM."
-        )
+        raise MultipassError(tr("vm.insufficient_resources"))
+
+
+def _format_mismatch_details(details: str) -> str:
+    if not details:
+        return ""
+    mapping = {
+        "cpus": tr("vm.mismatch_cpus"),
+        "memory": tr("vm.mismatch_memory"),
+        "disk": tr("vm.mismatch_disk"),
+    }
+    items = []
+    for chunk in details.split(";"):
+        chunk = chunk.strip()
+        if not chunk:
+            continue
+        items.append(mapping.get(chunk, chunk))
+    return ", ".join(items)
 
 
 def _dump_cloud_init(data: Dict[str, object]) -> Optional[Path]:
@@ -222,14 +238,12 @@ def do_launch(vm_config: VmConfig, existing_info: str) -> str:
 
     status, _, details = comparison_result.partition(" ")
     if status == "mismatch":
-        readable = details.replace(";", ", ").replace("cpus", "CPU").replace("memory", "память").replace("disk", "диск")
-        raise MultipassError(
-            f"ВМ {vm_config.name} уже существует, но изменение ее параметров пока не поддерживается. Несовпадающие параметры: {readable}."
-        )
+        readable = _format_mismatch_details(details)
+        raise MultipassError(tr("vm.mismatch_not_supported", vm_name=vm_config.name, details=readable))
     if status == "match":
-        return f"ВМ {vm_config.name} уже существует и соответствует заданным параметрам."
+        return tr("vm.already_matches", vm_name=vm_config.name)
     if status != "absent":
-        raise MultipassError(f"Не удалось определить состояние ВМ {vm_config.name}. Получен ответ: {comparison_result}")
+        raise MultipassError(tr("vm.status_unknown", vm_name=vm_config.name, response=comparison_result))
 
     cloud_init_path = _dump_cloud_init(vm_config.cloud_init)
     try:
@@ -243,8 +257,8 @@ def do_launch(vm_config: VmConfig, existing_info: str) -> str:
                 pass
 
     if launch_result.returncode != 0:
-        raise MultipassError(launch_result.stderr.strip() or "Не удалось создать ВМ")
-    return f"ВМ {vm_config.name} создана."
+        raise MultipassError(launch_result.stderr.strip() or tr("vm.create_failed"))
+    return tr("vm.created", vm_name=vm_config.name)
 
 
 def build_port_forwarding_args(rules: Iterable[PortForwardingRule]) -> List[str]:
@@ -289,7 +303,7 @@ def _load_vms(path: Optional[str] = None) -> Dict[str, VmConfig]:
 def create_vm_from_config(path: Optional[str], vm_name: str) -> str:
     vms = _load_vms(path)
     if vm_name not in vms:
-        raise ConfigError(f"В конфигурации нет ВМ с именем {vm_name}")
+        raise ConfigError(tr("vm.missing_in_config", vm_name=vm_name))
 
     ensure_multipass_available()
     existing_info = fetch_existing_info()
@@ -298,14 +312,12 @@ def create_vm_from_config(path: Optional[str], vm_name: str) -> str:
     comparison = compare_vm(existing_info, target_vm.name, str(target_vm.cpu), target_vm.ram, target_vm.disk)
     status, _, details = comparison.partition(" ")
     if status == "mismatch":
-        readable = details.replace(";", ", ").replace("cpus", "CPU").replace("memory", "память").replace("disk", "диск")
-        raise MultipassError(
-            f"ВМ {target_vm.name} уже существует, но изменение ее параметров пока не поддерживается. Несовпадающие параметры: {readable}."
-        )
+        readable = _format_mismatch_details(details)
+        raise MultipassError(tr("vm.mismatch_not_supported", vm_name=target_vm.name, details=readable))
     if status == "match":
-        return f"ВМ {target_vm.name} уже существует и соответствует заданным параметрам."
+        return tr("vm.already_matches", vm_name=target_vm.name)
     if status != "absent":
-        raise MultipassError(f"Не удалось определить состояние ВМ {target_vm.name}. Получен ответ: {comparison}")
+        raise MultipassError(tr("vm.status_unknown", vm_name=target_vm.name, response=comparison))
 
     ensure_resources_available(existing_info, [target_vm])
 
@@ -325,15 +337,13 @@ def create_all_vms_from_config(path: Optional[str]) -> List[str]:
         comparison = compare_vm(existing_info, vm.name, str(vm.cpu), vm.ram, vm.disk)
         status, _, details = comparison.partition(" ")
         if status == "mismatch":
-            readable = details.replace(";", ", ").replace("cpus", "CPU").replace("memory", "память").replace("disk", "диск")
-            raise MultipassError(
-                f"ВМ {vm.name} уже существует, но изменение ее параметров пока не поддерживается. Несовпадающие параметры: {readable}."
-            )
+            readable = _format_mismatch_details(details)
+            raise MultipassError(tr("vm.mismatch_not_supported", vm_name=vm.name, details=readable))
         statuses[vm.name] = status
         if status == "absent":
             planned.append(vm)
         elif status not in {"match", "mismatch"}:
-            raise MultipassError(f"Не удалось определить состояние ВМ {vm.name}. Получен ответ: {comparison}")
+            raise MultipassError(tr("vm.status_unknown", vm_name=vm.name, response=comparison))
 
     if planned:
         ensure_resources_available(existing_info, planned)
@@ -344,6 +354,6 @@ def create_all_vms_from_config(path: Optional[str]) -> List[str]:
         existing_info = fetch_existing_info()
     for name, status in statuses.items():
         if status == "match":
-            messages.append(f"ВМ {name} уже существует и соответствует заданным параметрам.")
+            messages.append(tr("vm.already_matches", vm_name=name))
 
     return messages

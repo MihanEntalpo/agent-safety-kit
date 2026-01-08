@@ -23,6 +23,7 @@ from .commands.start_vm import start_vm_command
 from .commands.stop import stop_vm_command
 from .commands.destroy_vm import destroy_vm_command
 from .config import resolve_config_path
+from .i18n import set_language, tr
 from .interactive import is_interactive_terminal, run_interactive
 
 COMMANDS_REQUIRING_CONFIG = {
@@ -63,13 +64,16 @@ def _extract_config_argument(args: Sequence[str]) -> Optional[Path]:
     return None
 
 
-@click.group()
+@click.group(help=tr("cli.description"))
 @non_interactive_option
 def cli(non_interactive: bool) -> None:
     """Agent Safety Kit CLI."""
+    # not used parameter, explicitly removing it so IDEs/linters do not complain
+    del non_interactive
 
 
 def main() -> None:
+    set_language()
     for command in (
         prepare_command,
         create_vm_command,
@@ -113,8 +117,7 @@ def main() -> None:
 
         if command in COMMANDS_REQUIRING_CONFIG and not resolved_config_path.exists():
             click.echo(
-                "Конфигурация не найдена (проверены --config, $CONFIG_PATH и ~/.config/agsekit/config.yaml).\n"
-                "Запускается интерактивный режим: укажите путь через --config."
+                tr("cli.config_missing_interactive")
             )
             try:
                 run_interactive(cli, preselected_command=command, default_config_path=resolved_config_path)
@@ -129,7 +132,7 @@ def main() -> None:
             cli.main(args=args, prog_name="agsekit", standalone_mode=False)
             return
         except click.MissingParameter:
-            click.echo("Недостаточно параметров: запускается интерактивный режим...")
+            click.echo(tr("cli.missing_params_interactive"))
             try:
                 run_interactive(cli, preselected_command=args[0] if args else None)
             except click.ClickException as exc:

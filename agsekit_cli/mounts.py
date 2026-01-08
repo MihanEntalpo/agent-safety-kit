@@ -5,6 +5,7 @@ from pathlib import Path
 from typing import Iterable, List, Optional, Union
 
 from .config import MountConfig, load_config, load_mounts_config, resolve_config_path
+from .i18n import tr
 from .vm import MultipassError, ensure_multipass_available
 
 
@@ -37,12 +38,12 @@ def _run_multipass(command: list[str], error_message: str) -> None:
 def mount_directory(mount: MountConfig) -> None:
     _run_multipass(
         ["multipass", "mount", str(mount.source), f"{mount.vm_name}:{mount.target}"],
-        f"Не удалось смонтировать {mount.source} в {mount.vm_name}:{mount.target}",
+        tr("mounts.mount_failed", source=mount.source, vm_name=mount.vm_name, target=mount.target),
     )
 
 
 def umount_directory(mount: MountConfig) -> None:
     _run_multipass(
         ["multipass", "umount", f"{mount.vm_name}:{mount.target}"],
-        f"Не удалось отмонтировать {mount.vm_name}:{mount.target}",
+        tr("mounts.umount_failed", vm_name=mount.vm_name, target=mount.target),
     )

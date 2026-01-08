@@ -9,6 +9,8 @@ from datetime import datetime
 from pathlib import Path
 from typing import Callable, Iterable, List, Optional, Tuple
 
+from .i18n import tr
+
 FilterRule = Tuple[str, str]
 
 
@@ -70,7 +72,7 @@ def remove_inprogress_dirs(dest_dir: Path) -> None:
     for entry in dest_dir.iterdir():
         if entry.is_dir() and (entry.name.endswith("-inprogress") or entry.name.endswith("-partial")):
             shutil.rmtree(entry)
-            print(f"Removed unfinished snapshot: {entry}")
+            print(tr("backup.removed_unfinished_snapshot", path=entry))
 
 
 def write_inode_snapshot(snapshot_dir: Path) -> None:
@@ -130,7 +132,7 @@ def _render_progress_bar(percent: int) -> None:
     bar_width = 30
     filled = int(bar_width * percent / 100)
     bar = "#" * filled + "-" * (bar_width - filled)
-    print(f"\rProgress: [{bar}] {percent}%", end="", flush=True)
+    print(tr("backup.progress_bar", bar=bar, percent=percent), end="", flush=True)
 
 
 def _run_rsync(command: List[str], *, show_progress: bool) -> subprocess.CompletedProcess[str]:
@@ -178,7 +180,7 @@ def dry_run_has_changes(command: List[str]) -> bool:
         if result.stderr:
             print(result.stderr, file=sys.stderr, end="" if result.stderr.endswith("\n") else "\n")
         else:
-            print("rsync dry-run failed", file=sys.stderr)
+            print(tr("backup.rsync_dry_run_failed"), file=sys.stderr)
         raise SystemExit(result.returncode)
 
     noisy_prefixes = (
@@ -203,7 +205,7 @@ def backup_once(
     dest_dir = dest_dir.expanduser().resolve()
 
     if not source_dir.is_dir():
-        print(f"Source directory does not exist: {source_dir}", file=sys.stderr)
+        print(tr("backup.source_dir_missing", path=source_dir), file=sys.stderr)
         raise SystemExit(1)
 
     dest_dir.mkdir(parents=True, exist_ok=True)
@@ -228,7 +230,7 @@ def backup_once(
         )
 
         if not dry_run_has_changes(change_check_command):
-            print("No changes detected since last backup; skipping new snapshot.")
+            print(tr("backup.no_changes_detected"))
             return
 
     inprogress_dir = dest_dir / f"{timestamp}-partial"
@@ -239,17 +241,17 @@ def backup_once(
     extra_flags = ["--progress", "--info=progress2"] if show_progress else None
     command = build_rsync_command(source_dir, inprogress_dir, previous_backup, rules, extra_flags=extra_flags)
 
-    print(f"Running rsync to create snapshot: {inprogress_dir}")
+    print(tr("backup.rsync_running", path=inprogress_dir))
     result = _run_rsync(command, show_progress=show_progress)
     if result.returncode != 0:
         if result.stderr:
             print(result.stderr, file=sys.stderr, end="" if result.stderr.endswith("\n") else "\n")
         else:
-            print("rsync failed", file=sys.stderr)
+            print(tr("backup.rsync_failed"), file=sys.stderr)
         raise SystemExit(result.returncode)
 
     inprogress_dir.rename(final_dir)
-    print(f"Snapshot created: {final_dir}")
+    print(tr("backup.snapshot_created", path=final_dir))
     write_inode_snapshot(final_dir)
 
 
@@ -271,7 +273,7 @@ def backup_repeated(
     """
 
     if interval_minutes <= 0:
-        raise ValueError("Interval must be greater than zero minutes")
+        raise ValueError(tr("backup.interval_positive_required"))
 
     runs_completed = 0
     first_cycle = True
@@ -284,7 +286,7 @@ def backup_repeated(
         backup_once(source_dir, dest_dir, extra_excludes=extra_excludes)
         first_cycle = False
         runs_completed += 1
-        print(f"Done, waiting {interval_minutes} minutes")
+        print(tr("backup.waiting_minutes", minutes=interval_minutes))
 
         if max_runs is not None and runs_completed >= max_runs:
             return

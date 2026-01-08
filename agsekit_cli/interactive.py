@@ -17,6 +17,7 @@ from .config import (
     load_vms_config,
     resolve_config_path,
 )
+from .i18n import tr
 from .mounts import MountConfig
 
 CommandBuilder = Callable[["InteractiveSession"], List[str]]
@@ -33,7 +34,7 @@ class InteractiveSession:
 
     def _prompt_config_path(self) -> Path:
         path = questionary.path(
-            "Путь к YAML-конфигурации:",
+            tr("interactive.config_path_prompt"),
             default=str(self.config_path),
             only_directories=False,
         ).ask()
@@ -53,7 +54,7 @@ class InteractiveSession:
                 self._config_cache = load_config(candidate_path)
                 return self._config_cache
             except ConfigError as exc:
-                click.echo(f"Не удалось загрузить конфиг: {exc}")
+                click.echo(tr("interactive.config_load_failed", error=exc))
                 self._config_cache = None
 
     def _load_from_config(
@@ -64,7 +65,7 @@ class InteractiveSession:
             try:
                 return loader(config)
             except ConfigError as exc:
-                click.echo(f"Ошибка в разделе конфигурации ({description}): {exc}")
+                click.echo(tr("interactive.config_section_error", section=description, error=exc))
                 self._config_cache = None
 
     def load_mounts(self) -> List[MountConfig]:
@@ -88,8 +89,8 @@ class InteractiveSession:
 
 def _collect_excludes() -> list[str]:
     excludes: list[str] = []
-    while questionary.confirm("Добавить паттерн --exclude?", default=False).ask():
-        value = questionary.text("Паттерн исключений rsync:").ask()
+    while questionary.confirm(tr("interactive.exclude_add_prompt"), default=False).ask():
+        value = questionary.text(tr("interactive.exclude_pattern_prompt")).ask()
         if value:
             excludes.append(value)
     return excludes
@@ -110,8 +111,8 @@ def _select_from_list(message: str, choices: Sequence[questionary.QuestionChoice
 
 
 def build_backup_once(session: InteractiveSession) -> List[str]:
-    source_dir = _select_directory("Исходная директория для бэкапа:")
-    dest_dir = _select_directory("Каталог для сохранения снапшотов:")
+    source_dir = _select_directory(tr("interactive.backup_once_source_prompt"))
+    dest_dir = _select_directory(tr("interactive.backup_once_dest_prompt"))
     excludes = _collect_excludes()
 
     args = ["backup-once", "--source-dir", str(source_dir), "--dest-dir", str(dest_dir)]
@@ -121,9 +122,9 @@ def build_backup_once(session: InteractiveSession) -> List[str]:
 
 
 def build_backup_repeated(session: InteractiveSession) -> List[str]:
-    source_dir = _select_directory("Исходная директория для циклического бэкапа:")
-    dest_dir = _select_directory("Каталог для сохранения снапшотов:")
-    interval_raw = questionary.text("Интервал в минутах между бэкапами:", default="5").ask()
+    source_dir = _select_directory(tr("interactive.backup_repeated_source_prompt"))
+    dest_dir = _select_directory(tr("interactive.backup_repeated_dest_prompt"))
+    interval_raw = questionary.text(tr("interactive.backup_repeated_interval_prompt"), default="5").ask()
     if interval_raw is None:
         raise click.Abort()
     excludes = _collect_excludes()
@@ -145,13 +146,13 @@ def build_backup_repeated(session: InteractiveSession) -> List[str]:
 def build_backup_repeated_mount(session: InteractiveSession) -> List[str]:
     mounts = session.load_mounts()
     if not mounts:
-        raise click.ClickException("В конфигурации не найдено монтирований.")
+        raise click.ClickException(tr("interactive.no_mounts"))
 
     choices = [
         questionary.Choice(f"{mount.source} -> {mount.vm_name}:{mount.target}", value=mount)
         for mount in mounts
     ]
-    selected: MountConfig = _select_from_list("Какое монтирование бэкапить?", choices)
+    selected: MountConfig = _select_from_list(tr("interactive.mount_backup_select"), choices)
     return ["backup-repeated-mount", "--mount", str(selected.source), *session.config_option()]
 
 
@@ -163,10 +164,10 @@ def build_backup_repeated_all(session: InteractiveSession) -> List[str]:
 def build_create_vm(session: InteractiveSession) -> List[str]:
     vms = session.load_vms()
     vm_choices = [questionary.Choice(name=name, value=name) for name in vms]
-    vm_choices.append(questionary.Choice("Ввести имя вручную", value=None))
-    vm_name = _select_from_list("Выберите ВМ для создания:", vm_choices)
+    vm_choices.append(questionary.Choice(tr("interactive.vm_manual_entry"), value=None))
+    vm_name = _select_from_list(tr("interactive.create_vm_select"), vm_choices)
     if vm_name is None:
-        manual = questionary.text("Имя ВМ:").ask()
+        manual = questionary.text(tr("interactive.vm_name_prompt")).ask()
         if not manual:
             raise click.Abort()
         vm_name = manual
@@ -181,15 +182,15 @@ def build_create_vms(session: InteractiveSession) -> List[str]:
 def _select_mount_choice(session: InteractiveSession, action: str) -> List[str]:
     mounts = session.load_mounts()
     if not mounts:
-        raise click.ClickException("В конфигурации не найдено монтирований.")
+        raise click.ClickException(tr("interactive.no_mounts"))
 
-    all_choice = questionary.Choice("Все папки из конфигурации", value="__all__")
+    all_choice = questionary.Choice(tr("interactive.mounts_all_choice"), value="__all__")
     choices: list[questionary.QuestionChoice] = [all_choice]
     for mount in mounts:
         label = f"{mount.source} -> {mount.vm_name}:{mount.target}"
         choices.append(questionary.Choice(label, value=mount))
 
-    selection = _select_from_list(f"Что нужно {action}?", choices)
+    selection = _select_from_list(tr("interactive.mount_action_prompt", action=action), choices)
     if selection == "__all__":
         return [f"--all"]
     assert isinstance(selection, MountConfig)
@@ -197,34 +198,34 @@ def _select_mount_choice(session: InteractiveSession, action: str) -> List[str]:
 
 
 def build_mount(session: InteractiveSession) -> List[str]:
-    selection = _select_mount_choice(session, "смонтировать")
+    selection = _select_mount_choice(session, tr("interactive.mount_action_mount"))
     return ["mount", *selection, *session.config_option()]
 
 
 def build_umount(session: InteractiveSession) -> List[str]:
-    selection = _select_mount_choice(session, "отмонтировать")
+    selection = _select_mount_choice(session, tr("interactive.mount_action_umount"))
     return ["umount", *selection, *session.config_option()]
 
 
 def build_install_agents(session: InteractiveSession) -> List[str]:
     agents = session.load_agents()
     if not agents:
-        raise click.ClickException("Агенты в конфигурации не найдены.")
+        raise click.ClickException(tr("interactive.no_agents"))
     vms = session.load_vms()
 
-    agent_choices: list[questionary.QuestionChoice] = [questionary.Choice("Все агенты", value="__all__")]
+    agent_choices: list[questionary.QuestionChoice] = [questionary.Choice(tr("interactive.agents_all"), value="__all__")]
     agent_choices.extend(questionary.Choice(name, value=name) for name in agents)
-    agent_choice = _select_from_list("Какого агента установить?", agent_choices)
+    agent_choice = _select_from_list(tr("interactive.agent_install_select"), agent_choices)
 
     default_vm = next(iter(vms.keys())) if vms else None
-    default_vm_label = "Использовать ВМ по умолчанию"
+    default_vm_label = tr("interactive.vm_default_label")
     if default_vm:
         default_vm_label += f" ({default_vm})"
 
     vm_choices: list[questionary.QuestionChoice] = [questionary.Choice(default_vm_label, value="__default__")]
     vm_choices.extend(questionary.Choice(name, value=name) for name in vms)
-    vm_choices.append(questionary.Choice("Все виртуалки", value="__all_vms__"))
-    vm_choice = _select_from_list("Куда устанавливать агента?", vm_choices)
+    vm_choices.append(questionary.Choice(tr("interactive.vms_all"), value="__all_vms__"))
+    vm_choice = _select_from_list(tr("interactive.agent_install_target"), vm_choices)
 
     args = ["install-agents", *session.config_option()]
     if agent_choice == "__all__":
@@ -243,43 +244,43 @@ def build_install_agents(session: InteractiveSession) -> List[str]:
 def build_run(session: InteractiveSession) -> List[str]:
     agents = session.load_agents()
     if not agents:
-        raise click.ClickException("Агенты в конфигурации не найдены.")
+        raise click.ClickException(tr("interactive.no_agents"))
     mounts = session.load_mounts()
     vms = session.load_vms()
 
     agent_choices = [questionary.Choice(name, value=agent) for name, agent in agents.items()]
-    agent: AgentConfig = _select_from_list("Какого агента запустить?", agent_choices)
+    agent: AgentConfig = _select_from_list(tr("interactive.agent_run_select"), agent_choices)
 
     mount_choices: list[questionary.QuestionChoice] = [
-        questionary.Choice("Не выбирать директорию", value=None),
+        questionary.Choice(tr("interactive.mount_select_none"), value=None),
     ]
     mount_choices.extend(
         questionary.Choice(f"{mount.source} -> {mount.vm_name}:{mount.target}", value=mount) for mount in mounts
     )
-    mount_choices.append(questionary.Choice("Указать путь вручную", value="__custom__"))
-    mount_choice = _select_from_list("Какую директорию использовать?", mount_choices)
+    mount_choices.append(questionary.Choice(tr("interactive.mount_select_custom"), value="__custom__"))
+    mount_choice = _select_from_list(tr("interactive.mount_select_prompt"), mount_choices)
 
     source_dir: Optional[Path] = None
     if isinstance(mount_choice, MountConfig):
         source_dir = mount_choice.source
     elif mount_choice == "__custom__":
-        source_dir = _select_directory("Путь к директории:")
+        source_dir = _select_directory(tr("interactive.mount_custom_path"))
 
     auto_vm_value = "__auto_vm__"
     vm_choices: list[questionary.QuestionChoice] = [
-        questionary.Choice("Определить автоматически", value=auto_vm_value)
+        questionary.Choice(tr("interactive.vm_select_auto"), value=auto_vm_value)
     ]
     vm_choices.extend(questionary.Choice(name, value=name) for name in vms)
-    vm_choice = _select_from_list("Какую ВМ использовать?", vm_choices)
+    vm_choice = _select_from_list(tr("interactive.vm_select_prompt"), vm_choices)
 
     if vm_choice == auto_vm_value:
         vm_choice = None
 
-    disable_backups = questionary.confirm("Отключить фоновые бэкапы?", default=False).ask()
+    disable_backups = questionary.confirm(tr("interactive.disable_backups_prompt"), default=False).ask()
     if disable_backups is None:
         raise click.Abort()
 
-    agent_args_raw = questionary.text("Дополнительные аргументы для агента (через пробел):", default="").ask()
+    agent_args_raw = questionary.text(tr("interactive.agent_args_prompt"), default="").ask()
     if agent_args_raw is None:
         raise click.Abort()
     agent_args = shlex.split(agent_args_raw)
@@ -307,22 +308,22 @@ def build_prepare(_: InteractiveSession) -> List[str]:
 def build_shell(session: InteractiveSession) -> List[str]:
     vms = session.load_vms()
     if not vms:
-        raise click.ClickException("В конфигурации не найдено ВМ.")
+        raise click.ClickException(tr("interactive.no_vms"))
 
     choices = [questionary.Choice(name, value=name) for name in vms]
-    vm_name = _select_from_list("В какую ВМ зайти?", choices)
+    vm_name = _select_from_list(tr("interactive.shell_select_vm"), choices)
     return ["shell", str(vm_name), *session.config_option()]
 
 
 def build_ssh(session: InteractiveSession) -> List[str]:
     vms = session.load_vms()
     if not vms:
-        raise click.ClickException("В конфигурации не найдено ВМ.")
+        raise click.ClickException(tr("interactive.no_vms"))
 
     choices = [questionary.Choice(name, value=name) for name in vms]
-    vm_name = _select_from_list("В какую ВМ подключиться по SSH?", choices)
+    vm_name = _select_from_list(tr("interactive.ssh_select_vm"), choices)
 
-    ssh_args_raw = questionary.text("Дополнительные аргументы ssh (через пробел):", default="").ask()
+    ssh_args_raw = questionary.text(tr("interactive.ssh_args_prompt"), default="").ask()
     if ssh_args_raw is None:
         raise click.Abort()
     ssh_args = shlex.split(ssh_args_raw)
@@ -341,11 +342,11 @@ def build_systemd(_: InteractiveSession) -> List[str]:
 def build_start_vm(session: InteractiveSession) -> List[str]:
     vms = session.load_vms()
     if not vms:
-        raise click.ClickException("В конфигурации не найдено ВМ.")
+        raise click.ClickException(tr("interactive.no_vms"))
 
-    choices: list[questionary.QuestionChoice] = [questionary.Choice("Все виртуалки", value="__all__")]
+    choices: list[questionary.QuestionChoice] = [questionary.Choice(tr("interactive.vms_all"), value="__all__")]
     choices.extend(questionary.Choice(name, value=name) for name in vms)
-    selection = _select_from_list("Какую ВМ запустить?", choices)
+    selection = _select_from_list(tr("interactive.start_vm_select"), choices)
 
     args = ["start-vm", *session.config_option()]
     if selection == "__all__":
@@ -358,11 +359,11 @@ def build_start_vm(session: InteractiveSession) -> List[str]:
 def build_stop_vm(session: InteractiveSession) -> List[str]:
     vms = session.load_vms()
     if not vms:
-        raise click.ClickException("В конфигурации не найдено ВМ.")
+        raise click.ClickException(tr("interactive.no_vms"))
 
-    choices: list[questionary.QuestionChoice] = [questionary.Choice("Все виртуалки", value="__all__")]
+    choices: list[questionary.QuestionChoice] = [questionary.Choice(tr("interactive.vms_all"), value="__all__")]
     choices.extend(questionary.Choice(name, value=name) for name in vms)
-    selection = _select_from_list("Какую ВМ остановить?", choices)
+    selection = _select_from_list(tr("interactive.stop_vm_select"), choices)
 
     args = ["stop-vm", *session.config_option()]
     if selection == "__all__":
@@ -375,11 +376,11 @@ def build_stop_vm(session: InteractiveSession) -> List[str]:
 def build_destroy_vm(session: InteractiveSession) -> List[str]:
     vms = session.load_vms()
     if not vms:
-        raise click.ClickException("В конфигурации не найдено ВМ.")
+        raise click.ClickException(tr("interactive.no_vms"))
 
-    choices: list[questionary.QuestionChoice] = [questionary.Choice("Все виртуалки", value="__all__")]
+    choices: list[questionary.QuestionChoice] = [questionary.Choice(tr("interactive.vms_all"), value="__all__")]
     choices.extend(questionary.Choice(name, value=name) for name in vms)
-    selection = _select_from_list("Какую ВМ удалить?", choices)
+    selection = _select_from_list(tr("interactive.destroy_vm_select"), choices)
 
     args = ["destroy-vm", *session.config_option()]
     if selection == "__all__":
@@ -457,16 +458,16 @@ def _select_command(cli: click.Group, preselected: Optional[str]) -> click.Comma
         for cmd in commands:
             if cmd.name == preselected:
                 return cmd
-    selected: click.Command = _select_from_list("Выберите команду:", choices)
+    selected: click.Command = _select_from_list(tr("interactive.command_select"), choices)
     return selected
 
 
 def _confirm_and_run(cli: click.Group, args: List[str]) -> None:
     command_line = ["./agsekit", *args]
     rendered = " ".join(shlex.quote(part) for part in command_line)
-    click.echo(f"Команда для запуска: {rendered}")
-    if not questionary.confirm("Запустить команду?", default=True).ask():
-        click.echo("Команда не запущена.")
+    click.echo(tr("interactive.command_preview", command=rendered))
+    if not questionary.confirm(tr("interactive.command_confirm"), default=True).ask():
+        click.echo(tr("interactive.command_cancelled"))
         return
 
     cli.main(args=args, prog_name="agsekit")
@@ -480,7 +481,7 @@ def run_interactive(
     command = _select_command(cli, preselected_command)
     builder = builders.get(command.name)
     if builder is None:
-        raise click.ClickException(f"Команда {command.name} недоступна в интерактивном режиме.")
+        raise click.ClickException(tr("interactive.command_not_available", command=command.name))
 
     args = builder(session)
     _confirm_and_run(cli, args)

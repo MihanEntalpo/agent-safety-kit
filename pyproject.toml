@@ -25,4 +25,4 @@ agsekit = "agsekit_cli.cli:main"
 include = ["agsekit_cli", "agsekit_cli.*"]
 
 [tool.setuptools.package-data]
-agsekit_cli = ["agent_scripts/*.sh", "run_with_proxychains.sh"]
+agsekit_cli = ["agent_scripts/*.sh", "run_with_proxychains.sh", "locales/*.json"]
