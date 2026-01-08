@@ -68,6 +68,7 @@ def _cli_entry_path() -> Path:
 )
 @click.option("--disable-backups", is_flag=True, help="Не запускать фоновые бэкапы во время работы агента")
 @click.option("--debug", is_flag=True, help="Выводить запускаемые команды перед их выполнением")
+@click.option("--skip-default-args", is_flag=True, help="Не добавлять параметры default-args для агента")
 @click.option(
     "--proxychains",
     default=None,
@@ -82,6 +83,7 @@ def run_command(
     config_path: Optional[str],
     disable_backups: bool,
     debug: bool,
+    skip_default_args: bool,
     proxychains: Optional[str],
     agent_args: Sequence[str],
     non_interactive: bool,
@@ -113,7 +115,7 @@ def run_command(
     env_vars = build_agent_env(agent)
     workdir = mount_entry.target if mount_entry else DEFAULT_WORKDIR
 
-    agent_command = agent_command_sequence(agent, agent_args)
+    agent_command = agent_command_sequence(agent, agent_args, skip_default_args=skip_default_args)
 
     click.echo(
         f"Starting agent `{agent.name}` in VM `{vm_to_use}` (workdir: {workdir})."

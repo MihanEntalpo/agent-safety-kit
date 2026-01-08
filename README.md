@@ -147,7 +147,7 @@ The installation scripts live in `agsekit_cli/agent_scripts/`: `codex` installs 
 
 ### Running agents
 
-* `agsekit run <agent_name> [<source_dir>|--vm <vm_name>] [--config <path>] [--proxychains <value>] [--disable-backups] [--debug] -- <agent_args...>` — starts an interactive agent command inside Multipass. Environment variables from the config are passed to the process. If a `source_dir` from the mounts list is provided, the agent starts inside the mounted target path in the matching VM; otherwise it launches in the home directory of the default VM. Unless `--disable-backups` is set, background repeated backups for the selected mount are started for the duration of the run. When no backups exist yet, the CLI first creates an initial snapshot with progress output before launching the agent and then starts the repeated loop with the initial run skipped. With `--debug`, the CLI prints every external command before executing it to help troubleshoot agent launches. Use `--proxychains <scheme://host:port>` to override the VM setting for one run; pass an empty string to disable it temporarily.
+* `agsekit run <agent_name> [<source_dir>|--vm <vm_name>] [--config <path>] [--proxychains <value>] [--disable-backups] [--skip-default-args] [--debug] -- <agent_args...>` — starts an interactive agent command inside Multipass. Environment variables from the config are passed to the process. If a `source_dir` from the mounts list is provided, the agent starts inside the mounted target path in the matching VM; otherwise it launches in the home directory of the default VM. Unless `--disable-backups` is set, background repeated backups for the selected mount are started for the duration of the run. When no backups exist yet, the CLI first creates an initial snapshot with progress output before launching the agent and then starts the repeated loop with the initial run skipped. Arguments from `agents.<name>.default-args` are added unless `--skip-default-args` is set; if the user already passed an option with the same name (for example `--openai-api-key`), the default value is skipped. With `--debug`, the CLI prints every external command before executing it to help troubleshoot agent launches. Use `--proxychains <scheme://host:port>` to override the VM setting for one run; pass an empty string to disable it temporarily.
 
 ### Interactive mode
 
@@ -172,7 +172,7 @@ vms: # VM parameters for Multipass (you can define several)
       - type: remote # Open port inside VM and pass connections to Host machine's port
         host-addr: 127.0.0.1:8080
         vm-addr: 127.0.0.1:80
-      - type: local # Open port on Host manchine, and pass connections to VM's port
+      - type: local # Open port on Host machine, and pass connections to VM's port
         host-addr: 0.0.0.0:15432
         vm-addr: 127.0.0.1:5432
       - type: socks5 # Open socks5-proxy port inside VM, directing traffic to Host machine's network
@@ -189,7 +189,10 @@ agents:
     env: # arbitrary environment variables passed to the agent process
       OPENAI_API_KEY: "my_local_key"
       OPENAI_BASE_URL: "https://127.0.0.1:11556/v1"
-      OPENAI_MODEL: "Qwen/Qwen3-Coder-30B-A3B-Instruct-FP8"    
+      OPENAI_MODEL: "Qwen/Qwen3-Coder-30B-A3B-Instruct-FP8"
+    default-args: # arguments passed to the agent unless the user overrides them
+      - "--openai-api-key=my_local_key"
+      - "--openai-base-url=https://127.0.0.1:11556/v1"
     vm: qwen-ubuntu # default VM for this agent; falls back to the mount VM or the first VM in the list
   codex:
     type: codex 
@@ -261,7 +264,7 @@ The installation scripts live in `agsekit_cli/agent_scripts/`: `codex` installs 
 
 ### Running agents
 
-* `agsekit run <agent_name> [<source_dir>|--vm <vm_name>] [--config <path>] [--proxychains <value>] [--disable-backups] [--debug] -- <agent_args...>` — starts an interactive agent command inside Multipass. Environment variables from the config are passed to the process. If a `source_dir` from the mounts list is provided, the agent starts inside the mounted target path in the matching VM; otherwise it launches in the home directory of the default VM. Unless `--disable-backups` is set, background repeated backups for the selected mount are started for the duration of the run. When no backups exist yet, the CLI first creates an initial snapshot with progress output before launching the agent and then starts the repeated loop with the initial run skipped. With `--debug`, the CLI prints every external command before executing it to help troubleshoot agent launches. Use `--proxychains <scheme://host:port>` to override the VM setting for one run; pass an empty string to disable it temporarily.
+* `agsekit run <agent_name> [<source_dir>|--vm <vm_name>] [--config <path>] [--proxychains <value>] [--disable-backups] [--skip-default-args] [--debug] -- <agent_args...>` — starts an interactive agent command inside Multipass. Environment variables from the config are passed to the process. If a `source_dir` from the mounts list is provided, the agent starts inside the mounted target path in the matching VM; otherwise it launches in the home directory of the default VM. Unless `--disable-backups` is set, background repeated backups for the selected mount are started for the duration of the run. When no backups exist yet, the CLI first creates an initial snapshot with progress output before launching the agent and then starts the repeated loop with the initial run skipped. Arguments from `agents.<name>.default-args` are added unless `--skip-default-args` is set; if the user already passed an option with the same name (for example `--openai-api-key`), the default value is skipped. With `--debug`, the CLI prints every external command before executing it to help troubleshoot agent launches. Use `--proxychains <scheme://host:port>` to override the VM setting for one run; pass an empty string to disable it temporarily.
 
 ### Interactive mode
 
