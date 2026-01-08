@@ -63,14 +63,6 @@ def test_prepare_command_runs_vm_steps_and_logs(monkeypatch, tmp_path):
             return Result(0)
         if "sudo install -d -m 700" in command_tail:
             return Result(0)
-        if "sudo cat /home/ubuntu/.ssh/id_rsa" in command_tail:
-            return Result(1)
-        if "sudo cat /home/ubuntu/.ssh/id_rsa.pub" in command_tail:
-            return Result(1)
-        if command[:2] == ["multipass", "transfer"]:
-            return Result(0)
-        if "sudo chown ubuntu:ubuntu /home/ubuntu/.ssh/id_rsa" in command_tail:
-            return Result(0)
         if "authorized_keys" in command_tail:
             return Result(0)
 
@@ -85,6 +77,9 @@ def test_prepare_command_runs_vm_steps_and_logs(monkeypatch, tmp_path):
     )
     monkeypatch.setattr(prepare_module, "_run_multipass", fake_run)
     monkeypatch.setattr(prepare_module, "_ensure_host_ssh_keypair", lambda: (private_key, public_key))
+    monkeypatch.setattr(prepare_module, "_fetch_vm_ips", lambda vm_name: ["10.0.0.10"])
+    known_hosts_calls: list[str] = []
+    monkeypatch.setattr(prepare_module, "_ensure_known_host", lambda host: known_hosts_calls.append(host))
 
     runner = CliRunner()
     result = runner.invoke(prepare_command, ["--config", str(config_path)])
@@ -95,4 +90,4 @@ def test_prepare_command_runs_vm_steps_and_logs(monkeypatch, tmp_path):
     assert "Syncing SSH keys into vm1 for user ubuntu." in result.output
     assert any(command[:2] == ["multipass", "start"] for command in calls)
     assert any("apt-get install -y git proxychains4" in command[-1] for command in calls)
-    assert any(command[:2] == ["multipass", "transfer"] for command in calls)
+    assert known_hosts_calls == ["10.0.0.10"]
