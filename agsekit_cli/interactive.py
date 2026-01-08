@@ -372,6 +372,23 @@ def build_stop_vm(session: InteractiveSession) -> List[str]:
     return args
 
 
+def build_destroy_vm(session: InteractiveSession) -> List[str]:
+    vms = session.load_vms()
+    if not vms:
+        raise click.ClickException("В конфигурации не найдено ВМ.")
+
+    choices: list[questionary.QuestionChoice] = [questionary.Choice("Все виртуалки", value="__all__")]
+    choices.extend(questionary.Choice(name, value=name) for name in vms)
+    selection = _select_from_list("Какую ВМ удалить?", choices)
+
+    args = ["destroy-vm", *session.config_option()]
+    if selection == "__all__":
+        args.append("--all")
+    else:
+        args.append(str(selection))
+    return args
+
+
 def _command_builders() -> Dict[str, CommandBuilder]:
     return {
         "backup-once": build_backup_once,
@@ -389,6 +406,7 @@ def _command_builders() -> Dict[str, CommandBuilder]:
         "systemd": build_systemd,
         "start-vm": build_start_vm,
         "stop-vm": build_stop_vm,
+        "destroy-vm": build_destroy_vm,
         "run": build_run,
         "install-agents": build_install_agents,
         "umount": build_umount,
@@ -412,6 +430,7 @@ def _ordered_commands(cli: click.Group) -> List[click.Command]:
         "systemd",
         "start-vm",
         "stop-vm",
+        "destroy-vm",
         "run",
         "install-agents",
         "umount",

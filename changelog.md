@@ -1,5 +1,9 @@
 # Agent-Safety-Kit versions history
 
+## 0.9.1 - Destroy VM command
+
+* Added `destroy-vm` for deleting one or all Multipass VMs with confirmation or `-y`
+
 ## 0.9.0 - First functional version
 
 * CLI for preparing Multipass hosts, creating VMs, and managing mounts
