@@ -113,13 +113,54 @@ trap 'rm -rf "$BUILD_ROOT"' EXIT
 echo "Cloning codex repository..."
 run_with_proxychains git clone --depth 1 https://github.com/openai/codex.git "$BUILD_ROOT/codex"
 
-echo "Compiling codex for target ${HOST_TARGET}..."
-(
-  cd "$BUILD_ROOT/codex"
-  run_with_proxychains cargo build --release --target "$HOST_TARGET"
-)
+MANIFEST_PATH="$(
+  python3 - "$BUILD_ROOT/codex" <<'PYCODE'
+import pathlib
+import sys
+import tomllib
 
-BUILT_BINARY="$BUILD_ROOT/codex/target/$HOST_TARGET/release/codex"
+root = pathlib.Path(sys.argv[1])
+candidates = []
+
+for path in root.rglob("Cargo.toml"):
+    try:
+        data = tomllib.loads(path.read_text(encoding="utf-8"))
+    except Exception:
+        continue
+
+    pkg_name = data.get("package", {}).get("name")
+    bins = data.get("bin", []) or []
+    has_codex_bin = any(isinstance(item, dict) and item.get("name") == "codex" for item in bins)
+    score = 0
+    if pkg_name == "codex-cli":
+        score = 3
+    elif has_codex_bin:
+        score = 2
+    elif pkg_name == "codex":
+        score = 1
+
+    if score:
+        candidates.append((score, len(path.parts), str(path)))
+
+if not candidates:
+    sys.exit(0)
+
+best = sorted(candidates, key=lambda item: (-item[0], item[1]))[0]
+print(best[2])
+PYCODE
+)"
+
+if [ -z "$MANIFEST_PATH" ]; then
+  echo "Unable to locate Cargo.toml for codex build."
+  exit 1
+fi
+
+echo "Compiling codex for target ${HOST_TARGET}..."
+echo "Using Cargo manifest at ${MANIFEST_PATH}."
+export CARGO_TARGET_DIR="$BUILD_ROOT/target"
+run_with_proxychains cargo build --release --target "$HOST_TARGET" --manifest-path "$MANIFEST_PATH"
+
+BUILT_BINARY="$CARGO_TARGET_DIR/$HOST_TARGET/release/codex"
 if [ ! -x "$BUILT_BINARY" ]; then
   echo "Expected binary not found at $BUILT_BINARY"
   exit 1
