@@ -6,7 +6,7 @@ if str(ROOT) not in sys.path:
     sys.path.insert(0, str(ROOT))
 
 import agsekit_cli.agents as agents
-from agsekit_cli.config import PortForwardingRule, VmConfig
+from agsekit_cli.config import AgentConfig, PortForwardingRule, VmConfig
 
 
 def test_run_in_vm_uses_cd_and_no_workdir_flag(monkeypatch):
@@ -86,3 +86,69 @@ def test_run_in_vm_wraps_with_proxychains(monkeypatch):
     agents.run_in_vm(vm_config, workdir, ["qwen"], env_vars, proxychains="")
     args = calls["args"]
     assert args[0] == "multipass"
+
+
+def test_agent_command_sequence_skips_overridden_equals_args():
+    agent = AgentConfig(
+        name="qwen",
+        type="qwen",
+        env={},
+        default_args=["--openai-api-key=default", "--flag"],
+        socks5_proxy=None,
+        vm_name=None,
+    )
+
+    command = agents.agent_command_sequence(
+        agent,
+        ["--openai-api-key=user", "--extra"],
+    )
+
+    assert command == ["qwen", "--flag", "--openai-api-key=user", "--extra"]
+
+
+def test_agent_command_sequence_skips_overridden_split_args():
+    agent = AgentConfig(
+        name="qwen",
+        type="qwen",
+        env={},
+        default_args=["--base-url", "https://default", "--mode", "fast"],
+        socks5_proxy=None,
+        vm_name=None,
+    )
+
+    command = agents.agent_command_sequence(
+        agent,
+        ["--base-url", "https://override"],
+    )
+
+    assert command == ["qwen", "--mode", "fast", "--base-url", "https://override"]
+
+
+def test_agent_command_sequence_skips_overridden_flag_args():
+    agent = AgentConfig(
+        name="qwen",
+        type="qwen",
+        env={},
+        default_args=["--trace", "--other"],
+        socks5_proxy=None,
+        vm_name=None,
+    )
+
+    command = agents.agent_command_sequence(agent, ["--trace"])
+
+    assert command == ["qwen", "--other", "--trace"]
+
+
+def test_agent_command_sequence_skips_overridden_inline_space_args():
+    agent = AgentConfig(
+        name="qwen",
+        type="qwen",
+        env={},
+        default_args=["--region eu-west-1", "--mode", "fast"],
+        socks5_proxy=None,
+        vm_name=None,
+    )
+
+    command = agents.agent_command_sequence(agent, ["--region", "us-east-1"])
+
+    assert command == ["qwen", "--mode", "fast", "--region", "us-east-1"]

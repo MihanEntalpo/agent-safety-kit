@@ -44,6 +44,7 @@ class AgentConfig:
     name: str
     type: str
     env: Dict[str, str]
+    default_args: List[str]
     socks5_proxy: Optional[str]
     vm_name: Optional[str]
 
@@ -263,6 +264,20 @@ def _normalize_env_vars(value: Any) -> Dict[str, str]:
     return normalized
 
 
+def _normalize_default_args(value: Any) -> List[str]:
+    if value is None:
+        return []
+    if not isinstance(value, list):
+        raise ConfigError("Agent `default-args` must be a list of strings")
+
+    normalized: List[str] = []
+    for index, entry in enumerate(value):
+        if not isinstance(entry, str) or not entry.strip():
+            raise ConfigError(f"Agent `default-args[{index}]` must be a non-empty string")
+        normalized.append(entry)
+    return normalized
+
+
 def load_agents_config(config: Dict[str, Any]) -> Dict[str, AgentConfig]:
     raw_agents = config.get("agents") or {}
     if not isinstance(raw_agents, dict):
@@ -276,6 +291,7 @@ def load_agents_config(config: Dict[str, Any]) -> Dict[str, AgentConfig]:
 
         agent_type = _normalize_agent_type(raw_entry.get("type"))
         env_vars = _normalize_env_vars(raw_entry.get("env"))
+        default_args = _normalize_default_args(raw_entry.get("default-args"))
         socks5_proxy = raw_entry.get("socks5_proxy")
         if socks5_proxy is not None and (not isinstance(socks5_proxy, str) or not socks5_proxy.strip()):
             raise ConfigError(f"Agent `{agent_name}` socks5_proxy must be a non-empty string if provided")
@@ -287,6 +303,7 @@ def load_agents_config(config: Dict[str, Any]) -> Dict[str, AgentConfig]:
             name=str(agent_name),
             type=agent_type,
             env=env_vars,
+            default_args=default_args,
             socks5_proxy=str(socks5_proxy) if socks5_proxy else None,
             vm_name=vm_name,
         )

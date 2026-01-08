@@ -3,7 +3,7 @@ from __future__ import annotations
 import shlex
 import subprocess
 from pathlib import Path
-from typing import Dict, Iterable, List, Optional, Sequence, Tuple, Union
+from typing import Dict, Iterable, List, Optional, Sequence, Set, Tuple, Union
 
 import click
 
@@ -182,8 +182,59 @@ def start_backup_process(
     return process
 
 
-def agent_command_sequence(agent: AgentConfig, extra_args: Sequence[str]) -> List[str]:
-    return [agent.type, *extra_args]
+def _extract_option_name(arg: str) -> Optional[str]:
+    if not arg.startswith("--"):
+        return None
+    trimmed = arg.strip()
+    if not trimmed.startswith("--"):
+        return None
+    for separator in ("=", " "):
+        if separator in trimmed:
+            return trimmed.split(separator, 1)[0]
+    return trimmed
+
+
+def _collect_option_names(args: Sequence[str]) -> Set[str]:
+    names: Set[str] = set()
+    for arg in args:
+        name = _extract_option_name(arg)
+        if name:
+            names.add(name)
+    return names
+
+
+def _merge_default_args(default_args: Sequence[str], user_args: Sequence[str]) -> List[str]:
+    if not default_args:
+        return list(user_args)
+
+    user_names = _collect_option_names(user_args)
+    merged: List[str] = []
+    index = 0
+    while index < len(default_args):
+        arg = default_args[index]
+        name = _extract_option_name(arg)
+        if name and name in user_names:
+            has_inline_value = "=" in arg or any(char.isspace() for char in arg)
+            if not has_inline_value and index + 1 < len(default_args):
+                next_arg = default_args[index + 1]
+                if not next_arg.startswith("-"):
+                    index += 2
+                    continue
+            index += 1
+            continue
+        merged.append(arg)
+        index += 1
+    merged.extend(user_args)
+    return merged
+
+
+def agent_command_sequence(
+    agent: AgentConfig, extra_args: Sequence[str], *, skip_default_args: bool = False
+) -> List[str]:
+    if skip_default_args:
+        return [agent.type, *extra_args]
+    merged_args = _merge_default_args(agent.default_args, extra_args)
+    return [agent.type, *merged_args]
 
 
 def ensure_vm_exists(vm_name: str, known_vms: Dict[str, object]) -> None:
