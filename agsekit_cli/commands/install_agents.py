@@ -75,7 +75,10 @@ def _run_install_script(vm: VmConfig, script_path: Path, proxychains: Optional[s
         raise MultipassError(tr("install_agents.copy_failed", script=script_path.name, vm_name=vm.name))
 
     try:
-        install_command = ["multipass", "exec", vm.name, "--", "bash", remote_path]
+        install_command = ["multipass", "exec", vm.name, "--"]
+        if effective_proxychains:
+            install_command.extend(["env", f"AGSEKIT_PROXYCHAINS_PROXY={effective_proxychains}"])
+        install_command.extend(["bash", remote_path])
         result = _run_command(
             install_command,
             tr("install_agents.run_installer", script=script_path.name, vm_name=vm.name),
