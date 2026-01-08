@@ -60,7 +60,8 @@ def test_config_gen_creates_config_file(tmp_path):
     assert mount["vm"] == "agent-ubuntu"
 
 
-def test_config_gen_refuses_to_overwrite(tmp_path):
+def test_config_gen_refuses_to_overwrite(tmp_path, monkeypatch):
+    monkeypatch.setenv("AGSEKIT_LANG", "ru")
     config_path = tmp_path / "config.yaml"
     config_path.write_text("original: true\n", encoding="utf-8")
 

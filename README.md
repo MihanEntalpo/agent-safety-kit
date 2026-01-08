@@ -158,6 +158,14 @@ In a TTY you don’t have to type full commands every time: the CLI can guide yo
 * Run `agsekit` without arguments to open the interactive menu, choose a command, and select options such as the config path, mounts, or agent parameters.
 * Start a command without mandatory arguments (for example, `agsekit run`) to automatically fall back to the interactive flow after the CLI prints a “not enough parameters” hint. Use `--non-interactive` if you prefer the usual help output instead of prompts.
 
+## Localization
+
+The CLI reads the system locale and falls back to English if it cannot detect a supported language. You can override this behavior with the `AGSEKIT_LANG` environment variable:
+
+```bash
+AGSEKIT_LANG=ru agsekit --help
+```
+
 ## YAML configuration
 
 The configuration file (looked up via `--config`, `CONFIG_PATH`, or `~/.config/agsekit/config.yaml`) describes VM parameters, mounted directories, and any `cloud-init` settings. A base example lives in `config-example.yaml`:

@@ -11,6 +11,7 @@ from typing import Dict, List, Optional
 import click
 
 from ..config import ConfigError, load_config, load_vms_config, resolve_config_path
+from ..i18n import tr
 from ..vm import MultipassError, build_port_forwarding_args, ensure_multipass_available
 from . import non_interactive_option
 
@@ -24,7 +25,7 @@ def _resolve_agsekit_command() -> List[str]:
     if local_script.exists():
         return [str(local_script)]
 
-    raise click.ClickException("Не удалось найти исполняемый файл agsekit.")
+    raise click.ClickException(tr("portforward.cli_not_found"))
 
 
 def _format_command(command: List[str]) -> str:
@@ -48,7 +49,7 @@ def _start_forwarder(
         "ExitOnForwardFailure=yes",
         *port_args,
     ]
-    click.echo(f"Запуск проброса портов для {vm_name}: {_format_command(command)}")
+    click.echo(tr("portforward.starting", vm_name=vm_name, command=_format_command(command)))
     return subprocess.Popen(command)
 
 
@@ -72,7 +73,7 @@ def _terminate_processes(processes: Dict[str, subprocess.Popen]) -> None:
             proc.kill()
 
 
-@click.command(name="portforward")
+@click.command(name="portforward", help=tr("portforward.command_help"))
 @non_interactive_option
 @click.option(
     "config_path",
@@ -80,10 +81,12 @@ def _terminate_processes(processes: Dict[str, subprocess.Popen]) -> None:
     type=click.Path(dir_okay=False, exists=False, path_type=str),
     envvar="CONFIG_PATH",
     default=None,
-    help="Путь к YAML-конфигурации (по умолчанию ~/.config/agsekit/config.yaml или $CONFIG_PATH).",
+    help=tr("config.option_path"),
 )
 def portforward_command(config_path: Optional[str], non_interactive: bool) -> None:
     """Запускает ssh-туннели по правилам port-forwarding из конфигурации."""
+    # not used parameter, explicitly removing it so IDEs/linters do not complain
+    del non_interactive
 
     resolved_path = resolve_config_path(Path(config_path) if config_path else None)
     try:
@@ -105,7 +108,7 @@ def portforward_command(config_path: Optional[str], non_interactive: bool) -> No
             forward_targets[vm_name] = port_args
 
     if not forward_targets:
-        click.echo("В конфигурации не найдено правил port-forwarding.")
+        click.echo(tr("portforward.rules_missing"))
         return
 
     processes: Dict[str, subprocess.Popen] = {}
@@ -114,7 +117,7 @@ def portforward_command(config_path: Optional[str], non_interactive: bool) -> No
     def _handle_signal(signum: int, frame: object) -> None:
         nonlocal stop_requested
         if not stop_requested:
-            click.echo("Получен сигнал завершения, останавливаем проброс портов...")
+            click.echo(tr("portforward.stop_requested"))
         stop_requested = True
 
     signal.signal(signal.SIGINT, _handle_signal)
@@ -131,9 +134,7 @@ def portforward_command(config_path: Optional[str], non_interactive: bool) -> No
                     continue
                 if stop_requested:
                     break
-                click.echo(
-                    f"Проброс портов для {vm_name} завершился с кодом {return_code}. Перезапуск..."
-                )
+                click.echo(tr("portforward.process_restarting", vm_name=vm_name, code=return_code))
                 processes[vm_name] = _start_forwarder(base_command, vm_name, resolved_path, forward_targets[vm_name])
             time.sleep(1)
     finally:

@@ -8,6 +8,8 @@ from urllib.parse import urlparse
 
 import yaml
 
+from .i18n import tr
+
 CONFIG_ENV_VAR = "CONFIG_PATH"
 DEFAULT_CONFIG_PATH = Path.home() / ".config" / "agsekit" / "config.yaml"
 ALLOWED_AGENT_TYPES = {
@@ -62,13 +64,13 @@ def resolve_config_path(explicit_path: Optional[Path] = None) -> Path:
 def load_config(path: Optional[Path] = None) -> Dict[str, Any]:
     config_path = resolve_config_path(path)
     if not config_path.exists():
-        raise ConfigError(f"Config file not found: {config_path}")
+        raise ConfigError(tr("config.file_not_found", path=config_path))
 
     with config_path.open("r", encoding="utf-8") as handle:
         data = yaml.safe_load(handle) or {}
 
     if not isinstance(data, dict):
-        raise ConfigError("Config root must be a mapping")
+        raise ConfigError(tr("config.root_not_mapping"))
 
     return data
 
@@ -77,35 +79,35 @@ def _require_positive_int(value: Any, field_name: str) -> int:
     try:
         result = int(value)
     except (TypeError, ValueError):
-        raise ConfigError(f"{field_name} must be an integer")
+        raise ConfigError(tr("config.field_not_int", field_name=field_name))
     if result <= 0:
-        raise ConfigError(f"{field_name} must be greater than zero")
+        raise ConfigError(tr("config.field_not_positive", field_name=field_name))
     return result
 
 
 def _validate_size_field(value: Any, field_name: str) -> str:
     if isinstance(value, (str, int, float)) and str(value).strip():
         return str(value)
-    raise ConfigError(f"{field_name} must be a non-empty string or number")
+    raise ConfigError(tr("config.field_not_string_or_number", field_name=field_name))
 
 
 def _normalize_address(value: Any, field_name: str) -> str:
     if not isinstance(value, (str, int, float)):
-        raise ConfigError(f"{field_name} must be a host:port string")
+        raise ConfigError(tr("config.field_not_host_port", field_name=field_name))
 
     text = str(value).strip()
     if ":" not in text:
-        raise ConfigError(f"{field_name} must include host and port separated by colon")
+        raise ConfigError(tr("config.field_missing_host_port", field_name=field_name))
 
     host, port_text = text.rsplit(":", 1)
     if not host:
-        raise ConfigError(f"{field_name} must include host before port")
+        raise ConfigError(tr("config.field_missing_host", field_name=field_name))
     try:
         port = int(port_text)
     except ValueError:
-        raise ConfigError(f"{field_name} must contain a numeric port")
+        raise ConfigError(tr("config.field_port_not_numeric", field_name=field_name))
     if port <= 0 or port > 65535:
-        raise ConfigError(f"{field_name} must contain a valid TCP port")
+        raise ConfigError(tr("config.field_port_invalid", field_name=field_name))
 
     return f"{host}:{port}"
 
@@ -121,28 +123,28 @@ def _normalize_port_forwarding(raw_entry: Any, vm_name: str) -> List[PortForward
     if raw_entry is None:
         return []
     if not isinstance(raw_entry, list):
-        raise ConfigError(f"vms.{vm_name}.port-forwarding must be a list")
+        raise ConfigError(tr("config.port_forwarding_not_list", vm_name=vm_name))
 
     rules: List[PortForwardingRule] = []
     for index, rule in enumerate(raw_entry):
         if not isinstance(rule, dict):
-            raise ConfigError(f"vms.{vm_name}.port-forwarding[{index}] must be a mapping")
+            raise ConfigError(tr("config.port_forwarding_not_mapping", vm_name=vm_name, index=index))
 
         raw_type = rule.get("type")
         if raw_type not in {"local", "remote", "socks5"}:
             raise ConfigError(
-                f"vms.{vm_name}.port-forwarding[{index}].type must be one of: local, remote, socks5"
+                tr("config.port_forwarding_invalid_type", vm_name=vm_name, index=index)
             )
 
         vm_addr_raw = rule.get("vm-addr")
         if vm_addr_raw is None:
-            raise ConfigError(f"vms.{vm_name}.port-forwarding[{index}] is missing vm-addr")
+            raise ConfigError(tr("config.port_forwarding_missing_vm_addr", vm_name=vm_name, index=index))
 
         host_addr: Optional[str]
         if raw_type in {"local", "remote"}:
             host_addr_raw = rule.get("host-addr")
             if host_addr_raw is None:
-                raise ConfigError(f"vms.{vm_name}.port-forwarding[{index}] is missing host-addr")
+                raise ConfigError(tr("config.port_forwarding_missing_host_addr", vm_name=vm_name, index=index))
             host_addr = _normalize_address(host_addr_raw, f"vms.{vm_name}.port-forwarding[{index}].host-addr")
         else:
             host_addr = None
@@ -164,7 +166,7 @@ def _normalize_proxychains(value: Any, vm_name: str) -> Optional[str]:
     if value is None:
         return None
     if not isinstance(value, str):
-        raise ConfigError(f"vms.{vm_name}.proxychains must be a string")
+        raise ConfigError(tr("config.proxychains_not_string", vm_name=vm_name))
     cleaned = value.strip()
     if not cleaned:
         return None
@@ -172,16 +174,20 @@ def _normalize_proxychains(value: Any, vm_name: str) -> Optional[str]:
     parsed = urlparse(cleaned)
     if not parsed.scheme or not parsed.hostname or not parsed.port:
         raise ConfigError(
-            f"vms.{vm_name}.proxychains must be a proxy URL in the form scheme://host:port (e.g. socks5://127.0.0.1:8080)"
+            tr("config.proxychains_invalid_url", vm_name=vm_name)
         )
     if parsed.username or parsed.password or parsed.path not in {"", "/"} or parsed.params or parsed.query or parsed.fragment:
-        raise ConfigError(f"vms.{vm_name}.proxychains must not include credentials, paths, or query parameters")
+        raise ConfigError(tr("config.proxychains_forbidden_parts", vm_name=vm_name))
 
     scheme = parsed.scheme.lower()
     allowed_schemes = {"http", "https", "socks4", "socks5"}
     if scheme not in allowed_schemes:
         raise ConfigError(
-            f"vms.{vm_name}.proxychains must use one of the supported schemes: {', '.join(sorted(allowed_schemes))}"
+            tr(
+                "config.proxychains_invalid_scheme",
+                vm_name=vm_name,
+                schemes=", ".join(sorted(allowed_schemes)),
+            )
         )
 
     return f"{scheme}://{parsed.hostname}:{parsed.port}"
@@ -190,16 +196,16 @@ def _normalize_proxychains(value: Any, vm_name: str) -> Optional[str]:
 def load_vms_config(config: Dict[str, Any]) -> Dict[str, VmConfig]:
     raw_vms = config.get("vms")
     if not isinstance(raw_vms, dict) or not raw_vms:
-        raise ConfigError("Config must include a non-empty `vms` mapping")
+        raise ConfigError(tr("config.vms_missing"))
 
     vms: Dict[str, VmConfig] = {}
     for vm_name, raw_entry in raw_vms.items():
         if not isinstance(raw_entry, dict):
-            raise ConfigError(f"VM `{vm_name}` must be a mapping of its parameters")
+            raise ConfigError(tr("config.vm_not_mapping", vm_name=vm_name))
 
         missing = [field for field in ("cpu", "ram", "disk") if field not in raw_entry]
         if missing:
-            raise ConfigError(f"VM `{vm_name}` is missing fields: {', '.join(missing)}")
+            raise ConfigError(tr("config.vm_missing_fields", vm_name=vm_name, missing=", ".join(missing)))
 
         vms[vm_name] = VmConfig(
             name=str(vm_name),
@@ -220,7 +226,7 @@ def _ensure_path(value: Any, field_name: str) -> Path:
     elif isinstance(value, str):
         path = Path(value)
     else:
-        raise ConfigError(f"{field_name} must be a string path")
+        raise ConfigError(tr("config.field_not_path", field_name=field_name))
     return path.expanduser().resolve()
 
 
@@ -241,12 +247,12 @@ def _default_vm_name(config: Dict[str, Any]) -> Optional[str]:
 
 def _normalize_agent_type(value: Any) -> str:
     if not isinstance(value, str) or not value.strip():
-        raise ConfigError("Agent `type` must be a non-empty string")
+        raise ConfigError(tr("config.agent_type_missing"))
 
     normalized = ALLOWED_AGENT_TYPES.get(value.strip().lower())
     if normalized is None:
         allowed = ", ".join(sorted({key for key in ALLOWED_AGENT_TYPES if "-" not in key}))
-        raise ConfigError(f"Unknown agent type: {value}. Supported types: {allowed}")
+        raise ConfigError(tr("config.agent_type_unknown", value=value, allowed=allowed))
     return normalized
 
 
@@ -254,12 +260,12 @@ def _normalize_env_vars(value: Any) -> Dict[str, str]:
     if value is None:
         return {}
     if not isinstance(value, dict):
-        raise ConfigError("Agent `env` must be a mapping of variable names to values")
+        raise ConfigError(tr("config.agent_env_not_mapping"))
 
     normalized: Dict[str, str] = {}
     for raw_key, raw_value in value.items():
         if not isinstance(raw_key, str) or not raw_key.strip():
-            raise ConfigError("Environment variable names must be non-empty strings")
+            raise ConfigError(tr("config.env_name_empty"))
         normalized[str(raw_key)] = "" if raw_value is None else str(raw_value)
     return normalized
 
@@ -268,12 +274,12 @@ def _normalize_default_args(value: Any) -> List[str]:
     if value is None:
         return []
     if not isinstance(value, list):
-        raise ConfigError("Agent `default-args` must be a list of strings")
+        raise ConfigError(tr("config.agent_default_args_not_list"))
 
     normalized: List[str] = []
     for index, entry in enumerate(value):
         if not isinstance(entry, str) or not entry.strip():
-            raise ConfigError(f"Agent `default-args[{index}]` must be a non-empty string")
+            raise ConfigError(tr("config.agent_default_args_empty", index=index))
         normalized.append(entry)
     return normalized
 
@@ -281,20 +287,20 @@ def _normalize_default_args(value: Any) -> List[str]:
 def load_agents_config(config: Dict[str, Any]) -> Dict[str, AgentConfig]:
     raw_agents = config.get("agents") or {}
     if not isinstance(raw_agents, dict):
-        raise ConfigError("Config `agents` must be a mapping")
+        raise ConfigError(tr("config.agents_not_mapping"))
 
     default_vm = _default_vm_name(config)
     agents: Dict[str, AgentConfig] = {}
     for agent_name, raw_entry in raw_agents.items():
         if not isinstance(raw_entry, dict):
-            raise ConfigError(f"Agent `{agent_name}` must be a mapping of its parameters")
+            raise ConfigError(tr("config.agent_not_mapping", agent_name=agent_name))
 
         agent_type = _normalize_agent_type(raw_entry.get("type"))
         env_vars = _normalize_env_vars(raw_entry.get("env"))
         default_args = _normalize_default_args(raw_entry.get("default-args"))
         socks5_proxy = raw_entry.get("socks5_proxy")
         if socks5_proxy is not None and (not isinstance(socks5_proxy, str) or not socks5_proxy.strip()):
-            raise ConfigError(f"Agent `{agent_name}` socks5_proxy must be a non-empty string if provided")
+            raise ConfigError(tr("config.agent_socks5_proxy_invalid", agent_name=agent_name))
 
         vm_name = raw_entry.get("vm") or default_vm
         vm_name = str(vm_name) if vm_name else None
@@ -317,35 +323,35 @@ def _normalize_interval(raw_value: Any) -> int:
     try:
         interval = int(raw_value)
     except (TypeError, ValueError):
-        raise ConfigError("Mount interval must be an integer")
+        raise ConfigError(tr("config.mount_interval_not_int"))
     if interval <= 0:
-        raise ConfigError("Mount interval must be greater than zero")
+        raise ConfigError(tr("config.mount_interval_not_positive"))
     return interval
 
 
 def load_mounts_config(config: Dict[str, Any]) -> List[MountConfig]:
     raw_mounts = config.get("mounts") or []
     if not isinstance(raw_mounts, list):
-        raise ConfigError("Config `mounts` must be a list")
+        raise ConfigError(tr("config.mounts_not_list"))
 
     default_vm = _default_vm_name(config)
     if raw_mounts and default_vm is None:
-        raise ConfigError("Config must include `vms` section to infer target VM for mounts")
+        raise ConfigError(tr("config.mounts_missing_vms"))
 
     mounts: List[MountConfig] = []
     for index, entry in enumerate(raw_mounts):
         if not isinstance(entry, dict):
-            raise ConfigError(f"Mount entry #{index + 1} must be a mapping")
+            raise ConfigError(tr("config.mount_entry_not_mapping", index=index + 1))
 
         if "source" not in entry:
-            raise ConfigError(f"Mount entry #{index + 1} is missing `source`")
+            raise ConfigError(tr("config.mount_entry_missing_source", index=index + 1))
 
         source = _ensure_path(entry.get("source"), f"mounts[{index}].source")
         target_raw = entry.get("target")
         backup_raw = entry.get("backup")
         vm_name = entry.get("vm") or default_vm
         if not vm_name:
-            raise ConfigError(f"Mount entry #{index + 1} is missing `vm` and no default VM is configured")
+            raise ConfigError(tr("config.mount_entry_missing_vm", index=index + 1))
 
         target = _ensure_path(target_raw, f"mounts[{index}].target") if target_raw else _default_target(source)
         backup = _ensure_path(backup_raw, f"mounts[{index}].backup") if backup_raw else _default_backup(source)

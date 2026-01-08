@@ -36,7 +36,8 @@ def test_create_vm_defaults_to_single_vm(monkeypatch, tmp_path):
     assert "agent" in result.output
 
 
-def test_create_vm_requires_name_when_multiple(tmp_path):
+def test_create_vm_requires_name_when_multiple(tmp_path, monkeypatch):
+    monkeypatch.setenv("AGSEKIT_LANG", "ru")
     config_path = tmp_path / "config.yaml"
     _write_config(config_path, ["first", "second"])
 

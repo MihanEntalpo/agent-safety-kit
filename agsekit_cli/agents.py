@@ -8,6 +8,7 @@ from typing import Dict, Iterable, List, Optional, Sequence, Set, Tuple, Union
 import click
 
 from .config import AgentConfig, ConfigError, VmConfig, load_agents_config, load_config, load_mounts_config, load_vms_config, resolve_config_path
+from .i18n import tr
 from .mounts import MountConfig, normalize_path
 from .vm import MultipassError, ensure_multipass_available, resolve_proxychains, wrap_with_proxychains
 
@@ -37,7 +38,7 @@ def find_agent(agents: Dict[str, AgentConfig], name: str) -> AgentConfig:
     try:
         return agents[name]
     except KeyError:
-        raise ConfigError(f"Агент `{name}` не найден в конфигурации")
+        raise ConfigError(tr("agents.agent_not_found", name=name))
 
 
 def select_mount_for_source(mounts: Iterable[MountConfig], source_dir: Path, vm_name: Optional[str]) -> MountConfig:
@@ -47,10 +48,10 @@ def select_mount_for_source(mounts: Iterable[MountConfig], source_dir: Path, vm_
         matches = [mount for mount in matches if mount.vm_name == vm_name]
 
     if not matches:
-        suffix = f" для ВМ {vm_name}" if vm_name else ""
-        raise ConfigError(f"Монтирование с путем {normalized} не найдено{suffix}")
+        suffix = tr("agents.mount_not_found_vm_suffix", vm_name=vm_name) if vm_name else ""
+        raise ConfigError(tr("agents.mount_not_found", path=normalized, suffix=suffix))
     if len(matches) > 1:
-        raise ConfigError("Найдено несколько монтирований с таким путем. Уточните ВМ через --vm.")
+        raise ConfigError(tr("agents.mount_not_found_multiple"))
     return matches[0]
 
 
@@ -65,7 +66,7 @@ def resolve_vm(agent: AgentConfig, mount: Optional[MountConfig], vm_override: Op
     vms = load_vms_config(config)
     default_vm = next(iter(vms.keys())) if vms else None
     if not default_vm:
-        raise ConfigError("Не удалось определить ВМ для запуска агента")
+        raise ConfigError(tr("agents.vm_not_determined"))
     return default_vm
 
 
@@ -103,9 +104,9 @@ def _debug_print(command: Union[Sequence[str], str], debug: bool) -> None:
         return
 
     if isinstance(command, str):
-        click.echo(f"[DEBUG] {command}")
+        click.echo(tr("agents.debug_command", command=command))
     else:
-        click.echo(f"[DEBUG] {shlex.join(command)}")
+        click.echo(tr("agents.debug_command", command=shlex.join(command)))
 
 
 def run_in_vm(
@@ -152,7 +153,7 @@ def ensure_agent_binary_available(
 
     if result.returncode != 0:
         raise MultipassError(
-            f"Agent binary `{binary}` was not found inside VM `{vm.name}`. Did you run ./agsekit install-agents?"
+            tr("agents.agent_binary_missing", binary=binary, vm_name=vm.name)
         )
 
 
@@ -239,4 +240,4 @@ def agent_command_sequence(
 
 def ensure_vm_exists(vm_name: str, known_vms: Dict[str, object]) -> None:
     if vm_name not in known_vms:
-        raise ConfigError(f"ВМ `{vm_name}` отсутствует в конфигурации")
+        raise ConfigError(tr("agents.vm_missing", vm_name=vm_name))

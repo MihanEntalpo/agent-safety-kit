@@ -11,33 +11,41 @@ from . import non_interactive_option
 from ..backup import backup_repeated
 from ..config import ConfigError
 from ..mounts import find_mount_by_source, load_mounts_from_config, normalize_path
+from ..i18n import tr
 
 
-@click.command(name="backup-repeated")
+@click.command(name="backup-repeated", help=tr("backup_repeated.command_help"))
 @non_interactive_option
-@click.option("--source-dir", required=True, type=click.Path(file_okay=False, path_type=Path), help="Директория для бэкапа")
-@click.option("--dest-dir", required=True, type=click.Path(file_okay=False, path_type=Path), help="Куда складывать снапшоты")
+@click.option("--source-dir", required=True, type=click.Path(file_okay=False, path_type=Path), help=tr("backup_repeated.option_source_dir"))
+@click.option("--dest-dir", required=True, type=click.Path(file_okay=False, path_type=Path), help=tr("backup_repeated.option_dest_dir"))
 @click.option(
     "--exclude",
     "excludes",
     multiple=True,
-    help="Дополнительный паттерн исключений rsync; можно указать несколько раз",
+    help=tr("backup_repeated.option_exclude"),
 )
 @click.option(
     "--interval",
     default=5,
     show_default=True,
     type=int,
-    help="Интервал в минутах между бэкапами",
+    help=tr("backup_repeated.option_interval"),
 )
-@click.option("--skip-first", is_flag=True, help="Не выполнять первый бэкап сразу после запуска")
+@click.option("--skip-first", is_flag=True, help=tr("backup_repeated.option_skip_first"))
 def backup_repeated_command(
     source_dir: Path, dest_dir: Path, excludes: tuple[str, ...], interval: int, skip_first: bool, non_interactive: bool
 ) -> None:
     """Start repeated backups of a directory."""
+    # not used parameter, explicitly removing it so IDEs/linters do not complain
+    del non_interactive
 
     click.echo(
-        f"Starting repeated backup from {source_dir} to {dest_dir} every {interval} minute(s)..."
+        tr(
+            "backup_repeated.starting",
+            source=source_dir,
+            destination=dest_dir,
+            interval=interval,
+        )
     )
 
     try:
@@ -52,19 +60,21 @@ def backup_repeated_command(
         raise click.ClickException(str(exc))
 
 
-@click.command(name="backup-repeated-mount")
+@click.command(name="backup-repeated-mount", help=tr("backup_repeated.mount_command_help"))
 @non_interactive_option
-@click.option("--mount", "mount_path", required=False, type=click.Path(file_okay=False, path_type=Path), help="Путь к монтируемой папке из config.yaml")
+@click.option("--mount", "mount_path", required=False, type=click.Path(file_okay=False, path_type=Path), help=tr("backup_repeated.option_mount"))
 @click.option(
     "config_path",
     "--config",
     type=click.Path(dir_okay=False, exists=False, path_type=str),
     envvar="CONFIG_PATH",
     default=None,
-    help="Путь к YAML-конфигурации (по умолчанию ~/.config/agsekit/config.yaml или $CONFIG_PATH).",
+    help=tr("config.option_path"),
 )
 def backup_repeated_mount_command(mount_path: Optional[Path], config_path: Optional[str], non_interactive: bool) -> None:
     """Start a repeated backup for a mount from the config."""
+    # not used parameter, explicitly removing it so IDEs/linters do not complain
+    del non_interactive
 
     try:
         mounts = load_mounts_from_config(config_path)
@@ -75,22 +85,27 @@ def backup_repeated_mount_command(mount_path: Optional[Path], config_path: Optio
     if mount_path:
         mount_entry = find_mount_by_source(mounts, mount_path)
         if mount_entry is None:
-            raise click.ClickException(f"Mount with source {mount_path} is not defined in the configuration.")
+            raise click.ClickException(tr("backup_repeated.mount_missing", source=mount_path))
     else:
         if not mounts:
-            raise click.ClickException("No mounts configured for backups.")
+            raise click.ClickException(tr("backup_repeated.no_mounts"))
         if len(mounts) == 1:
             mount_entry = mounts[0]
         else:
-            raise click.ClickException("Несколько монтирований в конфигурации. Укажите путь через --mount.")
+            raise click.ClickException(tr("backup_repeated.mount_required_multiple"))
 
     click.echo(
-        f"Starting repeated backup for mount {mount_entry.source} -> {mount_entry.backup} every {mount_entry.interval_minutes} minute(s)..."
+        tr(
+            "backup_repeated.starting_mount",
+            source=mount_entry.source,
+            destination=mount_entry.backup,
+            interval=mount_entry.interval_minutes,
+        )
     )
     backup_repeated(mount_entry.source, mount_entry.backup, interval_minutes=mount_entry.interval_minutes)
 
 
-@click.command(name="backup-repeated-all")
+@click.command(name="backup-repeated-all", help=tr("backup_repeated.all_command_help"))
 @non_interactive_option
 @click.option(
     "config_path",
@@ -98,10 +113,12 @@ def backup_repeated_mount_command(mount_path: Optional[Path], config_path: Optio
     type=click.Path(dir_okay=False, exists=False, path_type=str),
     envvar="CONFIG_PATH",
     default=None,
-    help="Путь к YAML-конфигурации (по умолчанию ~/.config/agsekit/config.yaml или $CONFIG_PATH).",
+    help=tr("config.option_path"),
 )
 def backup_repeated_all_command(config_path: Optional[str], non_interactive: bool) -> None:
     """Start repeated backups for every mount from config.yaml."""
+    # not used parameter, explicitly removing it so IDEs/linters do not complain
+    del non_interactive
 
     try:
         mounts = load_mounts_from_config(config_path)
@@ -109,7 +126,7 @@ def backup_repeated_all_command(config_path: Optional[str], non_interactive: boo
         raise click.ClickException(str(exc))
 
     if not mounts:
-        raise click.ClickException("No mounts configured for backups.")
+        raise click.ClickException(tr("backup_repeated.no_mounts"))
 
     threads = []
     for mount in mounts:
@@ -122,12 +139,10 @@ def backup_repeated_all_command(config_path: Optional[str], non_interactive: boo
         thread.start()
         threads.append(thread)
 
-    click.echo(
-        f"Started {len(threads)} repeated backup job(s). Press Ctrl+C to stop when you're done."
-    )
+    click.echo(tr("backup_repeated.jobs_started", count=len(threads)))
 
     try:
         for thread in threads:
             thread.join()
     except KeyboardInterrupt:
-        click.echo("Stopping repeated backups on user request.")
+        click.echo(tr("backup_repeated.stop_requested"))

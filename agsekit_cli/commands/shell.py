@@ -9,19 +9,20 @@ import questionary
 
 from ..config import ConfigError, load_config, load_vms_config, resolve_config_path
 from ..interactive import is_interactive_terminal
+from ..i18n import tr
 from ..vm import MultipassError, ensure_multipass_available
 from . import non_interactive_option
 
 
 def _select_vm(vms: Dict[str, object]) -> str:
     choices = [questionary.Choice(name, value=name) for name in vms]
-    selected = questionary.select("Выберите ВМ для запуска shell:", choices=choices, use_shortcuts=True).ask()
+    selected = questionary.select(tr("shell.select_vm_prompt"), choices=choices, use_shortcuts=True).ask()
     if selected is None:
         raise click.Abort()
     return str(selected)
 
 
-@click.command(name="shell")
+@click.command(name="shell", help=tr("shell.command_help"))
 @non_interactive_option
 @click.argument("vm_name", required=False)
 @click.option(
@@ -30,7 +31,7 @@ def _select_vm(vms: Dict[str, object]) -> str:
     type=click.Path(dir_okay=False, exists=False, path_type=str),
     envvar="CONFIG_PATH",
     default=None,
-    help="Путь к YAML-конфигурации (по умолчанию ~/.config/agsekit/config.yaml или $CONFIG_PATH).",
+    help=tr("config.option_path"),
 )
 def shell_command(vm_name: Optional[str], config_path: Optional[str], non_interactive: bool) -> None:
     """Открывает интерактивный shell в Multipass ВМ."""
@@ -50,19 +51,19 @@ def shell_command(vm_name: Optional[str], config_path: Optional[str], non_intera
         else:
             if non_interactive or not is_interactive_terminal():
                 raise click.ClickException(
-                    "Укажите имя ВМ для подключения или запустите команду в интерактивном терминале."
+                    tr("shell.vm_required")
                 )
             target_vm = _select_vm(vms)
 
     if target_vm not in vms:
-        raise click.ClickException(f"ВМ `{target_vm}` отсутствует в конфигурации")
+        raise click.ClickException(tr("shell.vm_missing", vm_name=target_vm))
 
     try:
         ensure_multipass_available()
     except MultipassError as exc:
         raise click.ClickException(str(exc))
 
-    click.echo(f"Opening shell in VM `{target_vm}`...")
+    click.echo(tr("shell.opening", vm_name=target_vm))
     vm_config = vms[target_vm]
 
     command = ["multipass", "shell", target_vm]

@@ -9,6 +9,7 @@ from typing import Optional, Sequence
 import click
 
 from ..config import ConfigError, load_config, load_vms_config, resolve_config_path
+from ..i18n import tr
 from ..vm import MultipassError, ensure_multipass_available
 from . import non_interactive_option
 
@@ -17,7 +18,7 @@ def _resolve_ssh_key() -> Path:
     key_path = Path.home() / ".config" / "agsekit" / "ssh" / "id_rsa"
     if not key_path.exists():
         raise click.ClickException(
-            f"SSH ключ не найден по пути {key_path}. Запустите `agsekit prepare`, чтобы создать и синхронизировать ключи."
+            tr("ssh.key_missing", path=key_path)
         )
     return key_path
 
@@ -30,12 +31,12 @@ def _fetch_vm_ip(vm_name: str) -> str:
         text=True,
     )
     if result.returncode != 0:
-        raise MultipassError(result.stderr.strip() or f"Не удалось получить информацию о ВМ {vm_name}")
+        raise MultipassError(result.stderr.strip() or tr("ssh.info_failed", vm_name=vm_name))
 
     try:
         data = json.loads(result.stdout)
     except json.JSONDecodeError as exc:
-        raise MultipassError(f"Не удалось разобрать вывод multipass info для {vm_name}: {exc}")
+        raise MultipassError(tr("ssh.info_parse_failed", vm_name=vm_name, error=exc))
 
     info = data.get("info", {}).get(vm_name, {})
     ipv4 = info.get("ipv4")
@@ -47,11 +48,11 @@ def _fetch_vm_ip(vm_name: str) -> str:
         ip_value = ""
 
     if not ip_value:
-        raise MultipassError(f"Multipass не вернул IPv4 адрес для ВМ {vm_name}")
+        raise MultipassError(tr("ssh.ip_missing", vm_name=vm_name))
     return ip_value
 
 
-@click.command(name="ssh", context_settings={"ignore_unknown_options": True})
+@click.command(name="ssh", context_settings={"ignore_unknown_options": True}, help=tr("ssh.command_help"))
 @non_interactive_option
 @click.argument("vm_name", required=True)
 @click.argument("ssh_args", nargs=-1, type=click.UNPROCESSED)
@@ -61,7 +62,7 @@ def _fetch_vm_ip(vm_name: str) -> str:
     type=click.Path(dir_okay=False, exists=False, path_type=str),
     envvar="CONFIG_PATH",
     default=None,
-    help="Путь к YAML-конфигурации (по умолчанию ~/.config/agsekit/config.yaml или $CONFIG_PATH).",
+    help=tr("config.option_path"),
 )
 def ssh_command(
     vm_name: str,
@@ -70,9 +71,11 @@ def ssh_command(
     non_interactive: bool,
 ) -> None:
     """Подключается к ВМ по SSH с передачей дополнительных аргументов."""
+    # not used parameter, explicitly removing it so IDEs/linters do not complain
+    del non_interactive
 
     if shutil.which("ssh") is None:
-        raise click.ClickException("Не удалось найти ssh. Установите OpenSSH client.")
+        raise click.ClickException(tr("ssh.client_missing"))
 
     resolved_path = resolve_config_path(Path(config_path) if config_path else None)
     try:
@@ -82,7 +85,7 @@ def ssh_command(
         raise click.ClickException(str(exc))
 
     if vm_name not in vms:
-        raise click.ClickException(f"ВМ `{vm_name}` отсутствует в конфигурации")
+        raise click.ClickException(tr("ssh.vm_missing", vm_name=vm_name))
 
     try:
         ensure_multipass_available()

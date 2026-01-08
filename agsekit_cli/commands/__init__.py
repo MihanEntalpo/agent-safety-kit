@@ -4,10 +4,12 @@ from __future__ import annotations
 
 import click
 
+from ..i18n import tr
+
 non_interactive_option = click.option(
     "--non-interactive",
     is_flag=True,
-    help="Отключить автоматический переход в интерактивный режим.",
+    help=tr("cli.non_interactive_help"),
 )
 
 __all__ = ["non_interactive_option"]

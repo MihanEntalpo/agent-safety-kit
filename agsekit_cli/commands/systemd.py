@@ -9,6 +9,7 @@ from typing import List, Optional
 import click
 
 from ..config import DEFAULT_CONFIG_PATH, resolve_config_path
+from ..i18n import tr
 from . import non_interactive_option
 
 ENV_FILENAME = "systemd.env"
@@ -24,7 +25,7 @@ def _resolve_agsekit_bin() -> Path:
     if local_script.exists():
         return local_script
 
-    raise click.ClickException("Не удалось найти исполняемый файл agsekit.")
+    raise click.ClickException(tr("systemd.cli_not_found"))
 
 
 def _format_command(command: List[str]) -> str:
@@ -32,10 +33,10 @@ def _format_command(command: List[str]) -> str:
 
 
 def _run_systemctl(command: List[str]) -> None:
-    click.echo(f"Выполняется: {_format_command(command)}")
+    click.echo(tr("systemd.running_command", command=_format_command(command)))
     result = subprocess.run(command, capture_output=True, text=True)
     if result.returncode != 0:
-        message = result.stderr.strip() or result.stdout.strip() or "Не удалось выполнить systemctl."
+        message = result.stderr.strip() or result.stdout.strip() or tr("systemd.systemctl_failed")
         raise click.ClickException(message)
     if result.stdout:
         click.echo(result.stdout.rstrip())
@@ -43,12 +44,12 @@ def _run_systemctl(command: List[str]) -> None:
         click.echo(result.stderr.rstrip(), err=True)
 
 
-@click.group(name="systemd")
+@click.group(name="systemd", help=tr("systemd.group_help"))
 def systemd_group() -> None:
     """Команды для управления systemd-юнитами."""
 
 
-@systemd_group.command(name="install")
+@systemd_group.command(name="install", help=tr("systemd.install_help"))
 @non_interactive_option
 @click.option(
     "config_path",
@@ -56,10 +57,11 @@ def systemd_group() -> None:
     type=click.Path(dir_okay=False, exists=False, path_type=str),
     envvar="CONFIG_PATH",
     default=None,
-    help="Путь к YAML-конфигурации (по умолчанию ~/.config/agsekit/config.yaml или $CONFIG_PATH).",
+    help=tr("config.option_path"),
 )
 def systemd_install_command(config_path: Optional[str], non_interactive: bool) -> None:
     """Генерирует systemd.env и регистрирует unit для portforward."""
+    # not used parameter, explicitly removing it so IDEs/linters do not complain
     del non_interactive
 
     project_dir = Path.cwd().resolve()
@@ -76,11 +78,11 @@ def systemd_install_command(config_path: Optional[str], non_interactive: bool) -
         f"AGSEKIT_PROJECT_DIR={project_dir}\n"
     )
     env_path.write_text(env_contents, encoding="utf-8")
-    click.echo(f"Записан файл окружения: {env_path}")
+    click.echo(tr("systemd.env_written", path=env_path))
 
     unit_path = project_dir / UNIT_RELATIVE_PATH
     if not unit_path.exists():
-        raise click.ClickException(f"Файл systemd-юнита не найден: {unit_path}")
+        raise click.ClickException(tr("systemd.unit_missing", path=unit_path))
 
     _run_systemctl(["systemctl", "--user", "link", str(unit_path)])
     _run_systemctl(["systemctl", "--user", "daemon-reload"])
@@ -88,16 +90,17 @@ def systemd_install_command(config_path: Optional[str], non_interactive: bool) -
     _run_systemctl(["systemctl", "--user", "enable", "agsekit-portforward"])
 
 
-@systemd_group.command(name="uninstall")
+@systemd_group.command(name="uninstall", help=tr("systemd.uninstall_help"))
 @non_interactive_option
 def systemd_uninstall_command(non_interactive: bool) -> None:
     """Останавливает и удаляет systemd-юнит для portforward."""
+    # not used parameter, explicitly removing it so IDEs/linters do not complain
     del non_interactive
 
     project_dir = Path.cwd().resolve()
     unit_path = project_dir / UNIT_RELATIVE_PATH
     if not unit_path.exists():
-        raise click.ClickException(f"Файл systemd-юнита не найден: {unit_path}")
+        raise click.ClickException(tr("systemd.unit_missing", path=unit_path))
 
     _run_systemctl(["systemctl", "--user", "stop", "agsekit-portforward"])
     _run_systemctl(["systemctl", "--user", "disable", "agsekit-portforward"])
