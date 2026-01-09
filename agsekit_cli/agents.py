@@ -95,7 +95,7 @@ def build_shell_command(workdir: Path, agent_command: Sequence[str], env_vars: D
     if exports:
         parts.append("; ".join(exports))
     parts.append(f"cd {shlex.quote(str(workdir))}")
-    parts.append(shlex.join(list(agent_command)))
+    parts.append(f"exec {shlex.join(list(agent_command))}")
     return " && ".join(parts)
 
 
@@ -127,9 +127,9 @@ def run_in_vm(
             f"bash {shlex.quote(runner)} --proxy {shlex.quote(effective_proxychains)} -- "
             f"bash -lc {shlex.quote(shell_command)}"
         )
-        command = ["multipass", "shell", vm.name, "--", "bash", "-lc", wrapped_command]
+        command = ["multipass", "exec", vm.name, "--", "bash", "-lc", wrapped_command]
     else:
-        command = ["multipass", "shell", vm.name, "--", "bash", "-lc", shell_command]
+        command = ["multipass", "exec", vm.name, "--", "bash", "-lc", shell_command]
     _debug_print(command, debug)
     result = subprocess.run(command, check=False)
     return int(result.returncode)
