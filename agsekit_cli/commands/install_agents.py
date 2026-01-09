@@ -11,7 +11,7 @@ import click
 from ..agents import find_agent
 from ..config import AgentConfig, ConfigError, VmConfig, load_agents_config, load_config, load_vms_config, resolve_config_path
 from ..i18n import tr
-from ..vm import MultipassError, ensure_multipass_available, resolve_proxychains, wrap_with_proxychains
+from ..vm import MultipassError, ensure_multipass_available, resolve_proxychains
 from . import non_interactive_option
 
 SCRIPTS_DIR = Path(__file__).resolve().parents[1] / "agent_scripts"
@@ -46,14 +46,12 @@ def _log_failed_command(
 def _run_command(
     command: List[str],
     description: str,
-    proxychains: Optional[str] = None,
     capture_output: bool = True,
 ) -> subprocess.CompletedProcess[str]:
-    full_command = wrap_with_proxychains(command, proxychains)
-    click.echo(tr("install_agents.command_running", description=description, command=_format_command(full_command)))
+    click.echo(tr("install_agents.command_running", description=description, command=_format_command(command)))
     if capture_output:
-        return subprocess.run(full_command, check=False, capture_output=True, text=True)
-    return subprocess.run(full_command, check=False, text=True)
+        return subprocess.run(command, check=False, capture_output=True, text=True)
+    return subprocess.run(command, check=False, text=True)
 
 
 def _run_install_script(vm: VmConfig, script_path: Path, proxychains: Optional[str] = None) -> None:
@@ -64,7 +62,6 @@ def _run_install_script(vm: VmConfig, script_path: Path, proxychains: Optional[s
     transfer_result = _run_command(
         ["multipass", "transfer", str(script_path), f"{vm.name}:{remote_path}"],
         tr("install_agents.transfer_label"),
-        proxychains=effective_proxychains,
     )
     if transfer_result.returncode != 0:
         _log_failed_command(
@@ -82,7 +79,6 @@ def _run_install_script(vm: VmConfig, script_path: Path, proxychains: Optional[s
         result = _run_command(
             install_command,
             tr("install_agents.run_installer", script=script_path.name, vm_name=vm.name),
-            proxychains=effective_proxychains,
             capture_output=False,
         )
         if result.returncode != 0:
@@ -93,7 +89,6 @@ def _run_install_script(vm: VmConfig, script_path: Path, proxychains: Optional[s
         cleanup_result = _run_command(
             cleanup_command,
             tr("install_agents.cleanup_installer", script=script_path.name, vm_name=vm.name),
-            proxychains=effective_proxychains,
         )
         if cleanup_result.returncode != 0:
             _log_failed_command(cleanup_command, cleanup_result, tr("install_agents.installer_cleanup_label"))

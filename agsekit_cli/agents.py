@@ -10,7 +10,7 @@ import click
 from .config import AgentConfig, ConfigError, VmConfig, load_agents_config, load_config, load_mounts_config, load_vms_config, resolve_config_path
 from .i18n import tr
 from .mounts import MountConfig, normalize_path
-from .vm import MultipassError, ensure_multipass_available, resolve_proxychains, wrap_with_proxychains
+from .vm import MultipassError, ensure_multipass_available, ensure_proxychains_runner, resolve_proxychains
 
 
 NVM_LOAD_SNIPPET = (
@@ -121,10 +121,15 @@ def run_in_vm(
     ensure_multipass_available()
     shell_command = build_shell_command(workdir, agent_command, env_vars)
     effective_proxychains = resolve_proxychains(vm, proxychains)
-    command = wrap_with_proxychains(
-        ["multipass", "shell", vm.name, "--", "bash", "-lc", shell_command],
-        effective_proxychains,
-    )
+    if effective_proxychains:
+        runner = ensure_proxychains_runner(vm)
+        wrapped_command = (
+            f"bash {shlex.quote(runner)} --proxy {shlex.quote(effective_proxychains)} -- "
+            f"bash -lc {shlex.quote(shell_command)}"
+        )
+        command = ["multipass", "shell", vm.name, "--", "bash", "-lc", wrapped_command]
+    else:
+        command = ["multipass", "shell", vm.name, "--", "bash", "-lc", shell_command]
     _debug_print(command, debug)
     result = subprocess.run(command, check=False)
     return int(result.returncode)
@@ -136,22 +141,20 @@ def ensure_agent_binary_available(
     ensure_multipass_available()
     binary = agent_command[0]
     effective_proxychains = resolve_proxychains(vm, proxychains)
-    command = wrap_with_proxychains(
-        [
-            "multipass",
-            "exec",
-            vm.name,
-            "--",
-            "bash",
-            "-lc",
-            (
-                f"{NVM_LOAD_SNIPPET} && "
-                "export PATH=\"/usr/local/bin:$HOME/.local/bin:$PATH\" && "
-                f"command -v {shlex.quote(binary)} >/dev/null 2>&1"
-            ),
-        ],
-        effective_proxychains,
+    check_command = (
+        f"{NVM_LOAD_SNIPPET} && "
+        "export PATH=\"/usr/local/bin:$HOME/.local/bin:$PATH\" && "
+        f"command -v {shlex.quote(binary)} >/dev/null 2>&1"
     )
+    if effective_proxychains:
+        runner = ensure_proxychains_runner(vm)
+        wrapped_command = (
+            f"bash {shlex.quote(runner)} --proxy {shlex.quote(effective_proxychains)} -- "
+            f"bash -lc {shlex.quote(check_command)}"
+        )
+        command = ["multipass", "exec", vm.name, "--", "bash", "-lc", wrapped_command]
+    else:
+        command = ["multipass", "exec", vm.name, "--", "bash", "-lc", check_command]
     _debug_print(command, debug)
     result = subprocess.run(command, check=False, capture_output=True, text=True)
 
