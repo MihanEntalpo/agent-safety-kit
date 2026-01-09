@@ -273,16 +273,36 @@ def build_port_forwarding_args(rules: Iterable[PortForwardingRule]) -> List[str]
     return args
 
 
-def wrap_with_proxychains(command: List[str], proxychains: Optional[str]) -> List[str]:
-    if proxychains is None:
-        return command
+PROXYCHAINS_RUNNER_REMOTE = "/tmp/agsekit-run_with_proxychains.sh"
 
-    proxychains_value = str(proxychains).strip()
-    if not proxychains_value:
-        return command
 
+def ensure_proxychains_runner(vm: VmConfig) -> str:
     runner = Path(__file__).resolve().parent / "run_with_proxychains.sh"
-    return ["bash", str(runner), "--proxy", proxychains_value, *command]
+    transfer_command = ["multipass", "transfer", str(runner), f"{vm.name}:{PROXYCHAINS_RUNNER_REMOTE}"]
+    transfer_result = subprocess.run(transfer_command, check=False, capture_output=True, text=True)
+    if transfer_result.returncode != 0:
+        raise MultipassError(
+            tr(
+                "vm.proxychains_transfer_failed",
+                vm_name=vm.name,
+                stdout=(transfer_result.stdout or "").strip() or "-",
+                stderr=(transfer_result.stderr or "").strip() or "-",
+            )
+        )
+
+    chmod_command = ["multipass", "exec", vm.name, "--", "chmod", "+x", PROXYCHAINS_RUNNER_REMOTE]
+    chmod_result = subprocess.run(chmod_command, check=False, capture_output=True, text=True)
+    if chmod_result.returncode != 0:
+        raise MultipassError(
+            tr(
+                "vm.proxychains_chmod_failed",
+                vm_name=vm.name,
+                stdout=(chmod_result.stdout or "").strip() or "-",
+                stderr=(chmod_result.stderr or "").strip() or "-",
+            )
+        )
+
+    return PROXYCHAINS_RUNNER_REMOTE
 
 
 def resolve_proxychains(vm: VmConfig, override: Optional[str]) -> Optional[str]:
