@@ -21,7 +21,7 @@ Everyone says "you should have backups" and "everything must live in git", but c
 
 ## Key ideas
 
-- AI agent only works inside a virtual machine.
+- Agents run only inside a virtual machine.
 - The VM is launched via Multipass (a simple Canonical tool to start Ubuntu VMs with a single command).
 - Project folders from the host are mounted into the VM; an automatic backup job runs in parallel to a sibling directory at a configurable interval (defaults to every five minutes and only when changes are detected), using `rsync` with hardlinks to save space.
 - VM, mount, and cloud-init settings are stored in a YAML config.
@@ -97,7 +97,7 @@ Currently confirmed working agent types are:
 * `agsekit create-vms` — creates every VM defined in the YAML configuration.
 * `agsekit create-vm <name>` — launches just one VM. If the config contains only one VM, you can omit `<name>` and it will be used automatically. If a VM already exists, the command compares the desired resources with the current ones and reports any differences. Changing resources of an existing VM is not supported yet.
 * `agsekit shell [<vm_name>] [--config <path>]` — opens an interactive `multipass shell` session inside the chosen VM, applying any configured port forwarding. If only
-  one VM is defined in the config, the CLI connects there even without `vm_name`. When several VMs exist and the command runs in
+  one VM is defined in the config, the CLI connects there even without `vm_name`. When multiple VMs exist and the command runs in
   a TTY, the CLI prompts you to pick one; in non-interactive mode, an explicit `vm_name` is required.
 * `agsekit ssh <vm_name> [--config <path>] [<ssh_args...>]` — connects to the VM over SSH using `~/.config/agsekit/ssh/id_rsa` and forwards any extra arguments directly to the `ssh` command (for example, `-L`, `-R`, `-N`).
 * `agsekit portforward [--config <path>]` — starts a dedicated `agsekit ssh` tunnel for each VM that defines `port-forwarding` rules, monitoring the child processes and restarting them if they exit. Stop with Ctrl+C to gracefully terminate the tunnels.
@@ -179,7 +179,7 @@ AGSEKIT_LANG=ru agsekit --help
 The configuration file (looked up via `--config`, `CONFIG_PATH`, or `~/.config/agsekit/config.yaml`) describes VM parameters, mounted directories, and any `cloud-init` settings. A base example lives in `config-example.yaml`:
 
 ```yaml
-vms: # VM parameters for Multipass (you can define several)
+vms: # VM parameters for Multipass (you can define multiple)
   agent-ubuntu: # VM name
     cpu: 2      # number of vCPUs
     ram: 4G     # RAM size (supports 2G, 4096M, etc.)
@@ -221,74 +221,3 @@ agents:
 ```
 
 > **Note:** Prefer ASCII-only paths for both `source` and `target` mount points: AppArmor may refuse to mount directories whose paths contain non-ASCII characters.
-
-## Backups
-
-### One-off backup
-
-`agsekit backup-once --source-dir <path> --dest-dir <path> [--exclude <pattern> ...] [--progress]` — runs a single backup of the source directory into the specified destination using `rsync`.
-The command creates a timestamped directory with a `-partial` suffix, supports incremental copies via `--link-dest` to the previous backup, and honors exclusions from `.backupignore` and `--exclude` arguments. When finished, the temporary folder is renamed to a final timestamp without the suffix. If nothing changed relative to the last backup, no new snapshot is created and the tool reports the absence of updates.
-
-`.backupignore` examples:
-```
-# exclude virtual environments and dependencies
-venv/
-node_modules/
-
-# ignore temporary and log files by pattern
-*.log
-*.tmp
-
-# include a specific file inside an excluded folder
-!logs/important.log
-
-# skip documentation build artifacts
-docs/build/
-```
-
-Backups use `rsync` with incremental links (`--link-dest`) to the previous copy: if only a small set of files changed, the new snapshot stores just the updated data, while unchanged files are hardlinked to the prior snapshot. This keeps a chain of dated directories while consuming minimal space when changes are rare.
-
-### Repeated backups
-
-* `agsekit backup-repeated --source-dir <path> --dest-dir <path> [--exclude <pattern> ...] [--interval <minutes>] [--skip-first]` — runs an immediate backup and then repeats it every `interval` minutes (defaults to five minutes). With `--skip-first`, the loop waits for the first interval before performing the initial run. After each backup it prints `Done, waiting N minutes` with the actual interval value.
-* `agsekit backup-repeated-mount --mount <path> [--config <path>]` — looks up the mount by its `source` path in the configuration file (default search: `--config`, `CONFIG_PATH`, `~/.config/agsekit/config.yaml`) and launches repeated backups using the paths and interval from the config. When only one mount is present, `--mount` can be omitted; with multiple mounts, an explicit choice is required.
-* `agsekit backup-repeated-all [--config <path>]` — reads all mounts from the config (default search: `--config`, `CONFIG_PATH`, `~/.config/agsekit/config.yaml`) and starts concurrent repeated backups for each entry within a single process. Use Ctrl+C to stop the loops.
-
-### Mount management
-
-* `agsekit mount --source-dir <path> [--config <path>]` — mounts the directory described by `source` in the configuration file (default search: `--config`, `CONFIG_PATH`, `~/.config/agsekit/config.yaml`) into its VM using `multipass mount`. Use `--all` to mount every entry from the config. When there is only one mount in the config, the command can be run without `--source-dir` or `--all`.
-* `agsekit umount --source-dir <path> [--config <path>]` — unmounts the directory described by `source` in the config (or `CONFIG_PATH`/`--config`); `--all` unmounts every configured path. If only one mount is configured, the command will unmount it even without explicit flags.
-
-### VM shell access
-
-* `agsekit shell [<vm_name>] [--config <path>]` — opens an interactive `multipass shell` session inside the chosen VM, applying any configured port forwarding. If only
-  one VM is defined in the config, the CLI connects there even without `vm_name`. When several VMs exist and the command runs in
-  a TTY, the CLI prompts you to pick one; in non-interactive mode, an explicit `vm_name` is required.
-* `agsekit ssh <vm_name> [--config <path>] [<ssh_args...>]` — uses the prepared SSH key `~/.config/agsekit/ssh/id_rsa` to connect to the VM and passes any extra arguments to `ssh`, so you can forward ports or run in `-N` mode as needed.
-
-### VM lifecycle
-
-* `agsekit start-vm <vm_name> [--config <path>]` — starts the specified VM from the configuration. If only one VM is configured, the name can be omitted.
-* `agsekit start-vm --all-vms [--config <path>]` — starts every VM declared in the config file.
-* `agsekit stop-vm <vm_name> [--config <path>]` — stops the specified VM from the configuration. If only one VM is configured, the name can be omitted.
-* `agsekit stop-vm --all-vms [--config <path>]` — stops every VM declared in the config file.
-* `agsekit destroy-vm <vm_name> [--config <path>] [-y]` — deletes the specified VM from Multipass. Without `-y`, the CLI asks for interactive confirmation.
-* `agsekit destroy-vm --all [--config <path>] [-y]` — deletes every VM from the configuration, with the same confirmation requirement.
-
-### Agent installation
-
-* `agsekit install-agents <agent_name> [<vm>|--all-vms] [--config <path>] [--proxychains <value>]` — runs the prepared installation script for the chosen agent type inside the specified VM (or the agent's default VM if none is provided). If the config defines only one agent, you can skip `<agent_name>` and it will be picked automatically. Use `--proxychains <scheme://host:port>` to override the VM proxy for this installation or `--proxychains ""` to ignore it once.
-* `agsekit install-agents --all-agents [--all-vms] [--config <path>] [--proxychains <value>]` — installs every configured agent either into their default VM or into every VM when `--all-vms` is set.
-
-The installation scripts live in `agsekit_cli/agent_scripts/`: `codex` installs the npm CLI, `codex-glibc` builds the Rust sources with the glibc target and installs the binary as `codex-glibc`, and `qwen`/`claude-code` follow their upstream steps (the `qwen` script installs the qwen-code CLI). Other agent types are not supported yet.
-
-### Running agents
-
-* `agsekit run <agent_name> [<source_dir>|--vm <vm_name>] [--config <path>] [--proxychains <value>] [--disable-backups] [--skip-default-args] [--debug] -- <agent_args...>` — starts an interactive agent command inside Multipass. Environment variables from the config are passed to the process. If a `source_dir` from the mounts list is provided, the agent starts inside the mounted target path in the matching VM; otherwise it launches in the home directory of the default VM. Unless `--disable-backups` is set, background repeated backups for the selected mount are started for the duration of the run. When no backups exist yet, the CLI first creates an initial snapshot with progress output before launching the agent and then starts the repeated loop with the initial run skipped. Arguments from `agents.<name>.default-args` are added unless `--skip-default-args` is set; if the user already passed an option with the same name (for example `--openai-api-key`), the default value is skipped. With `--debug`, the CLI prints every external command before executing it to help troubleshoot agent launches. Use `--proxychains <scheme://host:port>` to override the VM setting for one run; pass an empty string to disable it temporarily.
-
-### Interactive mode
-
-In a TTY you don’t have to type full commands every time: the CLI can guide you through an interactive menu that fills in parameters for you.
-
-* Run `agsekit` without arguments to open the interactive menu, choose a command, and select options such as the config path, mounts, or agent parameters.
-* Start a command without mandatory arguments (for example, `agsekit run`) to automatically fall back to the interactive flow after the CLI prints a “not enough parameters” hint. Use `--non-interactive` if you prefer the usual help output instead of prompts.
