@@ -277,6 +277,7 @@
   "run.option_vm": "VM name to run the agent",
   "run.starting_agent": "Starting agent `{agent}` in VM `{vm_name}` (workdir: {workdir}).",
   "run.starting_background_backups": "Starting background repeated backups for mount {source} -> {destination}.",
+  "run.error": "Error running agent. Command: {cmd}",
   "shell.command_help": "Open an interactive shell in a Multipass VM.",
   "shell.opening": "Opening shell in VM `{vm_name}`...",
   "shell.select_vm_prompt": "Select VM for shell:",

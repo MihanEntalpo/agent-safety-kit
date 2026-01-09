@@ -148,6 +148,8 @@ def run_command(
             mount_entry, _cli_entry_path(), skip_first=skip_first_repeated_backup, debug=debug
         )
 
+    exit_code = 0
+
     try:
         exit_code = run_in_vm(vm_config, workdir, agent_command, env_vars, proxychains=proxychains, debug=debug)
     except (ConfigError, MultipassError) as exc:
@@ -165,4 +167,5 @@ def run_command(
                 log_file.close()
 
     if exit_code != 0:
+        click.echo(tr("run.error", cmd=agent_command))
         raise SystemExit(exit_code)

@@ -277,6 +277,7 @@
   "run.option_vm": "Имя ВМ для запуска агента",
   "run.starting_agent": "Запуск агента `{agent}` в ВМ `{vm_name}` (рабочий каталог: {workdir}).",
   "run.starting_background_backups": "Запуск фоновых повторяющихся бэкапов для монтирования {source} -> {destination}.",
+  "run.error": "Ошибка запуска агента. Команда: {cmd}",
   "shell.command_help": "Открыть интерактивный shell в Multipass ВМ.",
   "shell.opening": "Открываем shell в ВМ `{vm_name}`...",
   "shell.select_vm_prompt": "Выберите ВМ для запуска shell:",
