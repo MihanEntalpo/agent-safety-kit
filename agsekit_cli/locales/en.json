@@ -1,5 +1,6 @@
 {
   "agents.agent_binary_missing": "Agent binary `{binary}` was not found inside VM `{vm_name}`. Did you run ./agsekit install-agents?",
+  "agents.agent_binary_check_failed": "Failed to check agent binary `{binary}` inside VM `{vm_name}`. stdout: {stdout} stderr: {stderr}",
   "agents.agent_not_found": "Agent `{name}` was not found in the configuration.",
   "agents.debug_command": "[DEBUG] {command}",
   "agents.mount_not_found": "Mount with path {path} was not found{suffix}.",

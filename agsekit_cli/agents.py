@@ -139,22 +139,39 @@ def ensure_agent_binary_available(
     command = wrap_with_proxychains(
         [
             "multipass",
-            "shell",
+            "exec",
             vm.name,
             "--",
             "bash",
             "-lc",
-            f"{NVM_LOAD_SNIPPET} && command -v {shlex.quote(binary)} >/dev/null 2>&1",
+            (
+                f"{NVM_LOAD_SNIPPET} && "
+                "export PATH=\"/usr/local/bin:$HOME/.local/bin:$PATH\" && "
+                f"command -v {shlex.quote(binary)} >/dev/null 2>&1"
+            ),
         ],
         effective_proxychains,
     )
     _debug_print(command, debug)
     result = subprocess.run(command, check=False, capture_output=True, text=True)
 
-    if result.returncode != 0:
+    if result.returncode == 0:
+        return
+    if result.returncode == 1:
         raise MultipassError(
             tr("agents.agent_binary_missing", binary=binary, vm_name=vm.name)
         )
+    stdout = (result.stdout or "").strip()
+    stderr = (result.stderr or "").strip()
+    raise MultipassError(
+        tr(
+            "agents.agent_binary_check_failed",
+            binary=binary,
+            vm_name=vm.name,
+            stdout=stdout or "-",
+            stderr=stderr or "-",
+        )
+    )
 
 
 def start_backup_process(
