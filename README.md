@@ -28,6 +28,14 @@ Everyone says "you should have backups" and "everything must live in git", but c
 - You can run the agent without entering the guest via `multipass shell`—it still executes inside the VM.
 - Multipass commands and agent runs can be wrapped in proxychains: set a proxy URL per VM or override it once with `--proxychains` to generate a temporary proxychains config automatically.
 
+## Working agents
+
+Currently confirmed working agent types are:
+
+- qwen
+- codex
+- codex-glibc (built dynamically)
+
 ## Quick start
 
 1. Clone the repository and enter it:

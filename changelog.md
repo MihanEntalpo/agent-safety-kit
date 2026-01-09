@@ -1,5 +1,11 @@
 # Agent-Safety-Kit versions history
 
+## 0.9.3 - Codex and proxychains updates
+
+* Codex agent is now confirmed working
+* Codex-glibc dynamic build now works
+* Proxychains integration refined for agent runs and installs
+
 ## 0.9.2 - CLI localization
 
 * Added ru/en localization for CLI messages
