@@ -21,7 +21,7 @@ Everyone says "you should have backups" and "everything must live in git", but c
 
 ## Key ideas
 
-- The agent only works inside a virtual machine.
+- AI agent only works inside a virtual machine.
 - The VM is launched via Multipass (a simple Canonical tool to start Ubuntu VMs with a single command).
 - Project folders from the host are mounted into the VM; an automatic backup job runs in parallel to a sibling directory at a configurable interval (defaults to every five minutes and only when changes are detected), using `rsync` with hardlinks to save space.
 - VM, mount, and cloud-init settings are stored in a YAML config.
