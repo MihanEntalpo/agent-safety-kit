@@ -84,4 +84,4 @@ tcp_connect_time_out 8000
 config_path.write_text(config, encoding="utf-8")
 PYCODE
 
-exec proxychains4 -f "$config_file" "$@"
+exec proxychains4 -q -f "$config_file" "$@"
