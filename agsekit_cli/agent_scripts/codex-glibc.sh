@@ -3,6 +3,11 @@ set -euo pipefail
 
 PROXYCHAINS_PROXY="${AGSEKIT_PROXYCHAINS_PROXY:-}"
 PROXYCHAINS_CONFIG=""
+SWAP_FILE=""
+SWAP_CREATED=0
+BUILD_ROOT=""
+INSTALL_SUCCESS=0
+INSTALLED_CODEX_PATH=""
 
 init_proxychains() {
   if [ -z "$PROXYCHAINS_PROXY" ]; then
@@ -72,7 +77,82 @@ run_with_proxychains() {
   proxychains4 -f "$PROXYCHAINS_CONFIG" "$@"
 }
 
+run_privileged() {
+  if command -v sudo >/dev/null 2>&1 && [ "$(id -u)" -ne 0 ]; then
+    sudo "$@"
+  else
+    "$@"
+  fi
+}
+
+cleanup_swap() {
+  if [ "$SWAP_CREATED" -eq 1 ] && [ -n "${SWAP_FILE:-}" ]; then
+    echo "отключаю и удаляю временный swap-файл ${SWAP_FILE}"
+    run_privileged swapoff "$SWAP_FILE" 2>/dev/null || true
+    run_privileged rm -f "$SWAP_FILE"
+    SWAP_CREATED=0
+    SWAP_FILE=""
+  fi
+}
+
+cleanup() {
+  cleanup_swap
+  if [ -n "${BUILD_ROOT:-}" ]; then
+    if [ -n "$INSTALLED_CODEX_PATH" ] && [ -x "$INSTALLED_CODEX_PATH" ]; then
+      if "$INSTALLED_CODEX_PATH" --version >/dev/null 2>&1; then
+        rm -rf "$BUILD_ROOT"
+      else
+        echo "codex-glibc is unavailable or not runnable, keeping build directory at ${BUILD_ROOT}"
+      fi
+    else
+      echo "codex-glibc is unavailable or not runnable, keeping build directory at ${BUILD_ROOT}"
+    fi
+  fi
+}
+
+ensure_swap_for_build() {
+  local min_free_kb mem_available_kb swap_free_kb total_free_kb needed_kb swap_bytes swap_mb
+  min_free_kb=$((3 * 1024 * 1024))
+  mem_available_kb="$(awk '/MemAvailable:/ {print $2}' /proc/meminfo)"
+  swap_free_kb="$(awk '/SwapFree:/ {print $2}' /proc/meminfo)"
+  mem_available_kb="${mem_available_kb:-0}"
+  swap_free_kb="${swap_free_kb:-0}"
+  total_free_kb=$((mem_available_kb + swap_free_kb))
+
+  if [ "$total_free_kb" -ge "$min_free_kb" ]; then
+    echo "Checking available RAM: there is enough RAM to build codex-glibc."
+    return
+  fi
+
+  needed_kb=$((min_free_kb - total_free_kb))
+  swap_bytes=$((needed_kb * 1024))
+  swap_mb=$(((needed_kb + 1023) / 1024))
+
+  echo "Not enough RAM to build codex-glibc, creating a swap file."
+
+  if command -v sudo >/dev/null 2>&1 && [ "$(id -u)" -ne 0 ]; then
+    SWAP_FILE="$(sudo mktemp --tmpdir=/ codex-glibc-swap-XXXXXX)"
+  else
+    SWAP_FILE="$(mktemp --tmpdir=/ codex-glibc-swap-XXXXXX)"
+  fi
+
+  if command -v fallocate >/dev/null 2>&1; then
+    run_privileged fallocate -l "$swap_bytes" "$SWAP_FILE"
+  else
+    run_privileged dd if=/dev/zero of="$SWAP_FILE" bs=1M count="$swap_mb" status=none
+  fi
+
+  run_privileged chmod 600 "$SWAP_FILE"
+  run_privileged mkswap "$SWAP_FILE" >/dev/null
+  run_privileged swapon "$SWAP_FILE"
+  SWAP_CREATED=1
+}
+
+trap cleanup EXIT INT TERM
+
 echo "Building Codex agent with glibc toolchain..."
+
+ensure_swap_for_build
 
 sudo apt-get update -y
 sudo apt-get install -y build-essential pkg-config libssl-dev curl git
@@ -108,7 +188,6 @@ fi
 run_with_proxychains rustup target add "$HOST_TARGET"
 
 BUILD_ROOT="$(mktemp -d -t codex-src-XXXXXX)"
-trap 'rm -rf "$BUILD_ROOT"' EXIT
 
 echo "Cloning codex repository..."
 run_with_proxychains git clone --depth 1 https://github.com/openai/codex.git "$BUILD_ROOT/codex"
@@ -165,6 +244,7 @@ export CARGO_PROFILE_RELEASE_LTO=off
 export CARGO_PROFILE_RELEASE_CODEGEN_UNITS=1
 export CARGO_PROFILE_RELEASE_DEBUG=false
 run_with_proxychains cargo build --release --target "$HOST_TARGET" --manifest-path "$MANIFEST_PATH"
+cleanup_swap
 
 BUILT_BINARY="$CARGO_TARGET_DIR/$HOST_TARGET/release/codex"
 if [ ! -x "$BUILT_BINARY" ]; then
@@ -176,13 +256,21 @@ DEST_PATH="/usr/local/bin/codex-glibc"
 if command -v sudo >/dev/null 2>&1 && sudo -n true >/dev/null 2>&1; then
   sudo install -m 0755 "$BUILT_BINARY" "$DEST_PATH"
   echo "Installed codex-glibc to $DEST_PATH using sudo."
+  INSTALLED_CODEX_PATH="$DEST_PATH"
 else
   mkdir -p "$HOME/.local/bin"
   install -m 0755 "$BUILT_BINARY" "$HOME/.local/bin/codex-glibc"
   DEST_PATH="$HOME/.local/bin/codex-glibc"
+  INSTALLED_CODEX_PATH="$DEST_PATH"
   if ! grep -q 'export PATH="$HOME/.local/bin:$PATH"' "$HOME/.profile" 2>/dev/null; then
     echo 'export PATH="$HOME/.local/bin:$PATH"' >> "$HOME/.profile"
     echo "Added $HOME/.local/bin to PATH in ~/.profile."
   fi
   echo "Installed codex-glibc to $DEST_PATH."
+fi
+
+if "$INSTALLED_CODEX_PATH" --version >/dev/null 2>&1; then
+  INSTALL_SUCCESS=1
+else
+  echo "codex-glibc is unavailable or not runnable after installation."
 fi
