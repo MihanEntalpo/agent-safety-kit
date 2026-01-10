@@ -7,8 +7,8 @@ vms: # параметры виртуальных машин (можно имет
     cloud-init: {} # здесь можно разместить стандартный конфиг cloud-init, но он не обязателен
     port-forwarding: # проброс портов через multipass shell при запуске агента и установке
       - type: remote
-        host-addr: 127.0.0.1:8080
-        vm-addr: 127.0.0.1:80
+        host-addr: 127.0.0.1:80
+        vm-addr: 127.0.0.1:8080
       - type: local
         host-addr: 0.0.0.0:15432
         vm-addr: 127.0.0.1:5432
