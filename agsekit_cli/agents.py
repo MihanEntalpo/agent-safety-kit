@@ -18,6 +18,7 @@ NVM_LOAD_SNIPPET = (
     "if [ -s \"$NVM_DIR/nvm.sh\" ]; then . \"$NVM_DIR/nvm.sh\"; "
     "elif [ -s \"$NVM_DIR/bash_completion\" ]; then . \"$NVM_DIR/bash_completion\"; fi"
 )
+NODE_AGENT_BINARIES = {"codex", "qwen", "qwen-code"}
 
 
 def load_agents_from_file(config_path: Optional[Union[str, Path]]) -> Dict[str, AgentConfig]:
@@ -89,8 +90,14 @@ def _export_statements(env_vars: Dict[str, str]) -> List[str]:
     return exports
 
 
+def _needs_nvm(binary: str) -> bool:
+    return binary in NODE_AGENT_BINARIES
+
+
 def build_shell_command(workdir: Path, agent_command: Sequence[str], env_vars: Dict[str, str]) -> str:
-    parts: List[str] = [NVM_LOAD_SNIPPET]
+    parts: List[str] = []
+    if _needs_nvm(agent_command[0]):
+        parts.append(NVM_LOAD_SNIPPET)
     exports = _export_statements(env_vars)
     if exports:
         parts.append("; ".join(exports))
@@ -141,11 +148,12 @@ def ensure_agent_binary_available(
     ensure_multipass_available()
     binary = agent_command[0]
     effective_proxychains = resolve_proxychains(vm, proxychains)
-    check_command = (
-        f"{NVM_LOAD_SNIPPET} && "
-        "export PATH=\"/usr/local/bin:$HOME/.local/bin:$PATH\" && "
-        f"command -v {shlex.quote(binary)} >/dev/null 2>&1"
-    )
+    parts = []
+    if _needs_nvm(binary):
+        parts.append(NVM_LOAD_SNIPPET)
+    parts.append("export PATH=\"/usr/local/bin:$HOME/.local/bin:$PATH\"")
+    parts.append(f"command -v {shlex.quote(binary)} >/dev/null 2>&1")
+    check_command = " && ".join(parts)
     if effective_proxychains:
         runner = ensure_proxychains_runner(vm)
         wrapped_command = (
@@ -160,12 +168,12 @@ def ensure_agent_binary_available(
 
     if result.returncode == 0:
         return
-    if result.returncode == 1:
+    stdout = (result.stdout or "").strip()
+    stderr = (result.stderr or "").strip()
+    if result.returncode == 1 and not stdout and not stderr:
         raise MultipassError(
             tr("agents.agent_binary_missing", binary=binary, vm_name=vm.name)
         )
-    stdout = (result.stdout or "").strip()
-    stderr = (result.stderr or "").strip()
     raise MultipassError(
         tr(
             "agents.agent_binary_check_failed",

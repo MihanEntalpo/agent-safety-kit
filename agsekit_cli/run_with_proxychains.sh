@@ -37,53 +37,11 @@ done
 [[ -n "$proxy_setting" ]] || usage
 [[ $# -gt 0 ]] || usage
 
-if ! command -v proxychains4 >/dev/null 2>&1; then
-  echo "proxychains4 не найден, устанавливаю через sudo apt-get..." >&2
-  sudo apt-get update
-  sudo apt-get install -y proxychains4
-fi
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+# shellcheck disable=SC1091
+. "$SCRIPT_DIR/agent_scripts/proxychains_common.sh"
 
-config_file="$(mktemp /tmp/agsekit-proxychains-XXXX.conf)"
+PROXYCHAINS_PROXY="$proxy_setting"
+PROXYCHAINS_QUIET=1
 
-cleanup() {
-  rm -f "$config_file"
-}
-trap cleanup EXIT INT TERM
-
-python3 - "$proxy_setting" "$config_file" <<'PYCODE'
-import pathlib
-import sys
-from urllib.parse import urlparse
-
-proxy_url = sys.argv[1]
-config_path = pathlib.Path(sys.argv[2])
-
-parsed = urlparse(proxy_url)
-if not parsed.scheme or not parsed.hostname or not parsed.port:
-    sys.stderr.write("proxychains proxy must be in the form scheme://host:port\n")
-    sys.exit(2)
-
-scheme = parsed.scheme.lower()
-allowed = {"socks5", "socks4", "http", "https"}
-if scheme not in allowed:
-    sys.stderr.write(f"Unsupported proxy scheme for proxychains: {scheme}\n")
-    sys.exit(2)
-
-proxy_type = "http" if scheme in {"http", "https"} else scheme
-
-config = f"""strict_chain
-proxy_dns
-remote_dns_subnet 224
-tcp_read_time_out 15000
-tcp_connect_time_out 8000
-# proxychains-ng localnet accepts CIDR/mask ranges.
-localnet 127.0.0.0/255.0.0.0
-
-[ProxyList]
-{proxy_type} {parsed.hostname} {parsed.port}
-"""
-
-config_path.write_text(config, encoding="utf-8")
-PYCODE
-
-exec proxychains4 -q -f "$config_file" "$@"
+run_with_proxychains "$@"
