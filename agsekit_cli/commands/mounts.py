@@ -7,7 +7,14 @@ import click
 
 from ..config import ConfigError, MountConfig
 from ..i18n import tr
-from ..mounts import find_mount_by_source, load_mounts_from_config, mount_directory, normalize_path, umount_directory
+from ..mounts import (
+    MountAlreadyMountedError,
+    find_mount_by_source,
+    load_mounts_from_config,
+    mount_directory,
+    normalize_path,
+    umount_directory,
+)
 from ..vm import MultipassError
 from . import non_interactive_option
 
@@ -64,6 +71,16 @@ def mount_command(source_dir: Optional[Path], mount_all: bool, config_path: Opti
     for mount in mounts:
         try:
             mount_directory(mount)
+        except MountAlreadyMountedError:
+            click.echo(
+                tr(
+                    "mounts.already_mounted",
+                    source=normalize_path(mount.source),
+                    vm_name=mount.vm_name,
+                    target=mount.target,
+                )
+            )
+            continue
         except MultipassError as exc:
             raise click.ClickException(str(exc))
         click.echo(
