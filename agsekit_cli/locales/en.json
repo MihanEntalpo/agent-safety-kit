@@ -332,6 +332,8 @@
   "vm.missing_in_config": "No VM named {vm_name} found in the configuration.",
   "vm.multipass_missing": "Multipass is not installed. Run ./agsekit prepare first.",
   "vm.proxychains_chmod_failed": "Failed to chmod proxychains runner inside {vm_name}. stdout: {stdout} stderr: {stderr}",
+  "vm.proxychains_helper_dir_failed": "Failed to create proxychains helper directory inside {vm_name}. stdout: {stdout} stderr: {stderr}",
+  "vm.proxychains_helper_transfer_failed": "Failed to transfer proxychains helper into {vm_name}. stdout: {stdout} stderr: {stderr}",
   "vm.proxychains_transfer_failed": "Failed to transfer proxychains runner into {vm_name}. stdout: {stdout} stderr: {stderr}",
   "vm.status_unknown": "Failed to determine state of VM {vm_name}. Received response: {response}"
 }

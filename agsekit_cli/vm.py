@@ -274,9 +274,35 @@ def build_port_forwarding_args(rules: Iterable[PortForwardingRule]) -> List[str]
 
 
 PROXYCHAINS_RUNNER_REMOTE = "/tmp/agsekit-run_with_proxychains.sh"
+PROXYCHAINS_HELPER_REMOTE_DIR = "/tmp/agent_scripts"
+PROXYCHAINS_HELPER_REMOTE = f"{PROXYCHAINS_HELPER_REMOTE_DIR}/proxychains_common.sh"
 
 
 def ensure_proxychains_runner(vm: VmConfig) -> str:
+    helper = Path(__file__).resolve().parent / "agent_scripts" / "proxychains_common.sh"
+    mkdir_command = ["multipass", "exec", vm.name, "--", "mkdir", "-p", PROXYCHAINS_HELPER_REMOTE_DIR]
+    mkdir_result = subprocess.run(mkdir_command, check=False, capture_output=True, text=True)
+    if mkdir_result.returncode != 0:
+        raise MultipassError(
+            tr(
+                "vm.proxychains_helper_dir_failed",
+                vm_name=vm.name,
+                stdout=(mkdir_result.stdout or "").strip() or "-",
+                stderr=(mkdir_result.stderr or "").strip() or "-",
+            )
+        )
+    transfer_helper_command = ["multipass", "transfer", str(helper), f"{vm.name}:{PROXYCHAINS_HELPER_REMOTE}"]
+    transfer_helper_result = subprocess.run(transfer_helper_command, check=False, capture_output=True, text=True)
+    if transfer_helper_result.returncode != 0:
+        raise MultipassError(
+            tr(
+                "vm.proxychains_helper_transfer_failed",
+                vm_name=vm.name,
+                stdout=(transfer_helper_result.stdout or "").strip() or "-",
+                stderr=(transfer_helper_result.stderr or "").strip() or "-",
+            )
+        )
+
     runner = Path(__file__).resolve().parent / "run_with_proxychains.sh"
     transfer_command = ["multipass", "transfer", str(runner), f"{vm.name}:{PROXYCHAINS_RUNNER_REMOTE}"]
     transfer_result = subprocess.run(transfer_command, check=False, capture_output=True, text=True)

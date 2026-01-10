@@ -332,6 +332,8 @@
   "vm.missing_in_config": "В конфигурации нет ВМ с именем {vm_name}.",
   "vm.multipass_missing": "Multipass не установлен. Сначала запустите ./agsekit prepare.",
   "vm.proxychains_chmod_failed": "Не удалось выполнить chmod для proxychains-скрипта внутри {vm_name}. stdout: {stdout} stderr: {stderr}",
+  "vm.proxychains_helper_dir_failed": "Не удалось создать каталог для proxychains-хелпера внутри {vm_name}. stdout: {stdout} stderr: {stderr}",
+  "vm.proxychains_helper_transfer_failed": "Не удалось передать proxychains-хелпер в {vm_name}. stdout: {stdout} stderr: {stderr}",
   "vm.proxychains_transfer_failed": "Не удалось передать proxychains-скрипт в {vm_name}. stdout: {stdout} stderr: {stderr}",
   "vm.status_unknown": "Не удалось определить состояние ВМ {vm_name}. Получен ответ: {response}"
 }
