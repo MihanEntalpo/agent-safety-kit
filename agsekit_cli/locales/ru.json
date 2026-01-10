@@ -218,6 +218,7 @@
   "mounts.command_umount_help": "Отмонтировать директории из config.yaml.",
   "mounts.mount_failed": "Не удалось смонтировать {source} в {vm_name}:{target}",
   "mounts.mounting_requested": "Смонтируем выбранные директории через multipass...",
+  "mounts.already_mounted": "Уже смонтировано {source} в {vm_name}:{target}.",
   "mounts.none_configured": "В конфигурации не найдено монтирований.",
   "mounts.option_all_mounts": "Смонтировать все папки из config.yaml",
   "mounts.option_all_umounts": "Отмонтировать все папки из config.yaml",

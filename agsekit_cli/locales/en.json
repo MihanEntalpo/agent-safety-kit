@@ -218,6 +218,7 @@
   "mounts.command_umount_help": "Unmount directories from config.yaml.",
   "mounts.mount_failed": "Failed to mount {source} into {vm_name}:{target}",
   "mounts.mounting_requested": "Mounting requested directories via multipass...",
+  "mounts.already_mounted": "Already mounted {source} in {vm_name}:{target}.",
   "mounts.none_configured": "No mounts found in the configuration.",
   "mounts.option_all_mounts": "Mount all directories from config.yaml",
   "mounts.option_all_umounts": "Unmount all directories from config.yaml",
