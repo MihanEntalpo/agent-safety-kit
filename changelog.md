@@ -1,5 +1,10 @@
 # Agent-Safety-Kit versions history
 
+## 0.9.4 - Proxychains and agent run errors
+
+* Improved proxychains handling for agent runs
+* Improved error logging when agent startup fails
+
 ## 0.9.3 - Codex and proxychains updates
 
 * Codex agent is now confirmed working
