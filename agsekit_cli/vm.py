@@ -267,7 +267,7 @@ def build_port_forwarding_args(rules: Iterable[PortForwardingRule]) -> List[str]
         if rule.type == "local":
             args.extend(["-L", f"{rule.host_addr}:{rule.vm_addr}"])
         elif rule.type == "remote":
-            args.extend(["-R", f"{rule.host_addr}:{rule.vm_addr}"])
+            args.extend(["-R", f"{rule.vm_addr}:{rule.host_addr}"])
         elif rule.type == "socks5":
             args.extend(["-D", rule.vm_addr])
     return args

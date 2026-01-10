@@ -188,8 +188,8 @@ vms: # VM parameters for Multipass (you can define multiple)
     cloud-init: {} # place your standard cloud-init config here if needed
     port-forwarding: # Port forwarding config
       - type: remote # Open port inside VM and pass connections to Host machine's port
-        host-addr: 127.0.0.1:8080
-        vm-addr: 127.0.0.1:80
+        host-addr: 127.0.0.1:80
+        vm-addr: 127.0.0.1:8080
       - type: local # Open port on Host machine, and pass connections to VM's port
         host-addr: 0.0.0.0:15432
         vm-addr: 127.0.0.1:5432

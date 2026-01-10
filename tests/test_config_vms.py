@@ -18,7 +18,7 @@ def test_load_vms_config_parses_port_forwarding():
                 "ram": "2G",
                 "disk": "10G",
                 "port-forwarding": [
-                    {"type": "remote", "host-addr": "127.0.0.1:8080", "vm-addr": "127.0.0.1:80"},
+                    {"type": "remote", "host-addr": "127.0.0.1:80", "vm-addr": "127.0.0.1:8080"},
                     {"type": "local", "host-addr": "0.0.0.0:15432", "vm-addr": "127.0.0.1:5432"},
                     {"type": "socks5", "vm-addr": "127.0.0.1:8088"},
                 ],
@@ -31,8 +31,8 @@ def test_load_vms_config_parses_port_forwarding():
 
     assert len(rules) == 3
     assert rules[0].type == "remote"
-    assert rules[0].host_addr == "127.0.0.1:8080"
-    assert rules[0].vm_addr == "127.0.0.1:80"
+    assert rules[0].host_addr == "127.0.0.1:80"
+    assert rules[0].vm_addr == "127.0.0.1:8080"
     assert rules[1].type == "local"
     assert rules[2].type == "socks5"
     assert rules[2].host_addr is None
