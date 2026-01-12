@@ -1,5 +1,9 @@
 # Agent-Safety-Kit versions history
 
+## 0.9.6 - Interactive menu sections
+
+* Updated the interactive command picker format to show sectioned command groups
+
 ## 0.9.5 - Interactive config example
 
 * Added interactive-mode support for the `config-example` command

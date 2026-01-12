@@ -419,51 +419,43 @@ def _command_builders() -> Dict[str, CommandBuilder]:
     }
 
 
-def _ordered_commands(cli: click.Group) -> List[click.Command]:
-    desired_order = [
-        "backup-once",
-        "backup-repeated",
-        "backup-repeated-all",
-        "backup-repeated-mount",
-        "config-example",
-        "config-gen",
-        "create-vm",
-        "create-vms",
-        "mount",
-        "prepare",
-        "shell",
-        "ssh",
-        "portforward",
-        "systemd",
-        "start-vm",
-        "stop-vm",
-        "destroy-vm",
-        "run",
-        "install-agents",
-        "umount",
-    ]
-    commands: Dict[str, click.Command] = cli.commands
-    ordered: List[click.Command] = []
-    for name in desired_order:
-        command = commands.get(name)
-        if command:
-            ordered.append(command)
-    for name, command in commands.items():
-        if command not in ordered:
-            ordered.append(command)
-    return ordered
-
-
 def _select_command(cli: click.Group, preselected: Optional[str]) -> click.Command:
-    commands = _ordered_commands(cli)
-    choices = [
-        questionary.Choice(f"{cmd.name:<22} {cmd.help or cmd.short_help or ''}", value=cmd)
-        for cmd in commands
-    ]
+    commands: Dict[str, click.Command] = cli.commands
     if preselected:
-        for cmd in commands:
-            if cmd.name == preselected:
-                return cmd
+        preselected_command = commands.get(preselected)
+        if preselected_command:
+            return preselected_command
+
+    sections = [
+        (
+            tr("interactive.section_init_config"),
+            ["prepare", "config-example", "config-gen"],
+        ),
+        (
+            tr("interactive.section_virtual_machines"),
+            ["create-vms", "create-vm", "stop-vm", "start-vm", "destroy-vm"],
+        ),
+        (tr("interactive.section_mounts"), ["mount", "umount"]),
+        (
+            tr("interactive.section_agents_shell"),
+            ["install-agents", "run", "shell", "ssh", "portforward"],
+        ),
+        (tr("interactive.section_daemon_control"), ["systemd"]),
+        (
+            tr("interactive.section_manual_backup"),
+            ["backup-once", "backup-repeated", "backup-repeated-mount", "backup-repeated-all"],
+        ),
+    ]
+
+    choices: list[questionary.QuestionChoice] = []
+    for title, names in sections:
+        choices.append(questionary.Separator(title))
+        for name in names:
+            command = commands.get(name)
+            if command:
+                choices.append(
+                    questionary.Choice(f"{command.name:<22} {command.help or command.short_help or ''}", value=command)
+                )
     selected: click.Command = _select_from_list(tr("interactive.command_select"), choices)
     return selected
 
