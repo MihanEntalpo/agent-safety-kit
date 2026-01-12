@@ -461,7 +461,7 @@ def _select_command(cli: click.Group, preselected: Optional[str]) -> click.Comma
 
 
 def _confirm_and_run(cli: click.Group, args: List[str]) -> None:
-    command_line = ["./agsekit", *args]
+    command_line = ["agsekit", *args]
     rendered = " ".join(shlex.quote(part) for part in command_line)
     click.echo(tr("interactive.command_preview", command=rendered))
     if not questionary.confirm(tr("interactive.command_confirm"), default=True).ask():
