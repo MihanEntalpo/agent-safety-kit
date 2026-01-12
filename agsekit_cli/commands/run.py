@@ -105,9 +105,10 @@ def run_command(
     agent = find_agent(agents_config, agent_name)
 
     mount_entry: Optional[MountConfig] = None
+    mount_relative_path: Optional[Path] = None
     if source_dir is not None:
         try:
-            mount_entry = select_mount_for_source(mounts, source_dir, vm_name)
+            mount_entry, mount_relative_path = select_mount_for_source(mounts, source_dir, vm_name)
         except ConfigError as exc:
             raise click.ClickException(str(exc))
 
@@ -116,7 +117,11 @@ def run_command(
     vm_config = vms[vm_to_use]
 
     env_vars = build_agent_env(agent)
-    workdir = mount_entry.target if mount_entry else DEFAULT_WORKDIR
+    if mount_entry:
+        relative = mount_relative_path or Path(".")
+        workdir = mount_entry.target if relative == Path(".") else mount_entry.target / relative
+    else:
+        workdir = DEFAULT_WORKDIR
 
     agent_command = agent_command_sequence(agent, agent_args, skip_default_args=skip_default_args)
 
