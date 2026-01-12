@@ -89,7 +89,7 @@ def write_inode_snapshot(snapshot_dir: Path) -> None:
 
     entries.sort(key=lambda item: item[0])
 
-    with inodes_path.open("w", encoding="utf-8") as handle:
+    with inodes_path.open("w", encoding="utf-8", errors="surrogateescape") as handle:
         for rel_path, inode in entries:
             handle.write(f"{rel_path} {inode}\n")
 
