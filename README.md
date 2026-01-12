@@ -38,25 +38,30 @@ Currently confirmed working agent types are:
 
 ## Quick start
 
-1. Clone the repository and enter it:
-   ```bash
-   git clone https://github.com/MihanEntalpo/agent-safety-kit/
-   cd agent-safety-kit
-   ```
-
-2. Set up the Python environment and install the package into the virtualenv (requires Python 3.9 or newer):
+1. Install the package with pip (requires Python 3.9 or newer):
    ```bash
    python3 -m venv ./venv
    source ./venv/bin/activate
-   pip install .
+   pip install agsekit
    ```
    This makes the `agsekit` command available inside the virtual environment.
 
+2. Alternatively, clone the repository and install from sources:
+   ```bash
+   git clone https://github.com/MihanEntalpo/agent-safety-kit/
+   cd agent-safety-kit
+   pip install .
+   ```
+
 3. Create a YAML configuration (the CLI checks `--config`, then `CONFIG_PATH`, then `~/.config/agsekit/config.yaml`):
+   ```bash
+   agsekit config-example
+   # edit vms/mounts/cloud-init to your needs
+   ```
+   When working from a cloned repository, you can also copy the file directly:
    ```bash
    mkdir -p ~/.config/agsekit
    cp config-example.yaml ~/.config/agsekit/config.yaml
-   # edit vms/mounts/cloud-init to your needs
    ```
    You can also run `agsekit config-gen` to answer a few questions and save the config (defaults to `~/.config/agsekit/config.yaml`; use `--overwrite` to replace an existing file).
 
@@ -94,6 +99,7 @@ Currently confirmed working agent types are:
 
 * `agsekit prepare` — installs required system dependencies (including Multipass; requires sudo and currently works only on Debian-based systems).
 * `agsekit config-gen [--config <path>] [--overwrite]` — interactive wizard that asks about VMs, mounts, and agents, then writes a YAML config to the chosen path (defaults to `~/.config/agsekit/config.yaml`). Without `--overwrite`, the command warns if the file already exists.
+* `agsekit config-example [<path>]` — copies `config-example.yaml` to the target path (defaults to `~/.config/agsekit/config.yaml`). If the default config already exists, the command skips copying.
 * `agsekit create-vms` — creates every VM defined in the YAML configuration.
 * `agsekit create-vm <name>` — launches just one VM. If the config contains only one VM, you can omit `<name>` and it will be used automatically. If a VM already exists, the command compares the desired resources with the current ones and reports any differences. Changing resources of an existing VM is not supported yet.
 * `agsekit shell [<vm_name>] [--config <path>]` — opens an interactive `multipass shell` session inside the chosen VM, applying any configured port forwarding. If only

@@ -38,25 +38,30 @@
 
 ## Быстрый старт
 
-1. Склонируйте репозиторий и перейдите в него:
-   ```bash
-   git clone https://github.com/MihanEntalpo/agent-safety-kit/
-   cd agent-safety-kit
-   ```
-
-2. Подготовьте Python-окружение и установите пакет в виртуальное окружение (требуется Python 3.9 или новее):
+1. Установите пакет через pip (требуется Python 3.9 или новее):
    ```bash
    python3 -m venv ./venv
    source ./venv/bin/activate
-   pip install .
+   pip install agsekit
    ```
    Так команда `agsekit` станет доступна внутри виртуального окружения.
 
+2. Либо можно склонировать репозиторий и установить из исходников:
+   ```bash
+   git clone https://github.com/MihanEntalpo/agent-safety-kit/
+   cd agent-safety-kit
+   pip install .
+   ```
+
 3. Создайте YAML-конфигурацию (CLI ищет путь в `--config`, затем в `CONFIG_PATH`, затем в `~/.config/agsekit/config.yaml`):
+   ```bash
+   agsekit config-example
+   # отредактируйте параметры vms/mounts/cloud-init под себя
+   ```
+   При работе из клонированного репозитория можно скопировать файл напрямую:
    ```bash
    mkdir -p ~/.config/agsekit
    cp config-example.yaml ~/.config/agsekit/config.yaml
-   # отредактируйте параметры vms/mounts/cloud-init под себя
    ```
    Можно также запустить `agsekit config-gen`, чтобы ответить на вопросы и сохранить конфиг (по умолчанию в `~/.config/agsekit/config.yaml`; чтобы перезаписать существующий файл, добавьте `--overwrite`).
 
@@ -94,6 +99,7 @@
 
 * `agsekit prepare` — устанавливает системные зависимости (включая Multipass; требует sudo и работает пока только в debian-based системах).
 * `agsekit config-gen [--config <path>] [--overwrite]` — интерактивный мастер, который задаёт вопросы про ВМ, монтирования и агентов и записывает YAML-конфиг в выбранный путь (по умолчанию `~/.config/agsekit/config.yaml`). Без флага `--overwrite` команда предупредит о существующем файле.
+* `agsekit config-example [<path>]` — копирует `config-example.yaml` в указанный путь (по умолчанию `~/.config/agsekit/config.yaml`). Если конфиг уже существует, копирование по умолчанию пропускается.
 * `agsekit create-vms` — создаёт все ВМ, указанные в YAML-конфигурации.
 * `agsekit create-vm <name>` — запускает только одну ВМ. Если в конфиге указана единственная ВМ, имя можно не передавать — она выберется автоматически. Если ВМ уже существует, команда сравнит желаемые ресурсы с текущими и сообщит об отличиях. Изменять ресурсы уже созданной ВМ пока нельзя.
 * `agsekit shell [<vm_name>] [--config <path>]` — открывает интерактивную сессию `multipass shell` внутри выбранной ВМ и применяет настроенный проброс портов. Если в конфиге только одна ВМ, CLI подключится к ней даже без `vm_name`. Когда ВМ несколько и команда выполняется в TTY, CLI предложит выбрать нужную; в неинтерактивном режиме имя ВМ обязательно.

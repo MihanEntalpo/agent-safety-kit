@@ -26,3 +26,6 @@ include = ["agsekit_cli", "agsekit_cli.*"]
 
 [tool.setuptools.package-data]
 agsekit_cli = ["agent_scripts/*.sh", "agent_scripts/proxychains_common.sh", "run_with_proxychains.sh", "locales/*.json"]
+
+[tool.setuptools.data-files]
+"share/agsekit" = ["config-example.yaml"]
