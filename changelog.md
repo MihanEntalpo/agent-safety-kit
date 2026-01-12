@@ -1,5 +1,9 @@
 # Agent-Safety-Kit versions history
 
+## 0.9.8 - Backup unicode workaround
+
+* Added a workaround for corrupted unicode in file names when writing backup inode snapshots
+
 ## 0.9.7 - Proxychains installer fix
 
 * Fixed agent installation failing when proxychains helper was missing inside the VM
