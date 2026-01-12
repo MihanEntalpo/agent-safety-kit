@@ -165,6 +165,7 @@
   "install_agents.option_all_agents": "Установить всех агентов из конфигурации",
   "install_agents.option_all_vms": "Установить агента во все ВМ из конфигурации",
   "install_agents.option_proxychains": "Переопределить прокси URL из конфига для этого запуска (scheme://host:port); пустая строка отключает обёртку.",
+  "install_agents.proxychains_prepare": "Подготавливаем каталог proxychains-хелпера в {vm_name}",
   "install_agents.preparing": "Подготавливаем цели для установки агента...",
   "install_agents.run_installer": "Запуск установщика {script} в {vm_name}",
   "install_agents.script_missing": "Скрипт установки для типа {agent_type} не найден: {path}",

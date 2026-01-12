@@ -1,5 +1,9 @@
 # Agent-Safety-Kit versions history
 
+## 0.9.7 - Proxychains installer fix
+
+* Fixed agent installation failing when proxychains helper was missing inside the VM
+
 ## 0.9.6 - Interactive menu sections
 
 * Updated the interactive command picker format to show sectioned command groups
