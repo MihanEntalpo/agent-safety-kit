@@ -94,3 +94,26 @@ def test_run_rsync_reports_real_progress(tmp_path, capsys):
     assert any(percent is not None for percent in percent_values)
     assert "Progress: [" in progress_output
     assert progress_output.strip().endswith("100%")
+
+
+def test_backup_once_continues_on_rsync_warning(monkeypatch, tmp_path, capsys):
+    source = tmp_path / "src"
+    dest = tmp_path / "dest"
+    source.mkdir()
+    dest.mkdir()
+    (source / "file.txt").write_text("data", encoding="utf-8")
+
+    def fake_run(command: List[str], *, show_progress: bool):
+        return subprocess.CompletedProcess(command, 23, stdout="", stderr="rsync: opendir permission denied")
+
+    monkeypatch.setattr(backup, "_run_rsync", fake_run)
+    monkeypatch.setattr(backup, "remove_inprogress_dirs", lambda *_: None)
+    monkeypatch.setattr(backup, "find_previous_backup", lambda *_: None)
+
+    backup.backup_once(source, dest)
+
+    stderr = capsys.readouterr().err
+    assert "rsync completed with warnings" in stderr
+    assert "permission denied" in stderr
+    snapshots = [path for path in dest.iterdir() if path.is_dir()]
+    assert len(snapshots) == 1

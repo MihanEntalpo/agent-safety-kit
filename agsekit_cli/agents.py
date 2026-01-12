@@ -42,9 +42,22 @@ def find_agent(agents: Dict[str, AgentConfig], name: str) -> AgentConfig:
         raise ConfigError(tr("agents.agent_not_found", name=name))
 
 
-def select_mount_for_source(mounts: Iterable[MountConfig], source_dir: Path, vm_name: Optional[str]) -> MountConfig:
+def select_mount_for_source(
+    mounts: Iterable[MountConfig],
+    source_dir: Path,
+    vm_name: Optional[str],
+) -> Tuple[MountConfig, Path]:
     normalized = normalize_path(source_dir)
-    matches = [mount for mount in mounts if mount.source == normalized]
+    matches: List[MountConfig] = []
+    for mount in mounts:
+        if normalized == mount.source:
+            matches.append(mount)
+            continue
+        try:
+            normalized.relative_to(mount.source)
+        except ValueError:
+            continue
+        matches.append(mount)
     if vm_name:
         matches = [mount for mount in matches if mount.vm_name == vm_name]
 
@@ -52,8 +65,13 @@ def select_mount_for_source(mounts: Iterable[MountConfig], source_dir: Path, vm_
         suffix = tr("agents.mount_not_found_vm_suffix", vm_name=vm_name) if vm_name else ""
         raise ConfigError(tr("agents.mount_not_found", path=normalized, suffix=suffix))
     if len(matches) > 1:
-        raise ConfigError(tr("agents.mount_not_found_multiple"))
-    return matches[0]
+        matches.sort(key=lambda mount: len(mount.source.parts), reverse=True)
+        longest = len(matches[0].source.parts)
+        if sum(1 for mount in matches if len(mount.source.parts) == longest) > 1:
+            raise ConfigError(tr("agents.mount_not_found_multiple"))
+    selected = matches[0]
+    relative_path = normalized.relative_to(selected.source)
+    return selected, relative_path
 
 
 def resolve_vm(agent: AgentConfig, mount: Optional[MountConfig], vm_override: Optional[str], config: Dict[str, object]) -> str:

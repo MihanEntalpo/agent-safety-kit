@@ -4,6 +4,7 @@ from typing import Dict, Optional
 
 import click
 from click.testing import CliRunner
+import pytest
 
 ROOT = Path(__file__).resolve().parent.parent
 if str(ROOT) not in sys.path:
@@ -203,6 +204,51 @@ def test_run_command_prints_debug_commands(monkeypatch, tmp_path):
     )
 
     assert result.exit_code == 0
+
+
+@pytest.mark.parametrize("relative_path, expected_suffix", [(".", Path(".")), ("./subdir/inner", Path("subdir/inner"))])
+def test_run_command_resolves_relative_path_inside_mount(monkeypatch, tmp_path, relative_path, expected_suffix):
+    source = tmp_path / "project"
+    nested = source / "subdir" / "inner"
+    nested.mkdir(parents=True)
+    config_path = tmp_path / "config.yaml"
+    _write_config(config_path, source)
+
+    calls: Dict[str, object] = {}
+    backups: Dict[str, object] = {}
+
+    def fake_run_in_vm(vm_config, workdir, command, env_vars, proxychains=None, debug=False):
+        calls.update({
+            "vm": vm_config.name,
+            "workdir": workdir,
+        })
+        return 0
+
+    def fake_start_backup_process(mount, cli_path, skip_first=False, debug=False):
+        backups.update({
+            "source": mount.source,
+            "backup": mount.backup,
+        })
+        return None
+
+    monkeypatch.chdir(source)
+    monkeypatch.setattr(run_module, "_has_existing_backup", lambda *_: True)
+    monkeypatch.setattr(run_module, "run_in_vm", fake_run_in_vm)
+    monkeypatch.setattr(run_module, "start_backup_process", fake_start_backup_process)
+    monkeypatch.setattr(run_module, "ensure_agent_binary_available", lambda *_, **__: None)
+    monkeypatch.setattr(run_module, "backup_once", lambda *_, **__: None)
+
+    runner = CliRunner()
+    result = runner.invoke(
+        run_command,
+        ["qwen", relative_path, "--config", str(config_path)],
+    )
+
+    assert result.exit_code == 0
+    expected_workdir = Path("/home/ubuntu/project") / expected_suffix
+    assert calls["workdir"] == expected_workdir
+    assert backups["source"] == source.resolve()
+    assert backups["backup"] == (source.parent / "backups").resolve()
 
 
 def test_run_command_passes_proxychains_override(monkeypatch, tmp_path):

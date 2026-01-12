@@ -174,6 +174,10 @@ def _run_rsync(command: List[str], *, show_progress: bool) -> subprocess.Complet
     )
 
 
+def _is_rsync_warning(returncode: int) -> bool:
+    return returncode in {23, 24}
+
+
 def dry_run_has_changes(command: List[str]) -> bool:
     result = subprocess.run(command, check=False, capture_output=True, text=True)
     if result.returncode != 0:
@@ -244,11 +248,16 @@ def backup_once(
     print(tr("backup.rsync_running", path=inprogress_dir))
     result = _run_rsync(command, show_progress=show_progress)
     if result.returncode != 0:
-        if result.stderr:
-            print(result.stderr, file=sys.stderr, end="" if result.stderr.endswith("\n") else "\n")
+        if _is_rsync_warning(result.returncode):
+            print(tr("backup.rsync_warning", code=result.returncode), file=sys.stderr)
+            if result.stderr:
+                print(result.stderr, file=sys.stderr, end="" if result.stderr.endswith("\n") else "\n")
         else:
-            print(tr("backup.rsync_failed"), file=sys.stderr)
-        raise SystemExit(result.returncode)
+            if result.stderr:
+                print(result.stderr, file=sys.stderr, end="" if result.stderr.endswith("\n") else "\n")
+            else:
+                print(tr("backup.rsync_failed"), file=sys.stderr)
+            raise SystemExit(result.returncode)
 
     inprogress_dir.rename(final_dir)
     print(tr("backup.snapshot_created", path=final_dir))
