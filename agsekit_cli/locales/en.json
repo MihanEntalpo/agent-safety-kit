@@ -165,6 +165,7 @@
   "install_agents.option_all_agents": "Install every agent from the configuration",
   "install_agents.option_all_vms": "Install the agent into every VM from the configuration",
   "install_agents.option_proxychains": "Override the proxy URL from the config for this run (scheme://host:port); use an empty string to disable.",
+  "install_agents.proxychains_prepare": "Preparing proxychains helper directory in {vm_name}",
   "install_agents.preparing": "Preparing agent installation targets...",
   "install_agents.run_installer": "Running installer {script} in {vm_name}",
   "install_agents.script_missing": "Installation script for type {agent_type} is missing: {path}",

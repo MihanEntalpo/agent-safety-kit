@@ -57,7 +57,31 @@ def _run_command(
 def _run_install_script(vm: VmConfig, script_path: Path, proxychains: Optional[str] = None) -> None:
     ensure_multipass_available()
     effective_proxychains = resolve_proxychains(vm, proxychains)
-    remote_path = f"/tmp/agsekit-{script_path.stem}-{uuid.uuid4().hex}.sh"
+    remote_dir = "/tmp/agent_scripts"
+    helper_path = SCRIPTS_DIR / "proxychains_common.sh"
+    remote_path = f"{remote_dir}/agsekit-{script_path.stem}-{uuid.uuid4().hex}.sh"
+    mkdir_result = _run_command(
+        ["multipass", "exec", vm.name, "--", "mkdir", "-p", remote_dir],
+        tr("install_agents.proxychains_prepare", vm_name=vm.name),
+    )
+    if mkdir_result.returncode != 0:
+        _log_failed_command(
+            ["multipass", "exec", vm.name, "--", "mkdir", "-p", remote_dir],
+            mkdir_result,
+            tr("install_agents.proxychains_prepare", vm_name=vm.name),
+        )
+        raise MultipassError(tr("install_agents.copy_failed", script=script_path.name, vm_name=vm.name))
+    helper_transfer_result = _run_command(
+        ["multipass", "transfer", str(helper_path), f"{vm.name}:{remote_dir}/proxychains_common.sh"],
+        tr("install_agents.transfer_label"),
+    )
+    if helper_transfer_result.returncode != 0:
+        _log_failed_command(
+            ["multipass", "transfer", str(helper_path), f"{vm.name}:{remote_dir}/proxychains_common.sh"],
+            helper_transfer_result,
+            tr("install_agents.transfer_label"),
+        )
+        raise MultipassError(tr("install_agents.copy_failed", script=script_path.name, vm_name=vm.name))
     click.echo(tr("install_agents.copying", script=script_path.name, vm_name=vm.name, path=remote_path))
     transfer_result = _run_command(
         ["multipass", "transfer", str(script_path), f"{vm.name}:{remote_path}"],
