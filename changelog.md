@@ -1,5 +1,9 @@
 # Agent-Safety-Kit versions history
 
+## 0.9.5 - Interactive config example
+
+* Added interactive-mode support for the `config-example` command
+
 ## 0.9.4 - Proxychains and agent run errors
 
 * Improved proxychains handling for agent runs
