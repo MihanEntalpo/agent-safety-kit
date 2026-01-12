@@ -161,6 +161,10 @@ def build_backup_repeated_all(session: InteractiveSession) -> List[str]:
     return ["backup-repeated-all", *session.config_option()]
 
 
+def build_config_example(session: InteractiveSession) -> List[str]:
+    return ["config-example"]
+
+
 def build_create_vm(session: InteractiveSession) -> List[str]:
     vms = session.load_vms()
     vm_choices = [questionary.Choice(name=name, value=name) for name in vms]
@@ -396,6 +400,7 @@ def _command_builders() -> Dict[str, CommandBuilder]:
         "backup-repeated": build_backup_repeated,
         "backup-repeated-all": build_backup_repeated_all,
         "backup-repeated-mount": build_backup_repeated_mount,
+        "config-example": build_config_example,
         "config-gen": build_config_gen,
         "create-vm": build_create_vm,
         "create-vms": build_create_vms,
@@ -420,6 +425,7 @@ def _ordered_commands(cli: click.Group) -> List[click.Command]:
         "backup-repeated",
         "backup-repeated-all",
         "backup-repeated-mount",
+        "config-example",
         "config-gen",
         "create-vm",
         "create-vms",
