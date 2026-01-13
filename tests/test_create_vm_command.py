@@ -21,18 +21,30 @@ def test_create_vm_defaults_to_single_vm(monkeypatch, tmp_path):
     _write_config(config_path, ["agent"])
 
     calls: list[tuple[str, str]] = []
+    prep_calls: list[tuple[str, str]] = []
 
     def fake_create_vm_from_config(path: str, vm_name: str) -> str:
         calls.append((path, vm_name))
         return f"created {vm_name}"
 
     monkeypatch.setattr(create_vm_module, "create_vm_from_config", fake_create_vm_from_config)
+    monkeypatch.setattr(
+        create_vm_module,
+        "ensure_host_ssh_keypair",
+        lambda: (Path("id_rsa"), Path("id_rsa.pub")),
+    )
+    monkeypatch.setattr(
+        create_vm_module,
+        "prepare_vm",
+        lambda vm_name, public_key: prep_calls.append((vm_name, public_key.name)),
+    )
 
     runner = CliRunner()
     result = runner.invoke(create_vm_command, ["--config", str(config_path)])
 
     assert result.exit_code == 0
     assert calls == [(str(config_path), "agent")]
+    assert prep_calls == [("agent", "id_rsa.pub")]
     assert "agent" in result.output
 
 

@@ -65,12 +65,12 @@ Currently confirmed working agent types are:
    ```
    You can also run `agsekit config-gen` to answer a few questions and save the config (defaults to `~/.config/agsekit/config.yaml`; use `--overwrite` to replace an existing file).
 
-4. Install required system dependencies (in particular, Multipass; requires sudo and currently works only on Debian-based systems):
+4. Install required system dependencies (in particular, Multipass; requires sudo and currently works only on Debian-based systems). The command also creates the host SSH keypair used for VM access:
    ```bash
    agsekit prepare
    ```
 
-5. Create the virtual machines defined in YAML:
+5. Create the virtual machines defined in YAML (this also installs VM packages and syncs SSH keys into each VM):
    ```bash
    agsekit create-vms
    ```
@@ -97,11 +97,11 @@ Currently confirmed working agent types are:
 
 ### Setup and VM lifecycle
 
-* `agsekit prepare` — installs required system dependencies (including Multipass; requires sudo and currently works only on Debian-based systems).
+* `agsekit prepare` — installs required system dependencies (including Multipass; requires sudo and currently works only on Debian-based systems) and creates the SSH keypair used to access VMs.
 * `agsekit config-gen [--config <path>] [--overwrite]` — interactive wizard that asks about VMs, mounts, and agents, then writes a YAML config to the chosen path (defaults to `~/.config/agsekit/config.yaml`). Without `--overwrite`, the command warns if the file already exists.
 * `agsekit config-example [<path>]` — copies `config-example.yaml` to the target path (defaults to `~/.config/agsekit/config.yaml`). If the default config already exists, the command skips copying.
-* `agsekit create-vms` — creates every VM defined in the YAML configuration.
-* `agsekit create-vm <name>` — launches just one VM. If the config contains only one VM, you can omit `<name>` and it will be used automatically. If a VM already exists, the command compares the desired resources with the current ones and reports any differences. Changing resources of an existing VM is not supported yet.
+* `agsekit create-vms` — creates every VM defined in the YAML configuration and prepares them (installs packages and syncs SSH keys).
+* `agsekit create-vm <name>` — launches just one VM and prepares it (installs packages and syncs SSH keys). If the config contains only one VM, you can omit `<name>` and it will be used automatically. If a VM already exists, the command compares the desired resources with the current ones and reports any differences. Changing resources of an existing VM is not supported yet.
 * `agsekit shell [<vm_name>] [--config <path>]` — opens an interactive `multipass shell` session inside the chosen VM, applying any configured port forwarding. If only
   one VM is defined in the config, the CLI connects there even without `vm_name`. When multiple VMs exist and the command runs in
   a TTY, the CLI prompts you to pick one; in non-interactive mode, an explicit `vm_name` is required.
