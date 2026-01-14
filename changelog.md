@@ -1,5 +1,9 @@
 # Agent-Safety-Kit versions history
 
+## 0.9.9 - Prepare/create-vm behavior alignment
+
+* Aligned prepare with host-only setup and moved VM preparation into create-vm/create-vms
+
 ## 0.9.8 - Backup unicode workaround
 
 * Added a workaround for corrupted unicode in file names when writing backup inode snapshots

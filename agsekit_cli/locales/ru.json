@@ -251,7 +251,7 @@
   "prepare.apt_missing": "Поддерживаются только Debian-based системы с apt.",
   "prepare.authorized_keys_failed": "Не удалось обновить authorized_keys в ВМ {vm_name}.",
   "prepare.checking_packages": "Проверяем пакеты в {vm_name}",
-  "prepare.command_help": "Установить зависимости Multipass на Debian и подготовить ВМ.",
+  "prepare.command_help": "Установить зависимости Multipass на Debian и создать SSH-ключи для доступа к ВМ.",
   "prepare.command_running": "{description}: {command}",
   "prepare.config_missing": "Файл конфигурации не найден: {path}, подготовка ВМ пропущена.",
   "prepare.ensure_authorized_keys": "Проверяем authorized_keys для ubuntu в {vm_name}.",

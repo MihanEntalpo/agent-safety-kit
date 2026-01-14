@@ -251,7 +251,7 @@
   "prepare.apt_missing": "Only Debian-based systems with apt are supported.",
   "prepare.authorized_keys_failed": "Failed to update authorized_keys in VM {vm_name}.",
   "prepare.checking_packages": "Checking packages in {vm_name}",
-  "prepare.command_help": "Install Multipass dependencies on Debian-based systems and prepare VMs.",
+  "prepare.command_help": "Install Multipass dependencies on Debian-based systems and create the SSH keypair for VM access.",
   "prepare.command_running": "{description}: {command}",
   "prepare.config_missing": "Config file not found at {path}, skipping VM preparation.",
   "prepare.ensure_authorized_keys": "Ensuring authorized_keys for ubuntu in {vm_name}.",
