@@ -16,6 +16,7 @@ dependencies = [
   "click>=8.1,<9",
   "PyYAML>=6.0,<7",
   "questionary>=2.0,<3",
+  "ruamel.yaml>=0.18,<0.19",
 ]
 
 [project.scripts]

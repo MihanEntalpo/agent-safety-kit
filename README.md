@@ -120,6 +120,7 @@ Currently confirmed working agent types are:
 
 * `agsekit mount --source-dir <path> [--config <path>]` — mounts the directory described by `source` in the configuration file (default search: `--config`, `CONFIG_PATH`, `~/.config/agsekit/config.yaml`) into its VM using `multipass mount`. Use `--all` to mount every entry from the config. When there is only one mount in the config, the command can be run without `--source-dir` or `--all`.
 * `agsekit umount --source-dir <path> [--config <path>]` — unmounts the directory described by `source` in the config (or `CONFIG_PATH`/`--config`); `--all` unmounts every configured path. If only one mount is configured, the command will unmount it even without explicit flags.
+* `agsekit addmount <path> [<vm_path> <backup_path> <interval>] [--config <path>] [--mount] [-y]` — adds a mount entry to the YAML config (located via `--config`, `CONFIG_PATH`, or `~/.config/agsekit/config.yaml`). If `<path>` is omitted, the command enters interactive mode and asks for the host path. The VM path defaults to `/home/ubuntu/<folder_name>`, the backup path defaults to `<parent_dir>/backups-<folder_name>`, and the backup interval defaults to five minutes. Before saving, the CLI prints the parameters and asks for confirmation unless `-y` is provided; it also stores a timestamped backup of the config file while preserving comments. Use `--mount` to mount the new entry immediately after saving (interactive mode also asks whether to mount right away).
 
 ### Backups
 

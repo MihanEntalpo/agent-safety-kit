@@ -238,6 +238,14 @@ def _default_backup(source: Path) -> Path:
     return source.parent / f"backups-{source.name}"
 
 
+def default_mount_target(source: Path) -> Path:
+    return _default_target(source)
+
+
+def default_mount_backup(source: Path) -> Path:
+    return _default_backup(source)
+
+
 def _default_vm_name(config: Dict[str, Any]) -> Optional[str]:
     vms_section = config.get("vms")
     if isinstance(vms_section, dict) and vms_section:
