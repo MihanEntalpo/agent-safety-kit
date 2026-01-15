@@ -1,5 +1,9 @@
 # Agent-Safety-Kit versions history
 
+## Unreleased
+
+* Added the `removemount` command to delete mount entries from the YAML config with confirmation and optional unmounting
+
 ## 0.9.10 - Add addmount command
 
 * Added the `addmount` command to append mount entries to the YAML config with confirmation and optional immediate mounting
