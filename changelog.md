@@ -1,5 +1,9 @@
 # Agent-Safety-Kit versions history
 
+## 0.9.10 - Add addmount command
+
+* Added the `addmount` command to append mount entries to the YAML config with confirmation and optional immediate mounting
+
 ## 0.9.9 - Prepare/create-vm behavior alignment
 
 * Aligned prepare with host-only setup and moved VM preparation into create-vm/create-vms
