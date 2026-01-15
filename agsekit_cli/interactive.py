@@ -206,6 +206,10 @@ def build_mount(session: InteractiveSession) -> List[str]:
     return ["mount", *selection, *session.config_option()]
 
 
+def build_addmount(_: InteractiveSession) -> List[str]:
+    return ["addmount"]
+
+
 def build_umount(session: InteractiveSession) -> List[str]:
     selection = _select_mount_choice(session, tr("interactive.mount_action_umount"))
     return ["umount", *selection, *session.config_option()]
@@ -404,6 +408,7 @@ def _command_builders() -> Dict[str, CommandBuilder]:
         "config-gen": build_config_gen,
         "create-vm": build_create_vm,
         "create-vms": build_create_vms,
+        "addmount": build_addmount,
         "mount": build_mount,
         "prepare": build_prepare,
         "shell": build_shell,
@@ -435,7 +440,7 @@ def _select_command(cli: click.Group, preselected: Optional[str]) -> click.Comma
             tr("interactive.section_virtual_machines"),
             ["create-vms", "create-vm", "stop-vm", "start-vm", "destroy-vm"],
         ),
-        (tr("interactive.section_mounts"), ["mount", "umount"]),
+        (tr("interactive.section_mounts"), ["mount", "umount", "addmount"]),
         (
             tr("interactive.section_agents_shell"),
             ["install-agents", "run", "shell", "ssh", "portforward"],

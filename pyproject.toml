@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "agsekit"
-version = "0.9.9"
+version = "0.9.10"
 description = "Agent Safety Kit command-line utilities"
 authors = [
   { name = "Mihanentalpo", email = "mihanentalpo@yandex.ru" },
@@ -16,6 +16,7 @@ dependencies = [
   "click>=8.1,<9",
   "PyYAML>=6.0,<7",
   "questionary>=2.0,<3",
+  "ruamel.yaml>=0.18,<0.19",
 ]
 
 [project.scripts]
