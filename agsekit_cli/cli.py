@@ -13,6 +13,7 @@ from .commands.config_gen import config_gen_command
 from .commands.config_example import config_example_command
 from .commands.create_vm import create_vm_command, create_vms_command
 from .commands.addmount import addmount_command
+from .commands.removemount import removemount_command
 from .commands.mounts import mount_command, umount_command
 from .commands.prepare import prepare_command
 from .commands.run import run_command
@@ -34,6 +35,7 @@ COMMANDS_REQUIRING_CONFIG = {
     "create-vm",
     "create-vms",
     "addmount",
+    "removemount",
     "install-agents",
     "mount",
     "destroy-vm",
@@ -86,6 +88,7 @@ def main() -> None:
         backup_repeated_mount_command,
         backup_repeated_all_command,
         addmount_command,
+        removemount_command,
         mount_command,
         umount_command,
         install_agents_command,
