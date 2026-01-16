@@ -165,6 +165,10 @@ def build_config_example(session: InteractiveSession) -> List[str]:
     return ["config-example"]
 
 
+def build_pip_upgrade(_: InteractiveSession) -> List[str]:
+    return ["pip-upgrade"]
+
+
 def build_create_vm(session: InteractiveSession) -> List[str]:
     vms = session.load_vms()
     vm_choices = [questionary.Choice(name=name, value=name) for name in vms]
@@ -410,6 +414,7 @@ def _command_builders() -> Dict[str, CommandBuilder]:
         "backup-repeated-mount": build_backup_repeated_mount,
         "config-example": build_config_example,
         "config-gen": build_config_gen,
+        "pip-upgrade": build_pip_upgrade,
         "create-vm": build_create_vm,
         "create-vms": build_create_vms,
         "addmount": build_addmount,
@@ -439,7 +444,7 @@ def _select_command(cli: click.Group, preselected: Optional[str]) -> click.Comma
     sections = [
         (
             tr("interactive.section_init_config"),
-            ["prepare", "config-example", "config-gen"],
+            ["prepare", "config-example", "config-gen", "pip-upgrade"],
         ),
         (
             tr("interactive.section_virtual_machines"),
