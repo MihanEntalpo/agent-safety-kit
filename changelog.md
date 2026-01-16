@@ -1,5 +1,10 @@
 # Agent-Safety-Kit versions history
 
+## 0.9.13 - Create VM flow and agent lookup
+
+* Allowed create-vm/create-vms to continue setup steps even when VM resources differ, reporting mismatches at the end
+* Improved run error message when an agent is missing by listing available agents
+
 ## 0.9.12 - Self-update via pip
 
 * Added the `pip-upgrade` command to update agsekit inside the active Python environment

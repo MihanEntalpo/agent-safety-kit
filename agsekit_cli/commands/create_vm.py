@@ -47,7 +47,7 @@ def create_vm_command(vm_name: Optional[str], config_path: Optional[str], non_in
 
     click.echo(tr("create_vm.creating", vm_name=target_vm, config_path=resolved_path))
     try:
-        message = create_vm_from_config(str(resolved_path), target_vm)
+        message, mismatch_message = create_vm_from_config(str(resolved_path), target_vm)
     except ConfigError as exc:
         raise click.ClickException(str(exc))
     except MultipassError as exc:
@@ -57,6 +57,8 @@ def create_vm_command(vm_name: Optional[str], config_path: Optional[str], non_in
     click.echo(tr("prepare.ensure_keypair"))
     _private_key, public_key = ensure_host_ssh_keypair()
     prepare_vm(target_vm, public_key)
+    if mismatch_message:
+        click.echo(mismatch_message)
 
 
 @click.command(name="create-vms", help=tr("create_vm.command_all_help"))
@@ -83,7 +85,7 @@ def create_vms_command(config_path: Optional[str], non_interactive: bool) -> Non
 
     click.echo(tr("create_vm.creating_all", config_path=resolved_path))
     try:
-        messages = create_all_vms_from_config(str(resolved_path))
+        messages, mismatch_messages = create_all_vms_from_config(str(resolved_path))
     except ConfigError as exc:
         raise click.ClickException(str(exc))
     except MultipassError as exc:
@@ -96,3 +98,5 @@ def create_vms_command(config_path: Optional[str], non_interactive: bool) -> Non
     _private_key, public_key = ensure_host_ssh_keypair()
     for vm in vms.values():
         prepare_vm(vm.name, public_key)
+    for mismatch in mismatch_messages:
+        click.echo(mismatch)
