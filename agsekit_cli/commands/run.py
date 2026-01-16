@@ -102,6 +102,14 @@ def run_command(
     except ConfigError as exc:
         raise click.ClickException(str(exc))
 
+    if agent_name not in agents_config:
+        available = ", ".join(sorted(agents_config.keys()))
+        if available:
+            raise click.ClickException(
+                tr("agents.agent_not_found_with_list", name=agent_name, available=available)
+            )
+        raise click.ClickException(tr("agents.agent_not_found_empty", name=agent_name))
+
     agent = find_agent(agents_config, agent_name)
 
     mount_entry: Optional[MountConfig] = None

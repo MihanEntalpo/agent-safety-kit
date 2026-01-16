@@ -346,7 +346,7 @@ def _load_vms(path: Optional[str] = None) -> Dict[str, VmConfig]:
     return load_vms_config(config)
 
 
-def create_vm_from_config(path: Optional[str], vm_name: str) -> str:
+def create_vm_from_config(path: Optional[str], vm_name: str) -> tuple[str, Optional[str]]:
     vms = _load_vms(path)
     if vm_name not in vms:
         raise ConfigError(tr("vm.missing_in_config", vm_name=vm_name))
@@ -359,18 +359,22 @@ def create_vm_from_config(path: Optional[str], vm_name: str) -> str:
     status, _, details = comparison.partition(" ")
     if status == "mismatch":
         readable = _format_mismatch_details(details)
-        raise MultipassError(tr("vm.mismatch_not_supported", vm_name=target_vm.name, details=readable))
+        return tr("vm.exists_continue", vm_name=target_vm.name), tr(
+            "vm.mismatch_not_supported",
+            vm_name=target_vm.name,
+            details=readable,
+        )
     if status == "match":
-        return tr("vm.already_matches", vm_name=target_vm.name)
+        return tr("vm.already_matches", vm_name=target_vm.name), None
     if status != "absent":
         raise MultipassError(tr("vm.status_unknown", vm_name=target_vm.name, response=comparison))
 
     ensure_resources_available(existing_info, [target_vm])
 
-    return do_launch(target_vm, existing_info)
+    return do_launch(target_vm, existing_info), None
 
 
-def create_all_vms_from_config(path: Optional[str]) -> List[str]:
+def create_all_vms_from_config(path: Optional[str]) -> tuple[List[str], List[str]]:
     vms = _load_vms(path)
 
     ensure_multipass_available()
@@ -378,13 +382,14 @@ def create_all_vms_from_config(path: Optional[str]) -> List[str]:
 
     planned: List[VmConfig] = []
     statuses: Dict[str, str] = {}
+    mismatch_messages: List[str] = []
 
     for vm in vms.values():
         comparison = compare_vm(existing_info, vm.name, str(vm.cpu), vm.ram, vm.disk)
         status, _, details = comparison.partition(" ")
         if status == "mismatch":
             readable = _format_mismatch_details(details)
-            raise MultipassError(tr("vm.mismatch_not_supported", vm_name=vm.name, details=readable))
+            mismatch_messages.append(tr("vm.mismatch_not_supported", vm_name=vm.name, details=readable))
         statuses[vm.name] = status
         if status == "absent":
             planned.append(vm)
@@ -401,5 +406,7 @@ def create_all_vms_from_config(path: Optional[str]) -> List[str]:
     for name, status in statuses.items():
         if status == "match":
             messages.append(tr("vm.already_matches", vm_name=name))
+        elif status == "mismatch":
+            messages.append(tr("vm.exists_continue", vm_name=name))
 
-    return messages
+    return messages, mismatch_messages
