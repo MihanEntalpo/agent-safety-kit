@@ -2,7 +2,6 @@
 
 ## 0.9.11 - Mount config management
 
-* Added the `addmount` command to append mount entries to the YAML config with confirmation and optional immediate mounting
 * Added the `removemount` command to delete mount entries from the YAML config after unmounting
 
 ## 0.9.10 - Add addmount command
