@@ -22,6 +22,7 @@ from .commands.systemd import systemd_group
 from .commands.ssh import ssh_command
 from .commands.install_agents import install_agents_command
 from .commands.portforward import portforward_command
+from .commands.pip_upgrade import pip_upgrade_command
 from .commands.start_vm import start_vm_command
 from .commands.stop import stop_vm_command
 from .commands.destroy_vm import destroy_vm_command
@@ -100,6 +101,7 @@ def main() -> None:
         portforward_command,
         config_gen_command,
         config_example_command,
+        pip_upgrade_command,
         systemd_group,
         destroy_vm_command,
     ):

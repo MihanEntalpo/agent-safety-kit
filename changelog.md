@@ -1,5 +1,9 @@
 # Agent-Safety-Kit versions history
 
+## 0.9.12 - Self-update via pip
+
+* Added the `pip-upgrade` command to update agsekit inside the active Python environment
+
 ## 0.9.11 - Mount config management
 
 * Added the `removemount` command to delete mount entries from the YAML config after unmounting
