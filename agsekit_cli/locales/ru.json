@@ -323,7 +323,7 @@
   "prepare.install_bundle_cleanup": "Очищаем установщик {bundle} в {vm_name}",
   "prepare.install_bundle_copy_failed": "Не удалось скопировать комплект {bundle} в ВМ {vm_name}.",
   "prepare.install_bundle_failed": "Не удалось установить комплект {bundle} в ВМ {vm_name}.",
-  "prepare.install_bundle_cleanup_failed": "Не удалось удалить установщик комплекта {bundle} из ВМ {vm_name}."
+  "prepare.install_bundle_cleanup_failed": "Не удалось удалить установщик комплекта {bundle} из ВМ {vm_name}.",
   "prepare.known_hosts_failed": "Не удалось получить SSH-ключ хоста для {host}.",
   "prepare.loading_config": "Загружаем конфигурацию ВМ из {path}.",
   "prepare.multipass_already_installed": "Multipass уже установлен, пропускаем шаги подготовки.",
