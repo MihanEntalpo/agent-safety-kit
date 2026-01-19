@@ -7,6 +7,7 @@ from typing import Optional, Sequence
 import click
 
 from .commands.backup_once import backup_once_command
+from .commands.backup_clean import backup_clean_command
 from .commands.backup_repeated import backup_repeated_all_command, backup_repeated_command, backup_repeated_mount_command
 from .commands import non_interactive_option
 from .commands.config_gen import config_gen_command
@@ -34,6 +35,7 @@ from .interactive import is_interactive_terminal, run_interactive
 COMMANDS_REQUIRING_CONFIG = {
     "backup-repeated-all",
     "backup-repeated-mount",
+    "backup-clean",
     "create-vm",
     "create-vms",
     "addmount",
@@ -86,6 +88,7 @@ def main() -> None:
         create_vm_command,
         create_vms_command,
         backup_once_command,
+        backup_clean_command,
         backup_repeated_command,
         backup_repeated_mount_command,
         backup_repeated_all_command,
