@@ -34,7 +34,6 @@ agents:
     type: {agent_type}
     env:
       TOKEN: abc
-    socks5_proxy: 10.0.0.2:1234
 """,
         encoding="utf-8",
     )
@@ -103,7 +102,7 @@ def test_run_command_starts_backup_and_agent(monkeypatch, tmp_path):
     assert calls["proxychains"] is None
 
 
-def test_run_command_sets_proxy_for_non_qwen_agent(monkeypatch, tmp_path):
+def test_run_command_does_not_set_proxy_for_agent(monkeypatch, tmp_path):
     source = tmp_path / "project"
     config_path = tmp_path / "config.yaml"
     _write_config(config_path, source, agent_type="codex")
@@ -130,7 +129,7 @@ def test_run_command_sets_proxy_for_non_qwen_agent(monkeypatch, tmp_path):
     result = runner.invoke(run_command, ["qwen", str(source), "--config", str(config_path), "--", "--flag"])
 
     assert result.exit_code == 0
-    assert calls["env"]["ALL_PROXY"].startswith("socks5://10.0.0.2:1234")
+    assert "ALL_PROXY" not in calls["env"]
     assert calls["proxychains"] is None
 
 

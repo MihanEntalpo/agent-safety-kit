@@ -197,6 +197,13 @@ def dry_run_has_changes(command: List[str]) -> bool:
     for line in (line.strip() for line in result.stdout.splitlines()):
         if not line or any(line.startswith(prefix) for prefix in noisy_prefixes):
             continue
+        if ".inodes" in line and "deleting" in line:
+            continue
+        parts = line.split(maxsplit=1)
+        if len(parts) == 2:
+            flags, path = parts
+            if flags.startswith(".d") and path.endswith("/"):
+                continue
         return True
 
     return False

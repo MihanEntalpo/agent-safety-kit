@@ -143,20 +143,11 @@ def _prompt_agents(vm_names: List[str]) -> Dict[str, Dict[str, object]]:
             value = click.prompt(tr("config_gen.agent_env_value", key=key), default="", show_default=False)
             env_vars[key] = value
 
-        socks5_proxy = click.prompt(
-            tr("config_gen.agent_socks5_proxy"),
-            default="",
-            show_default=False,
-        ).strip()
-
         agent_entry: Dict[str, object] = {
             "type": agent_type,
             "env": env_vars,
             "vm": vm_choice,
         }
-        if socks5_proxy:
-            agent_entry["socks5_proxy"] = socks5_proxy
-
         agents[name] = agent_entry
 
     return agents

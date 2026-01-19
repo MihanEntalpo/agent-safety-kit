@@ -42,7 +42,7 @@ def test_run_in_vm_uses_cd_and_no_workdir_flag(monkeypatch):
 
     assert exit_code == 0
     args = calls["args"]
-    assert args[:3] == ["multipass", "shell", "agent-vm"]
+    assert args[:3] == ["multipass", "exec", "agent-vm"]
     assert args[-1].startswith("export NVM_DIR=")
     assert f"cd {workdir}" in args[-1]
     assert "qwen --flag" in args[-1]
@@ -75,12 +75,14 @@ def test_run_in_vm_wraps_with_proxychains(monkeypatch):
         proxychains="socks5://127.0.0.1:1080",
     )
 
+    monkeypatch.setattr(agents, "ensure_proxychains_runner", lambda _vm: "/tmp/agsekit-run_with_proxychains.sh")
+
     agents.run_in_vm(vm_config, workdir, ["qwen"], env_vars)
 
     args = calls["args"]
-    runner_script = Path(agents.__file__).resolve().parent / "run_with_proxychains.sh"
-    assert args[:4] == ["bash", str(runner_script), "--proxy", "socks5://127.0.0.1:1080"]
-    assert args[4:7] == ["multipass", "shell", "agent-vm"]
+    assert args[:3] == ["multipass", "exec", "agent-vm"]
+    assert args[3:6] == ["--", "bash", "-lc"]
+    assert "bash /tmp/agsekit-run_with_proxychains.sh --proxy socks5://127.0.0.1:1080 --" in args[6]
 
     calls.clear()
     agents.run_in_vm(vm_config, workdir, ["qwen"], env_vars, proxychains="")
@@ -94,7 +96,6 @@ def test_agent_command_sequence_skips_overridden_equals_args():
         type="qwen",
         env={},
         default_args=["--openai-api-key=default", "--flag"],
-        socks5_proxy=None,
         vm_name=None,
     )
 
@@ -112,7 +113,6 @@ def test_agent_command_sequence_skips_overridden_split_args():
         type="qwen",
         env={},
         default_args=["--base-url", "https://default", "--mode", "fast"],
-        socks5_proxy=None,
         vm_name=None,
     )
 
@@ -130,7 +130,6 @@ def test_agent_command_sequence_skips_overridden_flag_args():
         type="qwen",
         env={},
         default_args=["--trace", "--other"],
-        socks5_proxy=None,
         vm_name=None,
     )
 
@@ -145,7 +144,6 @@ def test_agent_command_sequence_skips_overridden_inline_space_args():
         type="qwen",
         env={},
         default_args=["--region eu-west-1", "--mode", "fast"],
-        socks5_proxy=None,
         vm_name=None,
     )
 

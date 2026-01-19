@@ -47,16 +47,26 @@ def create_vm_command(vm_name: Optional[str], config_path: Optional[str], non_in
 
     click.echo(tr("create_vm.creating", vm_name=target_vm, config_path=resolved_path))
     try:
-        message, mismatch_message = create_vm_from_config(str(resolved_path), target_vm)
+        result = create_vm_from_config(str(resolved_path), target_vm)
     except ConfigError as exc:
         raise click.ClickException(str(exc))
     except MultipassError as exc:
         raise click.ClickException(str(exc))
 
+    if isinstance(result, tuple):
+        message, mismatch_message = result
+    else:
+        message = result
+        mismatch_message = None
+
     click.echo(message)
     click.echo(tr("prepare.ensure_keypair"))
     _private_key, public_key = ensure_host_ssh_keypair()
-    prepare_vm(target_vm, public_key, vms[target_vm].install)
+    bundles = vms[target_vm].install
+    if bundles:
+        prepare_vm(target_vm, public_key, bundles)
+    else:
+        prepare_vm(target_vm, public_key)
     if mismatch_message:
         click.echo(mismatch_message)
 
