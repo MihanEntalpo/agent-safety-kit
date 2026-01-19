@@ -204,6 +204,10 @@ vms: # VM parameters for Multipass (you can define multiple)
         vm-addr: 127.0.0.1:5432
       - type: socks5 # Open socks5-proxy port inside VM, directing traffic to Host machine's network
         vm-addr: 127.0.0.1:8088        
+    install: # install bundles executed during create-vm/create-vms
+      - python        # pyenv + latest stable Python
+      - nodejs:20     # nvm + Node.js 20
+      - rust          # rustup + toolchain
 mounts:
   - source: /host/path/project            # path to the source folder on the host
     target: /home/ubuntu/project          # mount point inside the VM; defaults to /home/ubuntu/<source_basename>
@@ -228,5 +232,21 @@ agents:
   codex2:
     type: codex-glibc
 ```
+
+### VM install bundles
+
+Each VM can define an `install` list of bundles to be installed during `agsekit create-vm` / `create-vms`. Bundles are implemented as idempotent bash scripts and can depend on each other (for example, `python` installs `pyenv` first). Names can include a version suffix after `:` when supported. Supported bundles:
+
+* `pyenv` — installs pyenv along with build dependencies, and wires it into `~/.profile`, `~/.bashrc`, and `~/.bash_profile`.
+* `nvm` — installs nvm and wires it into `~/.profile`, `~/.bashrc`, and `~/.bash_profile`.
+* `python` — installs pyenv plus the latest stable Python.
+* `python:<version>` — installs pyenv plus the specified Python version (for example, `python:3.12.4`).
+* `nodejs` — installs nvm plus the latest LTS Node.js.
+* `nodejs:<version>` — installs nvm plus the specified Node.js version (for example, `nodejs:20`).
+* `rust` — installs rustup with the Rust toolchain.
+* `golang` — installs the Go toolchain via apt.
+* `docker` — installs Docker Engine and Docker Compose via Docker's apt repository.
+
+Run `agsekit list-bundles` to see the up-to-date bundle list and descriptions.
 
 > **Note:** Prefer ASCII-only paths for both `source` and `target` mount points: AppArmor may refuse to mount directories whose paths contain non-ASCII characters.

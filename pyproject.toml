@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "agsekit"
-version = "0.9.13"
+version = "1.0.0"
 description = "Agent Safety Kit command-line utilities"
 authors = [
   { name = "Mihanentalpo", email = "mihanentalpo@yandex.ru" },
@@ -26,7 +26,13 @@ agsekit = "agsekit_cli.cli:main"
 include = ["agsekit_cli", "agsekit_cli.*"]
 
 [tool.setuptools.package-data]
-agsekit_cli = ["agent_scripts/*.sh", "agent_scripts/proxychains_common.sh", "run_with_proxychains.sh", "locales/*.json"]
+agsekit_cli = [
+  "agent_scripts/*.sh",
+  "agent_scripts/proxychains_common.sh",
+  "vm_installers/*.sh",
+  "run_with_proxychains.sh",
+  "locales/*.json",
+]
 
 [tool.setuptools.data-files]
 "share/agsekit" = ["config-example.yaml"]
