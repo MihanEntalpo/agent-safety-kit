@@ -157,6 +157,10 @@ Backups use `rsync` with incremental links (`--link-dest`) to the previous copy:
 * `agsekit backup-repeated-mount --mount <path> [--config <path>]` — looks up the mount by its `source` path in the configuration file (default search: `--config`, `CONFIG_PATH`, `~/.config/agsekit/config.yaml`) and launches repeated backups using the paths and interval from the config. When only one mount is present, `--mount` can be omitted; with multiple mounts, an explicit choice is required.
 * `agsekit backup-repeated-all [--config <path>]` — reads all mounts from the config (default search: `--config`, `CONFIG_PATH`, `~/.config/agsekit/config.yaml`) and starts concurrent repeated backups for each entry within a single process. Use Ctrl+C to stop the loops.
 
+#### Backup cleanup
+
+* `agsekit backup-clean <mount_source> [<keep>] [<method>] [--config <path>]` — removes old snapshots from the backup directory for the mount whose `source` matches `<mount_source>` in the config (default search: `--config`, `CONFIG_PATH`, `~/.config/agsekit/config.yaml`). `<keep>` defaults to 50 and controls how many of the newest backups remain. `<method>` defaults to `tail` for simple removal of the oldest snapshots; the `thin` method currently prints `backup-clean with thin method is not yet implemented`.
+
 ### Agent installation
 
 * `agsekit install-agents <agent_name> [<vm>|--all-vms] [--config <path>] [--proxychains <value>]` — runs the prepared installation script for the chosen agent type inside the specified VM (or the agent's default VM if none is provided). If the config defines only one agent, you can skip `<agent_name>` and it will be picked automatically. Use `--proxychains <scheme://host:port>` to override the VM proxy for this installation or `--proxychains ""` to ignore it once.

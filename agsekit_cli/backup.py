@@ -68,6 +68,36 @@ def find_previous_backup(dest_dir: Path) -> Optional[Path]:
     return sorted(filtered)[-1]
 
 
+def list_backup_snapshots(dest_dir: Path) -> List[Path]:
+    if not dest_dir.exists():
+        return []
+
+    candidates = [path for path in dest_dir.iterdir() if path.is_dir()]
+    filtered: List[Path] = []
+    for path in candidates:
+        name = path.name
+        if name.endswith("-inprogress") or name.endswith("-partial"):
+            continue
+        filtered.append(path)
+
+    return sorted(filtered)
+
+
+def clean_backups_tail(dest_dir: Path, keep: int) -> List[Path]:
+    if keep < 0:
+        raise ValueError("keep must be non-negative")
+
+    snapshots = list_backup_snapshots(dest_dir)
+    if keep >= len(snapshots):
+        return []
+
+    to_remove = snapshots[: len(snapshots) - keep]
+    for path in to_remove:
+        shutil.rmtree(path)
+
+    return to_remove
+
+
 def remove_inprogress_dirs(dest_dir: Path) -> None:
     for entry in dest_dir.iterdir():
         if entry.is_dir() and (entry.name.endswith("-inprogress") or entry.name.endswith("-partial")):
