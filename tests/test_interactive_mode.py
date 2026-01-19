@@ -189,7 +189,7 @@ def test_main_reports_missing_config_without_interactive(monkeypatch, tmp_path):
 
 
 def test_build_run_skips_vm_argument_when_auto_selected(monkeypatch, tmp_path):
-    agent = AgentConfig(name="qwen", type="qwen", env={}, socks5_proxy=None, vm_name=None)
+    agent = AgentConfig(name="qwen", type="qwen", env={}, vm_name=None)
     mount = MountConfig(
         source=tmp_path,
         target=Path("/home/ubuntu/project"),
