@@ -323,7 +323,7 @@
   "prepare.install_bundle_cleanup": "Cleaning up bundle {bundle} in {vm_name}",
   "prepare.install_bundle_copy_failed": "Failed to copy bundle {bundle} into VM {vm_name}.",
   "prepare.install_bundle_failed": "Bundle {bundle} failed to install in VM {vm_name}.",
-  "prepare.install_bundle_cleanup_failed": "Failed to remove bundle {bundle} installer from VM {vm_name}."
+  "prepare.install_bundle_cleanup_failed": "Failed to remove bundle {bundle} installer from VM {vm_name}.",
   "prepare.known_hosts_failed": "Failed to fetch SSH host key for {host}.",
   "prepare.loading_config": "Loading VM configuration from {path}.",
   "prepare.multipass_already_installed": "Multipass is already installed, skipping preparation steps.",
