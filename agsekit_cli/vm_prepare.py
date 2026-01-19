@@ -10,6 +10,7 @@ from typing import List, Tuple
 import click
 
 from .i18n import tr
+from .vm_bundles import resolve_bundles
 from .vm import MultipassError
 
 
@@ -54,7 +55,7 @@ def ensure_host_ssh_keypair() -> Tuple[Path, Path]:
 
 def _ensure_vm_packages(vm_name: str) -> None:
     check_result = _run_multipass(
-        ["multipass", "exec", vm_name, "--", "bash", "-lc", "dpkg -s git proxychains4 >/dev/null 2>&1"],
+        ["multipass", "exec", vm_name, "--", "bash", "-lc", "dpkg -s git proxychains4 ripgrep >/dev/null 2>&1"],
         tr("prepare.checking_packages", vm_name=vm_name),
     )
     if check_result.returncode == 0:
@@ -70,11 +71,51 @@ def _ensure_vm_packages(vm_name: str) -> None:
         "bash",
         "-lc",
         "sudo DEBIAN_FRONTEND=noninteractive apt-get update && "
-        "sudo DEBIAN_FRONTEND=noninteractive apt-get install -y git proxychains4",
+        "sudo DEBIAN_FRONTEND=noninteractive apt-get install -y git proxychains4 ripgrep",
     ]
     result = _run_multipass(install_command, tr("prepare.installing_packages", vm_name=vm_name), capture_output=False)
     if result.returncode != 0:
         raise MultipassError(tr("prepare.install_failed", vm_name=vm_name))
+
+
+def _install_vm_bundles(vm_name: str, bundles: List[str]) -> None:
+    if not bundles:
+        click.echo(tr("prepare.install_bundles_none", vm_name=vm_name))
+        return
+
+    resolved = resolve_bundles(bundles, vm_name)
+    bundle_list = ", ".join(bundle.raw for bundle in resolved)
+    click.echo(tr("prepare.install_bundles_start", vm_name=vm_name, bundles=bundle_list))
+
+    for bundle in resolved:
+        click.echo(tr("prepare.install_bundle_running", vm_name=vm_name, bundle=bundle.raw))
+        remote_path = f"/tmp/agsekit_bundle_{bundle.name}.sh"
+        transfer_command = ["multipass", "transfer", str(bundle.script), f"{vm_name}:{remote_path}"]
+        transfer_result = _run_multipass(
+            transfer_command,
+            tr("prepare.install_bundle_transfer", vm_name=vm_name, bundle=bundle.raw),
+        )
+        if transfer_result.returncode != 0:
+            raise MultipassError(tr("prepare.install_bundle_copy_failed", vm_name=vm_name, bundle=bundle.raw))
+
+        install_command = ["multipass", "exec", vm_name, "--", "bash", remote_path]
+        if bundle.version:
+            install_command.append(bundle.version)
+        install_result = _run_multipass(
+            install_command,
+            tr("prepare.install_bundle_exec", vm_name=vm_name, bundle=bundle.raw),
+            capture_output=False,
+        )
+        if install_result.returncode != 0:
+            raise MultipassError(tr("prepare.install_bundle_failed", vm_name=vm_name, bundle=bundle.raw))
+
+        cleanup_command = ["multipass", "exec", vm_name, "--", "rm", "-f", remote_path]
+        cleanup_result = _run_multipass(
+            cleanup_command,
+            tr("prepare.install_bundle_cleanup", vm_name=vm_name, bundle=bundle.raw),
+        )
+        if cleanup_result.returncode != 0:
+            click.echo(tr("prepare.install_bundle_cleanup_failed", vm_name=vm_name, bundle=bundle.raw), err=True)
 
 
 def _ensure_vm_keypair(vm_name: str, public_key: Path) -> None:
@@ -166,10 +207,11 @@ def _ensure_known_host(host: str) -> None:
     os.chmod(known_hosts, 0o644)
 
 
-def prepare_vm(vm_name: str, public_key: Path) -> None:
+def prepare_vm(vm_name: str, public_key: Path, bundles: List[str]) -> None:
     click.echo(tr("prepare.preparing_vm", vm_name=vm_name))
     _run_multipass(["multipass", "start", vm_name], tr("prepare.starting_vm", vm_name=vm_name))
     _ensure_vm_packages(vm_name)
+    _install_vm_bundles(vm_name, bundles)
     _ensure_vm_keypair(vm_name, public_key)
     click.echo(tr("prepare.ensure_known_hosts", vm_name=vm_name))
     for host in _fetch_vm_ips(vm_name):

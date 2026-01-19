@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 import os
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any, Dict, List, Optional
 from urllib.parse import urlparse
@@ -9,6 +9,7 @@ from urllib.parse import urlparse
 import yaml
 
 from .i18n import tr
+from .vm_bundles import normalize_install_bundles
 
 CONFIG_ENV_VAR = "CONFIG_PATH"
 DEFAULT_CONFIG_PATH = Path.home() / ".config" / "agsekit" / "config.yaml"
@@ -39,6 +40,7 @@ class VmConfig:
     cloud_init: Dict[str, Any]
     port_forwarding: List["PortForwardingRule"]
     proxychains: Optional[str] = None
+    install: List[str] = field(default_factory=list)
 
 
 @dataclass
@@ -207,6 +209,11 @@ def load_vms_config(config: Dict[str, Any]) -> Dict[str, VmConfig]:
         if missing:
             raise ConfigError(tr("config.vm_missing_fields", vm_name=vm_name, missing=", ".join(missing)))
 
+        try:
+            install_bundles = normalize_install_bundles(raw_entry.get("install"), vm_name)
+        except ValueError as exc:
+            raise ConfigError(str(exc))
+
         vms[vm_name] = VmConfig(
             name=str(vm_name),
             cpu=_require_positive_int(raw_entry.get("cpu"), f"vms.{vm_name}.cpu"),
@@ -215,6 +222,7 @@ def load_vms_config(config: Dict[str, Any]) -> Dict[str, VmConfig]:
             cloud_init=raw_entry.get("cloud-init") or {},
             port_forwarding=_normalize_port_forwarding(raw_entry.get("port-forwarding"), vm_name),
             proxychains=_normalize_proxychains(raw_entry.get("proxychains"), vm_name),
+            install=install_bundles,
         )
 
     return vms

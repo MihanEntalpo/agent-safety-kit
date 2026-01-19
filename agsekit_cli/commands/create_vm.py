@@ -56,7 +56,7 @@ def create_vm_command(vm_name: Optional[str], config_path: Optional[str], non_in
     click.echo(message)
     click.echo(tr("prepare.ensure_keypair"))
     _private_key, public_key = ensure_host_ssh_keypair()
-    prepare_vm(target_vm, public_key)
+    prepare_vm(target_vm, public_key, vms[target_vm].install)
     if mismatch_message:
         click.echo(mismatch_message)
 
@@ -97,6 +97,6 @@ def create_vms_command(config_path: Optional[str], non_interactive: bool) -> Non
     click.echo(tr("prepare.ensure_keypair"))
     _private_key, public_key = ensure_host_ssh_keypair()
     for vm in vms.values():
-        prepare_vm(vm.name, public_key)
+        prepare_vm(vm.name, public_key, vm.install)
     for mismatch in mismatch_messages:
         click.echo(mismatch)

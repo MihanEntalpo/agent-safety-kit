@@ -1,5 +1,9 @@
 # Agent-Safety-Kit versions history
 
+## 1.0.0 - VM software bundles
+
+* Added software bundles that can be configured per VM for automatic installation during create-vm/create-vms
+
 ## 0.9.13 - Create VM flow and agent lookup
 
 * Allowed create-vm/create-vms to continue setup steps even when VM resources differ, reporting mismatches at the end
