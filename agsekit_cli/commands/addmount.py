@@ -26,12 +26,12 @@ from ..mounts import MountAlreadyMountedError, find_mount_by_source, mount_direc
 from ..vm import MultipassError
 
 
-def _prompt_positive_int(message: str, default: int) -> int:
+def _prompt_positive_int(message: str, default: int, error_key: str) -> int:
     while True:
         value = click.prompt(message, default=default, type=int)
         if value > 0:
             return value
-        click.echo(tr("addmount.interval_positive"))
+        click.echo(tr(error_key))
 
 
 def _parse_interval(raw_value: Optional[str]) -> int:
@@ -44,6 +44,26 @@ def _parse_interval(raw_value: Optional[str]) -> int:
     if value <= 0:
         raise click.ClickException(tr("addmount.interval_positive"))
     return value
+
+
+def _parse_max_backups(raw_value: Optional[int]) -> int:
+    if raw_value is None:
+        return 100
+    try:
+        value = int(raw_value)
+    except (TypeError, ValueError) as exc:
+        raise click.ClickException(tr("addmount.max_backups_not_int")) from exc
+    if value <= 0:
+        raise click.ClickException(tr("addmount.max_backups_positive"))
+    return value
+
+
+def _prompt_backup_clean_method(default: str) -> str:
+    return click.prompt(
+        tr("addmount.backup_clean_method_prompt"),
+        default=default,
+        type=click.Choice(["tail", "thin"], case_sensitive=False),
+    )
 
 
 def _load_config_with_comments(config_path: Path) -> tuple[YAML, CommentedMap]:
@@ -79,6 +99,18 @@ def _backup_config(config_path: Path) -> Path:
 @click.argument("backup_dir", required=False, type=click.Path(path_type=Path))
 @click.argument("interval", required=False)
 @click.option(
+    "--max-backups",
+    type=int,
+    default=None,
+    help=tr("addmount.option_max_backups"),
+)
+@click.option(
+    "--backup-clean-method",
+    type=click.Choice(["tail", "thin"], case_sensitive=False),
+    default=None,
+    help=tr("addmount.option_backup_clean_method"),
+)
+@click.option(
     "--mount",
     "mount_now",
     is_flag=True,
@@ -104,6 +136,8 @@ def addmount_command(
     target_dir: Optional[Path],
     backup_dir: Optional[Path],
     interval: Optional[str],
+    max_backups: Optional[int],
+    backup_clean_method: Optional[str],
     mount_now: bool,
     assume_yes: bool,
     config_path: Optional[str],
@@ -140,9 +174,27 @@ def addmount_command(
     backup_dir = backup_dir.expanduser().resolve()
 
     if interval is None and interactive:
-        interval_minutes = _prompt_positive_int(tr("addmount.interval_prompt"), default=5)
+        interval_minutes = _prompt_positive_int(
+            tr("addmount.interval_prompt"),
+            default=5,
+            error_key="addmount.interval_positive",
+        )
     else:
         interval_minutes = _parse_interval(interval)
+
+    if max_backups is None and interactive:
+        max_backups_value = _prompt_positive_int(
+            tr("addmount.max_backups_prompt"),
+            default=100,
+            error_key="addmount.max_backups_positive",
+        )
+    else:
+        max_backups_value = _parse_max_backups(max_backups)
+
+    if backup_clean_method is None and interactive:
+        backup_clean_method_value = _prompt_backup_clean_method("tail")
+    else:
+        backup_clean_method_value = (backup_clean_method or "tail").lower()
 
     resolved_config_path = resolve_config_path(Path(config_path) if config_path else None)
     if not resolved_config_path.exists():
@@ -170,6 +222,8 @@ def addmount_command(
             target=target_dir,
             backup=backup_dir,
             interval=interval_minutes,
+            max_backups=max_backups_value,
+            method=backup_clean_method_value,
         )
     )
 
@@ -192,6 +246,8 @@ def addmount_command(
     mount_entry["target"] = str(target_dir)
     mount_entry["backup"] = str(backup_dir)
     mount_entry["interval"] = interval_minutes
+    mount_entry["max_backups"] = max_backups_value
+    mount_entry["backup_clean_method"] = backup_clean_method_value
     mounts_section.append(mount_entry)
 
     config_backup_path = _backup_config(resolved_config_path)
@@ -214,6 +270,8 @@ def addmount_command(
                     target=target_dir,
                     backup=backup_dir,
                     interval_minutes=interval_minutes,
+                    max_backups=max_backups_value,
+                    backup_clean_method=backup_clean_method_value,
                     vm_name=default_vm,
                 )
             )

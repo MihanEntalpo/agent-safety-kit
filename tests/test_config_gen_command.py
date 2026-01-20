@@ -30,6 +30,8 @@ def test_config_gen_creates_config_file(tmp_path):
             "",  # target
             "",  # backup
             "",  # interval
+            "",  # max_backups
+            "",  # backup_clean_method
             "",  # vm choice
             "n",  # добавить ещё монтирование
             "n",  # добавить агента
@@ -57,6 +59,8 @@ def test_config_gen_creates_config_file(tmp_path):
     assert mount["target"] == f"/home/ubuntu/{project_dir.name}"
     assert mount["backup"] == str(project_dir.parent / f"backups-{project_dir.name}")
     assert mount["interval"] == 5
+    assert mount["max_backups"] == 100
+    assert mount["backup_clean_method"] == "tail"
     assert mount["vm"] == "agent-ubuntu"
 
 

@@ -98,6 +98,21 @@ def clean_backups_tail(dest_dir: Path, keep: int) -> List[Path]:
     return to_remove
 
 
+def clean_backups(dest_dir: Path, keep: int, method: str) -> List[Path]:
+    method = method.lower()
+    if method not in {"tail", "thin"}:
+        raise ValueError(tr("backup.clean_method_unknown", method=method))
+
+    if not dest_dir.exists():
+        return []
+
+    if method == "thin":
+        print(tr("backup_clean.thin_not_implemented"))
+        return []
+
+    return clean_backups_tail(dest_dir, keep)
+
+
 def remove_inprogress_dirs(dest_dir: Path) -> None:
     for entry in dest_dir.iterdir():
         if entry.is_dir() and (entry.name.endswith("-inprogress") or entry.name.endswith("-partial")):
@@ -306,6 +321,8 @@ def backup_repeated(
     dest_dir: Path,
     *,
     interval_minutes: int = 5,
+    max_backups: int = 100,
+    backup_clean_method: str = "tail",
     extra_excludes: Optional[Iterable[str]] = None,
     sleep_func: Callable[[float], None] = time.sleep,
     max_runs: Optional[int] = None,
@@ -320,6 +337,8 @@ def backup_repeated(
 
     if interval_minutes <= 0:
         raise ValueError(tr("backup.interval_positive_required"))
+    if max_backups <= 0:
+        raise ValueError(tr("backup.keep_positive_required"))
 
     runs_completed = 0
     first_cycle = True
@@ -330,6 +349,7 @@ def backup_repeated(
             continue
 
         backup_once(source_dir, dest_dir, extra_excludes=extra_excludes)
+        clean_backups(dest_dir, max_backups, backup_clean_method)
         first_cycle = False
         runs_completed += 1
         print(tr("backup.waiting_minutes", minutes=interval_minutes))
