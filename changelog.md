@@ -1,5 +1,10 @@
 # Agent-Safety-Kit versions history
 
+## 1.0.1 - Backup cleanup defaults
+
+* Made `backup-clean` available in interactive mode
+* Switched the default backup cleanup method to `thin`
+
 ## 1.0.0 - VM software bundles
 
 * Added software bundles that can be configured per VM for automatic installation during create-vm/create-vms

@@ -161,6 +161,31 @@ def build_backup_repeated_all(session: InteractiveSession) -> List[str]:
     return ["backup-repeated-all", *session.config_option()]
 
 
+def build_backup_clean(session: InteractiveSession) -> List[str]:
+    mounts = session.load_mounts()
+    if not mounts:
+        raise click.ClickException(tr("interactive.no_mounts"))
+
+    choices = [
+        questionary.Choice(f"{mount.source} -> {mount.vm_name}:{mount.target}", value=mount)
+        for mount in mounts
+    ]
+    selected: MountConfig = _select_from_list(tr("interactive.mount_backup_select"), choices)
+
+    keep_raw = questionary.text(tr("interactive.backup_clean_keep_prompt"), default="50").ask()
+    if keep_raw is None:
+        raise click.Abort()
+    keep_value = keep_raw.strip() or "50"
+
+    method_choices = [
+        questionary.Choice(tr("interactive.backup_clean_method_thin"), value="thin"),
+        questionary.Choice(tr("interactive.backup_clean_method_tail"), value="tail"),
+    ]
+    method = _select_from_list(tr("interactive.backup_clean_method_prompt"), method_choices)
+
+    return ["backup-clean", str(selected.source), keep_value, str(method), *session.config_option()]
+
+
 def build_config_example(session: InteractiveSession) -> List[str]:
     return ["config-example"]
 
@@ -412,6 +437,7 @@ def _command_builders() -> Dict[str, CommandBuilder]:
         "backup-repeated": build_backup_repeated,
         "backup-repeated-all": build_backup_repeated_all,
         "backup-repeated-mount": build_backup_repeated_mount,
+        "backup-clean": build_backup_clean,
         "config-example": build_config_example,
         "config-gen": build_config_gen,
         "pip-upgrade": build_pip_upgrade,
@@ -458,7 +484,7 @@ def _select_command(cli: click.Group, preselected: Optional[str]) -> click.Comma
         (tr("interactive.section_daemon_control"), ["systemd"]),
         (
             tr("interactive.section_manual_backup"),
-            ["backup-once", "backup-repeated", "backup-repeated-mount", "backup-repeated-all"],
+            ["backup-once", "backup-repeated", "backup-repeated-mount", "backup-repeated-all", "backup-clean"],
         ),
     ]
 

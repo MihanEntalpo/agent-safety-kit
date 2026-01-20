@@ -23,7 +23,7 @@ def test_backup_repeated_command_invokes_loop(monkeypatch, tmp_path):
         extra_excludes,
         skip_first=False,
         max_backups=100,
-        backup_clean_method="tail",
+        backup_clean_method="thin",
     ):
         calls.append(
             (src, dst, interval_minutes, tuple(extra_excludes), skip_first, max_backups, backup_clean_method)
@@ -49,7 +49,7 @@ def test_backup_repeated_command_invokes_loop(monkeypatch, tmp_path):
     )
 
     assert result.exit_code == 0
-    assert calls == [(source.resolve(), dest.resolve(), 7, ("*.log", "cache/"), False, 100, "tail")]
+    assert calls == [(source.resolve(), dest.resolve(), 7, ("*.log", "cache/"), False, 100, "thin")]
 
 
 def test_backup_repeated_command_can_skip_first(monkeypatch, tmp_path):

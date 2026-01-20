@@ -29,7 +29,7 @@ class MountConfig:
     backup: Path
     interval_minutes: int = 5
     max_backups: int = 100
-    backup_clean_method: str = "tail"
+    backup_clean_method: str = "thin"
     vm_name: str = ""
 
 
@@ -355,7 +355,7 @@ def _normalize_max_backups(raw_value: Any, index: int) -> int:
 
 def _normalize_backup_clean_method(raw_value: Any, index: int) -> str:
     if raw_value is None:
-        return "tail"
+        return "thin"
     if not isinstance(raw_value, str):
         raise ConfigError(tr("config.mount_backup_clean_method_not_string", index=index))
     cleaned = raw_value.strip().lower()

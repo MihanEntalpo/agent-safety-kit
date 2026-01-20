@@ -192,9 +192,9 @@ def addmount_command(
         max_backups_value = _parse_max_backups(max_backups)
 
     if backup_clean_method is None and interactive:
-        backup_clean_method_value = _prompt_backup_clean_method("tail")
+        backup_clean_method_value = _prompt_backup_clean_method("thin")
     else:
-        backup_clean_method_value = (backup_clean_method or "tail").lower()
+        backup_clean_method_value = (backup_clean_method or "thin").lower()
 
     resolved_config_path = resolve_config_path(Path(config_path) if config_path else None)
     if not resolved_config_path.exists():
