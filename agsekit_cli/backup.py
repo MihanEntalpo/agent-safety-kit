@@ -5,13 +5,22 @@ import sys
 import shutil
 import subprocess
 import time
-from datetime import datetime
+from dataclasses import dataclass
+from datetime import datetime, timedelta
+from math import log2
 from pathlib import Path
-from typing import Callable, Iterable, List, Optional, Tuple
+from typing import Callable, Dict, Iterable, List, Optional, Set, Tuple
 
 from .i18n import tr
 
 FilterRule = Tuple[str, str]
+
+
+@dataclass(frozen=True)
+class ThinParams:
+    interval_minutes: int = 5
+    protect_newest_k: int = 3
+    max_intervals_space: int = 288
 
 
 def gather_backupignore_rules(source_dir: Path) -> List[FilterRule]:
@@ -98,7 +107,108 @@ def clean_backups_tail(dest_dir: Path, keep: int) -> List[Path]:
     return to_remove
 
 
-def clean_backups(dest_dir: Path, keep: int, method: str) -> List[Path]:
+def _snapshot_datetime(snapshot: Path) -> datetime:
+    try:
+        return datetime.strptime(snapshot.name, "%Y%m%d-%H%M%S")
+    except ValueError:
+        return datetime.fromtimestamp(snapshot.stat().st_mtime)
+
+
+def _bucket_id(age_minutes: float, interval_minutes: int) -> int:
+    if age_minutes <= 0:
+        return -1
+    ratio = max(1.0, age_minutes / float(interval_minutes))
+    return max(0, int(log2(ratio)))
+
+
+def _bucket_target(bucket_id: int) -> int:
+    if bucket_id <= 0:
+        return 3
+    if bucket_id == 1:
+        return 2
+    return 1
+
+
+def _choose_thin_deletion(times: List[datetime], params: ThinParams, keep: int) -> int:
+    count = len(times)
+    if count <= 1:
+        return 0
+
+    base_gap = timedelta(minutes=params.interval_minutes)
+    max_gap = base_gap * params.max_intervals_space
+
+    for older, newer in zip(times, times[1:]):
+        if (newer - older) > max_gap:
+            return 0
+
+    newest = times[-1]
+    protect_count = min(params.protect_newest_k, keep, count)
+    protected: Set[int] = set(range(count - protect_count, count))
+    candidates_idx = [i for i in range(count) if i not in protected and i != (count - 1)]
+    if not candidates_idx:
+        return 0
+
+    buckets: Dict[int, List[int]] = {}
+    for idx in candidates_idx:
+        age_min = (newest - times[idx]).total_seconds() / 60.0
+        bucket = _bucket_id(age_min, params.interval_minutes)
+        buckets.setdefault(bucket, []).append(idx)
+
+    overflow: List[Tuple[float, int]] = []
+    for bucket, idxs in buckets.items():
+        target = _bucket_target(bucket)
+        ratio = len(idxs) / float(target)
+        if ratio > 1.0:
+            overflow.append((ratio, bucket))
+
+    def damage(idx: int) -> Tuple[timedelta, timedelta, datetime]:
+        if idx == 0:
+            gap = times[1] - times[0]
+            return (gap + gap, gap, times[idx])
+        if idx == count - 1:
+            gap = times[idx] - times[idx - 1]
+            return (gap + gap, gap, times[idx])
+
+        left = times[idx] - times[idx - 1]
+        right = times[idx + 1] - times[idx]
+        return (left + right, max(left, right), times[idx])
+
+    if overflow:
+        overflow.sort(key=lambda item: (-item[0], -item[1]))
+        bucket = overflow[0][1]
+        idxs = buckets[bucket]
+        idxs.sort(key=damage)
+        return idxs[0]
+
+    candidates_idx.sort(key=damage)
+    return candidates_idx[0]
+
+
+def clean_backups_thin(dest_dir: Path, keep: int, interval_minutes: int) -> List[Path]:
+    if keep < 0:
+        raise ValueError("keep must be non-negative")
+
+    snapshots = list_backup_snapshots(dest_dir)
+    if keep >= len(snapshots):
+        return []
+
+    entries = [(_snapshot_datetime(snapshot), snapshot) for snapshot in snapshots]
+    entries.sort(key=lambda item: (item[0], item[1].name))
+    removed: List[Path] = []
+    params = ThinParams(interval_minutes=interval_minutes)
+
+    while len(entries) > keep:
+        times = [entry[0] for entry in entries]
+        idx = _choose_thin_deletion(times, params, keep)
+        path = entries[idx][1]
+        shutil.rmtree(path)
+        removed.append(path)
+        del entries[idx]
+
+    return removed
+
+
+def clean_backups(dest_dir: Path, keep: int, method: str, *, interval_minutes: int = 5) -> List[Path]:
     method = method.lower()
     if method not in {"tail", "thin"}:
         raise ValueError(tr("backup.clean_method_unknown", method=method))
@@ -107,8 +217,7 @@ def clean_backups(dest_dir: Path, keep: int, method: str) -> List[Path]:
         return []
 
     if method == "thin":
-        print(tr("backup_clean.thin_not_implemented"))
-        return []
+        return clean_backups_thin(dest_dir, keep, interval_minutes)
 
     return clean_backups_tail(dest_dir, keep)
 
@@ -349,7 +458,7 @@ def backup_repeated(
             continue
 
         backup_once(source_dir, dest_dir, extra_excludes=extra_excludes)
-        clean_backups(dest_dir, max_backups, backup_clean_method)
+        clean_backups(dest_dir, max_backups, backup_clean_method, interval_minutes=interval_minutes)
         first_cycle = False
         runs_completed += 1
         print(tr("backup.waiting_minutes", minutes=interval_minutes))

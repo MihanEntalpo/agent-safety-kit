@@ -72,7 +72,6 @@
   "backup_clean.mount_missing": "Mount with source {source} is not defined in the configuration.",
   "backup_clean.nothing_removed": "No snapshots removed; keeping {keep} most recent backups.",
   "backup_clean.removed_snapshot": "Removed snapshot: {path}",
-  "backup_clean.thin_not_implemented": "backup-clean with thin method is not yet implemented",
   "backup_once.command_help": "Run a single backup of a directory.",
   "backup_once.option_dest_dir": "Destination directory for snapshots",
   "backup_once.option_exclude": "Additional rsync exclude pattern; can be provided multiple times",

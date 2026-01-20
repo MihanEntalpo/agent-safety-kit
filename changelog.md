@@ -3,6 +3,7 @@
 ## 1.0.0 - VM software bundles
 
 * Added software bundles that can be configured per VM for automatic installation during create-vm/create-vms
+* Added backup cleanup functionality with the tail (removes oldest) and thin (logarithmic thinning) methods for old snapshots
 
 ## 0.9.13 - Create VM flow and agent lookup
 

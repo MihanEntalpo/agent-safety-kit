@@ -152,6 +152,7 @@ def run_command(
                 mount_entry.backup,
                 mount_entry.max_backups,
                 mount_entry.backup_clean_method,
+                interval_minutes=mount_entry.interval_minutes,
             )
             skip_first_repeated_backup = True
 

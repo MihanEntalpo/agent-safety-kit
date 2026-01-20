@@ -159,7 +159,7 @@ Backups use `rsync` with incremental links (`--link-dest`) to the previous copy:
 
 #### Backup cleanup
 
-* `agsekit backup-clean <mount_source> [<keep>] [<method>] [--config <path>]` — removes old snapshots from the backup directory for the mount whose `source` matches `<mount_source>` in the config (default search: `--config`, `CONFIG_PATH`, `~/.config/agsekit/config.yaml`). `<keep>` defaults to 50 and controls how many of the newest backups remain. `<method>` defaults to `tail` for simple removal of the oldest snapshots; the `thin` method currently prints `backup-clean with thin method is not yet implemented`.
+* `agsekit backup-clean <mount_source> [<keep>] [<method>] [--config <path>]` — removes old snapshots from the backup directory for the mount whose `source` matches `<mount_source>` in the config (default search: `--config`, `CONFIG_PATH`, `~/.config/agsekit/config.yaml`). `<keep>` defaults to 50 and controls how many of the newest backups remain. `<method>` defaults to `tail` for simple removal of the oldest snapshots; the `thin` method keeps the latest three backups within the most recent intervals and then logarithmically thins older snapshots so the further in the past they are, the more sparse they become.
 
 ### Agent installation
 
