@@ -28,6 +28,8 @@ class MountConfig:
     target: Path
     backup: Path
     interval_minutes: int = 5
+    max_backups: int = 100
+    backup_clean_method: str = "tail"
     vm_name: str = ""
 
 
@@ -339,6 +341,29 @@ def _normalize_interval(raw_value: Any) -> int:
     return interval
 
 
+def _normalize_max_backups(raw_value: Any, index: int) -> int:
+    if raw_value is None:
+        return 100
+    try:
+        value = int(raw_value)
+    except (TypeError, ValueError):
+        raise ConfigError(tr("config.mount_max_backups_not_int", index=index))
+    if value <= 0:
+        raise ConfigError(tr("config.mount_max_backups_not_positive", index=index))
+    return value
+
+
+def _normalize_backup_clean_method(raw_value: Any, index: int) -> str:
+    if raw_value is None:
+        return "tail"
+    if not isinstance(raw_value, str):
+        raise ConfigError(tr("config.mount_backup_clean_method_not_string", index=index))
+    cleaned = raw_value.strip().lower()
+    if cleaned in {"tail", "thin"}:
+        return cleaned
+    raise ConfigError(tr("config.mount_backup_clean_method_unknown", index=index, value=raw_value))
+
+
 def load_mounts_config(config: Dict[str, Any]) -> List[MountConfig]:
     raw_mounts = config.get("mounts") or []
     if not isinstance(raw_mounts, list):
@@ -366,6 +391,8 @@ def load_mounts_config(config: Dict[str, Any]) -> List[MountConfig]:
         target = _ensure_path(target_raw, f"mounts[{index}].target") if target_raw else _default_target(source)
         backup = _ensure_path(backup_raw, f"mounts[{index}].backup") if backup_raw else _default_backup(source)
         interval_minutes = _normalize_interval(entry.get("interval"))
+        max_backups = _normalize_max_backups(entry.get("max_backups"), index + 1)
+        backup_clean_method = _normalize_backup_clean_method(entry.get("backup_clean_method"), index + 1)
 
         mounts.append(
             MountConfig(
@@ -373,6 +400,8 @@ def load_mounts_config(config: Dict[str, Any]) -> List[MountConfig]:
                 target=target,
                 backup=backup,
                 interval_minutes=interval_minutes,
+                max_backups=max_backups,
+                backup_clean_method=backup_clean_method,
                 vm_name=str(vm_name),
             )
         )

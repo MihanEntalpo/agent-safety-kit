@@ -31,9 +31,30 @@ from ..i18n import tr
     type=int,
     help=tr("backup_repeated.option_interval"),
 )
+@click.option(
+    "--max-backups",
+    default=100,
+    show_default=True,
+    type=int,
+    help=tr("backup_repeated.option_max_backups"),
+)
+@click.option(
+    "--backup-clean-method",
+    default="tail",
+    show_default=True,
+    type=click.Choice(["tail", "thin"], case_sensitive=False),
+    help=tr("backup_repeated.option_backup_clean_method"),
+)
 @click.option("--skip-first", is_flag=True, help=tr("backup_repeated.option_skip_first"))
 def backup_repeated_command(
-    source_dir: Path, dest_dir: Path, excludes: tuple[str, ...], interval: int, skip_first: bool, non_interactive: bool
+    source_dir: Path,
+    dest_dir: Path,
+    excludes: tuple[str, ...],
+    interval: int,
+    max_backups: int,
+    backup_clean_method: str,
+    skip_first: bool,
+    non_interactive: bool,
 ) -> None:
     """Start repeated backups of a directory."""
     # not used parameter, explicitly removing it so IDEs/linters do not complain
@@ -53,6 +74,8 @@ def backup_repeated_command(
             normalize_path(source_dir),
             normalize_path(dest_dir),
             interval_minutes=interval,
+            max_backups=max_backups,
+            backup_clean_method=backup_clean_method,
             extra_excludes=list(excludes),
             skip_first=skip_first,
         )
@@ -102,7 +125,13 @@ def backup_repeated_mount_command(mount_path: Optional[Path], config_path: Optio
             interval=mount_entry.interval_minutes,
         )
     )
-    backup_repeated(mount_entry.source, mount_entry.backup, interval_minutes=mount_entry.interval_minutes)
+    backup_repeated(
+        mount_entry.source,
+        mount_entry.backup,
+        interval_minutes=mount_entry.interval_minutes,
+        max_backups=mount_entry.max_backups,
+        backup_clean_method=mount_entry.backup_clean_method,
+    )
 
 
 @click.command(name="backup-repeated-all", help=tr("backup_repeated.all_command_help"))
@@ -133,7 +162,11 @@ def backup_repeated_all_command(config_path: Optional[str], non_interactive: boo
         thread = threading.Thread(
             target=backup_repeated,
             args=(mount.source, mount.backup),
-            kwargs={"interval_minutes": mount.interval_minutes},
+            kwargs={
+                "interval_minutes": mount.interval_minutes,
+                "max_backups": mount.max_backups,
+                "backup_clean_method": mount.backup_clean_method,
+            },
             daemon=True,
         )
         thread.start()

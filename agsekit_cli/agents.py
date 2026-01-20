@@ -207,6 +207,10 @@ def start_backup_process(
         str(mount.backup),
         "--interval",
         str(mount.interval_minutes),
+        "--max-backups",
+        str(mount.max_backups),
+        "--backup-clean-method",
+        mount.backup_clean_method,
     ]
 
     if skip_first:

@@ -94,6 +94,12 @@ def _prompt_mounts(vm_names: List[str]) -> List[Dict[str, object]]:
         backup = click.prompt(tr("config_gen.mount_backup"), default=str(default_backup))
 
         interval = _prompt_positive_int(tr("config_gen.mount_interval"), default=5)
+        max_backups = _prompt_positive_int(tr("config_gen.mount_max_backups"), default=100)
+        backup_clean_method = click.prompt(
+            tr("config_gen.mount_backup_clean_method"),
+            default="tail",
+            type=click.Choice(["tail", "thin"], case_sensitive=False),
+        )
 
         vm_choice = click.prompt(
             tr("config_gen.mount_vm"),
@@ -107,6 +113,8 @@ def _prompt_mounts(vm_names: List[str]) -> List[Dict[str, object]]:
                 "target": target,
                 "backup": backup,
                 "interval": interval,
+                "max_backups": max_backups,
+                "backup_clean_method": backup_clean_method,
                 "vm": vm_choice,
             }
         )
