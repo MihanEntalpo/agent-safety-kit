@@ -60,7 +60,7 @@ def test_config_gen_creates_config_file(tmp_path):
     assert mount["backup"] == str(project_dir.parent / f"backups-{project_dir.name}")
     assert mount["interval"] == 5
     assert mount["max_backups"] == 100
-    assert mount["backup_clean_method"] == "tail"
+    assert mount["backup_clean_method"] == "thin"
     assert mount["vm"] == "agent-ubuntu"
 
 

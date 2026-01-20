@@ -97,7 +97,7 @@ def _prompt_mounts(vm_names: List[str]) -> List[Dict[str, object]]:
         max_backups = _prompt_positive_int(tr("config_gen.mount_max_backups"), default=100)
         backup_clean_method = click.prompt(
             tr("config_gen.mount_backup_clean_method"),
-            default="tail",
+            default="thin",
             type=click.Choice(["tail", "thin"], case_sensitive=False),
         )
 

@@ -19,7 +19,7 @@ from ..mounts import find_mount_by_source, load_mounts_from_config
 @click.argument(
     "method",
     required=False,
-    default="tail",
+    default="thin",
     type=click.Choice(["tail", "thin"], case_sensitive=False),
 )
 @click.option(
@@ -57,12 +57,16 @@ def backup_clean_command(
     if not backup_dir.exists():
         raise click.ClickException(tr("backup_clean.backup_missing", path=backup_dir))
 
+    def report_removal(path: Path) -> None:
+        click.echo(tr("backup_clean.removing_snapshot", path=path))
+
     try:
         removed = clean_backups(
             backup_dir,
             keep,
             method,
             interval_minutes=mount_entry.interval_minutes,
+            on_remove=report_removal,
         )
     except ValueError as exc:
         raise click.ClickException(str(exc))
@@ -70,6 +74,3 @@ def backup_clean_command(
     if not removed:
         click.echo(tr("backup_clean.nothing_removed", keep=keep))
         return
-
-    for path in removed:
-        click.echo(tr("backup_clean.removed_snapshot", path=path))

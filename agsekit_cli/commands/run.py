@@ -148,12 +148,14 @@ def run_command(
         if not _has_existing_backup(mount_entry.backup):
             click.echo(tr("run.first_backup", mount_name=mount_entry.source.name))
             backup_once(mount_entry.source, mount_entry.backup, show_progress=True)
-            clean_backups(
+            removed = clean_backups(
                 mount_entry.backup,
                 mount_entry.max_backups,
                 mount_entry.backup_clean_method,
                 interval_minutes=mount_entry.interval_minutes,
             )
+            for path in removed:
+                click.echo(tr("backup_clean.removed_snapshot", path=path))
             skip_first_repeated_backup = True
 
         click.echo(

@@ -80,7 +80,7 @@ def test_backup_clean_thin_removes_snapshots(tmp_path: Path) -> None:
     assert (backup_dir / snapshots[-1]).exists()
     assert (backup_dir / snapshots[-2]).exists()
     assert (backup_dir / snapshots[-3]).exists()
-    assert result.output.count("Removed snapshot") == 4
+    assert result.output.count("Removing snapshot") == 4
 
 
 def test_backup_clean_errors_on_missing_mount(tmp_path: Path) -> None:

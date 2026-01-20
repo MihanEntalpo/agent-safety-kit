@@ -92,7 +92,9 @@ def list_backup_snapshots(dest_dir: Path) -> List[Path]:
     return sorted(filtered)
 
 
-def clean_backups_tail(dest_dir: Path, keep: int) -> List[Path]:
+def clean_backups_tail(
+    dest_dir: Path, keep: int, on_remove: Optional[Callable[[Path], None]] = None
+) -> List[Path]:
     if keep < 0:
         raise ValueError("keep must be non-negative")
 
@@ -102,6 +104,8 @@ def clean_backups_tail(dest_dir: Path, keep: int) -> List[Path]:
 
     to_remove = snapshots[: len(snapshots) - keep]
     for path in to_remove:
+        if on_remove:
+            on_remove(path)
         shutil.rmtree(path)
 
     return to_remove
@@ -184,7 +188,12 @@ def _choose_thin_deletion(times: List[datetime], params: ThinParams, keep: int) 
     return candidates_idx[0]
 
 
-def clean_backups_thin(dest_dir: Path, keep: int, interval_minutes: int) -> List[Path]:
+def clean_backups_thin(
+    dest_dir: Path,
+    keep: int,
+    interval_minutes: int,
+    on_remove: Optional[Callable[[Path], None]] = None,
+) -> List[Path]:
     if keep < 0:
         raise ValueError("keep must be non-negative")
 
@@ -201,6 +210,8 @@ def clean_backups_thin(dest_dir: Path, keep: int, interval_minutes: int) -> List
         times = [entry[0] for entry in entries]
         idx = _choose_thin_deletion(times, params, keep)
         path = entries[idx][1]
+        if on_remove:
+            on_remove(path)
         shutil.rmtree(path)
         removed.append(path)
         del entries[idx]
@@ -208,7 +219,14 @@ def clean_backups_thin(dest_dir: Path, keep: int, interval_minutes: int) -> List
     return removed
 
 
-def clean_backups(dest_dir: Path, keep: int, method: str, *, interval_minutes: int = 5) -> List[Path]:
+def clean_backups(
+    dest_dir: Path,
+    keep: int,
+    method: str,
+    *,
+    interval_minutes: int = 5,
+    on_remove: Optional[Callable[[Path], None]] = None,
+) -> List[Path]:
     method = method.lower()
     if method not in {"tail", "thin"}:
         raise ValueError(tr("backup.clean_method_unknown", method=method))
@@ -217,9 +235,9 @@ def clean_backups(dest_dir: Path, keep: int, method: str, *, interval_minutes: i
         return []
 
     if method == "thin":
-        return clean_backups_thin(dest_dir, keep, interval_minutes)
+        return clean_backups_thin(dest_dir, keep, interval_minutes, on_remove=on_remove)
 
-    return clean_backups_tail(dest_dir, keep)
+    return clean_backups_tail(dest_dir, keep, on_remove=on_remove)
 
 
 def remove_inprogress_dirs(dest_dir: Path) -> None:
@@ -431,7 +449,7 @@ def backup_repeated(
     *,
     interval_minutes: int = 5,
     max_backups: int = 100,
-    backup_clean_method: str = "tail",
+    backup_clean_method: str = "thin",
     extra_excludes: Optional[Iterable[str]] = None,
     sleep_func: Callable[[float], None] = time.sleep,
     max_runs: Optional[int] = None,
@@ -458,7 +476,9 @@ def backup_repeated(
             continue
 
         backup_once(source_dir, dest_dir, extra_excludes=extra_excludes)
-        clean_backups(dest_dir, max_backups, backup_clean_method, interval_minutes=interval_minutes)
+        removed = clean_backups(dest_dir, max_backups, backup_clean_method, interval_minutes=interval_minutes)
+        for path in removed:
+            print(tr("backup_clean.removed_snapshot", path=path))
         first_cycle = False
         runs_completed += 1
         print(tr("backup.waiting_minutes", minutes=interval_minutes))

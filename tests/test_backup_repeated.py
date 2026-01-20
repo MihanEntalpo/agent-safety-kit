@@ -17,7 +17,9 @@ def test_backup_repeated_runs_immediately_and_respects_interval(monkeypatch, cap
     def fake_backup_once(source_dir: Path, dest_dir: Path, extra_excludes=None):
         calls.append((source_dir, dest_dir, tuple(extra_excludes or ())))
 
-    def fake_clean_backups(dest_dir: Path, keep: int, method: str, *, interval_minutes: int = 5):
+    def fake_clean_backups(
+        dest_dir: Path, keep: int, method: str, *, interval_minutes: int = 5, on_remove=None
+    ):
         clean_calls.append((dest_dir, keep, method, interval_minutes))
         return []
 
@@ -43,8 +45,8 @@ def test_backup_repeated_runs_immediately_and_respects_interval(monkeypatch, cap
         (Path("/src"), Path("/dst"), ("*.log",)),
     ]
     assert clean_calls == [
-        (Path("/dst"), 100, "tail", 2),
-        (Path("/dst"), 100, "tail", 2),
+        (Path("/dst"), 100, "thin", 2),
+        (Path("/dst"), 100, "thin", 2),
     ]
     assert sleep_calls == [120]
 
@@ -59,7 +61,9 @@ def test_backup_repeated_can_skip_first(monkeypatch, capsys):
     def fake_backup_once(source_dir: Path, dest_dir: Path, extra_excludes=None):
         calls.append((source_dir, dest_dir, tuple(extra_excludes or ())))
 
-    def fake_clean_backups(dest_dir: Path, keep: int, method: str, *, interval_minutes: int = 5):
+    def fake_clean_backups(
+        dest_dir: Path, keep: int, method: str, *, interval_minutes: int = 5, on_remove=None
+    ):
         clean_calls.append((dest_dir, keep, method, interval_minutes))
         return []
 
@@ -81,7 +85,7 @@ def test_backup_repeated_can_skip_first(monkeypatch, capsys):
     )
 
     assert calls == [(Path("/src"), Path("/dst"), ())]
-    assert clean_calls == [(Path("/dst"), 100, "tail", 2)]
+    assert clean_calls == [(Path("/dst"), 100, "thin", 2)]
     assert sleep_calls == [120]
     assert "Done, waiting 2 minutes" in capsys.readouterr().out
 

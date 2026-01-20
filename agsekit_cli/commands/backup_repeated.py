@@ -40,7 +40,7 @@ from ..i18n import tr
 )
 @click.option(
     "--backup-clean-method",
-    default="tail",
+    default="thin",
     show_default=True,
     type=click.Choice(["tail", "thin"], case_sensitive=False),
     help=tr("backup_repeated.option_backup_clean_method"),
