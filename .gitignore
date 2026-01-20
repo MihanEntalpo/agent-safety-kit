@@ -6,6 +6,7 @@ agsekit_cli/__pycache__/
 agsekit_cli/commands/__pycache__/
 build/
 venv/
+dist/
 .idea/
 agsekit.egg-info/
 

@@ -27,7 +27,6 @@ def test_load_agents_config_defaults(tmp_path):
     assert agent.type == "qwen"
     assert agent.env == {"TOKEN": "123"}
     assert agent.vm_name == "agent"
-    assert agent.socks5_proxy is None
 
 
 def test_load_agents_config_validates_type():

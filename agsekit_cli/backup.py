@@ -5,13 +5,22 @@ import sys
 import shutil
 import subprocess
 import time
-from datetime import datetime
+from dataclasses import dataclass
+from datetime import datetime, timedelta
+from math import log2
 from pathlib import Path
-from typing import Callable, Iterable, List, Optional, Tuple
+from typing import Callable, Dict, Iterable, List, Optional, Set, Tuple
 
 from .i18n import tr
 
 FilterRule = Tuple[str, str]
+
+
+@dataclass(frozen=True)
+class ThinParams:
+    interval_minutes: int = 5
+    protect_newest_k: int = 3
+    max_intervals_space: int = 288
 
 
 def gather_backupignore_rules(source_dir: Path) -> List[FilterRule]:
@@ -66,6 +75,151 @@ def find_previous_backup(dest_dir: Path) -> Optional[Path]:
         return None
 
     return sorted(filtered)[-1]
+
+
+def list_backup_snapshots(dest_dir: Path) -> List[Path]:
+    if not dest_dir.exists():
+        return []
+
+    candidates = [path for path in dest_dir.iterdir() if path.is_dir()]
+    filtered: List[Path] = []
+    for path in candidates:
+        name = path.name
+        if name.endswith("-inprogress") or name.endswith("-partial"):
+            continue
+        filtered.append(path)
+
+    return sorted(filtered)
+
+
+def clean_backups_tail(dest_dir: Path, keep: int) -> List[Path]:
+    if keep < 0:
+        raise ValueError("keep must be non-negative")
+
+    snapshots = list_backup_snapshots(dest_dir)
+    if keep >= len(snapshots):
+        return []
+
+    to_remove = snapshots[: len(snapshots) - keep]
+    for path in to_remove:
+        shutil.rmtree(path)
+
+    return to_remove
+
+
+def _snapshot_datetime(snapshot: Path) -> datetime:
+    try:
+        return datetime.strptime(snapshot.name, "%Y%m%d-%H%M%S")
+    except ValueError:
+        return datetime.fromtimestamp(snapshot.stat().st_mtime)
+
+
+def _bucket_id(age_minutes: float, interval_minutes: int) -> int:
+    if age_minutes <= 0:
+        return -1
+    ratio = max(1.0, age_minutes / float(interval_minutes))
+    return max(0, int(log2(ratio)))
+
+
+def _bucket_target(bucket_id: int) -> int:
+    if bucket_id <= 0:
+        return 3
+    if bucket_id == 1:
+        return 2
+    return 1
+
+
+def _choose_thin_deletion(times: List[datetime], params: ThinParams, keep: int) -> int:
+    count = len(times)
+    if count <= 1:
+        return 0
+
+    base_gap = timedelta(minutes=params.interval_minutes)
+    max_gap = base_gap * params.max_intervals_space
+
+    for older, newer in zip(times, times[1:]):
+        if (newer - older) > max_gap:
+            return 0
+
+    newest = times[-1]
+    protect_count = min(params.protect_newest_k, keep, count)
+    protected: Set[int] = set(range(count - protect_count, count))
+    candidates_idx = [i for i in range(count) if i not in protected and i != (count - 1)]
+    if not candidates_idx:
+        return 0
+
+    buckets: Dict[int, List[int]] = {}
+    for idx in candidates_idx:
+        age_min = (newest - times[idx]).total_seconds() / 60.0
+        bucket = _bucket_id(age_min, params.interval_minutes)
+        buckets.setdefault(bucket, []).append(idx)
+
+    overflow: List[Tuple[float, int]] = []
+    for bucket, idxs in buckets.items():
+        target = _bucket_target(bucket)
+        ratio = len(idxs) / float(target)
+        if ratio > 1.0:
+            overflow.append((ratio, bucket))
+
+    def damage(idx: int) -> Tuple[timedelta, timedelta, datetime]:
+        if idx == 0:
+            gap = times[1] - times[0]
+            return (gap + gap, gap, times[idx])
+        if idx == count - 1:
+            gap = times[idx] - times[idx - 1]
+            return (gap + gap, gap, times[idx])
+
+        left = times[idx] - times[idx - 1]
+        right = times[idx + 1] - times[idx]
+        return (left + right, max(left, right), times[idx])
+
+    if overflow:
+        overflow.sort(key=lambda item: (-item[0], -item[1]))
+        bucket = overflow[0][1]
+        idxs = buckets[bucket]
+        idxs.sort(key=damage)
+        return idxs[0]
+
+    candidates_idx.sort(key=damage)
+    return candidates_idx[0]
+
+
+def clean_backups_thin(dest_dir: Path, keep: int, interval_minutes: int) -> List[Path]:
+    if keep < 0:
+        raise ValueError("keep must be non-negative")
+
+    snapshots = list_backup_snapshots(dest_dir)
+    if keep >= len(snapshots):
+        return []
+
+    entries = [(_snapshot_datetime(snapshot), snapshot) for snapshot in snapshots]
+    entries.sort(key=lambda item: (item[0], item[1].name))
+    removed: List[Path] = []
+    params = ThinParams(interval_minutes=interval_minutes)
+
+    while len(entries) > keep:
+        times = [entry[0] for entry in entries]
+        idx = _choose_thin_deletion(times, params, keep)
+        path = entries[idx][1]
+        shutil.rmtree(path)
+        removed.append(path)
+        del entries[idx]
+
+    return removed
+
+
+def clean_backups(dest_dir: Path, keep: int, method: str, *, interval_minutes: int = 5) -> List[Path]:
+    method = method.lower()
+    if method not in {"tail", "thin"}:
+        raise ValueError(tr("backup.clean_method_unknown", method=method))
+
+    if not dest_dir.exists():
+        return []
+
+    if method == "thin":
+        return clean_backups_thin(dest_dir, keep, interval_minutes)
+
+    return clean_backups_tail(dest_dir, keep)
 
 
 def remove_inprogress_dirs(dest_dir: Path) -> None:
@@ -197,6 +351,13 @@ def dry_run_has_changes(command: List[str]) -> bool:
     for line in (line.strip() for line in result.stdout.splitlines()):
         if not line or any(line.startswith(prefix) for prefix in noisy_prefixes):
             continue
+        if ".inodes" in line and "deleting" in line:
+            continue
+        parts = line.split(maxsplit=1)
+        if len(parts) == 2:
+            flags, path = parts
+            if flags.startswith(".d") and path.endswith("/"):
+                continue
         return True
 
     return False
@@ -269,6 +430,8 @@ def backup_repeated(
     dest_dir: Path,
     *,
     interval_minutes: int = 5,
+    max_backups: int = 100,
+    backup_clean_method: str = "tail",
     extra_excludes: Optional[Iterable[str]] = None,
     sleep_func: Callable[[float], None] = time.sleep,
     max_runs: Optional[int] = None,
@@ -283,6 +446,8 @@ def backup_repeated(
 
     if interval_minutes <= 0:
         raise ValueError(tr("backup.interval_positive_required"))
+    if max_backups <= 0:
+        raise ValueError(tr("backup.keep_positive_required"))
 
     runs_completed = 0
     first_cycle = True
@@ -293,6 +458,7 @@ def backup_repeated(
             continue
 
         backup_once(source_dir, dest_dir, extra_excludes=extra_excludes)
+        clean_backups(dest_dir, max_backups, backup_clean_method, interval_minutes=interval_minutes)
         first_cycle = False
         runs_completed += 1
         print(tr("backup.waiting_minutes", minutes=interval_minutes))

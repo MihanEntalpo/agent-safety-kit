@@ -8,7 +8,7 @@ from typing import Optional, Sequence
 
 import click
 
-from ..backup import backup_once, find_previous_backup
+from ..backup import backup_once, clean_backups, find_previous_backup
 from ..agents import (
     agent_command_sequence,
     build_agent_env,
@@ -148,6 +148,12 @@ def run_command(
         if not _has_existing_backup(mount_entry.backup):
             click.echo(tr("run.first_backup", mount_name=mount_entry.source.name))
             backup_once(mount_entry.source, mount_entry.backup, show_progress=True)
+            clean_backups(
+                mount_entry.backup,
+                mount_entry.max_backups,
+                mount_entry.backup_clean_method,
+                interval_minutes=mount_entry.interval_minutes,
+            )
             skip_first_repeated_backup = True
 
         click.echo(

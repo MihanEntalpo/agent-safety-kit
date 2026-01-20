@@ -90,15 +90,7 @@ def resolve_vm(agent: AgentConfig, mount: Optional[MountConfig], vm_override: Op
 
 
 def build_agent_env(agent: AgentConfig) -> Dict[str, str]:
-    env_vars = dict(agent.env)
-    if agent.socks5_proxy:
-        proxy = f"socks5://{agent.socks5_proxy}"
-        if agent.type == "qwen" and not proxy.startswith(("http://", "https://")):
-            return env_vars
-        env_vars.setdefault("ALL_PROXY", proxy)
-        env_vars.setdefault("HTTPS_PROXY", proxy)
-        env_vars.setdefault("HTTP_PROXY", proxy)
-    return env_vars
+    return dict(agent.env)
 
 
 def _export_statements(env_vars: Dict[str, str]) -> List[str]:
@@ -215,6 +207,10 @@ def start_backup_process(
         str(mount.backup),
         "--interval",
         str(mount.interval_minutes),
+        "--max-backups",
+        str(mount.max_backups),
+        "--backup-clean-method",
+        mount.backup_clean_method,
     ]
 
     if skip_first:

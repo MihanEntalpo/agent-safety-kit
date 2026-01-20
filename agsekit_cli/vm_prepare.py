@@ -5,7 +5,7 @@ import os
 import shlex
 import subprocess
 from pathlib import Path
-from typing import List, Tuple
+from typing import List, Optional, Tuple
 
 import click
 
@@ -207,11 +207,11 @@ def _ensure_known_host(host: str) -> None:
     os.chmod(known_hosts, 0o644)
 
 
-def prepare_vm(vm_name: str, public_key: Path, bundles: List[str]) -> None:
+def prepare_vm(vm_name: str, public_key: Path, bundles: Optional[List[str]] = None) -> None:
     click.echo(tr("prepare.preparing_vm", vm_name=vm_name))
     _run_multipass(["multipass", "start", vm_name], tr("prepare.starting_vm", vm_name=vm_name))
     _ensure_vm_packages(vm_name)
-    _install_vm_bundles(vm_name, bundles)
+    _install_vm_bundles(vm_name, bundles or [])
     _ensure_vm_keypair(vm_name, public_key)
     click.echo(tr("prepare.ensure_known_hosts", vm_name=vm_name))
     for host in _fetch_vm_ips(vm_name):

@@ -171,7 +171,7 @@ def build_pip_upgrade(_: InteractiveSession) -> List[str]:
 
 def build_create_vm(session: InteractiveSession) -> List[str]:
     vms = session.load_vms()
-    vm_choices = [questionary.Choice(name=name, value=name) for name in vms]
+    vm_choices = [questionary.Choice(name, value=name) for name in vms]
     vm_choices.append(questionary.Choice(tr("interactive.vm_manual_entry"), value=None))
     vm_name = _select_from_list(tr("interactive.create_vm_select"), vm_choices)
     if vm_name is None:

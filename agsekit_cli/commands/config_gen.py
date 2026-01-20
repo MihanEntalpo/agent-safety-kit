@@ -94,6 +94,12 @@ def _prompt_mounts(vm_names: List[str]) -> List[Dict[str, object]]:
         backup = click.prompt(tr("config_gen.mount_backup"), default=str(default_backup))
 
         interval = _prompt_positive_int(tr("config_gen.mount_interval"), default=5)
+        max_backups = _prompt_positive_int(tr("config_gen.mount_max_backups"), default=100)
+        backup_clean_method = click.prompt(
+            tr("config_gen.mount_backup_clean_method"),
+            default="tail",
+            type=click.Choice(["tail", "thin"], case_sensitive=False),
+        )
 
         vm_choice = click.prompt(
             tr("config_gen.mount_vm"),
@@ -107,6 +113,8 @@ def _prompt_mounts(vm_names: List[str]) -> List[Dict[str, object]]:
                 "target": target,
                 "backup": backup,
                 "interval": interval,
+                "max_backups": max_backups,
+                "backup_clean_method": backup_clean_method,
                 "vm": vm_choice,
             }
         )
@@ -143,20 +151,11 @@ def _prompt_agents(vm_names: List[str]) -> Dict[str, Dict[str, object]]:
             value = click.prompt(tr("config_gen.agent_env_value", key=key), default="", show_default=False)
             env_vars[key] = value
 
-        socks5_proxy = click.prompt(
-            tr("config_gen.agent_socks5_proxy"),
-            default="",
-            show_default=False,
-        ).strip()
-
         agent_entry: Dict[str, object] = {
             "type": agent_type,
             "env": env_vars,
             "vm": vm_choice,
         }
-        if socks5_proxy:
-            agent_entry["socks5_proxy"] = socks5_proxy
-
         agents[name] = agent_entry
 
     return agents
