@@ -23,6 +23,8 @@ mounts:
     target: /home/ubuntu/project          # точка монтирования внутри ВМ; если не указана, будет /home/ubuntu/<имя_папки_source>
     backup: /host/backups/project         # каталог для бэкапов; если не указан, будет backups-<имя_папки> рядом с source
     interval: 5                           # интервал бэкапа в минутах; по умолчанию 5
+    max_backups: 100                      # сколько снапшотов хранить; по умолчанию 100
+    backup_clean_method: tail             # метод очистки (tail или thin); по умолчанию tail
     vm: agent-ubuntu # имя VM, если не указан - берётся первая VM из конфигурации
 agents:
   qwen: # имя агента, можно добавить столько, сколько нужно

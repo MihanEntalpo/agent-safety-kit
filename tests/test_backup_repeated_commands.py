@@ -16,8 +16,18 @@ def test_backup_repeated_command_invokes_loop(monkeypatch, tmp_path):
 
     calls = []
 
-    def fake_repeated(src: Path, dst: Path, interval_minutes: int, extra_excludes, skip_first=False):
-        calls.append((src, dst, interval_minutes, tuple(extra_excludes), skip_first))
+    def fake_repeated(
+        src: Path,
+        dst: Path,
+        interval_minutes: int,
+        extra_excludes,
+        skip_first=False,
+        max_backups=100,
+        backup_clean_method="tail",
+    ):
+        calls.append(
+            (src, dst, interval_minutes, tuple(extra_excludes), skip_first, max_backups, backup_clean_method)
+        )
 
     monkeypatch.setattr(backup_repeated, "backup_repeated", fake_repeated)
 
@@ -39,7 +49,7 @@ def test_backup_repeated_command_invokes_loop(monkeypatch, tmp_path):
     )
 
     assert result.exit_code == 0
-    assert calls == [(source.resolve(), dest.resolve(), 7, ("*.log", "cache/"), False)]
+    assert calls == [(source.resolve(), dest.resolve(), 7, ("*.log", "cache/"), False, 100, "tail")]
 
 
 def test_backup_repeated_command_can_skip_first(monkeypatch, tmp_path):
@@ -48,7 +58,7 @@ def test_backup_repeated_command_can_skip_first(monkeypatch, tmp_path):
 
     calls = []
 
-    def fake_repeated(src: Path, dst: Path, interval_minutes: int, extra_excludes, skip_first=False):
+    def fake_repeated(src: Path, dst: Path, interval_minutes: int, extra_excludes, skip_first=False, **_):
         calls.append(skip_first)
 
     monkeypatch.setattr(backup_repeated, "backup_repeated", fake_repeated)

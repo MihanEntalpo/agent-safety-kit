@@ -12,9 +12,14 @@ from agsekit_cli import backup
 
 def test_backup_repeated_runs_immediately_and_respects_interval(monkeypatch, capsys):
     calls = []
+    clean_calls = []
 
     def fake_backup_once(source_dir: Path, dest_dir: Path, extra_excludes=None):
         calls.append((source_dir, dest_dir, tuple(extra_excludes or ())))
+
+    def fake_clean_backups(dest_dir: Path, keep: int, method: str):
+        clean_calls.append((dest_dir, keep, method))
+        return []
 
     sleep_calls = []
 
@@ -22,6 +27,7 @@ def test_backup_repeated_runs_immediately_and_respects_interval(monkeypatch, cap
         sleep_calls.append(seconds)
 
     monkeypatch.setattr(backup, "backup_once", fake_backup_once)
+    monkeypatch.setattr(backup, "clean_backups", fake_clean_backups)
 
     backup.backup_repeated(
         Path("/src"),
@@ -36,6 +42,10 @@ def test_backup_repeated_runs_immediately_and_respects_interval(monkeypatch, cap
         (Path("/src"), Path("/dst"), ("*.log",)),
         (Path("/src"), Path("/dst"), ("*.log",)),
     ]
+    assert clean_calls == [
+        (Path("/dst"), 100, "tail"),
+        (Path("/dst"), 100, "tail"),
+    ]
     assert sleep_calls == [120]
 
     output = capsys.readouterr().out
@@ -44,9 +54,14 @@ def test_backup_repeated_runs_immediately_and_respects_interval(monkeypatch, cap
 
 def test_backup_repeated_can_skip_first(monkeypatch, capsys):
     calls = []
+    clean_calls = []
 
     def fake_backup_once(source_dir: Path, dest_dir: Path, extra_excludes=None):
         calls.append((source_dir, dest_dir, tuple(extra_excludes or ())))
+
+    def fake_clean_backups(dest_dir: Path, keep: int, method: str):
+        clean_calls.append((dest_dir, keep, method))
+        return []
 
     sleep_calls = []
 
@@ -54,6 +69,7 @@ def test_backup_repeated_can_skip_first(monkeypatch, capsys):
         sleep_calls.append(seconds)
 
     monkeypatch.setattr(backup, "backup_once", fake_backup_once)
+    monkeypatch.setattr(backup, "clean_backups", fake_clean_backups)
 
     backup.backup_repeated(
         Path("/src"),
@@ -65,6 +81,7 @@ def test_backup_repeated_can_skip_first(monkeypatch, capsys):
     )
 
     assert calls == [(Path("/src"), Path("/dst"), ())]
+    assert clean_calls == [(Path("/dst"), 100, "tail")]
     assert sleep_calls == [120]
     assert "Done, waiting 2 minutes" in capsys.readouterr().out
 
