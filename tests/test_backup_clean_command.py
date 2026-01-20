@@ -1,4 +1,5 @@
 import sys
+from datetime import datetime, timedelta
 from pathlib import Path
 
 from click.testing import CliRunner
@@ -52,14 +53,18 @@ def test_backup_clean_tail_removes_old_snapshots(tmp_path: Path) -> None:
     assert str(backup_dir / snapshots[0]) in result.output
 
 
-def test_backup_clean_thin_prints_message(tmp_path: Path) -> None:
+def test_backup_clean_thin_removes_snapshots(tmp_path: Path) -> None:
     mount_source = tmp_path / "data"
     mount_source.mkdir()
     backup_dir = tmp_path / "backups"
     backup_dir.mkdir()
 
-    snapshot = backup_dir / "20240101-000001"
-    snapshot.mkdir()
+    snapshots = []
+    base_dt = datetime(2024, 1, 1, 0, 0, 0)
+    for idx in range(8):
+        name = (base_dt + timedelta(minutes=5 * idx)).strftime("%Y%m%d-%H%M%S")
+        snapshots.append(name)
+        (backup_dir / name).mkdir()
 
     config_path = tmp_path / "config.yaml"
     _write_config(config_path, mount_source, backup_dir)
@@ -67,12 +72,15 @@ def test_backup_clean_thin_prints_message(tmp_path: Path) -> None:
     runner = CliRunner()
     result = runner.invoke(
         backup_clean.backup_clean_command,
-        ["--config", str(config_path), str(mount_source), "50", "thin"],
+        ["--config", str(config_path), str(mount_source), "4", "thin"],
     )
 
     assert result.exit_code == 0
-    assert "backup-clean with thin method is not yet implemented" in result.output
-    assert snapshot.exists()
+    assert sum(1 for _ in backup_dir.iterdir()) == 4
+    assert (backup_dir / snapshots[-1]).exists()
+    assert (backup_dir / snapshots[-2]).exists()
+    assert (backup_dir / snapshots[-3]).exists()
+    assert result.output.count("Removed snapshot") == 4
 
 
 def test_backup_clean_errors_on_missing_mount(tmp_path: Path) -> None:

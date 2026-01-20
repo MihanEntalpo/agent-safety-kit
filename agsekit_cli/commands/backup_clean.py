@@ -6,7 +6,7 @@ from typing import Optional
 import click
 
 from . import non_interactive_option
-from ..backup import clean_backups_tail
+from ..backup import clean_backups
 from ..config import ConfigError
 from ..i18n import tr
 from ..mounts import find_mount_by_source, load_mounts_from_config
@@ -53,17 +53,17 @@ def backup_clean_command(
     if mount_entry is None:
         raise click.ClickException(tr("backup_clean.mount_missing", source=mount_source))
 
-    method = method.lower()
-    if method == "thin":
-        click.echo(tr("backup_clean.thin_not_implemented"))
-        return
-
     backup_dir = mount_entry.backup
     if not backup_dir.exists():
         raise click.ClickException(tr("backup_clean.backup_missing", path=backup_dir))
 
     try:
-        removed = clean_backups_tail(backup_dir, keep)
+        removed = clean_backups(
+            backup_dir,
+            keep,
+            method,
+            interval_minutes=mount_entry.interval_minutes,
+        )
     except ValueError as exc:
         raise click.ClickException(str(exc))
 
