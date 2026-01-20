@@ -28,6 +28,7 @@ from .commands.pip_upgrade import pip_upgrade_command
 from .commands.start_vm import start_vm_command
 from .commands.stop import stop_vm_command
 from .commands.destroy_vm import destroy_vm_command
+from .commands.version import version_command
 from .config import resolve_config_path
 from .i18n import set_language, tr
 from .interactive import is_interactive_terminal, run_interactive
@@ -107,6 +108,7 @@ def main() -> None:
         config_gen_command,
         config_example_command,
         pip_upgrade_command,
+        version_command,
         systemd_group,
         destroy_vm_command,
     ):

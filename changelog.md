@@ -1,5 +1,9 @@
 # Agent-Safety-Kit versions history
 
+## 1.0.2 - Version command
+
+* Added the `agsekit version` command to show installed and project versions
+
 ## 1.0.1 - Backup cleanup defaults
 
 * Made `backup-clean` available in interactive mode
