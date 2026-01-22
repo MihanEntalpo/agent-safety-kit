@@ -1,0 +1,89 @@
+---
+- name: Install codex
+  hosts: localhost
+  connection: local
+  gather_facts: false
+  tasks:
+    - name: Register Multipass VM
+      ansible.builtin.add_host:
+        name: "{{ vm_name }}"
+        ansible_host: "{{ vm_name }}"
+        ansible_connection: theko2fi.multipass.multipass
+        ansible_python_interpreter: /usr/bin/python3
+
+- name: Install Codex CLI
+  hosts: "{{ vm_name }}"
+  gather_facts: false
+  vars:
+    nvm_dir: "{{ ansible_env.HOME }}/.nvm"
+    node_version: "24"
+  tasks:
+    - name: Configure proxychains
+      ansible.builtin.include_tasks: "{{ playbook_dir }}/proxychains.yml"
+
+    - name: Install curl
+      ansible.builtin.apt:
+        update_cache: true
+        name: curl
+      become: true
+
+    - name: Check for node
+      ansible.builtin.command: node -v
+      register: node_check
+      changed_when: false
+      failed_when: false
+
+    - name: Check for nvm
+      ansible.builtin.stat:
+        path: "{{ nvm_dir }}/nvm.sh"
+      register: nvm_stat
+
+    - name: Download nvm installer
+      ansible.builtin.command: "{{ proxychains_prefix }}curl -o /tmp/nvm-install.sh https://raw.githubusercontent.com/nvm-sh/nvm/v0.40.3/install.sh"
+      when: not nvm_stat.stat.exists
+
+    - name: Install nvm
+      ansible.builtin.command: "{{ proxychains_prefix }}bash /tmp/nvm-install.sh"
+      when: not nvm_stat.stat.exists
+      args:
+        creates: "{{ nvm_dir }}/nvm.sh"
+
+    - name: Install Node.js
+      ansible.builtin.command: >-
+        {{ proxychains_prefix }}bash -lc ". {{ nvm_dir }}/nvm.sh && nvm install {{ node_version }}"
+      when: node_check.rc != 0
+
+    - name: Verify npm
+      ansible.builtin.command: npm -v
+      register: npm_check
+      changed_when: false
+      failed_when: npm_check.rc != 0
+
+    - name: Check Codex CLI installation
+      ansible.builtin.command: npm list -g --depth=0 @openai/codex
+      register: codex_check
+      changed_when: false
+      failed_when: false
+
+    - name: Install Codex CLI
+      ansible.builtin.command: "{{ proxychains_prefix }}npm install -g @openai/codex@latest"
+      when: codex_check.rc != 0
+
+    - name: Ensure nvm lines in shell profiles
+      ansible.builtin.lineinfile:
+        path: "{{ item.path }}"
+        line: "{{ item.line }}"
+        create: true
+      loop:
+        - { path: "{{ ansible_env.HOME }}/.profile", line: "export NVM_DIR=\"{{ nvm_dir }}\"" }
+        - { path: "{{ ansible_env.HOME }}/.profile", line: "[ -s \"{{ nvm_dir }}/nvm.sh\" ] && . \"{{ nvm_dir }}/nvm.sh\"" }
+        - { path: "{{ ansible_env.HOME }}/.bashrc", line: "export NVM_DIR=\"{{ nvm_dir }}\"" }
+        - { path: "{{ ansible_env.HOME }}/.bashrc", line: "[ -s \"{{ nvm_dir }}/nvm.sh\" ] && . \"{{ nvm_dir }}/nvm.sh\"" }
+        - { path: "{{ ansible_env.HOME }}/.bash_profile", line: "export NVM_DIR=\"{{ nvm_dir }}\"" }
+        - { path: "{{ ansible_env.HOME }}/.bash_profile", line: "[ -s \"{{ nvm_dir }}/nvm.sh\" ] && . \"{{ nvm_dir }}/nvm.sh\"" }
+
+    - name: Remove nvm installer
+      ansible.builtin.file:
+        path: /tmp/nvm-install.sh
+        state: absent
+      when: not nvm_stat.stat.exists

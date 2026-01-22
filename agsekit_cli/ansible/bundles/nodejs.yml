@@ -1,0 +1,43 @@
+---
+- name: Install nodejs
+  hosts: localhost
+  connection: local
+  gather_facts: false
+  tasks:
+    - name: Register Multipass VM
+      ansible.builtin.add_host:
+        name: "{{ vm_name }}"
+        ansible_host: "{{ vm_name }}"
+        ansible_connection: theko2fi.multipass.multipass
+        ansible_python_interpreter: /usr/bin/python3
+
+- name: Install Node.js via nvm
+  hosts: "{{ vm_name }}"
+  gather_facts: false
+  vars:
+    node_version: "{{ bundle_version | default('latest') }}"
+    nvm_dir: "{{ ansible_env.HOME }}/.nvm"
+  tasks:
+    - name: Ensure nvm is available
+      ansible.builtin.stat:
+        path: "{{ nvm_dir }}/nvm.sh"
+      register: nvm_stat
+
+    - name: Fail when nvm is missing
+      ansible.builtin.fail:
+        msg: "nvm is not installed. Install the nvm bundle first."
+      when: not nvm_stat.stat.exists
+
+    - name: Install Node.js version
+      ansible.builtin.shell: |
+        set -euo pipefail
+        . "{{ nvm_dir }}/nvm.sh"
+        if [ "{{ node_version }}" = "latest" ]; then
+          nvm install --lts
+          nvm alias default "lts/*"
+        else
+          nvm install "{{ node_version }}"
+          nvm alias default "{{ node_version }}"
+        fi
+      args:
+        executable: /bin/bash

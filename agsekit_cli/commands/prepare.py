@@ -38,6 +38,18 @@ def _install_multipass() -> None:
     click.echo(tr("prepare.multipass_installed"))
 
 
+def _install_ansible_collection() -> None:
+    click.echo(tr("prepare.installing_ansible_collection"))
+    result = subprocess.run(
+        ["ansible-galaxy", "collection", "install", "theko2fi.multipass"],
+        check=False,
+        capture_output=False,
+        text=True,
+    )
+    if result.returncode != 0:
+        raise click.ClickException(tr("prepare.installing_ansible_collection_failed"))
+
+
 @click.command(name="prepare", help=tr("prepare.command_help"))
 @non_interactive_option
 @click.option(
@@ -55,5 +67,6 @@ def prepare_command(non_interactive: bool, config_path: Optional[str]) -> None:
     del config_path
 
     _install_multipass()
+    _install_ansible_collection()
     click.echo(tr("prepare.ensure_keypair"))
     ensure_host_ssh_keypair()

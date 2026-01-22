@@ -1,0 +1,219 @@
+---
+- name: Install codex-glibc
+  hosts: localhost
+  connection: local
+  gather_facts: false
+  tasks:
+    - name: Register Multipass VM
+      ansible.builtin.add_host:
+        name: "{{ vm_name }}"
+        ansible_host: "{{ vm_name }}"
+        ansible_connection: theko2fi.multipass.multipass
+        ansible_python_interpreter: /usr/bin/python3
+
+- name: Build Codex glibc binary
+  hosts: "{{ vm_name }}"
+  gather_facts: false
+  vars:
+    codex_build_root: /tmp/codex-src
+    codex_binary_name: codex-glibc
+    codex_system_path: /usr/local/bin/codex-glibc
+    codex_user_path: "{{ ansible_env.HOME }}/.local/bin/codex-glibc"
+  tasks:
+    - name: Configure proxychains
+      ansible.builtin.include_tasks: "{{ playbook_dir }}/proxychains.yml"
+
+    - name: Install build dependencies
+      ansible.builtin.apt:
+        update_cache: true
+        name:
+          - build-essential
+          - pkg-config
+          - libssl-dev
+          - curl
+          - git
+      become: true
+
+    - name: Check for codex-glibc binary (system)
+      ansible.builtin.stat:
+        path: "{{ codex_system_path }}"
+      register: codex_system_stat
+
+    - name: Check for codex-glibc binary (user)
+      ansible.builtin.stat:
+        path: "{{ codex_user_path }}"
+      register: codex_user_stat
+
+    - name: Set codex-glibc installation status
+      ansible.builtin.set_fact:
+        codex_glibc_installed: "{{ codex_system_stat.stat.exists or codex_user_stat.stat.exists }}"
+
+    - name: Check sudo availability
+      ansible.builtin.command: sudo -n true
+      register: sudo_check
+      changed_when: false
+      failed_when: false
+      when: not codex_glibc_installed
+
+    - name: Check available memory
+      ansible.builtin.shell: "awk '/MemAvailable:/ {mem=$2} /SwapFree:/ {swap=$2} END {print mem+swap}' /proc/meminfo"
+      register: free_kb
+      changed_when: false
+      when: not codex_glibc_installed
+
+    - name: Determine swap requirements
+      ansible.builtin.set_fact:
+        swap_required_kb: "{{ 3145728 - (free_kb.stdout | int) }}"
+      when: not codex_glibc_installed
+
+    - name: Create swap file when needed
+      ansible.builtin.shell: |
+        set -euo pipefail
+        SWAP_FILE="$(mktemp --tmpdir=/ codex-glibc-swap-XXXXXX)"
+        echo "$SWAP_FILE"
+      register: swap_file
+      changed_when: true
+      when: not codex_glibc_installed and swap_required_kb | int > 0
+      args:
+        executable: /bin/bash
+
+    - name: Enable swap file
+      ansible.builtin.shell: |
+        set -euo pipefail
+        swap_bytes=$(({{ swap_required_kb | int }} * 1024))
+        swap_mb=$((({{ swap_required_kb | int }} + 1023) / 1024))
+        if command -v fallocate >/dev/null 2>&1; then
+          sudo fallocate -l "$swap_bytes" "{{ swap_file.stdout }}"
+        else
+          sudo dd if=/dev/zero of="{{ swap_file.stdout }}" bs=1M count="$swap_mb" status=none
+        fi
+        sudo chmod 600 "{{ swap_file.stdout }}"
+        sudo mkswap "{{ swap_file.stdout }}" >/dev/null
+        sudo swapon "{{ swap_file.stdout }}"
+      when: not codex_glibc_installed and swap_required_kb | int > 0
+      args:
+        executable: /bin/bash
+
+    - name: Check rustup availability
+      ansible.builtin.shell: "bash -lc 'command -v rustup'"
+      register: rustup_check
+      changed_when: false
+      failed_when: false
+      when: not codex_glibc_installed
+
+    - name: Download rustup installer
+      ansible.builtin.command: "{{ proxychains_prefix }}curl --proto '=https' --tlsv1.2 -fL https://sh.rustup.rs -o /tmp/rustup-init.sh"
+      when: not codex_glibc_installed and rustup_check.rc != 0
+
+    - name: Install rustup
+      ansible.builtin.command: /tmp/rustup-init.sh -y --no-modify-path
+      environment:
+        RUSTUP_INIT_SKIP_PATH_CHECK: "yes"
+      when: not codex_glibc_installed and rustup_check.rc != 0
+
+    - name: Ensure cargo bin directory
+      ansible.builtin.set_fact:
+        cargo_bin: "{{ ansible_env.HOME }}/.cargo/bin"
+      when: not codex_glibc_installed
+
+    - name: Resolve host target
+      ansible.builtin.command: "{{ cargo_bin }}/rustc -Vv"
+      register: rustc_info
+      changed_when: false
+      when: not codex_glibc_installed
+
+    - name: Set host target
+      ansible.builtin.set_fact:
+        host_target: >-
+          {{ (rustc_info.stdout_lines | select('search', '^host:') | list | first | default('host:')) | regex_replace('^host:\\s*', '') | default(ansible_architecture ~ '-unknown-linux-gnu', true) }}
+      when: not codex_glibc_installed
+
+    - name: Add rust target
+      ansible.builtin.command: "{{ cargo_bin }}/rustup target add {{ host_target }}"
+      when: not codex_glibc_installed
+
+    - name: Clone codex repository
+      ansible.builtin.command: "{{ proxychains_prefix }}git clone --depth 1 https://github.com/openai/codex.git {{ codex_build_root }}/codex"
+      args:
+        creates: "{{ codex_build_root }}/codex"
+      when: not codex_glibc_installed
+
+    - name: Locate Cargo manifest
+      ansible.builtin.shell: |
+        python3 - <<'PYCODE'
+        import pathlib
+        import sys
+        import tomllib
+
+        root = pathlib.Path("{{ codex_build_root }}/codex")
+        candidates = []
+        for path in root.rglob("Cargo.toml"):
+            try:
+                data = tomllib.loads(path.read_text(encoding="utf-8"))
+            except Exception:
+                continue
+
+            pkg_name = data.get("package", {}).get("name")
+            bins = data.get("bin", []) or []
+            has_codex_bin = any(isinstance(item, dict) and item.get("name") == "codex" for item in bins)
+            score = 0
+            if pkg_name == "codex-cli":
+                score = 3
+            elif has_codex_bin:
+                score = 2
+            elif pkg_name == "codex":
+                score = 1
+
+            if score:
+                candidates.append((score, len(path.parts), str(path)))
+
+        if not candidates:
+            sys.exit(1)
+
+        best = sorted(candidates, key=lambda item: (-item[0], item[1]))[0]
+        print(best[2])
+        PYCODE
+      register: manifest_path
+      changed_when: false
+      when: not codex_glibc_installed
+      args:
+        executable: /bin/bash
+
+    - name: Build codex-glibc
+      ansible.builtin.command: >-
+        {{ proxychains_prefix }}bash -lc "export PATH={{ cargo_bin }}:$PATH;
+        export CARGO_TARGET_DIR={{ ansible_env.HOME }}/.tmp/build-codex-glibc/target;
+        mkdir -p {{ ansible_env.HOME }}/.tmp/build-codex-glibc/target;
+        export CARGO_BUILD_JOBS=1;
+        export CARGO_PROFILE_RELEASE_LTO=off;
+        export CARGO_PROFILE_RELEASE_CODEGEN_UNITS=1;
+        export CARGO_PROFILE_RELEASE_DEBUG=false;
+        cargo build --release --target {{ host_target }} --manifest-path {{ manifest_path.stdout }}"
+      when: not codex_glibc_installed
+
+    - name: Install codex-glibc system-wide
+      ansible.builtin.command: >-
+        sudo install -m 0755 {{ ansible_env.HOME }}/.tmp/build-codex-glibc/target/{{ host_target }}/release/codex {{ codex_system_path }}
+      when: not codex_glibc_installed and sudo_check.rc == 0
+      register: codex_install_system
+      failed_when: codex_install_system.rc != 0
+
+    - name: Install codex-glibc to user bin
+      ansible.builtin.command: >-
+        install -m 0755 {{ ansible_env.HOME }}/.tmp/build-codex-glibc/target/{{ host_target }}/release/codex {{ codex_user_path }}
+      when: not codex_glibc_installed and not codex_system_stat.stat.exists
+
+    - name: Ensure user bin in PATH
+      ansible.builtin.lineinfile:
+        path: "{{ ansible_env.HOME }}/.profile"
+        line: 'export PATH="$HOME/.local/bin:$PATH"'
+        create: true
+      when: not codex_glibc_installed and not codex_system_stat.stat.exists
+
+    - name: Remove swap file
+      ansible.builtin.shell: |
+        sudo swapoff "{{ swap_file.stdout }}" 2>/dev/null || true
+        sudo rm -f "{{ swap_file.stdout }}"
+      when: not codex_glibc_installed and swap_required_kb | int > 0
+      args:
+        executable: /bin/bash
