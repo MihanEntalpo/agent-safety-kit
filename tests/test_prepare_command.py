@@ -31,10 +31,11 @@ def test_prepare_command_installs_dependencies_and_keys(monkeypatch):
     calls: list[str] = []
 
     monkeypatch.setattr(prepare_module, "_install_multipass", lambda: calls.append("install"))
+    monkeypatch.setattr(prepare_module, "_install_ansible_collection", lambda: calls.append("ansible"))
     monkeypatch.setattr(prepare_module, "ensure_host_ssh_keypair", lambda: calls.append("keys"))
 
     runner = CliRunner()
     result = runner.invoke(prepare_command, [])
 
     assert result.exit_code == 0
-    assert calls == ["install", "keys"]
+    assert calls == ["install", "ansible", "keys"]

@@ -13,6 +13,7 @@ readme = "README.md"
 requires-python = ">=3.9"
 license = { file = "LICENSE" }
 dependencies = [
+  "ansible-core>=2.16,<3",
   "click>=8.1,<9",
   "PyYAML>=6.0,<7",
   "questionary>=2.0,<3",
@@ -30,6 +31,9 @@ include = ["agsekit_cli", "agsekit_cli.*"]
 agsekit_cli = [
   "agent_scripts/*.sh",
   "agent_scripts/proxychains_common.sh",
+  "ansible/*.yml",
+  "ansible/agents/*.yml",
+  "ansible/bundles/*.yml",
   "vm_installers/*.sh",
   "run_with_proxychains.sh",
   "locales/*.json",

@@ -70,7 +70,7 @@ Currently confirmed working agent types are:
    agsekit prepare
    ```
 
-5. Create the virtual machines defined in YAML (this also installs VM packages and syncs SSH keys into each VM):
+5. Create the virtual machines defined in YAML (this also installs VM packages via ansible and syncs SSH keys into each VM):
    ```bash
    agsekit create-vms
    ```
@@ -102,8 +102,8 @@ Currently confirmed working agent types are:
 * `agsekit config-example [<path>]` — copies `config-example.yaml` to the target path (defaults to `~/.config/agsekit/config.yaml`). If the default config already exists, the command skips copying.
 * `agsekit pip-upgrade` — upgrades agsekit using `pip install agsekit --upgrade` inside the same Python environment that runs the CLI. If agsekit is not installed in that environment via pip, the command reports that it cannot be upgraded there.
 * `agsekit version` — prints the installed package version along with the project version from `pyproject.toml` when available.
-* `agsekit create-vms` — creates every VM defined in the YAML configuration and prepares them (installs packages and syncs SSH keys).
-* `agsekit create-vm <name>` — launches just one VM and prepares it (installs packages and syncs SSH keys). If the config contains only one VM, you can omit `<name>` and it will be used automatically. If a VM already exists, the command compares the desired resources with the current ones and reports any differences. Changing resources of an existing VM is not supported yet.
+* `agsekit create-vms` — creates every VM defined in the YAML configuration and prepares them (installs packages via ansible and syncs SSH keys).
+* `agsekit create-vm <name>` — launches just one VM and prepares it (installs packages via ansible and syncs SSH keys). If the config contains only one VM, you can omit `<name>` and it will be used automatically. If a VM already exists, the command compares the desired resources with the current ones and reports any differences. Changing resources of an existing VM is not supported yet.
 * `agsekit shell [<vm_name>] [--config <path>]` — opens an interactive `multipass shell` session inside the chosen VM, applying any configured port forwarding. If only
   one VM is defined in the config, the CLI connects there even without `vm_name`. When multiple VMs exist and the command runs in
   a TTY, the CLI prompts you to pick one; in non-interactive mode, an explicit `vm_name` is required.
@@ -164,10 +164,10 @@ Backups use `rsync` with incremental links (`--link-dest`) to the previous copy:
 
 ### Agent installation
 
-* `agsekit install-agents <agent_name> [<vm>|--all-vms] [--config <path>] [--proxychains <value>]` — runs the prepared installation script for the chosen agent type inside the specified VM (or the agent's default VM if none is provided). If the config defines only one agent, you can skip `<agent_name>` and it will be picked automatically. Use `--proxychains <scheme://host:port>` to override the VM proxy for this installation or `--proxychains ""` to ignore it once.
+* `agsekit install-agents <agent_name> [<vm>|--all-vms] [--config <path>] [--proxychains <value>]` — runs the prepared installation playbook for the chosen agent type inside the specified VM (or the agent's default VM if none is provided). If the config defines only one agent, you can skip `<agent_name>` and it will be picked automatically. Use `--proxychains <scheme://host:port>` to override the VM proxy for this installation or `--proxychains ""` to ignore it once.
 * `agsekit install-agents --all-agents [--all-vms] [--config <path>] [--proxychains <value>]` — installs every configured agent either into their default VM or into every VM when `--all-vms` is set.
 
-The installation scripts live in `agsekit_cli/agent_scripts/`: `codex` installs the npm CLI, `codex-glibc` builds the Rust sources with the glibc target and installs the binary as `codex-glibc`, and `qwen`/`claude-code` follow their upstream steps (the `qwen` script installs the qwen-code CLI). Other agent types are not supported yet.
+The installation playbooks live in `agsekit_cli/ansible/agents/`: `codex` installs the npm CLI, `codex-glibc` builds the Rust sources with the glibc target and installs the binary as `codex-glibc`, and `qwen`/`claude-code` follow their upstream steps (the `qwen` playbook installs the qwen-code CLI). Other agent types are not supported yet.
 
 ### Running agents
 

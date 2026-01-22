@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
+from pathlib import Path
 from typing import Optional, Sequence
 
 from .i18n import tr
@@ -18,7 +19,7 @@ class BundleRequest:
 class ResolvedBundle:
     name: str
     version: Optional[str]
-    script: Path
+    playbook: Path
     raw: str
 
 
@@ -79,7 +80,7 @@ def resolve_bundles(requested: Sequence[str], vm_name: str) -> list[ResolvedBund
             ResolvedBundle(
                 name=bundle.name,
                 version=bundle.version,
-                script=definition.script,
+                playbook=definition.playbook,
                 raw=bundle.raw,
             )
         )

@@ -969,3 +969,41 @@
 - В Python ниже 3.11 отсутствует tomllib, нужно обеспечить совместимый парсер.
 ### Решения и заметки
 - Добавлена условная зависимость tomli и fallback-импорт для чтения версии из pyproject.toml.
+
+## Задача: Перевести установку базовых пакетов в ВМ на Ansible
+### Проблемы и blockers
+- Требовалось заменить bash-команду установки пакетов на ansible-playbook, не затрагивая секцию install для наборов ПО.
+### Решения и заметки
+- Добавлен playbook Ansible для установки базовых пакетов (git, proxychains4, ripgrep) и переключена подготовка ВМ на запуск ansible-playbook.
+- Зависимость ansible-core добавлена в проект, документация обновлена, чтобы отметить использование Ansible при create-vm/create-vms.
+
+## Задача: Использовать коллекцию theko2fi.multipass для подготовки ВМ
+### Проблемы и blockers
+- Нужно отказаться от поиска IP-адресов для ansible и подключаться к Multipass через connection-плагин, а также установить коллекцию при prepare.
+### Решения и заметки
+- Добавлена установка theko2fi.multipass через ansible-galaxy в `agsekit prepare`, а playbook переведён на подключение через connection-плагин multipass.
+- Документация обновлена, чтобы упоминать ansible без привязки к ansible-playbook в описании подготовки ВМ.
+
+## Задача: Перенести установку комплектов ПО на Ansible
+### Проблемы и blockers
+- Требовалось заменить multipass transfer/exec для install-бандлов на Ansible, сохранив последовательность установки и поддержку версий.
+### Решения и заметки
+- Добавлен Ansible playbook для установки бандлов через multipass connection и обновлена логика установки комплектов в prepare VM.
+
+## Задача: Заменить bash-скрипты комплектов ПО на Ansible playbooks
+### Проблемы и blockers
+- Нужно было отказаться от bash-скриптов в vm_installers и перенести логику установки комплектов в Ansible playbooks.
+### Решения и заметки
+- Для каждого install-комплекта добавлены отдельные Ansible playbooks и обновлены определения бандлов на использование этих playbooks.
+
+## Задача: Перевести установку агентов на Ansible playbooks
+### Проблемы и blockers
+- Требовалось заменить bash-скрипты установки агентов на Ansible playbooks с поддержкой proxychains.
+### Решения и заметки
+- Добавлены playbooks для типов codex/qwen/claude-code/codex-glibc и обновлена команда install-agents для запуска ansible-playbook.
+
+## Задача: Упростить Ansible playbooks установки агентов
+### Проблемы и blockers
+- Нужно было минимизировать большие bash-скрипты внутри playbooks и заменить их на Ansible-задачи.
+### Решения и заметки
+- Playbooks для агентов обновлены на использование apt/command/lineinfile/copy с минимальными shell-командами для nvm, rustup и сборки codex-glibc.

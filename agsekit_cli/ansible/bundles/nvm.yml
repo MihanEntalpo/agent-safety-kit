@@ -1,0 +1,40 @@
+---
+- name: Install nvm
+  hosts: localhost
+  connection: local
+  gather_facts: false
+  tasks:
+    - name: Register Multipass VM
+      ansible.builtin.add_host:
+        name: "{{ vm_name }}"
+        ansible_host: "{{ vm_name }}"
+        ansible_connection: theko2fi.multipass.multipass
+        ansible_python_interpreter: /usr/bin/python3
+
+- name: Install nvm
+  hosts: "{{ vm_name }}"
+  gather_facts: false
+  vars:
+    nvm_dir: "{{ ansible_env.HOME }}/.nvm"
+  tasks:
+    - name: Check for nvm
+      ansible.builtin.stat:
+        path: "{{ nvm_dir }}/nvm.sh"
+      register: nvm_stat
+
+    - name: Install nvm
+      ansible.builtin.shell: curl -fsSL https://raw.githubusercontent.com/nvm-sh/nvm/v0.40.3/install.sh | bash
+      when: not nvm_stat.stat.exists
+
+    - name: Ensure nvm lines in shell profiles
+      ansible.builtin.lineinfile:
+        path: "{{ item.path }}"
+        line: "{{ item.line }}"
+        create: true
+      loop:
+        - { path: "{{ ansible_env.HOME }}/.profile", line: "export NVM_DIR=\"{{ nvm_dir }}\"" }
+        - { path: "{{ ansible_env.HOME }}/.profile", line: "[ -s \"{{ nvm_dir }}/nvm.sh\" ] && . \"{{ nvm_dir }}/nvm.sh\"" }
+        - { path: "{{ ansible_env.HOME }}/.bashrc", line: "export NVM_DIR=\"{{ nvm_dir }}\"" }
+        - { path: "{{ ansible_env.HOME }}/.bashrc", line: "[ -s \"{{ nvm_dir }}/nvm.sh\" ] && . \"{{ nvm_dir }}/nvm.sh\"" }
+        - { path: "{{ ansible_env.HOME }}/.bash_profile", line: "export NVM_DIR=\"{{ nvm_dir }}\"" }
+        - { path: "{{ ansible_env.HOME }}/.bash_profile", line: "[ -s \"{{ nvm_dir }}/nvm.sh\" ] && . \"{{ nvm_dir }}/nvm.sh\"" }

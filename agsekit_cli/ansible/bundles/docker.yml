@@ -1,0 +1,88 @@
+---
+- name: Install docker
+  hosts: localhost
+  connection: local
+  gather_facts: false
+  tasks:
+    - name: Register Multipass VM
+      ansible.builtin.add_host:
+        name: "{{ vm_name }}"
+        ansible_host: "{{ vm_name }}"
+        ansible_connection: theko2fi.multipass.multipass
+        ansible_python_interpreter: /usr/bin/python3
+
+- name: Install Docker Engine
+  hosts: "{{ vm_name }}"
+  gather_facts: false
+  tasks:
+    - name: Check for docker
+      ansible.builtin.command: command -v docker
+      register: docker_check
+      changed_when: false
+      failed_when: false
+
+    - name: Install prerequisite packages
+      ansible.builtin.apt:
+        update_cache: true
+        name:
+          - ca-certificates
+          - curl
+      when: docker_check.rc != 0
+      become: true
+
+    - name: Ensure keyrings directory
+      ansible.builtin.file:
+        path: /etc/apt/keyrings
+        state: directory
+        mode: "0755"
+      when: docker_check.rc != 0
+      become: true
+
+    - name: Fetch Docker GPG key
+      ansible.builtin.get_url:
+        url: https://download.docker.com/linux/ubuntu/gpg
+        dest: /etc/apt/keyrings/docker.asc
+        mode: "0644"
+      when: docker_check.rc != 0
+      become: true
+
+    - name: Determine Ubuntu codename
+      ansible.builtin.shell: . /etc/os-release && echo "${UBUNTU_CODENAME:-$VERSION_CODENAME}"
+      register: docker_codename
+      changed_when: false
+      when: docker_check.rc != 0
+      args:
+        executable: /bin/bash
+
+    - name: Add Docker apt source
+      ansible.builtin.copy:
+        dest: /etc/apt/sources.list.d/docker.sources
+        content: |
+          Types: deb
+          URIs: https://download.docker.com/linux/ubuntu
+          Suites: {{ docker_codename.stdout }}
+          Components: stable
+          Signed-By: /etc/apt/keyrings/docker.asc
+        mode: "0644"
+      when: docker_check.rc != 0
+      become: true
+
+    - name: Install Docker packages
+      ansible.builtin.apt:
+        update_cache: true
+        name:
+          - docker-ce
+          - docker-ce-cli
+          - containerd.io
+          - docker-buildx-plugin
+          - docker-compose-plugin
+      when: docker_check.rc != 0
+      become: true
+
+    - name: Ensure docker group membership
+      ansible.builtin.user:
+        name: "{{ ansible_env.USER }}"
+        groups: docker
+        append: true
+      when: docker_check.rc != 0
+      become: true

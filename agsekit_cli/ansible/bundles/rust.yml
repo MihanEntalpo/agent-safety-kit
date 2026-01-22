@@ -1,0 +1,49 @@
+---
+- name: Install rust
+  hosts: localhost
+  connection: local
+  gather_facts: false
+  tasks:
+    - name: Register Multipass VM
+      ansible.builtin.add_host:
+        name: "{{ vm_name }}"
+        ansible_host: "{{ vm_name }}"
+        ansible_connection: theko2fi.multipass.multipass
+        ansible_python_interpreter: /usr/bin/python3
+
+- name: Install Rust toolchain
+  hosts: "{{ vm_name }}"
+  gather_facts: false
+  tasks:
+    - name: Check for rustc/cargo
+      ansible.builtin.shell: command -v rustc >/dev/null 2>&1 && command -v cargo >/dev/null 2>&1
+      register: rust_check
+      changed_when: false
+      failed_when: false
+      args:
+        executable: /bin/bash
+
+    - name: Install build dependencies
+      ansible.builtin.apt:
+        update_cache: true
+        name:
+          - build-essential
+          - curl
+      when: rust_check.rc != 0
+      become: true
+
+    - name: Install rustup
+      ansible.builtin.shell: curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh -s -- -y
+      when: rust_check.rc != 0
+      args:
+        executable: /bin/bash
+
+    - name: Ensure cargo env is loaded
+      ansible.builtin.lineinfile:
+        path: "{{ item }}"
+        line: "source \"{{ ansible_env.HOME }}/.cargo/env\""
+        create: true
+      loop:
+        - "{{ ansible_env.HOME }}/.profile"
+        - "{{ ansible_env.HOME }}/.bashrc"
+        - "{{ ansible_env.HOME }}/.bash_profile"

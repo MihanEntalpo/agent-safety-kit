@@ -1,0 +1,39 @@
+---
+- name: Install claude-code
+  hosts: localhost
+  connection: local
+  gather_facts: false
+  tasks:
+    - name: Register Multipass VM
+      ansible.builtin.add_host:
+        name: "{{ vm_name }}"
+        ansible_host: "{{ vm_name }}"
+        ansible_connection: theko2fi.multipass.multipass
+        ansible_python_interpreter: /usr/bin/python3
+
+- name: Install Claude Code CLI
+  hosts: "{{ vm_name }}"
+  gather_facts: false
+  tasks:
+    - name: Configure proxychains
+      ansible.builtin.include_tasks: "{{ playbook_dir }}/proxychains.yml"
+
+    - name: Check for Claude CLI
+      ansible.builtin.command: claude --version
+      register: claude_check
+      changed_when: false
+      failed_when: false
+
+    - name: Download Claude Code installer
+      ansible.builtin.command: "{{ proxychains_prefix }}curl -fsSL https://claude.ai/install.sh -o /tmp/claude-install.sh"
+      when: claude_check.rc != 0
+
+    - name: Run Claude Code installer
+      ansible.builtin.command: "{{ proxychains_prefix }}bash /tmp/claude-install.sh"
+      when: claude_check.rc != 0
+
+    - name: Remove Claude installer
+      ansible.builtin.file:
+        path: /tmp/claude-install.sh
+        state: absent
+      when: claude_check.rc != 0
