@@ -1026,3 +1026,9 @@
 - При `install-agents` падал include_tasks с ошибкой `unexpected parameter type in action` из-за неверного использования `ansible.builtin.block` в task-файле.
 ### Решения и заметки
 - В `ansible/agents/proxychains.yml` исправлен синтаксис на обычный `block`, чтобы include_tasks корректно исполнял набор задач.
+
+## Задача: Исправить падение install-agents из-за отсутствующего ansible_env
+### Проблемы и blockers
+- При запуске `install-agents` playbook `qwen.yml` падал на задаче проверки nvm: переменная `ansible_env` была undefined, потому что во втором play был отключён `gather_facts`.
+### Решения и заметки
+- Для playbooks агентов и install-бандлов, где используются пути через `ansible_env.HOME`, включён `gather_facts: true`, чтобы переменная окружения корректно определялась при подключении к ВМ через Multipass.

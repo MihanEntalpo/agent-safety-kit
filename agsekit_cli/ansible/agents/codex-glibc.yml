@@ -13,7 +13,7 @@
 
 - name: Build Codex glibc binary
   hosts: "{{ vm_name }}"
-  gather_facts: false
+  gather_facts: true
   vars:
     codex_build_root: /tmp/codex-src
     codex_binary_name: codex-glibc

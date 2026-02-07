@@ -13,7 +13,7 @@
 
 - name: Install Codex CLI
   hosts: "{{ vm_name }}"
-  gather_facts: false
+  gather_facts: true
   vars:
     nvm_dir: "{{ ansible_env.HOME }}/.nvm"
     node_version: "24"

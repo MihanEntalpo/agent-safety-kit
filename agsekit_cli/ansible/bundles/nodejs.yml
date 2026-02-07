@@ -13,7 +13,7 @@
 
 - name: Install Node.js via nvm
   hosts: "{{ vm_name }}"
-  gather_facts: false
+  gather_facts: true
   vars:
     node_version: "{{ bundle_version | default('latest') }}"
     nvm_dir: "{{ ansible_env.HOME }}/.nvm"

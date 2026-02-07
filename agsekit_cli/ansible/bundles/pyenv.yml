@@ -13,7 +13,7 @@
 
 - name: Install pyenv
   hosts: "{{ vm_name }}"
-  gather_facts: false
+  gather_facts: true
   vars:
     pyenv_root: "{{ ansible_env.HOME }}/.pyenv"
   tasks:
