@@ -64,6 +64,7 @@
     - name: Determine swap requirements
       ansible.builtin.set_fact:
         swap_required_kb: "{{ 3145728 - (free_kb.stdout | int) }}"
+        swap_required_effective_kb: "{{ [3145728 - (free_kb.stdout | int), 40] | max }}"
       when: not codex_glibc_installed
 
     - name: Create swap file when needed
@@ -80,8 +81,8 @@
     - name: Enable swap file
       ansible.builtin.shell: |
         set -euo pipefail
-        swap_bytes=$(({{ swap_required_kb | int }} * 1024))
-        swap_mb=$((({{ swap_required_kb | int }} + 1023) / 1024))
+        swap_bytes=$(({{ swap_required_effective_kb | int }} * 1024))
+        swap_mb=$((({{ swap_required_effective_kb | int }} + 1023) / 1024))
         if command -v fallocate >/dev/null 2>&1; then
           sudo fallocate -l "$swap_bytes" "{{ swap_file.stdout }}"
         else

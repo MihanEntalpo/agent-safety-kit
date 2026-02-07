@@ -1051,3 +1051,9 @@
 - Использование `/tmp` для swap-файла может попадать на tmpfs (RAM-диск), что делает такой swap неэффективным или непригодным.
 ### Решения и заметки
 - В шаге создания swap-файла для `codex-glibc` использован `sudo mktemp /var/tmp/codex-glibc-swap-XXXXXX`, чтобы файл создавался на диске с root-правами; в Multipass VM `sudo` доступен без пароля.
+
+## Задача: Исправить ошибку mkswap при слишком маленьком расчётном swap
+### Проблемы и blockers
+- На ВМ с почти достаточным объёмом RAM+SWAP рассчитывался очень маленький `swap_required_kb` (например, 16 KiB), из-за чего `mkswap` падал с ошибкой `swap area needs to be at least 40 KiB`.
+### Решения и заметки
+- В `ansible/agents/codex-glibc.yml` добавлен `swap_required_effective_kb` с нижней границей 40 KiB (`max(calculated, 40)`), и именно это значение используется для расчёта размера swap-файла.
