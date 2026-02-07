@@ -1,6 +1,6 @@
 ---
 - name: Enable proxychains when requested
-  ansible.builtin.block:
+  block:
     - name: Install proxychains
       ansible.builtin.apt:
         update_cache: true

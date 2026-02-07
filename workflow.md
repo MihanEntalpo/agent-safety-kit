@@ -1020,3 +1020,9 @@
 ### Решения и заметки
 - Добавлен общий helper проверки/установки коллекции и подключён в prepare, vm_prepare и install_agents.
 - В командах create-vm/create-vms добавлена обработка ошибок подготовки ВМ с выводом ClickException вместо сырого traceback.
+
+## Задача: Исправить include_tasks для proxychains в установке агентов
+### Проблемы и blockers
+- При `install-agents` падал include_tasks с ошибкой `unexpected parameter type in action` из-за неверного использования `ansible.builtin.block` в task-файле.
+### Решения и заметки
+- В `ansible/agents/proxychains.yml` исправлен синтаксис на обычный `block`, чтобы include_tasks корректно исполнял набор задач.
