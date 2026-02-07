@@ -1045,3 +1045,9 @@
 - Установка `codex-glibc` падала на шаге `Create swap file when needed`: `mktemp --tmpdir=/ ... Permission denied`, потому что обычный пользователь не может создавать файлы в корне `/`.
 ### Решения и заметки
 - В playbook `ansible/agents/codex-glibc.yml` генерация временного swap-файла переведена в `/tmp` (`mktemp /tmp/codex-glibc-swap-XXXXXX`), после чего дальнейшие операции (`fallocate/mkswap/swapon`) продолжают выполняться через `sudo`.
+
+## Задача: Перенести временный swap-файл codex-glibc с /tmp на sudo-создание в /var/tmp
+### Проблемы и blockers
+- Использование `/tmp` для swap-файла может попадать на tmpfs (RAM-диск), что делает такой swap неэффективным или непригодным.
+### Решения и заметки
+- В шаге создания swap-файла для `codex-glibc` использован `sudo mktemp /var/tmp/codex-glibc-swap-XXXXXX`, чтобы файл создавался на диске с root-правами; в Multipass VM `sudo` доступен без пароля.
