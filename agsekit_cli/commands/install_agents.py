@@ -8,6 +8,7 @@ from typing import Iterable, List, Optional, Tuple
 import click
 
 from ..agents import find_agent
+from ..ansible_utils import AnsibleCollectionError, ensure_multipass_collection
 from ..config import AgentConfig, ConfigError, VmConfig, load_agents_config, load_config, load_vms_config, resolve_config_path
 from ..i18n import tr
 from ..vm import MultipassError, ensure_multipass_available, resolve_proxychains
@@ -55,6 +56,10 @@ def _run_command(
 
 def _run_install_playbook(vm: VmConfig, playbook_path: Path, proxychains: Optional[str] = None) -> None:
     ensure_multipass_available()
+    try:
+        ensure_multipass_collection()
+    except AnsibleCollectionError as exc:
+        raise MultipassError(str(exc))
     effective_proxychains = resolve_proxychains(vm, proxychains)
     install_command = [
         "ansible-playbook",

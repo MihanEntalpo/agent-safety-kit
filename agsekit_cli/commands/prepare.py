@@ -7,6 +7,7 @@ from typing import Optional
 
 import click
 
+from ..ansible_utils import AnsibleCollectionError, ensure_multipass_collection
 from ..i18n import tr
 from ..vm_prepare import ensure_host_ssh_keypair
 from . import non_interactive_option
@@ -39,15 +40,10 @@ def _install_multipass() -> None:
 
 
 def _install_ansible_collection() -> None:
-    click.echo(tr("prepare.installing_ansible_collection"))
-    result = subprocess.run(
-        ["ansible-galaxy", "collection", "install", "theko2fi.multipass"],
-        check=False,
-        capture_output=False,
-        text=True,
-    )
-    if result.returncode != 0:
-        raise click.ClickException(tr("prepare.installing_ansible_collection_failed"))
+    try:
+        ensure_multipass_collection()
+    except AnsibleCollectionError as exc:
+        raise click.ClickException(str(exc))
 
 
 @click.command(name="prepare", help=tr("prepare.command_help"))

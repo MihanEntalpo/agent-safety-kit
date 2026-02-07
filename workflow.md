@@ -1013,3 +1013,10 @@
 - `pip install -e .` падал на Python 3.9 из-за ограничения `ansible-core>=2.16`, так как эти версии требуют Python 3.10+.
 ### Решения и заметки
 - Добавлены маркеры зависимостей в `pyproject.toml`: для Python 3.10+ используется `ansible-core>=2.16`, а для Python 3.9 — ветка `ansible-core>=2.15,<2.16`.
+
+## Задача: Автоматически устанавливать коллекцию theko2fi.multipass при create-vm/create-vms/install-agents
+### Проблемы и blockers
+- При запуске `create-vms` без предварительного `prepare` возникала ошибка `connection plugin ... not found`, а в интерактивном режиме пробрасывался traceback.
+### Решения и заметки
+- Добавлен общий helper проверки/установки коллекции и подключён в prepare, vm_prepare и install_agents.
+- В командах create-vm/create-vms добавлена обработка ошибок подготовки ВМ с выводом ClickException вместо сырого traceback.

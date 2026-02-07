@@ -63,10 +63,13 @@ def create_vm_command(vm_name: Optional[str], config_path: Optional[str], non_in
     click.echo(tr("prepare.ensure_keypair"))
     _private_key, public_key = ensure_host_ssh_keypair()
     bundles = vms[target_vm].install
-    if bundles:
-        prepare_vm(target_vm, public_key, bundles)
-    else:
-        prepare_vm(target_vm, public_key)
+    try:
+        if bundles:
+            prepare_vm(target_vm, public_key, bundles)
+        else:
+            prepare_vm(target_vm, public_key)
+    except MultipassError as exc:
+        raise click.ClickException(str(exc))
     if mismatch_message:
         click.echo(mismatch_message)
 
@@ -107,6 +110,9 @@ def create_vms_command(config_path: Optional[str], non_interactive: bool) -> Non
     click.echo(tr("prepare.ensure_keypair"))
     _private_key, public_key = ensure_host_ssh_keypair()
     for vm in vms.values():
-        prepare_vm(vm.name, public_key, vm.install)
+        try:
+            prepare_vm(vm.name, public_key, vm.install)
+        except MultipassError as exc:
+            raise click.ClickException(str(exc))
     for mismatch in mismatch_messages:
         click.echo(mismatch)

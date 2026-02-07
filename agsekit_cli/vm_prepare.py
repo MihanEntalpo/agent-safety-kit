@@ -9,6 +9,7 @@ from typing import List, Optional, Tuple
 
 import click
 
+from .ansible_utils import AnsibleCollectionError, ensure_multipass_collection
 from .i18n import tr
 from .vm_bundles import resolve_bundles
 from .vm import MultipassError
@@ -188,6 +189,10 @@ def _ensure_known_host(host: str) -> None:
 
 def prepare_vm(vm_name: str, public_key: Path, bundles: Optional[List[str]] = None) -> None:
     click.echo(tr("prepare.preparing_vm", vm_name=vm_name))
+    try:
+        ensure_multipass_collection()
+    except AnsibleCollectionError as exc:
+        raise MultipassError(str(exc))
     _run_multipass(["multipass", "start", vm_name], tr("prepare.starting_vm", vm_name=vm_name))
     _ensure_vm_keypair(vm_name, public_key)
     click.echo(tr("prepare.ensure_known_hosts", vm_name=vm_name))
