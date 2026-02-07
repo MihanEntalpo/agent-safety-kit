@@ -1065,3 +1065,9 @@
 ### Решения и заметки
 - Для `codex-glibc` введены параметры: целевой объём доступной памяти `codex_required_free_kb=3145728` и минимальный добавляемый swap `codex_min_swap_kb=1048576` (1 ГиБ), используемый при фактическом создании swap-файла.
 - Установка rustup переведена на явный запуск через `/bin/sh /tmp/rustup-init.sh -y --no-modify-path`, чтобы не зависеть от исполняемых битов у загруженного файла.
+
+## Задача: Исправить определение host target для rustup target add в codex-glibc
+### Проблемы и blockers
+- Шаг `Add rust target` получал некорректное значение `host_target` (`host: x86_64-unknown-linux-gnu` вместо чистого triple), из-за чего `rustup target add` падал с `does not support target 'host:'`.
+### Решения и заметки
+- Парсинг `rustc -Vv` переведён на явное извлечение через `awk '/^host:/ {print $2}'` в shell-задаче; затем `host_target` задаётся из `stdout` с fallback на `{{ ansible_architecture }}-unknown-linux-gnu`.

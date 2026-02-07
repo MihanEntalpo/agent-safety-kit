@@ -120,15 +120,17 @@
       when: not codex_glibc_installed
 
     - name: Resolve host target
-      ansible.builtin.command: "{{ cargo_bin }}/rustc -Vv"
+      ansible.builtin.shell: "{{ cargo_bin }}/rustc -Vv | awk '/^host:/ {print $2}'"
       register: rustc_info
       changed_when: false
+      failed_when: false
       when: not codex_glibc_installed
+      args:
+        executable: /bin/bash
 
     - name: Set host target
       ansible.builtin.set_fact:
-        host_target: >-
-          {{ (rustc_info.stdout_lines | select('search', '^host:') | list | first | default('host:')) | regex_replace('^host:\\s*', '') | default(ansible_architecture ~ '-unknown-linux-gnu', true) }}
+        host_target: "{{ rustc_info.stdout | trim | default(ansible_architecture ~ '-unknown-linux-gnu', true) }}"
       when: not codex_glibc_installed
 
     - name: Add rust target
