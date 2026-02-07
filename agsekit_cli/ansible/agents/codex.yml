@@ -50,23 +50,26 @@
 
     - name: Install Node.js
       ansible.builtin.command: >-
-        {{ proxychains_prefix }}bash -lc ". {{ nvm_dir }}/nvm.sh && nvm install {{ node_version }}"
+        {{ proxychains_prefix }}bash -lc ". {{ nvm_dir }}/nvm.sh && nvm install {{ node_version }} && nvm alias default {{ node_version }}"
       when: node_check.rc != 0
 
     - name: Verify npm
-      ansible.builtin.command: npm -v
+      ansible.builtin.command: >-
+        bash -lc ". {{ nvm_dir }}/nvm.sh && nvm use --silent default >/dev/null && npm -v"
       register: npm_check
       changed_when: false
       failed_when: npm_check.rc != 0
 
     - name: Check Codex CLI installation
-      ansible.builtin.command: npm list -g --depth=0 @openai/codex
+      ansible.builtin.command: >-
+        bash -lc ". {{ nvm_dir }}/nvm.sh && nvm use --silent default >/dev/null && npm list -g --depth=0 @openai/codex"
       register: codex_check
       changed_when: false
       failed_when: false
 
     - name: Install Codex CLI
-      ansible.builtin.command: "{{ proxychains_prefix }}npm install -g @openai/codex@latest"
+      ansible.builtin.command: >-
+        {{ proxychains_prefix }}bash -lc ". {{ nvm_dir }}/nvm.sh && nvm use --silent default >/dev/null && npm install -g @openai/codex@latest"
       when: codex_check.rc != 0
 
     - name: Ensure nvm lines in shell profiles
