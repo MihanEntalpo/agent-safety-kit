@@ -1039,3 +1039,9 @@
 ### Решения и заметки
 - В playbooks агентов `qwen` и `codex` проверки и установка npm-пакетов переведены на `bash -lc` с явным `. {{ nvm_dir }}/nvm.sh` и `nvm use default`.
 - При установке Node.js добавлен `nvm alias default {{ node_version }}`, чтобы последующие команды стабильно использовали установленную версию.
+
+## Задача: Исправить ошибку создания swap-файла при установке codex-glibc
+### Проблемы и blockers
+- Установка `codex-glibc` падала на шаге `Create swap file when needed`: `mktemp --tmpdir=/ ... Permission denied`, потому что обычный пользователь не может создавать файлы в корне `/`.
+### Решения и заметки
+- В playbook `ansible/agents/codex-glibc.yml` генерация временного swap-файла переведена в `/tmp` (`mktemp /tmp/codex-glibc-swap-XXXXXX`), после чего дальнейшие операции (`fallocate/mkswap/swapon`) продолжают выполняться через `sudo`.

@@ -69,7 +69,7 @@
     - name: Create swap file when needed
       ansible.builtin.shell: |
         set -euo pipefail
-        SWAP_FILE="$(mktemp --tmpdir=/ codex-glibc-swap-XXXXXX)"
+        SWAP_FILE="$(mktemp /tmp/codex-glibc-swap-XXXXXX)"
         echo "$SWAP_FILE"
       register: swap_file
       changed_when: true
