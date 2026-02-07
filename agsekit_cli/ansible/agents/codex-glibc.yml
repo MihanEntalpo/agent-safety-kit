@@ -19,6 +19,8 @@
     codex_binary_name: codex-glibc
     codex_system_path: /usr/local/bin/codex-glibc
     codex_user_path: "{{ ansible_env.HOME }}/.local/bin/codex-glibc"
+    codex_required_free_kb: 3145728
+    codex_min_swap_kb: 1048576
   tasks:
     - name: Configure proxychains
       ansible.builtin.include_tasks: "{{ playbook_dir }}/proxychains.yml"
@@ -63,8 +65,8 @@
 
     - name: Determine swap requirements
       ansible.builtin.set_fact:
-        swap_required_kb: "{{ 3145728 - (free_kb.stdout | int) }}"
-        swap_required_effective_kb: "{{ [3145728 - (free_kb.stdout | int), 40] | max }}"
+        swap_required_kb: "{{ codex_required_free_kb - (free_kb.stdout | int) }}"
+        swap_required_effective_kb: "{{ [codex_required_free_kb - (free_kb.stdout | int), codex_min_swap_kb] | max }}"
       when: not codex_glibc_installed
 
     - name: Create swap file when needed
@@ -107,7 +109,7 @@
       when: not codex_glibc_installed and rustup_check.rc != 0
 
     - name: Install rustup
-      ansible.builtin.command: /tmp/rustup-init.sh -y --no-modify-path
+      ansible.builtin.command: /bin/sh /tmp/rustup-init.sh -y --no-modify-path
       environment:
         RUSTUP_INIT_SKIP_PATH_CHECK: "yes"
       when: not codex_glibc_installed and rustup_check.rc != 0
