@@ -1,0 +1,66 @@
+---
+- name: Install pyenv
+  hosts: localhost
+  connection: local
+  gather_facts: false
+  tasks:
+    - name: Register Multipass VM
+      ansible.builtin.add_host:
+        name: "{{ vm_name }}"
+        ansible_host: "{{ vm_name }}"
+        ansible_connection: theko2fi.multipass.multipass
+        ansible_python_interpreter: /usr/bin/python3
+
+- name: Install pyenv
+  hosts: "{{ vm_name }}"
+  gather_facts: true
+  vars:
+    pyenv_root: "{{ ansible_env.HOME }}/.pyenv"
+  tasks:
+    - name: Check for pyenv
+      ansible.builtin.command: command -v pyenv
+      register: pyenv_check
+      changed_when: false
+      failed_when: false
+
+    - name: Install pyenv dependencies
+      ansible.builtin.apt:
+        update_cache: true
+        name:
+          - build-essential
+          - curl
+          - git
+          - libssl-dev
+          - zlib1g-dev
+          - libbz2-dev
+          - libreadline-dev
+          - libsqlite3-dev
+          - libncursesw5-dev
+          - xz-utils
+          - tk-dev
+          - libxml2-dev
+          - libxmlsec1-dev
+          - libffi-dev
+          - liblzma-dev
+      when: pyenv_check.rc != 0
+      become: true
+
+    - name: Install pyenv
+      ansible.builtin.shell: curl -fsSL https://pyenv.run | bash
+      when: pyenv_check.rc != 0
+
+    - name: Ensure pyenv lines in shell profiles
+      ansible.builtin.lineinfile:
+        path: "{{ item.path }}"
+        line: "{{ item.line }}"
+        create: true
+      loop:
+        - { path: "{{ ansible_env.HOME }}/.profile", line: "export PYENV_ROOT=\"{{ pyenv_root }}\"" }
+        - { path: "{{ ansible_env.HOME }}/.profile", line: "export PATH=\"{{ pyenv_root }}/bin:$PATH\"" }
+        - { path: "{{ ansible_env.HOME }}/.profile", line: "eval \"$(pyenv init -)\"" }
+        - { path: "{{ ansible_env.HOME }}/.bashrc", line: "export PYENV_ROOT=\"{{ pyenv_root }}\"" }
+        - { path: "{{ ansible_env.HOME }}/.bashrc", line: "export PATH=\"{{ pyenv_root }}/bin:$PATH\"" }
+        - { path: "{{ ansible_env.HOME }}/.bashrc", line: "eval \"$(pyenv init -)\"" }
+        - { path: "{{ ansible_env.HOME }}/.bash_profile", line: "export PYENV_ROOT=\"{{ pyenv_root }}\"" }
+        - { path: "{{ ansible_env.HOME }}/.bash_profile", line: "export PATH=\"{{ pyenv_root }}/bin:$PATH\"" }
+        - { path: "{{ ansible_env.HOME }}/.bash_profile", line: "eval \"$(pyenv init -)\"" }

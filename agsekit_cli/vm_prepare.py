@@ -9,6 +9,7 @@ from typing import List, Optional, Tuple
 
 import click
 
+from .ansible_utils import AnsibleCollectionError, ensure_multipass_collection
 from .i18n import tr
 from .vm_bundles import resolve_bundles
 from .vm import MultipassError
@@ -54,26 +55,17 @@ def ensure_host_ssh_keypair() -> Tuple[Path, Path]:
 
 
 def _ensure_vm_packages(vm_name: str) -> None:
-    check_result = _run_multipass(
-        ["multipass", "exec", vm_name, "--", "bash", "-lc", "dpkg -s git proxychains4 ripgrep >/dev/null 2>&1"],
-        tr("prepare.checking_packages", vm_name=vm_name),
-    )
-    if check_result.returncode == 0:
-        click.echo(tr("prepare.packages_already_installed", vm_name=vm_name))
-        return
-
     click.echo(tr("prepare.installing_packages", vm_name=vm_name))
-    install_command = [
-        "multipass",
-        "exec",
-        vm_name,
-        "--",
-        "bash",
-        "-lc",
-        "sudo DEBIAN_FRONTEND=noninteractive apt-get update && "
-        "sudo DEBIAN_FRONTEND=noninteractive apt-get install -y git proxychains4 ripgrep",
+    playbook = Path(__file__).resolve().parent / "ansible" / "vm_packages.yml"
+    command = [
+        "ansible-playbook",
+        "-i",
+        "localhost,",
+        "-e",
+        f"vm_name={vm_name}",
+        str(playbook),
     ]
-    result = _run_multipass(install_command, tr("prepare.installing_packages", vm_name=vm_name), capture_output=False)
+    result = subprocess.run(command, check=False, capture_output=False, text=True)
     if result.returncode != 0:
         raise MultipassError(tr("prepare.install_failed", vm_name=vm_name))
 
@@ -89,33 +81,21 @@ def _install_vm_bundles(vm_name: str, bundles: List[str]) -> None:
 
     for bundle in resolved:
         click.echo(tr("prepare.install_bundle_running", vm_name=vm_name, bundle=bundle.raw))
-        remote_path = f"/tmp/agsekit_bundle_{bundle.name}.sh"
-        transfer_command = ["multipass", "transfer", str(bundle.script), f"{vm_name}:{remote_path}"]
-        transfer_result = _run_multipass(
-            transfer_command,
-            tr("prepare.install_bundle_transfer", vm_name=vm_name, bundle=bundle.raw),
-        )
-        if transfer_result.returncode != 0:
-            raise MultipassError(tr("prepare.install_bundle_copy_failed", vm_name=vm_name, bundle=bundle.raw))
-
-        install_command = ["multipass", "exec", vm_name, "--", "bash", remote_path]
+        playbook = bundle.playbook
+        command = [
+            "ansible-playbook",
+            "-i",
+            "localhost,",
+            "-e",
+            f"vm_name={vm_name}",
+        ]
         if bundle.version:
-            install_command.append(bundle.version)
-        install_result = _run_multipass(
-            install_command,
-            tr("prepare.install_bundle_exec", vm_name=vm_name, bundle=bundle.raw),
-            capture_output=False,
-        )
+            command.extend(["-e", f"bundle_version={bundle.version}"])
+        command.append(str(playbook))
+        click.echo(tr("prepare.install_bundle_exec", vm_name=vm_name, bundle=bundle.raw))
+        install_result = subprocess.run(command, check=False, capture_output=False, text=True)
         if install_result.returncode != 0:
             raise MultipassError(tr("prepare.install_bundle_failed", vm_name=vm_name, bundle=bundle.raw))
-
-        cleanup_command = ["multipass", "exec", vm_name, "--", "rm", "-f", remote_path]
-        cleanup_result = _run_multipass(
-            cleanup_command,
-            tr("prepare.install_bundle_cleanup", vm_name=vm_name, bundle=bundle.raw),
-        )
-        if cleanup_result.returncode != 0:
-            click.echo(tr("prepare.install_bundle_cleanup_failed", vm_name=vm_name, bundle=bundle.raw), err=True)
 
 
 def _ensure_vm_keypair(vm_name: str, public_key: Path) -> None:
@@ -209,11 +189,18 @@ def _ensure_known_host(host: str) -> None:
 
 def prepare_vm(vm_name: str, public_key: Path, bundles: Optional[List[str]] = None) -> None:
     click.echo(tr("prepare.preparing_vm", vm_name=vm_name))
+    try:
+        ensure_multipass_collection()
+    except AnsibleCollectionError as exc:
+        raise MultipassError(str(exc))
     _run_multipass(["multipass", "start", vm_name], tr("prepare.starting_vm", vm_name=vm_name))
-    _ensure_vm_packages(vm_name)
-    _install_vm_bundles(vm_name, bundles or [])
     _ensure_vm_keypair(vm_name, public_key)
     click.echo(tr("prepare.ensure_known_hosts", vm_name=vm_name))
-    for host in _fetch_vm_ips(vm_name):
+    hosts = _fetch_vm_ips(vm_name)
+    if not hosts:
+        raise MultipassError(tr("prepare.no_vm_ips", vm_name=vm_name))
+    for host in hosts:
         _ensure_known_host(host)
+    _ensure_vm_packages(vm_name)
+    _install_vm_bundles(vm_name, bundles or [])
     click.echo(tr("prepare.prepared_vm", vm_name=vm_name))

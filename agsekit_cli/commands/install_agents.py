@@ -2,23 +2,23 @@ from __future__ import annotations
 
 import shlex
 import subprocess
-import uuid
 from pathlib import Path
 from typing import Iterable, List, Optional, Tuple
 
 import click
 
 from ..agents import find_agent
+from ..ansible_utils import AnsibleCollectionError, ensure_multipass_collection
 from ..config import AgentConfig, ConfigError, VmConfig, load_agents_config, load_config, load_vms_config, resolve_config_path
 from ..i18n import tr
 from ..vm import MultipassError, ensure_multipass_available, resolve_proxychains
 from . import non_interactive_option
 
-SCRIPTS_DIR = Path(__file__).resolve().parents[1] / "agent_scripts"
+PLAYBOOKS_DIR = Path(__file__).resolve().parents[1] / "ansible" / "agents"
 
 
-def _script_for(agent: AgentConfig) -> Path:
-    candidate = SCRIPTS_DIR / f"{agent.type}.sh"
+def _playbook_for(agent: AgentConfig) -> Path:
+    candidate = PLAYBOOKS_DIR / f"{agent.type}.yml"
     if not candidate.exists():
         raise ConfigError(tr("install_agents.script_missing", agent_type=agent.type, path=candidate))
     return candidate
@@ -54,68 +54,31 @@ def _run_command(
     return subprocess.run(command, check=False, text=True)
 
 
-def _run_install_script(vm: VmConfig, script_path: Path, proxychains: Optional[str] = None) -> None:
+def _run_install_playbook(vm: VmConfig, playbook_path: Path, proxychains: Optional[str] = None) -> None:
     ensure_multipass_available()
-    effective_proxychains = resolve_proxychains(vm, proxychains)
-    remote_dir = "/tmp/agent_scripts"
-    helper_path = SCRIPTS_DIR / "proxychains_common.sh"
-    remote_path = f"{remote_dir}/agsekit-{script_path.stem}-{uuid.uuid4().hex}.sh"
-    mkdir_result = _run_command(
-        ["multipass", "exec", vm.name, "--", "mkdir", "-p", remote_dir],
-        tr("install_agents.proxychains_prepare", vm_name=vm.name),
-    )
-    if mkdir_result.returncode != 0:
-        _log_failed_command(
-            ["multipass", "exec", vm.name, "--", "mkdir", "-p", remote_dir],
-            mkdir_result,
-            tr("install_agents.proxychains_prepare", vm_name=vm.name),
-        )
-        raise MultipassError(tr("install_agents.copy_failed", script=script_path.name, vm_name=vm.name))
-    helper_transfer_result = _run_command(
-        ["multipass", "transfer", str(helper_path), f"{vm.name}:{remote_dir}/proxychains_common.sh"],
-        tr("install_agents.transfer_label"),
-    )
-    if helper_transfer_result.returncode != 0:
-        _log_failed_command(
-            ["multipass", "transfer", str(helper_path), f"{vm.name}:{remote_dir}/proxychains_common.sh"],
-            helper_transfer_result,
-            tr("install_agents.transfer_label"),
-        )
-        raise MultipassError(tr("install_agents.copy_failed", script=script_path.name, vm_name=vm.name))
-    click.echo(tr("install_agents.copying", script=script_path.name, vm_name=vm.name, path=remote_path))
-    transfer_result = _run_command(
-        ["multipass", "transfer", str(script_path), f"{vm.name}:{remote_path}"],
-        tr("install_agents.transfer_label"),
-    )
-    if transfer_result.returncode != 0:
-        _log_failed_command(
-            ["multipass", "transfer", str(script_path), f"{vm.name}:{remote_path}"],
-            transfer_result,
-            tr("install_agents.transfer_label"),
-        )
-        raise MultipassError(tr("install_agents.copy_failed", script=script_path.name, vm_name=vm.name))
-
     try:
-        install_command = ["multipass", "exec", vm.name, "--"]
-        if effective_proxychains:
-            install_command.extend(["env", f"AGSEKIT_PROXYCHAINS_PROXY={effective_proxychains}"])
-        install_command.extend(["bash", remote_path])
-        result = _run_command(
-            install_command,
-            tr("install_agents.run_installer", script=script_path.name, vm_name=vm.name),
-            capture_output=False,
-        )
-        if result.returncode != 0:
-            _log_failed_command(install_command, result, tr("install_agents.installer_execution_label"))
-            raise MultipassError(tr("install_agents.install_failed", vm_name=vm.name, code=result.returncode))
-    finally:
-        cleanup_command = ["multipass", "exec", vm.name, "--", "rm", "-f", remote_path]
-        cleanup_result = _run_command(
-            cleanup_command,
-            tr("install_agents.cleanup_installer", script=script_path.name, vm_name=vm.name),
-        )
-        if cleanup_result.returncode != 0:
-            _log_failed_command(cleanup_command, cleanup_result, tr("install_agents.installer_cleanup_label"))
+        ensure_multipass_collection()
+    except AnsibleCollectionError as exc:
+        raise MultipassError(str(exc))
+    effective_proxychains = resolve_proxychains(vm, proxychains)
+    install_command = [
+        "ansible-playbook",
+        "-i",
+        "localhost,",
+        "-e",
+        f"vm_name={vm.name}",
+    ]
+    if effective_proxychains:
+        install_command.extend(["-e", f"proxychains_url={effective_proxychains}"])
+    install_command.append(str(playbook_path))
+    result = _run_command(
+        install_command,
+        tr("install_agents.run_installer", script=playbook_path.name, vm_name=vm.name),
+        capture_output=False,
+    )
+    if result.returncode != 0:
+        _log_failed_command(install_command, result, tr("install_agents.installer_execution_label"))
+        raise MultipassError(tr("install_agents.install_failed", vm_name=vm.name, code=result.returncode))
 
 
 def _default_vm(agent: AgentConfig, available: Iterable[str]) -> str:
@@ -208,18 +171,18 @@ def install_agents_command(
 
     for target_agent_name, target_vm in targets:
         agent = find_agent(agents_config, target_agent_name)
-        script_path = _script_for(agent)
+        playbook_path = _playbook_for(agent)
         click.echo(
             tr(
                 "install_agents.installing",
                 agent_name=agent.name,
                 agent_type=agent.type,
                 vm_name=target_vm.name,
-                script=script_path.name,
+                script=playbook_path.name,
             )
         )
         try:
-            _run_install_script(target_vm, script_path, proxychains=proxychains)
+            _run_install_playbook(target_vm, playbook_path, proxychains=proxychains)
         except (MultipassError, ConfigError) as exc:
             raise click.ClickException(str(exc))
         click.echo(

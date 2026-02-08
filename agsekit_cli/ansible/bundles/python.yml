@@ -1,0 +1,44 @@
+---
+- name: Install python
+  hosts: localhost
+  connection: local
+  gather_facts: false
+  tasks:
+    - name: Register Multipass VM
+      ansible.builtin.add_host:
+        name: "{{ vm_name }}"
+        ansible_host: "{{ vm_name }}"
+        ansible_connection: theko2fi.multipass.multipass
+        ansible_python_interpreter: /usr/bin/python3
+
+- name: Install Python via pyenv
+  hosts: "{{ vm_name }}"
+  gather_facts: true
+  vars:
+    python_version: "{{ bundle_version | default('latest') }}"
+    pyenv_root: "{{ ansible_env.HOME }}/.pyenv"
+  tasks:
+    - name: Ensure pyenv is available
+      ansible.builtin.command: command -v pyenv
+      register: pyenv_check
+      changed_when: false
+      failed_when: pyenv_check.rc != 0
+
+    - name: Install Python version
+      ansible.builtin.shell: |
+        set -euo pipefail
+        export PYENV_ROOT="{{ pyenv_root }}"
+        export PATH="{{ pyenv_root }}/bin:$PATH"
+        eval "$(pyenv init -)"
+        VERSION="{{ python_version }}"
+        if [ "$VERSION" = "latest" ]; then
+          VERSION=$(pyenv install -l | sed 's/^ *//' | grep -E '^[0-9]+(\.[0-9]+)*$' | tail -1)
+        fi
+        if [ -z "$VERSION" ]; then
+          echo "Unable to resolve a Python version to install." >&2
+          exit 1
+        fi
+        pyenv install --skip-existing "$VERSION"
+        pyenv global "$VERSION"
+      args:
+        executable: /bin/bash

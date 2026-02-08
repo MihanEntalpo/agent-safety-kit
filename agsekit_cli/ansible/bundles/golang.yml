@@ -1,0 +1,31 @@
+---
+- name: Install golang
+  hosts: localhost
+  connection: local
+  gather_facts: false
+  tasks:
+    - name: Register Multipass VM
+      ansible.builtin.add_host:
+        name: "{{ vm_name }}"
+        ansible_host: "{{ vm_name }}"
+        ansible_connection: theko2fi.multipass.multipass
+        ansible_python_interpreter: /usr/bin/python3
+
+- name: Install Go toolchain
+  hosts: "{{ vm_name }}"
+  gather_facts: false
+  tasks:
+    - name: Check for Go
+      ansible.builtin.command: command -v go
+      register: go_check
+      changed_when: false
+      failed_when: false
+
+    - name: Install Go toolchain
+      ansible.builtin.apt:
+        update_cache: true
+        name:
+          - golang-go
+          - build-essential
+      when: go_check.rc != 0
+      become: true

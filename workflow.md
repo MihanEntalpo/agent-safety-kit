@@ -969,3 +969,113 @@
 - В Python ниже 3.11 отсутствует tomllib, нужно обеспечить совместимый парсер.
 ### Решения и заметки
 - Добавлена условная зависимость tomli и fallback-импорт для чтения версии из pyproject.toml.
+
+## Задача: Перевести установку базовых пакетов в ВМ на Ansible
+### Проблемы и blockers
+- Требовалось заменить bash-команду установки пакетов на ansible-playbook, не затрагивая секцию install для наборов ПО.
+### Решения и заметки
+- Добавлен playbook Ansible для установки базовых пакетов (git, proxychains4, ripgrep) и переключена подготовка ВМ на запуск ansible-playbook.
+- Зависимость ansible-core добавлена в проект, документация обновлена, чтобы отметить использование Ansible при create-vm/create-vms.
+
+## Задача: Использовать коллекцию theko2fi.multipass для подготовки ВМ
+### Проблемы и blockers
+- Нужно отказаться от поиска IP-адресов для ansible и подключаться к Multipass через connection-плагин, а также установить коллекцию при prepare.
+### Решения и заметки
+- Добавлена установка theko2fi.multipass через ansible-galaxy в `agsekit prepare`, а playbook переведён на подключение через connection-плагин multipass.
+- Документация обновлена, чтобы упоминать ansible без привязки к ansible-playbook в описании подготовки ВМ.
+
+## Задача: Перенести установку комплектов ПО на Ansible
+### Проблемы и blockers
+- Требовалось заменить multipass transfer/exec для install-бандлов на Ansible, сохранив последовательность установки и поддержку версий.
+### Решения и заметки
+- Добавлен Ansible playbook для установки бандлов через multipass connection и обновлена логика установки комплектов в prepare VM.
+
+## Задача: Заменить bash-скрипты комплектов ПО на Ansible playbooks
+### Проблемы и blockers
+- Нужно было отказаться от bash-скриптов в vm_installers и перенести логику установки комплектов в Ansible playbooks.
+### Решения и заметки
+- Для каждого install-комплекта добавлены отдельные Ansible playbooks и обновлены определения бандлов на использование этих playbooks.
+
+## Задача: Перевести установку агентов на Ansible playbooks
+### Проблемы и blockers
+- Требовалось заменить bash-скрипты установки агентов на Ansible playbooks с поддержкой proxychains.
+### Решения и заметки
+- Добавлены playbooks для типов codex/qwen/claude-code/codex-glibc и обновлена команда install-agents для запуска ansible-playbook.
+
+## Задача: Упростить Ansible playbooks установки агентов
+### Проблемы и blockers
+- Нужно было минимизировать большие bash-скрипты внутри playbooks и заменить их на Ansible-задачи.
+### Решения и заметки
+- Playbooks для агентов обновлены на использование apt/command/lineinfile/copy с минимальными shell-командами для nvm, rustup и сборки codex-glibc.
+
+## Задача: Исправить установку зависимостей для Python 3.9
+### Проблемы и blockers
+- `pip install -e .` падал на Python 3.9 из-за ограничения `ansible-core>=2.16`, так как эти версии требуют Python 3.10+.
+### Решения и заметки
+- Добавлены маркеры зависимостей в `pyproject.toml`: для Python 3.10+ используется `ansible-core>=2.16`, а для Python 3.9 — ветка `ansible-core>=2.15,<2.16`.
+
+## Задача: Автоматически устанавливать коллекцию theko2fi.multipass при create-vm/create-vms/install-agents
+### Проблемы и blockers
+- При запуске `create-vms` без предварительного `prepare` возникала ошибка `connection plugin ... not found`, а в интерактивном режиме пробрасывался traceback.
+### Решения и заметки
+- Добавлен общий helper проверки/установки коллекции и подключён в prepare, vm_prepare и install_agents.
+- В командах create-vm/create-vms добавлена обработка ошибок подготовки ВМ с выводом ClickException вместо сырого traceback.
+
+## Задача: Исправить include_tasks для proxychains в установке агентов
+### Проблемы и blockers
+- При `install-agents` падал include_tasks с ошибкой `unexpected parameter type in action` из-за неверного использования `ansible.builtin.block` в task-файле.
+### Решения и заметки
+- В `ansible/agents/proxychains.yml` исправлен синтаксис на обычный `block`, чтобы include_tasks корректно исполнял набор задач.
+
+## Задача: Исправить падение install-agents из-за отсутствующего ansible_env
+### Проблемы и blockers
+- При запуске `install-agents` playbook `qwen.yml` падал на задаче проверки nvm: переменная `ansible_env` была undefined, потому что во втором play был отключён `gather_facts`.
+### Решения и заметки
+- Для playbooks агентов и install-бандлов, где используются пути через `ansible_env.HOME`, включён `gather_facts: true`, чтобы переменная окружения корректно определялась при подключении к ВМ через Multipass.
+
+## Задача: Исправить отсутствие npm после установки Node.js через nvm
+### Проблемы и blockers
+- После исправления `ansible_env` установка `qwen` всё ещё падала на `npm -v`: npm не находился, потому что Ansible-задачи запускали `npm` напрямую вне shell-сессии с подключённым `nvm.sh`.
+### Решения и заметки
+- В playbooks агентов `qwen` и `codex` проверки и установка npm-пакетов переведены на `bash -lc` с явным `. {{ nvm_dir }}/nvm.sh` и `nvm use default`.
+- При установке Node.js добавлен `nvm alias default {{ node_version }}`, чтобы последующие команды стабильно использовали установленную версию.
+
+## Задача: Исправить ошибку создания swap-файла при установке codex-glibc
+### Проблемы и blockers
+- Установка `codex-glibc` падала на шаге `Create swap file when needed`: `mktemp --tmpdir=/ ... Permission denied`, потому что обычный пользователь не может создавать файлы в корне `/`.
+### Решения и заметки
+- В playbook `ansible/agents/codex-glibc.yml` генерация временного swap-файла переведена в `/tmp` (`mktemp /tmp/codex-glibc-swap-XXXXXX`), после чего дальнейшие операции (`fallocate/mkswap/swapon`) продолжают выполняться через `sudo`.
+
+## Задача: Перенести временный swap-файл codex-glibc с /tmp на sudo-создание в /var/tmp
+### Проблемы и blockers
+- Использование `/tmp` для swap-файла может попадать на tmpfs (RAM-диск), что делает такой swap неэффективным или непригодным.
+### Решения и заметки
+- В шаге создания swap-файла для `codex-glibc` использован `sudo mktemp /var/tmp/codex-glibc-swap-XXXXXX`, чтобы файл создавался на диске с root-правами; в Multipass VM `sudo` доступен без пароля.
+
+## Задача: Исправить ошибку mkswap при слишком маленьком расчётном swap
+### Проблемы и blockers
+- На ВМ с почти достаточным объёмом RAM+SWAP рассчитывался очень маленький `swap_required_kb` (например, 16 KiB), из-за чего `mkswap` падал с ошибкой `swap area needs to be at least 40 KiB`.
+### Решения и заметки
+- В `ansible/agents/codex-glibc.yml` добавлен `swap_required_effective_kb` с нижней границей 40 KiB (`max(calculated, 40)`), и именно это значение используется для расчёта размера swap-файла.
+
+## Задача: Исправить размер swap для сборки codex-glibc и запуск rustup installer
+### Проблемы и blockers
+- Расчёт swap мог давать слишком маленький файл (ранее минимальный порог был только технический), что не помогало сборке на ВМ с 2 ГБ RAM.
+- Шаг `Install rustup` падал с `Permission denied: /tmp/rustup-init.sh`, так как файл запускался как исполняемый без гарантии `+x`.
+### Решения и заметки
+- Для `codex-glibc` введены параметры: целевой объём доступной памяти `codex_required_free_kb=3145728` и минимальный добавляемый swap `codex_min_swap_kb=1048576` (1 ГиБ), используемый при фактическом создании swap-файла.
+- Установка rustup переведена на явный запуск через `/bin/sh /tmp/rustup-init.sh -y --no-modify-path`, чтобы не зависеть от исполняемых битов у загруженного файла.
+
+## Задача: Исправить определение host target для rustup target add в codex-glibc
+### Проблемы и blockers
+- Шаг `Add rust target` получал некорректное значение `host_target` (`host: x86_64-unknown-linux-gnu` вместо чистого triple), из-за чего `rustup target add` падал с `does not support target 'host:'`.
+### Решения и заметки
+- Парсинг `rustc -Vv` переведён на явное извлечение через `awk '/^host:/ {print $2}'` в shell-задаче; затем `host_target` задаётся из `stdout` с fallback на `{{ ansible_architecture }}-unknown-linux-gnu`.
+
+## Задача: Исправить ложный fallback в user install после успешной system install codex-glibc
+### Проблемы и blockers
+- После успешной установки `codex-glibc` в `/usr/local/bin` playbook всё равно переходил к шагу user-install, потому что условие опиралось на `codex_system_stat` (снят до установки), и падал на отсутствии `~/.local/bin`.
+### Решения и заметки
+- Для fallback-ветки переключено условие на `sudo_check.rc != 0`, то есть user-install выполняется только когда system-install недоступен.
+- Перед user-install добавлено создание `~/.local/bin`, чтобы исключить падение `install: ... No such file or directory`.
+- Повторный запуск после успешной system-install не требует повторной компиляции: `codex_glibc_installed` определяется в начале play по существующему бинарнику и отключает build-ветку.

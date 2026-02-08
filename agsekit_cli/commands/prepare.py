@@ -7,6 +7,7 @@ from typing import Optional
 
 import click
 
+from ..ansible_utils import AnsibleCollectionError, ensure_multipass_collection
 from ..i18n import tr
 from ..vm_prepare import ensure_host_ssh_keypair
 from . import non_interactive_option
@@ -38,6 +39,13 @@ def _install_multipass() -> None:
     click.echo(tr("prepare.multipass_installed"))
 
 
+def _install_ansible_collection() -> None:
+    try:
+        ensure_multipass_collection()
+    except AnsibleCollectionError as exc:
+        raise click.ClickException(str(exc))
+
+
 @click.command(name="prepare", help=tr("prepare.command_help"))
 @non_interactive_option
 @click.option(
@@ -55,5 +63,6 @@ def prepare_command(non_interactive: bool, config_path: Optional[str]) -> None:
     del config_path
 
     _install_multipass()
+    _install_ansible_collection()
     click.echo(tr("prepare.ensure_keypair"))
     ensure_host_ssh_keypair()

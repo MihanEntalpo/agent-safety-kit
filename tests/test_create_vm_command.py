@@ -58,3 +58,26 @@ def test_create_vm_requires_name_when_multiple(tmp_path, monkeypatch):
 
     assert result.exit_code != 0
     assert "Укажите имя ВМ" in result.output
+
+
+def test_create_vm_wraps_prepare_errors(monkeypatch, tmp_path):
+    config_path = tmp_path / "config.yaml"
+    _write_config(config_path, ["agent"])
+
+    monkeypatch.setattr(create_vm_module, "create_vm_from_config", lambda path, vm_name: f"created {vm_name}")
+    monkeypatch.setattr(
+        create_vm_module,
+        "ensure_host_ssh_keypair",
+        lambda: (Path("id_rsa"), Path("id_rsa.pub")),
+    )
+
+    def fail_prepare(*_args, **_kwargs):
+        raise create_vm_module.MultipassError("prepare failed")
+
+    monkeypatch.setattr(create_vm_module, "prepare_vm", fail_prepare)
+
+    runner = CliRunner()
+    result = runner.invoke(create_vm_command, ["--config", str(config_path)])
+
+    assert result.exit_code != 0
+    assert "prepare failed" in result.output
