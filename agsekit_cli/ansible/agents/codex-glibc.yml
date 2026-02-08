@@ -203,17 +203,24 @@
       register: codex_install_system
       failed_when: codex_install_system.rc != 0
 
+    - name: Ensure user bin directory exists
+      ansible.builtin.file:
+        path: "{{ ansible_env.HOME }}/.local/bin"
+        state: directory
+        mode: "0755"
+      when: not codex_glibc_installed and sudo_check.rc != 0
+
     - name: Install codex-glibc to user bin
       ansible.builtin.command: >-
         install -m 0755 {{ ansible_env.HOME }}/.tmp/build-codex-glibc/target/{{ host_target }}/release/codex {{ codex_user_path }}
-      when: not codex_glibc_installed and not codex_system_stat.stat.exists
+      when: not codex_glibc_installed and sudo_check.rc != 0
 
     - name: Ensure user bin in PATH
       ansible.builtin.lineinfile:
         path: "{{ ansible_env.HOME }}/.profile"
         line: 'export PATH="$HOME/.local/bin:$PATH"'
         create: true
-      when: not codex_glibc_installed and not codex_system_stat.stat.exists
+      when: not codex_glibc_installed and sudo_check.rc != 0
 
     - name: Remove swap file
       ansible.builtin.shell: |

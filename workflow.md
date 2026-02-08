@@ -1071,3 +1071,11 @@
 - Шаг `Add rust target` получал некорректное значение `host_target` (`host: x86_64-unknown-linux-gnu` вместо чистого triple), из-за чего `rustup target add` падал с `does not support target 'host:'`.
 ### Решения и заметки
 - Парсинг `rustc -Vv` переведён на явное извлечение через `awk '/^host:/ {print $2}'` в shell-задаче; затем `host_target` задаётся из `stdout` с fallback на `{{ ansible_architecture }}-unknown-linux-gnu`.
+
+## Задача: Исправить ложный fallback в user install после успешной system install codex-glibc
+### Проблемы и blockers
+- После успешной установки `codex-glibc` в `/usr/local/bin` playbook всё равно переходил к шагу user-install, потому что условие опиралось на `codex_system_stat` (снят до установки), и падал на отсутствии `~/.local/bin`.
+### Решения и заметки
+- Для fallback-ветки переключено условие на `sudo_check.rc != 0`, то есть user-install выполняется только когда system-install недоступен.
+- Перед user-install добавлено создание `~/.local/bin`, чтобы исключить падение `install: ... No such file or directory`.
+- Повторный запуск после успешной system-install не требует повторной компиляции: `codex_glibc_installed` определяется в начале play по существующему бинарнику и отключает build-ветку.
