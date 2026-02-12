@@ -1,5 +1,9 @@
 # Agent-Safety-Kit versions history
 
+## 1.0.4 - Mount/umount signature simplification
+
+* Simplified `agsekit mount` and `agsekit umount` signatures to accept a positional source path with automatic mount source resolution
+
 ## 1.0.3 - Codex-glibc post-build cleanup
 
 * Added mandatory codex-glibc binary verification after installation and cleanup of rust/cargo toolchains downloaded for codex-glibc build

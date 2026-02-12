@@ -4,7 +4,7 @@ import subprocess
 from pathlib import Path
 from typing import Iterable, List, Optional, Union
 
-from .config import MountConfig, load_config, load_mounts_config, resolve_config_path
+from .config import ConfigError, MountConfig, load_config, load_mounts_config, resolve_config_path
 from .i18n import tr
 from .vm import MultipassError, ensure_multipass_available
 
@@ -29,6 +29,29 @@ def find_mount_by_source(mounts: Iterable[MountConfig], source: Path) -> Optiona
         if mount.source == normalized:
             return mount
     return None
+
+
+def find_mount_by_path(mounts: Iterable[MountConfig], source: Path) -> Optional[MountConfig]:
+    normalized = normalize_path(source)
+    matches: List[MountConfig] = []
+    for mount in mounts:
+        if normalized == mount.source:
+            matches.append(mount)
+            continue
+        try:
+            normalized.relative_to(mount.source)
+        except ValueError:
+            continue
+        matches.append(mount)
+
+    if not matches:
+        return None
+
+    matches.sort(key=lambda mount: len(mount.source.parts), reverse=True)
+    longest = len(matches[0].source.parts)
+    if sum(1 for mount in matches if len(mount.source.parts) == longest) > 1:
+        raise ConfigError(tr("mounts.source_ambiguous", source=normalized))
+    return matches[0]
 
 
 def _is_already_mounted_error(stderr: str) -> bool:
