@@ -222,6 +222,32 @@
         create: true
       when: not codex_glibc_installed and sudo_check.rc != 0
 
+    - name: Verify codex-glibc binary exists
+      ansible.builtin.stat:
+        path: "{{ codex_system_path if sudo_check.rc == 0 else codex_user_path }}"
+      register: installed_codex_stat
+      when: not codex_glibc_installed
+
+    - name: Verify codex-glibc binary works
+      ansible.builtin.command: "{{ codex_system_path if sudo_check.rc == 0 else codex_user_path }} --version"
+      register: codex_version_check
+      changed_when: false
+      when: not codex_glibc_installed
+
+    - name: Cleanup rust and cargo toolchains used for build
+      ansible.builtin.shell: |
+        set -euo pipefail
+        if [ -x "{{ ansible_env.HOME }}/.cargo/bin/rustup" ]; then
+          "{{ ansible_env.HOME }}/.cargo/bin/rustup" self uninstall -y || true
+        fi
+        rm -rf "{{ ansible_env.HOME }}/.cargo" "{{ ansible_env.HOME }}/.rustup"
+      when:
+        - not codex_glibc_installed
+        - installed_codex_stat.stat.exists
+        - codex_version_check.rc == 0
+      args:
+        executable: /bin/bash
+
     - name: Remove swap file
       ansible.builtin.shell: |
         sudo swapoff "{{ swap_file.stdout }}" 2>/dev/null || true

@@ -1,5 +1,9 @@
 # Agent-Safety-Kit versions history
 
+## 1.0.3 - Codex-glibc post-build cleanup
+
+* Added mandatory codex-glibc binary verification after installation and cleanup of rust/cargo toolchains downloaded for codex-glibc build
+
 ## 1.0.2 - Version command
 
 * Added the `agsekit version` command to show installed and project versions
