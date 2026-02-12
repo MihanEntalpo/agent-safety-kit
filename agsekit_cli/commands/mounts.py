@@ -9,7 +9,7 @@ from ..config import ConfigError, MountConfig
 from ..i18n import tr
 from ..mounts import (
     MountAlreadyMountedError,
-    find_mount_by_source,
+    find_mount_by_path,
     load_mounts_from_config,
     mount_directory,
     normalize_path,
@@ -34,7 +34,7 @@ def _select_mounts(source_dir: Optional[Path], mount_all: bool, config_path: Opt
         return list(mounts)
 
     if source_dir is not None:
-        mount_entry = find_mount_by_source(mounts, source_dir)
+        mount_entry = find_mount_by_path(mounts, source_dir)
         if mount_entry is None:
             raise click.ClickException(tr("mounts.source_not_defined", source=source_dir))
         return [mount_entry]
@@ -49,7 +49,7 @@ def _select_mounts(source_dir: Optional[Path], mount_all: bool, config_path: Opt
 
 @click.command(name="mount", help=tr("mounts.command_mount_help"))
 @non_interactive_option
-@click.option("--source-dir", type=click.Path(file_okay=False, path_type=Path), help=tr("mounts.option_source_dir"))
+@click.argument("source_dir", required=False, type=click.Path(file_okay=False, path_type=Path))
 @click.option("--all", "mount_all", is_flag=True, help=tr("mounts.option_all_mounts"))
 @click.option(
     "config_path",
@@ -95,7 +95,7 @@ def mount_command(source_dir: Optional[Path], mount_all: bool, config_path: Opti
 
 @click.command(name="umount", help=tr("mounts.command_umount_help"))
 @non_interactive_option
-@click.option("--source-dir", type=click.Path(file_okay=False, path_type=Path), help=tr("mounts.option_source_dir"))
+@click.argument("source_dir", required=False, type=click.Path(file_okay=False, path_type=Path))
 @click.option("--all", "mount_all", is_flag=True, help=tr("mounts.option_all_umounts"))
 @click.option(
     "config_path",
