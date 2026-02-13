@@ -1,5 +1,9 @@
 # Agent-Safety-Kit versions history
 
+## 1.0.5 - Ansible compatibility pin
+
+* Pinned `ansible-core` dependency to `<2.19` for Python 3.10+ to keep Multipass collection compatibility during agent installation
+
 ## 1.0.4 - Mount/umount signature simplification
 
 * Simplified `agsekit mount` and `agsekit umount` signatures to accept a positional source path with automatic mount source resolution
