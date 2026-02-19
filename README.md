@@ -1,4 +1,5 @@
 [README.md на русском](README-ru.md)
+[Project Philosophy](philosophy.md) | [Философия проекта](philosophy-ru.md)
 
 # Agent Safety Kit
 
