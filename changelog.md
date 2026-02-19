@@ -1,5 +1,9 @@
 # Agent-Safety-Kit versions history
 
+## 1.1.0 - Status command
+
+* Added the `agsekit status` command for consolidated VM, mounts, backups, and agents status reporting
+
 ## 1.0.5 - Ansible compatibility pin
 
 * Pinned `ansible-core` dependency to `<2.19` for Python 3.10+ to keep Multipass collection compatibility during agent installation

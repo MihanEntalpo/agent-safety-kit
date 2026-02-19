@@ -21,6 +21,7 @@ from .commands.run import run_command
 from .commands.shell import shell_command
 from .commands.systemd import systemd_group
 from .commands.ssh import ssh_command
+from .commands.status import status_command
 from .commands.install_agents import install_agents_command
 from .commands.list_bundles import list_bundles_command
 from .commands.portforward import portforward_command
@@ -109,6 +110,7 @@ def main() -> None:
         config_example_command,
         pip_upgrade_command,
         version_command,
+        status_command,
         systemd_group,
         destroy_vm_command,
     ):

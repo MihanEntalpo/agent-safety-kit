@@ -346,6 +346,10 @@ def build_prepare(_: InteractiveSession) -> List[str]:
     return ["prepare"]
 
 
+def build_status(session: InteractiveSession) -> List[str]:
+    return ["status", *session.config_option()]
+
+
 def build_shell(session: InteractiveSession) -> List[str]:
     vms = session.load_vms()
     if not vms:
@@ -447,6 +451,7 @@ def _command_builders() -> Dict[str, CommandBuilder]:
         "removemount": build_removemount,
         "mount": build_mount,
         "prepare": build_prepare,
+        "status": build_status,
         "shell": build_shell,
         "ssh": build_ssh,
         "portforward": build_portforward,
@@ -470,7 +475,7 @@ def _select_command(cli: click.Group, preselected: Optional[str]) -> click.Comma
     sections = [
         (
             tr("interactive.section_init_config"),
-            ["prepare", "config-example", "config-gen", "pip-upgrade"],
+            ["prepare", "config-example", "config-gen", "pip-upgrade", "status"],
         ),
         (
             tr("interactive.section_virtual_machines"),
