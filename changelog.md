@@ -1,5 +1,9 @@
 # Agent-Safety-Kit versions history
 
+## 1.1.1 - Pip-upgrade output improvements
+
+* Improved `agsekit pip-upgrade` result messages: now it reports old/new versions when upgraded and explicitly says when the current version is already the latest
+
 ## 1.1.0 - Status command
 
 * Added the `agsekit status` command for consolidated VM, mounts, backups, and agents status reporting
