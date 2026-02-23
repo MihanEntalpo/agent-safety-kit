@@ -3,6 +3,7 @@ from __future__ import annotations
 import json
 import os
 import re
+import shlex
 import shutil
 import subprocess
 import tempfile
@@ -455,6 +456,41 @@ PROXYCHAINS_HELPER_REMOTE_DIR = "/tmp/agent_scripts"
 PROXYCHAINS_HELPER_REMOTE = f"{PROXYCHAINS_HELPER_REMOTE_DIR}/proxychains_common.sh"
 
 
+def _copy_file_into_vm_via_stdin(local_path: Path, remote_path: str, vm_name: str, error_key: str) -> None:
+    try:
+        payload = local_path.read_text(encoding="utf-8")
+    except OSError as exc:
+        raise MultipassError(tr(error_key, vm_name=vm_name, stdout="-", stderr=str(exc)))
+
+    upload_command = [
+        "multipass",
+        "exec",
+        vm_name,
+        "--",
+        "bash",
+        "-lc",
+        f"cat > {shlex.quote(remote_path)}",
+    ]
+    debug_log_command(upload_command)
+    upload_result = subprocess.run(
+        upload_command,
+        check=False,
+        capture_output=True,
+        text=True,
+        input=payload,
+    )
+    debug_log_result(upload_result)
+    if upload_result.returncode != 0:
+        raise MultipassError(
+            tr(
+                error_key,
+                vm_name=vm_name,
+                stdout=(upload_result.stdout or "").strip() or "-",
+                stderr=(upload_result.stderr or "").strip() or "-",
+            )
+        )
+
+
 def ensure_proxychains_runner(vm: VmConfig) -> str:
     helper = Path(__file__).resolve().parent / "agent_scripts" / "proxychains_common.sh"
     mkdir_command = ["multipass", "exec", vm.name, "--", "mkdir", "-p", PROXYCHAINS_HELPER_REMOTE_DIR]
@@ -470,34 +506,10 @@ def ensure_proxychains_runner(vm: VmConfig) -> str:
                 stderr=(mkdir_result.stderr or "").strip() or "-",
             )
         )
-    transfer_helper_command = ["multipass", "transfer", str(helper), f"{vm.name}:{PROXYCHAINS_HELPER_REMOTE}"]
-    debug_log_command(transfer_helper_command)
-    transfer_helper_result = subprocess.run(transfer_helper_command, check=False, capture_output=True, text=True)
-    debug_log_result(transfer_helper_result)
-    if transfer_helper_result.returncode != 0:
-        raise MultipassError(
-            tr(
-                "vm.proxychains_helper_transfer_failed",
-                vm_name=vm.name,
-                stdout=(transfer_helper_result.stdout or "").strip() or "-",
-                stderr=(transfer_helper_result.stderr or "").strip() or "-",
-            )
-        )
+    _copy_file_into_vm_via_stdin(helper, PROXYCHAINS_HELPER_REMOTE, vm.name, "vm.proxychains_helper_transfer_failed")
 
     runner = Path(__file__).resolve().parent / "run_with_proxychains.sh"
-    transfer_command = ["multipass", "transfer", str(runner), f"{vm.name}:{PROXYCHAINS_RUNNER_REMOTE}"]
-    debug_log_command(transfer_command)
-    transfer_result = subprocess.run(transfer_command, check=False, capture_output=True, text=True)
-    debug_log_result(transfer_result)
-    if transfer_result.returncode != 0:
-        raise MultipassError(
-            tr(
-                "vm.proxychains_transfer_failed",
-                vm_name=vm.name,
-                stdout=(transfer_result.stdout or "").strip() or "-",
-                stderr=(transfer_result.stderr or "").strip() or "-",
-            )
-        )
+    _copy_file_into_vm_via_stdin(runner, PROXYCHAINS_RUNNER_REMOTE, vm.name, "vm.proxychains_transfer_failed")
 
     chmod_command = ["multipass", "exec", vm.name, "--", "chmod", "+x", PROXYCHAINS_RUNNER_REMOTE]
     debug_log_command(chmod_command)

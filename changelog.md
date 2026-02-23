@@ -1,5 +1,9 @@
 # Agent-Safety-Kit versions history
 
+## 1.1.3 - Proxychains script copy from hidden paths
+
+* Fixed proxychains helper/runner delivery into VMs when `agsekit` is installed under hidden host paths (for example, `~/.pyenv/...`): scripts are now uploaded via `stdin` + `multipass exec` instead of direct local-file transfer
+
 ## 1.1.2 - Debug coverage and stop-vm reliability
 
 * Added the `--debug` argument across Multipass-related CLI commands to print executed commands, exit codes, and command output

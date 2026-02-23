@@ -491,6 +491,7 @@
 ### 9.4 Proxychains режим
 - effective proxy определяется как `override -> vm.proxychains -> none`;
 - helper scripts копируются в VM;
+- helper scripts передаются в VM через `multipass exec ... bash -lc 'cat > ...'` по `stdin` (без чтения локального пути со стороны `multipass transfer`);
 - создаётся временный proxychains config;
 - команда запускается через `proxychains4`.
 
