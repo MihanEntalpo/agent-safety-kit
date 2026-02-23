@@ -13,7 +13,7 @@ import click
 from ..config import ConfigError, load_config, load_vms_config, resolve_config_path
 from ..i18n import tr
 from ..vm import MultipassError, build_port_forwarding_args, ensure_multipass_available
-from . import non_interactive_option
+from . import debug_option, non_interactive_option
 
 
 def _resolve_agsekit_command() -> List[str]:
@@ -37,10 +37,17 @@ def _start_forwarder(
     vm_name: str,
     config_path: Path,
     port_args: List[str],
+    *,
+    debug: bool = False,
 ) -> subprocess.Popen:
     command = [
         *base_command,
         "ssh",
+    ]
+    if debug:
+        command.append("--debug")
+    command.extend(
+        [
         "--config",
         str(config_path),
         vm_name,
@@ -48,7 +55,8 @@ def _start_forwarder(
         "-o",
         "ExitOnForwardFailure=yes",
         *port_args,
-    ]
+        ]
+    )
     click.echo(tr("portforward.starting", vm_name=vm_name, command=_format_command(command)))
     return subprocess.Popen(command)
 
@@ -83,7 +91,8 @@ def _terminate_processes(processes: Dict[str, subprocess.Popen]) -> None:
     default=None,
     help=tr("config.option_path"),
 )
-def portforward_command(config_path: Optional[str], non_interactive: bool) -> None:
+@debug_option
+def portforward_command(config_path: Optional[str], debug: bool, non_interactive: bool) -> None:
     """Запускает ssh-туннели по правилам port-forwarding из конфигурации."""
     # not used parameter, explicitly removing it so IDEs/linters do not complain
     del non_interactive
@@ -124,7 +133,7 @@ def portforward_command(config_path: Optional[str], non_interactive: bool) -> No
     signal.signal(signal.SIGTERM, _handle_signal)
 
     for vm_name, port_args in forward_targets.items():
-        processes[vm_name] = _start_forwarder(base_command, vm_name, resolved_path, port_args)
+        processes[vm_name] = _start_forwarder(base_command, vm_name, resolved_path, port_args, debug=debug)
 
     try:
         while not stop_requested:
@@ -135,7 +144,9 @@ def portforward_command(config_path: Optional[str], non_interactive: bool) -> No
                 if stop_requested:
                     break
                 click.echo(tr("portforward.process_restarting", vm_name=vm_name, code=return_code))
-                processes[vm_name] = _start_forwarder(base_command, vm_name, resolved_path, forward_targets[vm_name])
+                processes[vm_name] = _start_forwarder(
+                    base_command, vm_name, resolved_path, forward_targets[vm_name], debug=debug
+                )
             time.sleep(1)
     finally:
         _terminate_processes(processes)

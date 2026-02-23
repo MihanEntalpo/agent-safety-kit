@@ -10,9 +10,10 @@ import click
 from ..agents import find_agent
 from ..ansible_utils import AnsibleCollectionError, ensure_multipass_collection
 from ..config import AgentConfig, ConfigError, VmConfig, load_agents_config, load_config, load_vms_config, resolve_config_path
+from ..debug import debug_log_command, debug_log_result, debug_scope
 from ..i18n import tr
 from ..vm import MultipassError, ensure_multipass_available, resolve_proxychains
-from . import non_interactive_option
+from . import debug_option, non_interactive_option
 
 PLAYBOOKS_DIR = Path(__file__).resolve().parents[1] / "ansible" / "agents"
 
@@ -49,9 +50,13 @@ def _run_command(
     capture_output: bool = True,
 ) -> subprocess.CompletedProcess[str]:
     click.echo(tr("install_agents.command_running", description=description, command=_format_command(command)))
+    debug_log_command(command)
     if capture_output:
-        return subprocess.run(command, check=False, capture_output=True, text=True)
-    return subprocess.run(command, check=False, text=True)
+        result = subprocess.run(command, check=False, capture_output=True, text=True)
+    else:
+        result = subprocess.run(command, check=False, text=True)
+    debug_log_result(result)
+    return result
 
 
 def _run_install_playbook(vm: VmConfig, playbook_path: Path, proxychains: Optional[str] = None) -> None:
@@ -110,6 +115,7 @@ def _default_vm(agent: AgentConfig, available: Iterable[str]) -> str:
     show_default=False,
     help=tr("install_agents.option_proxychains"),
 )
+@debug_option
 def install_agents_command(
     agent_name: Optional[str],
     vm: Optional[str],
@@ -117,79 +123,81 @@ def install_agents_command(
     all_agents: bool,
     config_path: Optional[str],
     proxychains: Optional[str],
+    debug: bool,
     non_interactive: bool,
 ) -> None:
     """Install configured agents into Multipass VMs."""
     # not used parameter, explicitly removing it so IDEs/linters do not complain
     del non_interactive
 
-    click.echo(tr("install_agents.preparing"))
+    with debug_scope(debug):
+        click.echo(tr("install_agents.preparing"))
 
-    if all_agents and agent_name:
-        raise click.ClickException(tr("install_agents.agent_conflict"))
+        if all_agents and agent_name:
+            raise click.ClickException(tr("install_agents.agent_conflict"))
 
-    resolved_path = resolve_config_path(Path(config_path) if config_path else None)
-    try:
-        config = load_config(resolved_path)
-        agents_config = load_agents_config(config)
-        vms_config = load_vms_config(config)
-    except ConfigError as exc:
-        raise click.ClickException(str(exc))
-
-    if not agents_config:
-        raise click.ClickException(tr("install_agents.no_agents"))
-
-    agent_names: List[str]
-    if all_agents:
-        agent_names = list(agents_config.keys())
-    else:
-        if agent_name:
-            agent_names = [agent_name]
-        elif len(agents_config) == 1:
-            agent_names = [next(iter(agents_config.keys()))]
-            click.echo(tr("install_agents.default_agent", agent_name=agent_names[0]))
-        else:
-            raise click.ClickException(tr("install_agents.agent_required"))
-
-    selected_vms = list(vms_config.keys())
-    if vm:
-        if vm not in vms_config:
-            raise click.ClickException(tr("install_agents.vm_missing", vm_name=vm))
-        selected_vms = [vm]
-
-    targets: List[Tuple[str, VmConfig]] = []
-    for name in agent_names:
-        agent = find_agent(agents_config, name)
-        if all_vms:
-            for vm_name in vms_config:
-                targets.append((agent.name, vms_config[vm_name]))
-        else:
-            chosen_vm = selected_vms[0] if vm else _default_vm(agent, vms_config.keys())
-            if chosen_vm not in vms_config:
-                raise click.ClickException(tr("install_agents.vm_missing", vm_name=chosen_vm))
-            targets.append((agent.name, vms_config[chosen_vm]))
-
-    for target_agent_name, target_vm in targets:
-        agent = find_agent(agents_config, target_agent_name)
-        playbook_path = _playbook_for(agent)
-        click.echo(
-            tr(
-                "install_agents.installing",
-                agent_name=agent.name,
-                agent_type=agent.type,
-                vm_name=target_vm.name,
-                script=playbook_path.name,
-            )
-        )
+        resolved_path = resolve_config_path(Path(config_path) if config_path else None)
         try:
-            _run_install_playbook(target_vm, playbook_path, proxychains=proxychains)
-        except (MultipassError, ConfigError) as exc:
+            config = load_config(resolved_path)
+            agents_config = load_agents_config(config)
+            vms_config = load_vms_config(config)
+        except ConfigError as exc:
             raise click.ClickException(str(exc))
-        click.echo(
-            tr(
-                "install_agents.installed",
-                agent_name=agent.name,
-                agent_type=agent.type,
-                vm_name=target_vm.name,
+
+        if not agents_config:
+            raise click.ClickException(tr("install_agents.no_agents"))
+
+        agent_names: List[str]
+        if all_agents:
+            agent_names = list(agents_config.keys())
+        else:
+            if agent_name:
+                agent_names = [agent_name]
+            elif len(agents_config) == 1:
+                agent_names = [next(iter(agents_config.keys()))]
+                click.echo(tr("install_agents.default_agent", agent_name=agent_names[0]))
+            else:
+                raise click.ClickException(tr("install_agents.agent_required"))
+
+        selected_vms = list(vms_config.keys())
+        if vm:
+            if vm not in vms_config:
+                raise click.ClickException(tr("install_agents.vm_missing", vm_name=vm))
+            selected_vms = [vm]
+
+        targets: List[Tuple[str, VmConfig]] = []
+        for name in agent_names:
+            agent = find_agent(agents_config, name)
+            if all_vms:
+                for vm_name in vms_config:
+                    targets.append((agent.name, vms_config[vm_name]))
+            else:
+                chosen_vm = selected_vms[0] if vm else _default_vm(agent, vms_config.keys())
+                if chosen_vm not in vms_config:
+                    raise click.ClickException(tr("install_agents.vm_missing", vm_name=chosen_vm))
+                targets.append((agent.name, vms_config[chosen_vm]))
+
+        for target_agent_name, target_vm in targets:
+            agent = find_agent(agents_config, target_agent_name)
+            playbook_path = _playbook_for(agent)
+            click.echo(
+                tr(
+                    "install_agents.installing",
+                    agent_name=agent.name,
+                    agent_type=agent.type,
+                    vm_name=target_vm.name,
+                    script=playbook_path.name,
+                )
             )
-        )
+            try:
+                _run_install_playbook(target_vm, playbook_path, proxychains=proxychains)
+            except (MultipassError, ConfigError) as exc:
+                raise click.ClickException(str(exc))
+            click.echo(
+                tr(
+                    "install_agents.installed",
+                    agent_name=agent.name,
+                    agent_type=agent.type,
+                    vm_name=target_vm.name,
+                )
+            )

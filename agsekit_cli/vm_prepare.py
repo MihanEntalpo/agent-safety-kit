@@ -10,6 +10,7 @@ from typing import List, Optional, Tuple
 import click
 
 from .ansible_utils import AnsibleCollectionError, ensure_multipass_collection
+from .debug import debug_log_command, debug_log_result
 from .i18n import tr
 from .vm_bundles import resolve_bundles
 from .vm import MultipassError
@@ -17,7 +18,10 @@ from .vm import MultipassError
 
 def _run_multipass(command: list[str], description: str, capture_output: bool = True) -> subprocess.CompletedProcess[str]:
     click.echo(tr("prepare.command_running", description=description, command=" ".join(shlex.quote(part) for part in command)))
-    return subprocess.run(command, check=False, capture_output=capture_output, text=True)
+    debug_log_command(command)
+    result = subprocess.run(command, check=False, capture_output=capture_output, text=True)
+    debug_log_result(result)
+    return result
 
 
 def ensure_host_ssh_keypair() -> Tuple[Path, Path]:

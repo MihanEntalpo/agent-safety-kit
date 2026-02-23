@@ -3,11 +3,10 @@ from __future__ import annotations
 import shlex
 import subprocess
 from pathlib import Path
-from typing import Dict, Iterable, List, Optional, Sequence, Set, Tuple, Union
-
-import click
+from typing import Dict, Iterable, List, Optional, Sequence, Set, Tuple
 
 from .config import AgentConfig, ConfigError, VmConfig, load_agents_config, load_config, load_mounts_config, load_vms_config, resolve_config_path
+from .debug import debug_log_command, debug_log_result
 from .i18n import tr
 from .mounts import MountConfig, normalize_path
 from .vm import MultipassError, ensure_multipass_available, ensure_proxychains_runner, resolve_proxychains
@@ -116,16 +115,6 @@ def build_shell_command(workdir: Path, agent_command: Sequence[str], env_vars: D
     return " && ".join(parts)
 
 
-def _debug_print(command: Union[Sequence[str], str], debug: bool) -> None:
-    if not debug:
-        return
-
-    if isinstance(command, str):
-        click.echo(tr("agents.debug_command", command=command))
-    else:
-        click.echo(tr("agents.debug_command", command=shlex.join(command)))
-
-
 def run_in_vm(
     vm: VmConfig,
     workdir: Path,
@@ -147,8 +136,9 @@ def run_in_vm(
         command = ["multipass", "exec", vm.name, "--", "bash", "-lc", wrapped_command]
     else:
         command = ["multipass", "exec", vm.name, "--", "bash", "-lc", shell_command]
-    _debug_print(command, debug)
+    debug_log_command(command, enabled=debug)
     result = subprocess.run(command, check=False)
+    debug_log_result(result, enabled=debug)
     return int(result.returncode)
 
 
@@ -173,8 +163,9 @@ def ensure_agent_binary_available(
         command = ["multipass", "exec", vm.name, "--", "bash", "-lc", wrapped_command]
     else:
         command = ["multipass", "exec", vm.name, "--", "bash", "-lc", check_command]
-    _debug_print(command, debug)
+    debug_log_command(command, enabled=debug)
     result = subprocess.run(command, check=False, capture_output=True, text=True)
+    debug_log_result(result, enabled=debug)
 
     if result.returncode == 0:
         return
@@ -219,7 +210,7 @@ def start_backup_process(
     mount.backup.mkdir(parents=True, exist_ok=True)
     log_file = open(mount.backup / "backup.log", "a", buffering=1)
 
-    _debug_print(command, debug)
+    debug_log_command(command, enabled=debug)
     process = subprocess.Popen(command, stdout=log_file, stderr=subprocess.STDOUT)
     process.log_file = log_file  # type: ignore[attr-defined]
     return process

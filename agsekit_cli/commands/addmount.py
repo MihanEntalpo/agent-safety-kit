@@ -10,7 +10,7 @@ from ruamel.yaml import YAML
 from ruamel.yaml.comments import CommentedMap, CommentedSeq
 from ruamel.yaml.error import YAMLError
 
-from . import non_interactive_option
+from . import debug_option, non_interactive_option
 from ..config import (
     ConfigError,
     MountConfig,
@@ -24,6 +24,7 @@ from ..i18n import tr
 from ..interactive import is_interactive_terminal
 from ..mounts import MountAlreadyMountedError, find_mount_by_source, mount_directory, normalize_path
 from ..vm import MultipassError
+from ..debug import debug_scope
 
 
 def _prompt_positive_int(message: str, default: int, error_key: str) -> int:
@@ -131,6 +132,7 @@ def _backup_config(config_path: Path) -> Path:
     default=None,
     help=tr("config.option_path"),
 )
+@debug_option
 def addmount_command(
     source_dir: Optional[Path],
     target_dir: Optional[Path],
@@ -141,157 +143,159 @@ def addmount_command(
     mount_now: bool,
     assume_yes: bool,
     config_path: Optional[str],
+    debug: bool,
     non_interactive: bool,
 ) -> None:
     """Add a mount entry to the YAML config."""
     interactive = is_interactive_terminal() and not non_interactive
 
-    if source_dir is None:
-        if not interactive:
-            raise click.ClickException(tr("addmount.source_required"))
-        source_prompt = click.prompt(tr("addmount.source_prompt"), default=str(Path.cwd()))
-        source_dir = Path(source_prompt).expanduser()
+    with debug_scope(debug):
+        if source_dir is None:
+            if not interactive:
+                raise click.ClickException(tr("addmount.source_required"))
+            source_prompt = click.prompt(tr("addmount.source_prompt"), default=str(Path.cwd()))
+            source_dir = Path(source_prompt).expanduser()
 
-    source_dir = normalize_path(source_dir)
+        source_dir = normalize_path(source_dir)
 
-    if target_dir is None:
-        default_target = default_mount_target(source_dir)
-        if interactive:
-            target_prompt = click.prompt(tr("addmount.target_prompt"), default=str(default_target))
-            target_dir = Path(target_prompt).expanduser()
+        if target_dir is None:
+            default_target = default_mount_target(source_dir)
+            if interactive:
+                target_prompt = click.prompt(tr("addmount.target_prompt"), default=str(default_target))
+                target_dir = Path(target_prompt).expanduser()
+            else:
+                target_dir = default_target
+
+        if backup_dir is None:
+            default_backup = default_mount_backup(source_dir)
+            if interactive:
+                backup_prompt = click.prompt(tr("addmount.backup_prompt"), default=str(default_backup))
+                backup_dir = Path(backup_prompt).expanduser()
+            else:
+                backup_dir = default_backup
+
+        target_dir = target_dir.expanduser().resolve()
+        backup_dir = backup_dir.expanduser().resolve()
+
+        if interval is None and interactive:
+            interval_minutes = _prompt_positive_int(
+                tr("addmount.interval_prompt"),
+                default=5,
+                error_key="addmount.interval_positive",
+            )
         else:
-            target_dir = default_target
+            interval_minutes = _parse_interval(interval)
 
-    if backup_dir is None:
-        default_backup = default_mount_backup(source_dir)
-        if interactive:
-            backup_prompt = click.prompt(tr("addmount.backup_prompt"), default=str(default_backup))
-            backup_dir = Path(backup_prompt).expanduser()
+        if max_backups is None and interactive:
+            max_backups_value = _prompt_positive_int(
+                tr("addmount.max_backups_prompt"),
+                default=100,
+                error_key="addmount.max_backups_positive",
+            )
         else:
-            backup_dir = default_backup
+            max_backups_value = _parse_max_backups(max_backups)
 
-    target_dir = target_dir.expanduser().resolve()
-    backup_dir = backup_dir.expanduser().resolve()
+        if backup_clean_method is None and interactive:
+            backup_clean_method_value = _prompt_backup_clean_method("thin")
+        else:
+            backup_clean_method_value = (backup_clean_method or "thin").lower()
 
-    if interval is None and interactive:
-        interval_minutes = _prompt_positive_int(
-            tr("addmount.interval_prompt"),
-            default=5,
-            error_key="addmount.interval_positive",
-        )
-    else:
-        interval_minutes = _parse_interval(interval)
+        resolved_config_path = resolve_config_path(Path(config_path) if config_path else None)
+        if not resolved_config_path.exists():
+            raise click.ClickException(tr("config.file_not_found", path=resolved_config_path))
 
-    if max_backups is None and interactive:
-        max_backups_value = _prompt_positive_int(
-            tr("addmount.max_backups_prompt"),
-            default=100,
-            error_key="addmount.max_backups_positive",
-        )
-    else:
-        max_backups_value = _parse_max_backups(max_backups)
+        yaml, config_data = _load_config_with_comments(resolved_config_path)
 
-    if backup_clean_method is None and interactive:
-        backup_clean_method_value = _prompt_backup_clean_method("thin")
-    else:
-        backup_clean_method_value = (backup_clean_method or "thin").lower()
-
-    resolved_config_path = resolve_config_path(Path(config_path) if config_path else None)
-    if not resolved_config_path.exists():
-        raise click.ClickException(tr("config.file_not_found", path=resolved_config_path))
-
-    yaml, config_data = _load_config_with_comments(resolved_config_path)
-
-    try:
-        vms = load_vms_config(config_data)
-    except ConfigError as exc:
-        raise click.ClickException(str(exc))
-
-    try:
-        existing_mounts = load_mounts_config(config_data)
-    except ConfigError as exc:
-        raise click.ClickException(str(exc))
-
-    if find_mount_by_source(existing_mounts, source_dir) is not None:
-        raise click.ClickException(tr("addmount.mount_exists", source=source_dir))
-
-    click.echo(
-        tr(
-            "addmount.summary",
-            source=source_dir,
-            target=target_dir,
-            backup=backup_dir,
-            interval=interval_minutes,
-            max_backups=max_backups_value,
-            method=backup_clean_method_value,
-        )
-    )
-
-    if not assume_yes:
-        if not interactive:
-            raise click.ClickException(tr("addmount.confirm_required"))
-        if not click.confirm(tr("addmount.confirm_add", path=resolved_config_path), default=True):
-            click.echo(tr("addmount.cancelled"))
-            return
-
-    mounts_section = config_data.get("mounts")
-    if mounts_section is None:
-        mounts_section = CommentedSeq()
-        config_data["mounts"] = mounts_section
-    if not isinstance(mounts_section, list):
-        raise click.ClickException(tr("config.mounts_not_list"))
-
-    mount_entry = CommentedMap()
-    mount_entry["source"] = str(source_dir)
-    mount_entry["target"] = str(target_dir)
-    mount_entry["backup"] = str(backup_dir)
-    mount_entry["interval"] = interval_minutes
-    mount_entry["max_backups"] = max_backups_value
-    mount_entry["backup_clean_method"] = backup_clean_method_value
-    mounts_section.append(mount_entry)
-
-    config_backup_path = _backup_config(resolved_config_path)
-
-    with resolved_config_path.open("w", encoding="utf-8") as handle:
-        yaml.dump(config_data, handle)
-
-    click.echo(tr("addmount.backup_created", path=config_backup_path))
-    click.echo(tr("addmount.added", path=resolved_config_path))
-
-    if interactive and not mount_now:
-        mount_now = click.confirm(tr("addmount.mount_now_prompt"), default=False)
-
-    if mount_now:
-        default_vm = next(iter(vms.keys()))
         try:
-            mount_directory(
-                MountConfig(
-                    source=source_dir,
-                    target=target_dir,
-                    backup=backup_dir,
-                    interval_minutes=interval_minutes,
-                    max_backups=max_backups_value,
-                    backup_clean_method=backup_clean_method_value,
-                    vm_name=default_vm,
-                )
-            )
-        except MountAlreadyMountedError:
-            click.echo(
-                tr(
-                    "mounts.already_mounted",
-                    source=normalize_path(source_dir),
-                    vm_name=default_vm,
-                    target=target_dir,
-                )
-            )
-        except MultipassError as exc:
+            vms = load_vms_config(config_data)
+        except ConfigError as exc:
             raise click.ClickException(str(exc))
-        else:
-            click.echo(
-                tr(
-                    "mounts.mounted",
-                    source=normalize_path(source_dir),
-                    vm_name=default_vm,
-                    target=target_dir,
-                )
+
+        try:
+            existing_mounts = load_mounts_config(config_data)
+        except ConfigError as exc:
+            raise click.ClickException(str(exc))
+
+        if find_mount_by_source(existing_mounts, source_dir) is not None:
+            raise click.ClickException(tr("addmount.mount_exists", source=source_dir))
+
+        click.echo(
+            tr(
+                "addmount.summary",
+                source=source_dir,
+                target=target_dir,
+                backup=backup_dir,
+                interval=interval_minutes,
+                max_backups=max_backups_value,
+                method=backup_clean_method_value,
             )
+        )
+
+        if not assume_yes:
+            if not interactive:
+                raise click.ClickException(tr("addmount.confirm_required"))
+            if not click.confirm(tr("addmount.confirm_add", path=resolved_config_path), default=True):
+                click.echo(tr("addmount.cancelled"))
+                return
+
+        mounts_section = config_data.get("mounts")
+        if mounts_section is None:
+            mounts_section = CommentedSeq()
+            config_data["mounts"] = mounts_section
+        if not isinstance(mounts_section, list):
+            raise click.ClickException(tr("config.mounts_not_list"))
+
+        mount_entry = CommentedMap()
+        mount_entry["source"] = str(source_dir)
+        mount_entry["target"] = str(target_dir)
+        mount_entry["backup"] = str(backup_dir)
+        mount_entry["interval"] = interval_minutes
+        mount_entry["max_backups"] = max_backups_value
+        mount_entry["backup_clean_method"] = backup_clean_method_value
+        mounts_section.append(mount_entry)
+
+        config_backup_path = _backup_config(resolved_config_path)
+
+        with resolved_config_path.open("w", encoding="utf-8") as handle:
+            yaml.dump(config_data, handle)
+
+        click.echo(tr("addmount.backup_created", path=config_backup_path))
+        click.echo(tr("addmount.added", path=resolved_config_path))
+
+        if interactive and not mount_now:
+            mount_now = click.confirm(tr("addmount.mount_now_prompt"), default=False)
+
+        if mount_now:
+            default_vm = next(iter(vms.keys()))
+            try:
+                mount_directory(
+                    MountConfig(
+                        source=source_dir,
+                        target=target_dir,
+                        backup=backup_dir,
+                        interval_minutes=interval_minutes,
+                        max_backups=max_backups_value,
+                        backup_clean_method=backup_clean_method_value,
+                        vm_name=default_vm,
+                    )
+                )
+            except MountAlreadyMountedError:
+                click.echo(
+                    tr(
+                        "mounts.already_mounted",
+                        source=normalize_path(source_dir),
+                        vm_name=default_vm,
+                        target=target_dir,
+                    )
+                )
+            except MultipassError as exc:
+                raise click.ClickException(str(exc))
+            else:
+                click.echo(
+                    tr(
+                        "mounts.mounted",
+                        source=normalize_path(source_dir),
+                        vm_name=default_vm,
+                        target=target_dir,
+                    )
+                )

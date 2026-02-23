@@ -106,3 +106,30 @@ def test_start_requires_vm_name_when_multiple(monkeypatch, tmp_path):
 
     assert result.exit_code != 0
     assert "Укажите имя ВМ" in result.output
+
+
+def test_start_vm_debug_output(monkeypatch, tmp_path):
+    config_path = tmp_path / "config.yaml"
+    _write_config(config_path, ["agent"])
+
+    def fake_run(command, check=False, capture_output=False, text=False):
+        class Result:
+            returncode = 0
+            stderr = ""
+            stdout = "started"
+
+        return Result()
+
+    monkeypatch.setattr(start_module, "ensure_multipass_available", lambda: None)
+    monkeypatch.setattr(start_module.subprocess, "run", fake_run)
+
+    runner = CliRunner()
+    result = runner.invoke(
+        start_vm_command,
+        ["agent", "--config", str(config_path), "--debug"],
+        env={"AGSEKIT_LANG": "en"},
+    )
+
+    assert result.exit_code == 0
+    assert "[DEBUG] command: multipass start agent" in result.output
+    assert "[DEBUG] exit code: 0" in result.output

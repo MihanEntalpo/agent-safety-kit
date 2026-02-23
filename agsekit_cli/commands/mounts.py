@@ -6,6 +6,7 @@ from typing import List, Optional
 import click
 
 from ..config import ConfigError, MountConfig
+from ..debug import debug_scope
 from ..i18n import tr
 from ..mounts import (
     MountAlreadyMountedError,
@@ -16,7 +17,7 @@ from ..mounts import (
     umount_directory,
 )
 from ..vm import MultipassError
-from . import non_interactive_option
+from . import debug_option, non_interactive_option
 
 
 def _select_mounts(source_dir: Optional[Path], mount_all: bool, config_path: Optional[str]) -> List[MountConfig]:
@@ -59,38 +60,46 @@ def _select_mounts(source_dir: Optional[Path], mount_all: bool, config_path: Opt
     default=None,
     help=tr("config.option_path"),
 )
-def mount_command(source_dir: Optional[Path], mount_all: bool, config_path: Optional[str], non_interactive: bool) -> None:
+@debug_option
+def mount_command(
+    source_dir: Optional[Path],
+    mount_all: bool,
+    config_path: Optional[str],
+    debug: bool,
+    non_interactive: bool,
+) -> None:
     """Mount directories from config.yaml into VMs."""
     # not used parameter, explicitly removing it so IDEs/linters do not complain
     del non_interactive
 
-    click.echo(tr("mounts.mounting_requested"))
+    with debug_scope(debug):
+        click.echo(tr("mounts.mounting_requested"))
 
-    mounts = _select_mounts(source_dir, mount_all, config_path)
+        mounts = _select_mounts(source_dir, mount_all, config_path)
 
-    for mount in mounts:
-        try:
-            mount_directory(mount)
-        except MountAlreadyMountedError:
+        for mount in mounts:
+            try:
+                mount_directory(mount)
+            except MountAlreadyMountedError:
+                click.echo(
+                    tr(
+                        "mounts.already_mounted",
+                        source=normalize_path(mount.source),
+                        vm_name=mount.vm_name,
+                        target=mount.target,
+                    )
+                )
+                continue
+            except MultipassError as exc:
+                raise click.ClickException(str(exc))
             click.echo(
                 tr(
-                    "mounts.already_mounted",
+                    "mounts.mounted",
                     source=normalize_path(mount.source),
                     vm_name=mount.vm_name,
                     target=mount.target,
                 )
             )
-            continue
-        except MultipassError as exc:
-            raise click.ClickException(str(exc))
-        click.echo(
-            tr(
-                "mounts.mounted",
-                source=normalize_path(mount.source),
-                vm_name=mount.vm_name,
-                target=mount.target,
-            )
-        )
 
 
 @click.command(name="umount", help=tr("mounts.command_umount_help"))
@@ -105,18 +114,26 @@ def mount_command(source_dir: Optional[Path], mount_all: bool, config_path: Opti
     default=None,
     help=tr("config.option_path"),
 )
-def umount_command(source_dir: Optional[Path], mount_all: bool, config_path: Optional[str], non_interactive: bool) -> None:
+@debug_option
+def umount_command(
+    source_dir: Optional[Path],
+    mount_all: bool,
+    config_path: Optional[str],
+    debug: bool,
+    non_interactive: bool,
+) -> None:
     """Unmount directories from config.yaml."""
     # not used parameter, explicitly removing it so IDEs/linters do not complain
     del non_interactive
 
-    click.echo(tr("mounts.unmounting_requested"))
+    with debug_scope(debug):
+        click.echo(tr("mounts.unmounting_requested"))
 
-    mounts = _select_mounts(source_dir, mount_all, config_path)
+        mounts = _select_mounts(source_dir, mount_all, config_path)
 
-    for mount in mounts:
-        try:
-            umount_directory(mount)
-        except MultipassError as exc:
-            raise click.ClickException(str(exc))
-        click.echo(tr("mounts.unmounted", vm_name=mount.vm_name, target=mount.target))
+        for mount in mounts:
+            try:
+                umount_directory(mount)
+            except MultipassError as exc:
+                raise click.ClickException(str(exc))
+            click.echo(tr("mounts.unmounted", vm_name=mount.vm_name, target=mount.target))

@@ -5,9 +5,10 @@ from typing import Optional
 
 import click
 
-from . import non_interactive_option
+from . import debug_option, non_interactive_option
 
 from ..config import ConfigError, load_config, load_vms_config, resolve_config_path
+from ..debug import debug_scope
 from ..i18n import tr
 from ..vm import MultipassError, create_all_vms_from_config, create_vm_from_config
 from ..vm_prepare import ensure_host_ssh_keypair, prepare_vm
@@ -24,7 +25,8 @@ from ..vm_prepare import ensure_host_ssh_keypair, prepare_vm
     default=None,
     help=tr("config.option_path"),
 )
-def create_vm_command(vm_name: Optional[str], config_path: Optional[str], non_interactive: bool) -> None:
+@debug_option
+def create_vm_command(vm_name: Optional[str], config_path: Optional[str], debug: bool, non_interactive: bool) -> None:
     """Create a single VM by name from the YAML configuration."""
     # not used parameter, explicitly removing it so IDEs/linters do not complain
     del non_interactive
@@ -45,33 +47,34 @@ def create_vm_command(vm_name: Optional[str], config_path: Optional[str], non_in
         else:
             raise click.ClickException(tr("create_vm.name_required"))
 
-    click.echo(tr("create_vm.creating", vm_name=target_vm, config_path=resolved_path))
-    try:
-        result = create_vm_from_config(str(resolved_path), target_vm)
-    except ConfigError as exc:
-        raise click.ClickException(str(exc))
-    except MultipassError as exc:
-        raise click.ClickException(str(exc))
+    with debug_scope(debug):
+        click.echo(tr("create_vm.creating", vm_name=target_vm, config_path=resolved_path))
+        try:
+            result = create_vm_from_config(str(resolved_path), target_vm)
+        except ConfigError as exc:
+            raise click.ClickException(str(exc))
+        except MultipassError as exc:
+            raise click.ClickException(str(exc))
 
-    if isinstance(result, tuple):
-        message, mismatch_message = result
-    else:
-        message = result
-        mismatch_message = None
-
-    click.echo(message)
-    click.echo(tr("prepare.ensure_keypair"))
-    _private_key, public_key = ensure_host_ssh_keypair()
-    bundles = vms[target_vm].install
-    try:
-        if bundles:
-            prepare_vm(target_vm, public_key, bundles)
+        if isinstance(result, tuple):
+            message, mismatch_message = result
         else:
-            prepare_vm(target_vm, public_key)
-    except MultipassError as exc:
-        raise click.ClickException(str(exc))
-    if mismatch_message:
-        click.echo(mismatch_message)
+            message = result
+            mismatch_message = None
+
+        click.echo(message)
+        click.echo(tr("prepare.ensure_keypair"))
+        _private_key, public_key = ensure_host_ssh_keypair()
+        bundles = vms[target_vm].install
+        try:
+            if bundles:
+                prepare_vm(target_vm, public_key, bundles)
+            else:
+                prepare_vm(target_vm, public_key)
+        except MultipassError as exc:
+            raise click.ClickException(str(exc))
+        if mismatch_message:
+            click.echo(mismatch_message)
 
 
 @click.command(name="create-vms", help=tr("create_vm.command_all_help"))
@@ -84,7 +87,8 @@ def create_vm_command(vm_name: Optional[str], config_path: Optional[str], non_in
     default=None,
     help=tr("config.option_path"),
 )
-def create_vms_command(config_path: Optional[str], non_interactive: bool) -> None:
+@debug_option
+def create_vms_command(config_path: Optional[str], debug: bool, non_interactive: bool) -> None:
     """Create all VMs described in the YAML configuration."""
     # not used parameter, explicitly removing it so IDEs/linters do not complain
     del non_interactive
@@ -96,23 +100,24 @@ def create_vms_command(config_path: Optional[str], non_interactive: bool) -> Non
     except ConfigError as exc:
         raise click.ClickException(str(exc))
 
-    click.echo(tr("create_vm.creating_all", config_path=resolved_path))
-    try:
-        messages, mismatch_messages = create_all_vms_from_config(str(resolved_path))
-    except ConfigError as exc:
-        raise click.ClickException(str(exc))
-    except MultipassError as exc:
-        raise click.ClickException(str(exc))
-
-    for message in messages:
-        click.echo(message)
-
-    click.echo(tr("prepare.ensure_keypair"))
-    _private_key, public_key = ensure_host_ssh_keypair()
-    for vm in vms.values():
+    with debug_scope(debug):
+        click.echo(tr("create_vm.creating_all", config_path=resolved_path))
         try:
-            prepare_vm(vm.name, public_key, vm.install)
+            messages, mismatch_messages = create_all_vms_from_config(str(resolved_path))
+        except ConfigError as exc:
+            raise click.ClickException(str(exc))
         except MultipassError as exc:
             raise click.ClickException(str(exc))
-    for mismatch in mismatch_messages:
-        click.echo(mismatch)
+
+        for message in messages:
+            click.echo(message)
+
+        click.echo(tr("prepare.ensure_keypair"))
+        _private_key, public_key = ensure_host_ssh_keypair()
+        for vm in vms.values():
+            try:
+                prepare_vm(vm.name, public_key, vm.install)
+            except MultipassError as exc:
+                raise click.ClickException(str(exc))
+        for mismatch in mismatch_messages:
+            click.echo(mismatch)

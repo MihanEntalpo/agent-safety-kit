@@ -6,12 +6,14 @@ import re
 import shutil
 import subprocess
 import tempfile
+import time
 from pathlib import Path
 from typing import Dict, Iterable, List, Optional
 
 import yaml
 
 from .config import ConfigError, PortForwardingRule, VmConfig, load_config, load_vms_config
+from .debug import debug_log_command, debug_log_result
 from .i18n import tr
 
 SIZE_MAP: Dict[str, int] = {
@@ -34,6 +36,8 @@ SIZE_MAP: Dict[str, int] = {
     "TI": 1024 ** 4,
     "TIB": 1024 ** 4,
 }
+
+RESOURCE_SIZE_RELATIVE_TOLERANCE = 0.10
 
 
 class MultipassError(RuntimeError):
@@ -70,24 +74,161 @@ def load_existing_entry(raw: str, name: str) -> Optional[Dict[str, object]]:
     return None
 
 
-def compare_vm(raw_info: str, name: str, expected_cpus: str, expected_mem_raw: str, expected_disk_raw: str) -> str:
+def _to_bytes_deep(value: object) -> Optional[int]:
+    direct = to_bytes(value)
+    if direct is not None:
+        return direct
+
+    if not isinstance(value, dict):
+        return None
+
+    for key in ("total", "size", "limit", "max"):
+        if key in value:
+            parsed = _to_bytes_deep(value[key])
+            if parsed is not None:
+                return parsed
+
+    nested_totals: List[int] = []
+    for nested in value.values():
+        if isinstance(nested, dict):
+            parsed = _to_bytes_deep(nested)
+            if parsed is not None:
+                nested_totals.append(parsed)
+    if nested_totals:
+        return sum(nested_totals)
+    return None
+
+
+def _fetch_runtime_info_entry(name: str) -> Optional[Dict[str, object]]:
+    command = ["multipass", "info", name, "--format", "json"]
+    debug_log_command(command)
+    result = subprocess.run(command, check=False, capture_output=True, text=True)
+    debug_log_result(result)
+    if result.returncode != 0:
+        return None
+
+    try:
+        payload = json.loads(result.stdout)
+    except json.JSONDecodeError:
+        return None
+
+    info = payload.get("info")
+    if not isinstance(info, dict):
+        return None
+    entry = info.get(name)
+    if not isinstance(entry, dict):
+        return None
+    return entry
+
+
+def _extract_cpu_count(list_entry: Dict[str, object], info_entry: Optional[Dict[str, object]]) -> Optional[str]:
+    for source in (list_entry, info_entry):
+        if not source:
+            continue
+        for key in ("cpus", "cpu_count", "cpu-count"):
+            value = source.get(key)
+            if isinstance(value, (int, float)):
+                return str(int(value))
+            if isinstance(value, str) and value.strip():
+                return value.strip()
+        cpu_payload = source.get("cpu")
+        if isinstance(cpu_payload, dict):
+            count = cpu_payload.get("count")
+            if isinstance(count, (int, float)):
+                return str(int(count))
+            if isinstance(count, str) and count.strip():
+                return count.strip()
+    return None
+
+
+def _extract_ram_bytes(list_entry: Dict[str, object], info_entry: Optional[Dict[str, object]]) -> Optional[int]:
+    candidates: List[object] = [
+        list_entry.get("mem"),
+        list_entry.get("memory"),
+        list_entry.get("memory_total"),
+        list_entry.get("ram"),
+    ]
+    if info_entry:
+        candidates.extend(
+            [
+                info_entry.get("memory"),
+                info_entry.get("mem"),
+                info_entry.get("memory_total"),
+                info_entry.get("ram"),
+            ]
+        )
+
+    for candidate in candidates:
+        if candidate is None:
+            continue
+        parsed = _to_bytes_deep(candidate)
+        if parsed is not None:
+            return parsed
+    return None
+
+
+def _extract_disk_bytes(list_entry: Dict[str, object], info_entry: Optional[Dict[str, object]]) -> Optional[int]:
+    candidates: List[object] = [
+        list_entry.get("disk"),
+        list_entry.get("disk_total"),
+        list_entry.get("disk_space"),
+    ]
+    if info_entry:
+        candidates.extend(
+            [
+                info_entry.get("disk"),
+                info_entry.get("disks"),
+                info_entry.get("disk_total"),
+            ]
+        )
+
+    for candidate in candidates:
+        if candidate is None:
+            continue
+        parsed = _to_bytes_deep(candidate)
+        if parsed is not None:
+            return parsed
+    return None
+
+
+def _resource_size_matches(actual: Optional[int], expected: Optional[int]) -> bool:
+    if actual is None or expected is None:
+        return True
+    if actual == expected:
+        return True
+
+    # Multipass reports effective resource sizes that can be lower than requested.
+    delta = abs(actual - expected)
+    return (delta / max(expected, 1)) <= RESOURCE_SIZE_RELATIVE_TOLERANCE
+
+
+def compare_vm(
+    raw_info: str,
+    name: str,
+    expected_cpus: str,
+    expected_mem_raw: str,
+    expected_disk_raw: str,
+    runtime_info: Optional[Dict[str, object]] = None,
+) -> str:
     entry = load_existing_entry(raw_info, name)
     if entry is None:
         return "absent"
 
-    current_cpus = entry.get("cpus")
-    current_mem = to_bytes(entry.get("mem") or entry.get("memory") or entry.get("memory_total") or entry.get("ram"))
-    current_disk = to_bytes(entry.get("disk") or entry.get("disk_total") or entry.get("disk_space"))
+    runtime_entry = runtime_info or _fetch_runtime_info_entry(name)
+
+    current_cpus = _extract_cpu_count(entry, runtime_entry)
+    current_mem = _extract_ram_bytes(entry, runtime_entry)
+    current_disk = _extract_disk_bytes(entry, runtime_entry)
 
     expected_mem = to_bytes(expected_mem_raw)
     expected_disk = to_bytes(expected_disk_raw)
 
     mismatches: List[str] = []
-    if str(current_cpus) != str(expected_cpus):
+    if current_cpus is not None and str(current_cpus) != str(expected_cpus):
         mismatches.append("cpus")
-    if current_mem is not None and expected_mem is not None and current_mem != expected_mem:
+    if not _resource_size_matches(current_mem, expected_mem):
         mismatches.append("memory")
-    if current_disk is not None and expected_disk is not None and current_disk != expected_disk:
+    if not _resource_size_matches(current_disk, expected_disk):
         mismatches.append("disk")
 
     if mismatches:
@@ -101,12 +242,15 @@ def ensure_multipass_available() -> None:
 
 
 def fetch_existing_info() -> str:
-    result = subprocess.run([
+    command = [
         "multipass",
         "list",
         "--format",
         "json",
-    ], check=False, capture_output=True, text=True)
+    ]
+    debug_log_command(command)
+    result = subprocess.run(command, check=False, capture_output=True, text=True)
+    debug_log_result(result)
     if result.returncode != 0:
         raise MultipassError(result.stderr.strip() or tr("vm.list_failed"))
     return result.stdout
@@ -227,6 +371,39 @@ def _build_launch_command(vm_config: VmConfig, cloud_init_path: Optional[Path]) 
     return command
 
 
+def _is_transient_launch_error(stderr: str) -> bool:
+    normalized = stderr.lower()
+    return "remote" in normalized and "unknown or unreachable" in normalized
+
+
+def _warm_multipass_catalog() -> None:
+    command = ["multipass", "find"]
+    debug_log_command(command)
+    result = subprocess.run(command, check=False, capture_output=True, text=True)
+    debug_log_result(result)
+
+
+def _launch_with_retries(launch_cmd: List[str], max_attempts: int = 3) -> subprocess.CompletedProcess[str]:
+    last_result: Optional[subprocess.CompletedProcess[str]] = None
+    for attempt in range(1, max_attempts + 1):
+        debug_log_command(launch_cmd)
+        result = subprocess.run(launch_cmd, check=False, capture_output=True, text=True)
+        debug_log_result(result)
+        last_result = result
+        if result.returncode == 0:
+            return result
+
+        stderr = (result.stderr or "").strip()
+        if attempt < max_attempts and _is_transient_launch_error(stderr):
+            _warm_multipass_catalog()
+            time.sleep(min(2 * attempt, 5))
+            continue
+        return result
+
+    assert last_result is not None
+    return last_result
+
+
 def do_launch(vm_config: VmConfig, existing_info: str) -> str:
     comparison_result = compare_vm(
         existing_info,
@@ -248,7 +425,7 @@ def do_launch(vm_config: VmConfig, existing_info: str) -> str:
     cloud_init_path = _dump_cloud_init(vm_config.cloud_init)
     try:
         launch_cmd = _build_launch_command(vm_config, cloud_init_path)
-        launch_result = subprocess.run(launch_cmd, check=False, capture_output=True, text=True)
+        launch_result = _launch_with_retries(launch_cmd)
     finally:
         if cloud_init_path:
             try:
@@ -281,7 +458,9 @@ PROXYCHAINS_HELPER_REMOTE = f"{PROXYCHAINS_HELPER_REMOTE_DIR}/proxychains_common
 def ensure_proxychains_runner(vm: VmConfig) -> str:
     helper = Path(__file__).resolve().parent / "agent_scripts" / "proxychains_common.sh"
     mkdir_command = ["multipass", "exec", vm.name, "--", "mkdir", "-p", PROXYCHAINS_HELPER_REMOTE_DIR]
+    debug_log_command(mkdir_command)
     mkdir_result = subprocess.run(mkdir_command, check=False, capture_output=True, text=True)
+    debug_log_result(mkdir_result)
     if mkdir_result.returncode != 0:
         raise MultipassError(
             tr(
@@ -292,7 +471,9 @@ def ensure_proxychains_runner(vm: VmConfig) -> str:
             )
         )
     transfer_helper_command = ["multipass", "transfer", str(helper), f"{vm.name}:{PROXYCHAINS_HELPER_REMOTE}"]
+    debug_log_command(transfer_helper_command)
     transfer_helper_result = subprocess.run(transfer_helper_command, check=False, capture_output=True, text=True)
+    debug_log_result(transfer_helper_result)
     if transfer_helper_result.returncode != 0:
         raise MultipassError(
             tr(
@@ -305,7 +486,9 @@ def ensure_proxychains_runner(vm: VmConfig) -> str:
 
     runner = Path(__file__).resolve().parent / "run_with_proxychains.sh"
     transfer_command = ["multipass", "transfer", str(runner), f"{vm.name}:{PROXYCHAINS_RUNNER_REMOTE}"]
+    debug_log_command(transfer_command)
     transfer_result = subprocess.run(transfer_command, check=False, capture_output=True, text=True)
+    debug_log_result(transfer_result)
     if transfer_result.returncode != 0:
         raise MultipassError(
             tr(
@@ -317,7 +500,9 @@ def ensure_proxychains_runner(vm: VmConfig) -> str:
         )
 
     chmod_command = ["multipass", "exec", vm.name, "--", "chmod", "+x", PROXYCHAINS_RUNNER_REMOTE]
+    debug_log_command(chmod_command)
     chmod_result = subprocess.run(chmod_command, check=False, capture_output=True, text=True)
+    debug_log_result(chmod_result)
     if chmod_result.returncode != 0:
         raise MultipassError(
             tr(

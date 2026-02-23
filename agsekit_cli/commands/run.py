@@ -24,7 +24,8 @@ from ..config import ConfigError, load_agents_config, load_config, load_mounts_c
 from ..i18n import tr
 from ..vm import MultipassError
 from ..mounts import MountConfig
-from . import non_interactive_option
+from ..debug import debug_scope
+from . import debug_option, non_interactive_option
 
 DEFAULT_WORKDIR = Path("/home/ubuntu")
 
@@ -68,7 +69,7 @@ def _cli_entry_path() -> Path:
     help=tr("config.option_path"),
 )
 @click.option("--disable-backups", is_flag=True, help=tr("run.option_disable_backups"))
-@click.option("--debug", is_flag=True, help=tr("run.option_debug"))
+@debug_option
 @click.option("--skip-default-args", is_flag=True, help=tr("run.option_skip_default_args"))
 @click.option(
     "--proxychains",
@@ -133,59 +134,60 @@ def run_command(
 
     agent_command = agent_command_sequence(agent, agent_args, skip_default_args=skip_default_args)
 
-    click.echo(
-        tr("run.starting_agent", agent=agent.name, vm_name=vm_to_use, workdir=workdir)
-    )
-
-    try:
-        ensure_agent_binary_available(agent_command, vm_config, proxychains=proxychains, debug=debug)
-    except MultipassError as exc:
-        raise click.ClickException(str(exc))
-
-    backup_process = None
-    if not disable_backups and mount_entry is not None:
-        skip_first_repeated_backup = False
-        if not _has_existing_backup(mount_entry.backup):
-            click.echo(tr("run.first_backup", mount_name=mount_entry.source.name))
-            backup_once(mount_entry.source, mount_entry.backup, show_progress=True)
-            removed = clean_backups(
-                mount_entry.backup,
-                mount_entry.max_backups,
-                mount_entry.backup_clean_method,
-                interval_minutes=mount_entry.interval_minutes,
-            )
-            for path in removed:
-                click.echo(tr("backup_clean.removed_snapshot", path=path))
-            skip_first_repeated_backup = True
-
+    with debug_scope(debug):
         click.echo(
-            tr(
-                "run.starting_background_backups",
-                source=mount_entry.source,
-                destination=mount_entry.backup,
+            tr("run.starting_agent", agent=agent.name, vm_name=vm_to_use, workdir=workdir)
+        )
+
+        try:
+            ensure_agent_binary_available(agent_command, vm_config, proxychains=proxychains, debug=debug)
+        except MultipassError as exc:
+            raise click.ClickException(str(exc))
+
+        backup_process = None
+        if not disable_backups and mount_entry is not None:
+            skip_first_repeated_backup = False
+            if not _has_existing_backup(mount_entry.backup):
+                click.echo(tr("run.first_backup", mount_name=mount_entry.source.name))
+                backup_once(mount_entry.source, mount_entry.backup, show_progress=True)
+                removed = clean_backups(
+                    mount_entry.backup,
+                    mount_entry.max_backups,
+                    mount_entry.backup_clean_method,
+                    interval_minutes=mount_entry.interval_minutes,
+                )
+                for path in removed:
+                    click.echo(tr("backup_clean.removed_snapshot", path=path))
+                skip_first_repeated_backup = True
+
+            click.echo(
+                tr(
+                    "run.starting_background_backups",
+                    source=mount_entry.source,
+                    destination=mount_entry.backup,
+                )
             )
-        )
-        backup_process = start_backup_process(
-            mount_entry, _cli_entry_path(), skip_first=skip_first_repeated_backup, debug=debug
-        )
+            backup_process = start_backup_process(
+                mount_entry, _cli_entry_path(), skip_first=skip_first_repeated_backup, debug=debug
+            )
 
-    exit_code = 0
+        exit_code = 0
 
-    try:
-        exit_code = run_in_vm(vm_config, workdir, agent_command, env_vars, proxychains=proxychains, debug=debug)
-    except (ConfigError, MultipassError) as exc:
-        raise click.ClickException(str(exc))
-    finally:
-        if backup_process:
-            backup_process.terminate()
-            try:
-                backup_process.wait(timeout=5)
-            except subprocess.TimeoutExpired:
-                backup_process.kill()
+        try:
+            exit_code = run_in_vm(vm_config, workdir, agent_command, env_vars, proxychains=proxychains, debug=debug)
+        except (ConfigError, MultipassError) as exc:
+            raise click.ClickException(str(exc))
+        finally:
+            if backup_process:
+                backup_process.terminate()
+                try:
+                    backup_process.wait(timeout=5)
+                except subprocess.TimeoutExpired:
+                    backup_process.kill()
 
-            log_file = getattr(backup_process, "log_file", None)
-            if log_file:
-                log_file.close()
+                log_file = getattr(backup_process, "log_file", None)
+                if log_file:
+                    log_file.close()
 
     if exit_code != 0:
         click.echo(tr("run.error", cmd=agent_command))

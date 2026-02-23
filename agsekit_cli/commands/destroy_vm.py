@@ -7,24 +7,29 @@ from typing import Optional
 import click
 
 from ..config import ConfigError, load_config, load_vms_config, resolve_config_path
+from ..debug import debug_log_command, debug_log_result, debug_scope
 from ..interactive import is_interactive_terminal
 from ..i18n import tr
 from ..vm import MultipassError, ensure_multipass_available
-from . import non_interactive_option
+from . import debug_option, non_interactive_option
 
 
-def _delete_vm(vm_name: str) -> None:
-    result = subprocess.run(
-        ["multipass", "delete", vm_name], check=False, capture_output=True, text=True
-    )
+def _delete_vm(vm_name: str, *, debug: bool = False) -> None:
+    command = ["multipass", "delete", vm_name]
+    debug_log_command(command, enabled=debug)
+    result = subprocess.run(command, check=False, capture_output=True, text=True)
+    debug_log_result(result, enabled=debug)
     if result.returncode != 0:
         stderr = result.stderr.strip() or result.stdout.strip()
         details = f": {stderr}" if stderr else ""
         raise MultipassError(tr("destroy_vm.delete_failed", vm_name=vm_name, details=details))
 
 
-def _purge_deleted() -> None:
-    result = subprocess.run(["multipass", "purge"], check=False, capture_output=True, text=True)
+def _purge_deleted(*, debug: bool = False) -> None:
+    command = ["multipass", "purge"]
+    debug_log_command(command, enabled=debug)
+    result = subprocess.run(command, check=False, capture_output=True, text=True)
+    debug_log_result(result, enabled=debug)
     if result.returncode != 0:
         stderr = result.stderr.strip() or result.stdout.strip()
         details = f": {stderr}" if stderr else ""
@@ -44,11 +49,13 @@ def _purge_deleted() -> None:
     default=None,
     help=tr("config.option_path"),
 )
+@debug_option
 def destroy_vm_command(
     vm_name: Optional[str],
     all_vms: bool,
     yes: bool,
     config_path: Optional[str],
+    debug: bool,
     non_interactive: bool,
 ) -> None:
     """Удаляет одну или все Multipass ВМ."""
@@ -93,20 +100,21 @@ def destroy_vm_command(
             click.echo(tr("destroy_vm.cancelled"))
             return
 
-    try:
-        ensure_multipass_available()
-    except MultipassError as exc:
-        raise click.ClickException(str(exc))
-
-    for target in targets:
-        click.echo(tr("destroy_vm.deleting", vm_name=target))
+    with debug_scope(debug):
         try:
-            _delete_vm(target)
+            ensure_multipass_available()
         except MultipassError as exc:
             raise click.ClickException(str(exc))
-        click.echo(tr("destroy_vm.deleted", vm_name=target))
 
-    try:
-        _purge_deleted()
-    except MultipassError as exc:
-        raise click.ClickException(str(exc))
+        for target in targets:
+            click.echo(tr("destroy_vm.deleting", vm_name=target))
+            try:
+                _delete_vm(target, debug=debug)
+            except MultipassError as exc:
+                raise click.ClickException(str(exc))
+            click.echo(tr("destroy_vm.deleted", vm_name=target))
+
+        try:
+            _purge_deleted(debug=debug)
+        except MultipassError as exc:
+            raise click.ClickException(str(exc))

@@ -1,5 +1,11 @@
 # Agent-Safety-Kit versions history
 
+## 1.1.2 - Debug coverage and stop-vm reliability
+
+* Added the `--debug` argument across Multipass-related CLI commands to print executed commands, exit codes, and command output
+* Updated host integration tests for VM lifecycle and related command behavior
+* Made `stop-vm` more reliable: it now powers off the guest from inside the VM, waits up to 30 seconds, and falls back to `multipass stop --force` if needed
+
 ## 1.1.1 - Pip-upgrade output improvements
 
 * Improved `agsekit pip-upgrade` result messages: now it reports old/new versions when upgraded and explicitly says when the current version is already the latest

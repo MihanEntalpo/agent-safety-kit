@@ -10,12 +10,13 @@ from ruamel.yaml import YAML
 from ruamel.yaml.comments import CommentedMap
 from ruamel.yaml.error import YAMLError
 
-from . import non_interactive_option
+from . import debug_option, non_interactive_option
 from ..config import ConfigError, MountConfig, load_mounts_config, resolve_config_path
 from ..i18n import tr
 from ..interactive import is_interactive_terminal
 from ..mounts import normalize_path, umount_directory
 from ..vm import MultipassError
+from ..debug import debug_scope
 
 
 def _load_config_with_comments(config_path: Path) -> tuple[YAML, CommentedMap]:
@@ -115,61 +116,64 @@ def _select_mount(
     default=None,
     help=tr("config.option_path"),
 )
+@debug_option
 def removemount_command(
     source_dir: Optional[Path],
     vm_name: Optional[str],
     assume_yes: bool,
     config_path: Optional[str],
+    debug: bool,
     non_interactive: bool,
 ) -> None:
     """Remove a mount entry from the YAML config."""
     interactive = is_interactive_terminal() and not non_interactive
 
-    resolved_config_path = resolve_config_path(Path(config_path) if config_path else None)
-    if not resolved_config_path.exists():
-        raise click.ClickException(tr("config.file_not_found", path=resolved_config_path))
+    with debug_scope(debug):
+        resolved_config_path = resolve_config_path(Path(config_path) if config_path else None)
+        if not resolved_config_path.exists():
+            raise click.ClickException(tr("config.file_not_found", path=resolved_config_path))
 
-    yaml, config_data = _load_config_with_comments(resolved_config_path)
-    mounts_section = config_data.get("mounts")
-    if mounts_section is None:
-        raise click.ClickException(tr("removemount.none_configured"))
-    if not isinstance(mounts_section, list):
-        raise click.ClickException(tr("config.mounts_not_list"))
+        yaml, config_data = _load_config_with_comments(resolved_config_path)
+        mounts_section = config_data.get("mounts")
+        if mounts_section is None:
+            raise click.ClickException(tr("removemount.none_configured"))
+        if not isinstance(mounts_section, list):
+            raise click.ClickException(tr("config.mounts_not_list"))
 
-    try:
-        mounts = load_mounts_config(config_data)
-    except ConfigError as exc:
-        raise click.ClickException(str(exc))
+        try:
+            mounts = load_mounts_config(config_data)
+        except ConfigError as exc:
+            raise click.ClickException(str(exc))
 
-    mount_index, selected_mount = _select_mount(mounts, source_dir, vm_name, interactive)
+        mount_index, selected_mount = _select_mount(mounts, source_dir, vm_name, interactive)
 
-    click.echo(
-        tr(
-            "removemount.summary",
-            source=selected_mount.source,
-            vm_name=selected_mount.vm_name,
-            target=selected_mount.target,
+        click.echo(
+            tr(
+                "removemount.summary",
+                source=selected_mount.source,
+                vm_name=selected_mount.vm_name,
+                target=selected_mount.target,
+            )
         )
-    )
 
-    if not assume_yes:
-        if not interactive:
-            raise click.ClickException(tr("removemount.confirm_required"))
-        if not click.confirm(tr("removemount.confirm_remove", path=resolved_config_path), default=True):
-            click.echo(tr("removemount.cancelled"))
-            return
+        if not assume_yes:
+            if not interactive:
+                raise click.ClickException(tr("removemount.confirm_required"))
+            if not click.confirm(tr("removemount.confirm_remove", path=resolved_config_path), default=True):
+                click.echo(tr("removemount.cancelled"))
+                return
 
-    try:
-        umount_directory(selected_mount)
-    except MultipassError as exc:
-        raise click.ClickException(str(exc))
-    click.echo(tr("mounts.unmounted", vm_name=selected_mount.vm_name, target=selected_mount.target))
+        try:
+            umount_directory(selected_mount)
+        except MultipassError as exc:
+            raise click.ClickException(str(exc))
+        click.echo(tr("mounts.unmounted", vm_name=selected_mount.vm_name, target=selected_mount.target))
 
-    del mounts_section[mount_index]
+        del mounts_section[mount_index]
 
-    config_backup_path = _backup_config(resolved_config_path)
-    with resolved_config_path.open("w", encoding="utf-8") as handle:
-        yaml.dump(config_data, handle)
+        config_backup_path = _backup_config(resolved_config_path)
+        with resolved_config_path.open("w", encoding="utf-8") as handle:
+            yaml.dump(config_data, handle)
 
-    click.echo(tr("removemount.backup_created", path=config_backup_path))
-    click.echo(tr("removemount.removed", path=resolved_config_path))
+        click.echo(tr("removemount.backup_created", path=config_backup_path))
+        click.echo(tr("removemount.removed", path=resolved_config_path))

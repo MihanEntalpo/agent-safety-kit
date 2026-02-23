@@ -8,10 +8,11 @@ import click
 import questionary
 
 from ..config import ConfigError, load_config, load_vms_config, resolve_config_path
+from ..debug import debug_log_command, debug_log_result, debug_scope
 from ..interactive import is_interactive_terminal
 from ..i18n import tr
 from ..vm import MultipassError, ensure_multipass_available
-from . import non_interactive_option
+from . import debug_option, non_interactive_option
 
 
 def _select_vm(vms: Dict[str, object]) -> str:
@@ -33,7 +34,8 @@ def _select_vm(vms: Dict[str, object]) -> str:
     default=None,
     help=tr("config.option_path"),
 )
-def shell_command(vm_name: Optional[str], config_path: Optional[str], non_interactive: bool) -> None:
+@debug_option
+def shell_command(vm_name: Optional[str], config_path: Optional[str], debug: bool, non_interactive: bool) -> None:
     """Открывает интерактивный shell в Multipass ВМ."""
 
     resolved_path = resolve_config_path(Path(config_path) if config_path else None)
@@ -58,15 +60,17 @@ def shell_command(vm_name: Optional[str], config_path: Optional[str], non_intera
     if target_vm not in vms:
         raise click.ClickException(tr("shell.vm_missing", vm_name=target_vm))
 
-    try:
-        ensure_multipass_available()
-    except MultipassError as exc:
-        raise click.ClickException(str(exc))
+    with debug_scope(debug):
+        try:
+            ensure_multipass_available()
+        except MultipassError as exc:
+            raise click.ClickException(str(exc))
 
-    click.echo(tr("shell.opening", vm_name=target_vm))
-    vm_config = vms[target_vm]
+        click.echo(tr("shell.opening", vm_name=target_vm))
 
-    command = ["multipass", "shell", target_vm]
-    result = subprocess.run(command, check=False)
-    if result.returncode != 0:
-        raise SystemExit(result.returncode)
+        command = ["multipass", "shell", target_vm]
+        debug_log_command(command, enabled=debug)
+        result = subprocess.run(command, check=False)
+        debug_log_result(result, enabled=debug)
+        if result.returncode != 0:
+            raise SystemExit(result.returncode)

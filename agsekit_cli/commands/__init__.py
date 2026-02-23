@@ -12,4 +12,10 @@ non_interactive_option = click.option(
     help=tr("cli.non_interactive_help"),
 )
 
-__all__ = ["non_interactive_option"]
+debug_option = click.option(
+    "--debug",
+    is_flag=True,
+    help=tr("debug.option"),
+)
+
+__all__ = ["debug_option", "non_interactive_option"]

@@ -5,6 +5,7 @@ from pathlib import Path
 from typing import Iterable, List, Optional, Union
 
 from .config import ConfigError, MountConfig, load_config, load_mounts_config, resolve_config_path
+from .debug import debug_log_command, debug_log_result
 from .i18n import tr
 from .vm import MultipassError, ensure_multipass_available
 
@@ -60,7 +61,9 @@ def _is_already_mounted_error(stderr: str) -> bool:
 
 def _run_multipass(command: list[str], error_message: str, *, allow_already_mounted: bool = False) -> None:
     ensure_multipass_available()
+    debug_log_command(command)
     result = subprocess.run(command, check=False, capture_output=True, text=True)
+    debug_log_result(result)
     if result.returncode != 0:
         stderr = result.stderr.strip()
         if allow_already_mounted and stderr and _is_already_mounted_error(stderr):

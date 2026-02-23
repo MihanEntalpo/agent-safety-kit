@@ -269,9 +269,28 @@
    - если версия изменилась: `agsekit обновлён с версии X на версию Y`;
    - если версия не изменилась: `agsekit уже и так максимальной версии - X`.
 
+### 8.2.1 Debug-режим для Multipass-команд
+
+Для всех команд, которые взаимодействуют с `multipass`, поддерживается флаг `--debug`.
+
+Что делает `--debug`:
+- печатает запускаемую внешнюю команду;
+- печатает код завершения;
+- при наличии — печатает `stdout`/`stderr`.
+
+Список команд с поддержкой `--debug`:
+- `create-vm`, `create-vms`
+- `start-vm`, `stop-vm`, `destroy-vm`
+- `mount`, `umount`, `addmount`, `removemount`
+- `install-agents`
+- `run`
+- `shell`, `ssh`
+- `portforward`
+- `status`
+
 ### 8.3 Мониторинг статуса
 
-#### `agsekit status [--config <path>]`
+#### `agsekit status [--config <path>] [--debug]`
 Зачем:
 - получить единый «снимок состояния» инфраструктуры без ручного запуска нескольких команд.
 
@@ -293,13 +312,15 @@
 
 ### 8.4 Жизненный цикл VM
 
-#### `agsekit create-vm [vm_name]`
+#### `agsekit create-vm [vm_name] [--debug]`
 Зачем:
 - поднять одну VM из конфига и довести её до состояния «готова для работы агента».
 
 Что делает:
 - выбирает VM (auto-select, если в конфиге одна);
 - сравнивает существующую VM по `cpu/ram/disk`;
+  - `cpu` сверяется строго;
+  - `ram/disk` сверяются с допуском (относительный tolerance), потому что Multipass часто возвращает эффективный объём чуть меньше запрошенного;
 - если VM отсутствует — создаёт;
 - если параметры отличаются — сообщает mismatch (ресурсы не меняет);
 - затем всегда запускает подготовку VM:
@@ -309,21 +330,22 @@
   - install base packages;
   - install bundles.
 
-#### `agsekit create-vms`
+#### `agsekit create-vms [--debug]`
 - то же самое для всех VM из конфига.
 
-#### `agsekit start-vm`, `stop-vm`, `destroy-vm`
+#### `agsekit start-vm`, `stop-vm`, `destroy-vm` (`--debug` поддерживается)
 Зачем:
 - оперативное управление жизненным циклом VM.
 
 Особенности:
 - поддержка single/all режимов;
 - если VM одна — имя можно не указывать;
+- `stop-vm` выключает гостевую ОС изнутри через `multipass exec <vm> -- sudo poweroff`, ждёт 30 секунд и при незавершённом shutdown выполняет `multipass stop --force <vm>`;
 - `destroy-vm` требует подтверждение (если нет `-y`), затем `delete` + `purge`.
 
 ### 8.5 Mount management
 
-#### `agsekit mount [source_dir] [--all]`
+#### `agsekit mount [source_dir] [--all] [--debug]`
 Зачем:
 - примонтировать проект в VM перед запуском агента.
 
@@ -332,10 +354,10 @@
 - поддержка выбора по подпути внутри source;
 - при already mounted выдает информативное сообщение и не падает.
 
-#### `agsekit umount [source_dir] [--all]`
+#### `agsekit umount [source_dir] [--all] [--debug]`
 - размонтирование по тем же правилам выбора mount.
 
-#### `agsekit addmount`
+#### `agsekit addmount [--debug]`
 Зачем:
 - добавить mount entry в YAML безопасно и без ручного редактирования.
 
@@ -347,7 +369,7 @@
 - сохраняет YAML с комментариями (`ruamel.yaml`);
 - опционально выполняет mount сразу (`--mount`).
 
-#### `agsekit removemount`
+#### `agsekit removemount [--debug]`
 Зачем:
 - удалить mount entry безопасно и не оставить «битое» состояние.
 
@@ -403,7 +425,7 @@
 
 ### 8.7 Установка и запуск агентов
 
-#### `agsekit install-agents`
+#### `agsekit install-agents [--debug]`
 Зачем:
 - установить agent CLI в VM через поддерживаемый playbook.
 
@@ -413,7 +435,7 @@
 - запускает Ansible installer;
 - поддерживает proxy override на один запуск (`--proxychains`).
 
-#### `agsekit run`
+#### `agsekit run [--debug]`
 Зачем:
 - основной пользовательский сценарий: запустить агента внутри VM в нужной рабочей директории с безопасными backup-процессами.
 
@@ -428,13 +450,13 @@
 
 ### 8.8 Операционный доступ и сервисный режим
 
-#### `agsekit shell`
+#### `agsekit shell [--debug]`
 - интерактивный вход в VM (`multipass shell`).
 
-#### `agsekit ssh`
+#### `agsekit ssh [--debug]`
 - SSH в VM с ключом agsekit и прямой передачей доп. аргументов.
 
-#### `agsekit portforward`
+#### `agsekit portforward [--debug]`
 - поднимает и мониторит SSH-туннели по `port-forwarding` правилам из конфига.
 
 #### `agsekit systemd install/uninstall`

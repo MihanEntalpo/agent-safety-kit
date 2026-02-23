@@ -12,8 +12,13 @@ REPO_ROOT = Path(__file__).resolve().parents[2]
 SSH_DIR = Path.home() / ".config" / "agsekit" / "ssh"
 
 
-def _sudo_prefix() -> list[str]:
-    return [] if os.geteuid() == 0 else ["sudo", "-n"]
+def _clean_env(overrides: Optional[dict[str, str]] = None) -> dict[str, str]:
+    env = os.environ.copy()
+    for key in ("LD_PRELOAD", "LD_LIBRARY_PATH", "DYLD_INSERT_LIBRARIES", "PROXYCHAINS_CONF_FILE"):
+        env.pop(key, None)
+    if overrides:
+        env.update(overrides)
+    return env
 
 
 def _run(
@@ -22,23 +27,8 @@ def _run(
     cwd: Optional[Path] = None,
     env: Optional[dict[str, str]] = None,
 ) -> subprocess.CompletedProcess[str]:
-    return subprocess.run(command, check=check, text=True, capture_output=True, cwd=cwd, env=env)
-
-
-def _run_sudo(command: list[str], check: bool = True) -> subprocess.CompletedProcess[str]:
-    return _run(_sudo_prefix() + command, check=check)
-
-
-def _dpkg_installed(package: str) -> bool:
-    result = subprocess.run(
-        ["dpkg", "-s", package],
-        check=False,
-        stdout=subprocess.DEVNULL,
-        stderr=subprocess.DEVNULL,
-        text=True,
-    )
-    return result.returncode == 0
-
+    effective_env = _clean_env(env)
+    return subprocess.run(command, check=check, text=True, capture_output=True, cwd=cwd, env=effective_env)
 
 def _require_host_tools() -> None:
     if shutil.which("apt-get") is None:
@@ -61,21 +51,28 @@ def _command_path(name: str) -> str:
     return shutil.which(name) or f"/snap/bin/{name}"
 
 
+def _skip_if_multipass_unusable(result: subprocess.CompletedProcess[str]) -> None:
+    stderr = (result.stderr or "").strip()
+    stdout = (result.stdout or "").strip()
+    details = "\n".join(part for part in (stderr, stdout) if part)
+    markers = (
+        "execv failed",
+        "snap-confine is packaged without necessary permissions",
+    )
+    if any(marker in details for marker in markers):
+        pytest.skip(f"multipass is installed but not executable in this environment: {details}")
+
+
 @pytest.mark.host_integration
 def test_prepare_installs_multipass_and_generates_keys():
     _require_host_tools()
 
-    if _dpkg_installed("snapd"):
-        _run_sudo(["apt-get", "remove", "-y", "snapd"])
-
-    assert not _dpkg_installed("snapd")
-
     snap_bin = Path(_command_path("snap"))
     if snap_bin.exists():
-        snap_pre = subprocess.run([str(snap_bin), "--version"], check=False, text=True, capture_output=True)
-        assert snap_pre.returncode != 0
+        # The test must be non-destructive for host integration runs.
+        _run([str(snap_bin), "--version"], check=False)
 
-    env = os.environ.copy()
+    env = _clean_env()
     env["AGSEKIT_LANG"] = "en"
     _run(
         [sys.executable, str(REPO_ROOT / "agsekit"), "prepare", "--non-interactive"],
@@ -86,7 +83,9 @@ def test_prepare_installs_multipass_and_generates_keys():
 
     multipass_bin = Path(_command_path("multipass"))
     assert multipass_bin.exists()
-    _run([str(multipass_bin), "--version"], check=True)
+    multipass_check = _run([str(multipass_bin), "--version"], check=False)
+    _skip_if_multipass_unusable(multipass_check)
+    assert multipass_check.returncode == 0, multipass_check.stderr or multipass_check.stdout
 
     snap_bin = Path(_command_path("snap"))
     assert snap_bin.exists()
