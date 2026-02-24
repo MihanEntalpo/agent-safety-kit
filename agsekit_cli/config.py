@@ -31,6 +31,7 @@ class MountConfig:
     max_backups: int = 100
     backup_clean_method: str = "thin"
     vm_name: str = ""
+    allowed_agents: Optional[List[str]] = None
 
 
 @dataclass
@@ -374,6 +375,41 @@ def _normalize_backup_clean_method(raw_value: Any, index: int) -> str:
     raise ConfigError(tr("config.mount_backup_clean_method_unknown", index=index, value=raw_value))
 
 
+def _normalize_allowed_agents(
+    raw_value: Any,
+    *,
+    index: int,
+    known_agents: set[str],
+) -> Optional[List[str]]:
+    if raw_value is None:
+        return None
+    if not isinstance(raw_value, list):
+        raise ConfigError(tr("config.mount_allowed_agents_not_list", index=index))
+
+    normalized: List[str] = []
+    for item_index, item in enumerate(raw_value):
+        if not isinstance(item, str) or not item.strip():
+            raise ConfigError(
+                tr(
+                    "config.mount_allowed_agents_item_invalid",
+                    index=index,
+                    item_index=item_index,
+                )
+            )
+
+        agent_name = item.strip()
+        if agent_name not in known_agents:
+            raise ConfigError(
+                tr(
+                    "config.mount_allowed_agents_unknown_agent",
+                    index=index,
+                    agent_name=agent_name,
+                )
+            )
+        normalized.append(agent_name)
+    return normalized
+
+
 def load_mounts_config(config: Dict[str, Any]) -> List[MountConfig]:
     raw_mounts = config.get("mounts") or []
     if not isinstance(raw_mounts, list):
@@ -382,6 +418,9 @@ def load_mounts_config(config: Dict[str, Any]) -> List[MountConfig]:
     default_vm = _default_vm_name(config)
     if raw_mounts and default_vm is None:
         raise ConfigError(tr("config.mounts_missing_vms"))
+
+    raw_agents = config.get("agents")
+    known_agents = {str(name) for name in raw_agents.keys()} if isinstance(raw_agents, dict) else set()
 
     mounts: List[MountConfig] = []
     for index, entry in enumerate(raw_mounts):
@@ -403,6 +442,11 @@ def load_mounts_config(config: Dict[str, Any]) -> List[MountConfig]:
         interval_minutes = _normalize_interval(entry.get("interval"))
         max_backups = _normalize_max_backups(entry.get("max_backups"), index + 1)
         backup_clean_method = _normalize_backup_clean_method(entry.get("backup_clean_method"), index + 1)
+        allowed_agents = _normalize_allowed_agents(
+            entry.get("allowed_agents"),
+            index=index + 1,
+            known_agents=known_agents,
+        )
 
         mounts.append(
             MountConfig(
@@ -413,6 +457,7 @@ def load_mounts_config(config: Dict[str, Any]) -> List[MountConfig]:
                 max_backups=max_backups,
                 backup_clean_method=backup_clean_method,
                 vm_name=str(vm_name),
+                allowed_agents=allowed_agents,
             )
         )
 

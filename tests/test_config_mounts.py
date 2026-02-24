@@ -57,3 +57,50 @@ def test_mount_respects_explicit_vm():
 
     mounts = load_mounts_config(config)
     assert mounts[0].vm_name == "second"
+
+
+def test_mount_accepts_allowed_agents():
+    config = {
+        "vms": {"agent": {"cpu": 1, "ram": "1G", "disk": "5G"}},
+        "agents": {
+            "qwen": {"type": "qwen"},
+            "codex": {"type": "codex"},
+        },
+        "mounts": [{"source": "/data", "allowed_agents": ["qwen", "codex"]}],
+    }
+
+    mounts = load_mounts_config(config)
+    assert mounts[0].allowed_agents == ["qwen", "codex"]
+
+
+def test_mount_rejects_non_list_allowed_agents():
+    config = {
+        "vms": {"agent": {"cpu": 1, "ram": "1G", "disk": "5G"}},
+        "agents": {"qwen": {"type": "qwen"}},
+        "mounts": [{"source": "/data", "allowed_agents": "qwen"}],
+    }
+
+    with pytest.raises(ConfigError):
+        load_mounts_config(config)
+
+
+def test_mount_rejects_invalid_allowed_agents_item():
+    config = {
+        "vms": {"agent": {"cpu": 1, "ram": "1G", "disk": "5G"}},
+        "agents": {"qwen": {"type": "qwen"}},
+        "mounts": [{"source": "/data", "allowed_agents": ["qwen", ""]}],
+    }
+
+    with pytest.raises(ConfigError):
+        load_mounts_config(config)
+
+
+def test_mount_rejects_unknown_allowed_agent():
+    config = {
+        "vms": {"agent": {"cpu": 1, "ram": "1G", "disk": "5G"}},
+        "agents": {"qwen": {"type": "qwen"}},
+        "mounts": [{"source": "/data", "allowed_agents": ["codex"]}],
+    }
+
+    with pytest.raises(ConfigError):
+        load_mounts_config(config)

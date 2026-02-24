@@ -1,5 +1,9 @@
 # Agent-Safety-Kit versions history
 
+## 1.1.5 - Mount-level agent restrictions
+
+* Added `mounts[].allowed_agents` to restrict which configured agents can run from a mount source path (including its subdirectories)
+
 ## 1.1.4 - Agent-level proxychains override
 
 * Added support for overriding proxychains at the agent level (`agents.<name>.proxychains`), including explicit empty-string override to disable VM-level proxychains for a specific agent

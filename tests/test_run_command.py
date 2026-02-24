@@ -23,12 +23,18 @@ def _write_config(
     vm_proxychains: Optional[str] = None,
     agent_proxychains: Optional[str] = None,
     agent_proxychains_set: bool = False,
+    mount_allowed_agents: Optional[list[str]] = None,
 ) -> None:
     proxychains_line = f"    proxychains: {json.dumps(vm_proxychains)}\n" if vm_proxychains is not None else ""
     agent_proxychains_line = ""
     if agent_proxychains_set:
         value = "" if agent_proxychains is None else agent_proxychains
         agent_proxychains_line = f"    proxychains: {json.dumps(value)}\n"
+    allowed_agents_line = (
+        f"    allowed_agents: {json.dumps(mount_allowed_agents)}\n"
+        if mount_allowed_agents is not None
+        else ""
+    )
     config_path.write_text(
         f"""
 vms:
@@ -40,7 +46,7 @@ vms:
   - source: {source}
     target: /home/ubuntu/project
     vm: agent
-    interval: 3
+{allowed_agents_line if allowed_agents_line else ''}    interval: 3
     backup: {source.parent / "backups"}
 agents:
   qwen:
@@ -392,3 +398,72 @@ def test_run_command_agent_empty_proxychains_disables_vm_proxy(monkeypatch, tmp_
     assert result.exit_code == 0
     assert calls["proxychains"] == ""
     assert checks["proxychains"] == ""
+
+
+def test_run_command_rejects_agent_outside_mount_allowed_agents(monkeypatch, tmp_path):
+    source = tmp_path / "project"
+    config_path = tmp_path / "config.yaml"
+    _write_config(config_path, source, mount_allowed_agents=["codex"])
+
+    called = {"run_in_vm": False}
+
+    def fake_run_in_vm(*_args, **_kwargs):
+        called["run_in_vm"] = True
+        return 0
+
+    monkeypatch.setattr(run_module, "_has_existing_backup", lambda *_: True)
+    monkeypatch.setattr(run_module, "run_in_vm", fake_run_in_vm)
+    monkeypatch.setattr(run_module, "start_backup_process", lambda *_, **__: None)
+    monkeypatch.setattr(run_module, "ensure_agent_binary_available", lambda *_, **__: None)
+    monkeypatch.setattr(run_module, "backup_once", lambda *_, **__: None)
+
+    runner = CliRunner()
+    result = runner.invoke(run_command, ["qwen", str(source), "--config", str(config_path)])
+
+    assert result.exit_code != 0
+    assert "allowed_agents" in result.output
+    assert called["run_in_vm"] is False
+
+
+def test_run_command_allows_agent_from_mount_allowed_agents(monkeypatch, tmp_path):
+    source = tmp_path / "project"
+    config_path = tmp_path / "config.yaml"
+    _write_config(config_path, source, mount_allowed_agents=["qwen"])
+
+    called = {"run_in_vm": False}
+
+    def fake_run_in_vm(*_args, **_kwargs):
+        called["run_in_vm"] = True
+        return 0
+
+    monkeypatch.setattr(run_module, "_has_existing_backup", lambda *_: True)
+    monkeypatch.setattr(run_module, "run_in_vm", fake_run_in_vm)
+    monkeypatch.setattr(run_module, "start_backup_process", lambda *_, **__: None)
+    monkeypatch.setattr(run_module, "ensure_agent_binary_available", lambda *_, **__: None)
+    monkeypatch.setattr(run_module, "backup_once", lambda *_, **__: None)
+
+    runner = CliRunner()
+    result = runner.invoke(run_command, ["qwen", str(source), "--config", str(config_path)])
+
+    assert result.exit_code == 0
+    assert called["run_in_vm"] is True
+
+
+def test_run_command_rejects_agent_in_mount_subdirectory_when_not_allowed(monkeypatch, tmp_path):
+    source = tmp_path / "project"
+    nested = source / "nested" / "inner"
+    nested.mkdir(parents=True)
+    config_path = tmp_path / "config.yaml"
+    _write_config(config_path, source, mount_allowed_agents=["codex"])
+
+    monkeypatch.setattr(run_module, "_has_existing_backup", lambda *_: True)
+    monkeypatch.setattr(run_module, "run_in_vm", lambda *_args, **_kwargs: 0)
+    monkeypatch.setattr(run_module, "start_backup_process", lambda *_, **__: None)
+    monkeypatch.setattr(run_module, "ensure_agent_binary_available", lambda *_, **__: None)
+    monkeypatch.setattr(run_module, "backup_once", lambda *_, **__: None)
+
+    runner = CliRunner()
+    result = runner.invoke(run_command, ["qwen", str(nested), "--config", str(config_path)])
+
+    assert result.exit_code != 0
+    assert "allowed_agents" in result.output

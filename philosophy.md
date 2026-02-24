@@ -123,6 +123,7 @@ Its limitations (for example, no RPM-native distributions) are considered accept
 - User data is not directly exposed.
 - Potentially dangerous operations happen inside the VM.
 - Automatic backup is built in.
+- Data-sharing boundaries must be enforceable per directory: mounts can explicitly allow only selected agent profiles (for example, self-hosted only for NDA-sensitive folders).
 
 ### 5.2. State Transparency
 
@@ -206,6 +207,7 @@ Future direction:
 5. Users should not have to become DevOps engineers just to run an agent safely.
 6. Safety, transparency, and control are more important than maximum performance.
 7. Backups should be automatic and mandatory by default.
+8. Access to sensitive project folders must be constrained by policy, not by user memory.
 
 ---
 

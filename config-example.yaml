@@ -22,6 +22,7 @@ mounts:
   - source: /host/path/project            # путь к исходной папке на хосте
     target: /home/ubuntu/project          # точка монтирования внутри ВМ; если не указана, будет /home/ubuntu/<имя_папки_source>
     backup: /host/backups/project         # каталог для бэкапов; если не указан, будет backups-<имя_папки> рядом с source
+    allowed_agents: [qwen, codex]         # опционально: запуск из этой папки и подпапок разрешён только указанным агентам
     interval: 5                           # интервал бэкапа в минутах; по умолчанию 5
     max_backups: 100                      # сколько снапшотов хранить; по умолчанию 100
     backup_clean_method: thin             # метод очистки (tail или thin); по умолчанию thin
