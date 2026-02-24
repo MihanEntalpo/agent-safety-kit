@@ -1,3 +1,4 @@
+import json
 from pathlib import Path
 import sys
 from typing import Dict, Optional
@@ -14,8 +15,20 @@ import agsekit_cli.commands.run as run_module
 from agsekit_cli.commands.run import run_command
 
 
-def _write_config(config_path: Path, source: Path, *, agent_type: str = "qwen", vm_proxychains: Optional[str] = None) -> None:
-    proxychains_line = f"    proxychains: {vm_proxychains}\n" if vm_proxychains is not None else ""
+def _write_config(
+    config_path: Path,
+    source: Path,
+    *,
+    agent_type: str = "qwen",
+    vm_proxychains: Optional[str] = None,
+    agent_proxychains: Optional[str] = None,
+    agent_proxychains_set: bool = False,
+) -> None:
+    proxychains_line = f"    proxychains: {json.dumps(vm_proxychains)}\n" if vm_proxychains is not None else ""
+    agent_proxychains_line = ""
+    if agent_proxychains_set:
+        value = "" if agent_proxychains is None else agent_proxychains
+        agent_proxychains_line = f"    proxychains: {json.dumps(value)}\n"
     config_path.write_text(
         f"""
 vms:
@@ -32,6 +45,7 @@ vms:
 agents:
   qwen:
     type: {agent_type}
+{agent_proxychains_line if agent_proxychains_line else ''}    vm: agent
     env:
       TOKEN: abc
 """,
@@ -253,7 +267,13 @@ def test_run_command_resolves_relative_path_inside_mount(monkeypatch, tmp_path, 
 def test_run_command_passes_proxychains_override(monkeypatch, tmp_path):
     source = tmp_path / "project"
     config_path = tmp_path / "config.yaml"
-    _write_config(config_path, source, vm_proxychains="socks5://127.0.0.1:8080")
+    _write_config(
+        config_path,
+        source,
+        vm_proxychains="socks5://127.0.0.1:8080",
+        agent_proxychains="http://192.168.1.1:3128",
+        agent_proxychains_set=True,
+    )
 
     calls: Dict[str, object] = {}
     checks: Dict[str, object] = {}
@@ -293,6 +313,82 @@ def test_run_command_passes_proxychains_override(monkeypatch, tmp_path):
         run_command,
         ["qwen", str(source), "--config", str(config_path), "--proxychains", ""],
     )
+    assert result.exit_code == 0
+    assert calls["proxychains"] == ""
+    assert checks["proxychains"] == ""
+
+
+def test_run_command_uses_agent_proxychains_override(monkeypatch, tmp_path):
+    source = tmp_path / "project"
+    config_path = tmp_path / "config.yaml"
+    _write_config(
+        config_path,
+        source,
+        vm_proxychains="socks5://127.0.0.1:8080",
+        agent_proxychains="http://192.168.1.1:3128",
+        agent_proxychains_set=True,
+    )
+
+    calls: Dict[str, object] = {}
+    checks: Dict[str, object] = {}
+
+    def fake_run_in_vm(vm_config, workdir, command, env_vars, proxychains=None, debug=False):
+        calls["proxychains"] = proxychains
+        return 0
+
+    def fake_ensure_agent_binary_available(agent_command, vm_config, proxychains=None, debug=False):
+        checks["proxychains"] = proxychains
+
+    monkeypatch.setattr(run_module, "_has_existing_backup", lambda *_: True)
+    monkeypatch.setattr(run_module, "run_in_vm", fake_run_in_vm)
+    monkeypatch.setattr(run_module, "start_backup_process", lambda *_, **__: None)
+    monkeypatch.setattr(run_module, "ensure_agent_binary_available", fake_ensure_agent_binary_available)
+    monkeypatch.setattr(run_module, "backup_once", lambda *_, **__: None)
+
+    runner = CliRunner()
+    result = runner.invoke(
+        run_command,
+        ["qwen", str(source), "--config", str(config_path)],
+    )
+
+    assert result.exit_code == 0
+    assert calls["proxychains"] == "http://192.168.1.1:3128"
+    assert checks["proxychains"] == "http://192.168.1.1:3128"
+
+
+def test_run_command_agent_empty_proxychains_disables_vm_proxy(monkeypatch, tmp_path):
+    source = tmp_path / "project"
+    config_path = tmp_path / "config.yaml"
+    _write_config(
+        config_path,
+        source,
+        vm_proxychains="socks5://127.0.0.1:8080",
+        agent_proxychains="",
+        agent_proxychains_set=True,
+    )
+
+    calls: Dict[str, object] = {}
+    checks: Dict[str, object] = {}
+
+    def fake_run_in_vm(vm_config, workdir, command, env_vars, proxychains=None, debug=False):
+        calls["proxychains"] = proxychains
+        return 0
+
+    def fake_ensure_agent_binary_available(agent_command, vm_config, proxychains=None, debug=False):
+        checks["proxychains"] = proxychains
+
+    monkeypatch.setattr(run_module, "_has_existing_backup", lambda *_: True)
+    monkeypatch.setattr(run_module, "run_in_vm", fake_run_in_vm)
+    monkeypatch.setattr(run_module, "start_backup_process", lambda *_, **__: None)
+    monkeypatch.setattr(run_module, "ensure_agent_binary_available", fake_ensure_agent_binary_available)
+    monkeypatch.setattr(run_module, "backup_once", lambda *_, **__: None)
+
+    runner = CliRunner()
+    result = runner.invoke(
+        run_command,
+        ["qwen", str(source), "--config", str(config_path)],
+    )
+
     assert result.exit_code == 0
     assert calls["proxychains"] == ""
     assert checks["proxychains"] == ""

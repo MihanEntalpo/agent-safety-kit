@@ -29,6 +29,7 @@ mounts:
 agents:
   qwen: # имя агента, можно добавить столько, сколько нужно
     type: qwen # тип агента: qwen (используется бинарник qwen), codex, codex-glibc (бинарник codex-glibc) или claude-code
+    proxychains: "" # опционально: proxy URL агента (scheme://host:port); если поле есть, перекрывает proxychains VM даже при пустой строке
     env: # произвольные переменные окружения, которые будут переданы агенту
       OPENAI_API_KEY: "my_local_key"
       OPENAI_BASE_URL: "https://127.0.0.1:11556/v1"

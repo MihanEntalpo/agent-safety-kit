@@ -52,6 +52,8 @@ class AgentConfig:
     env: Dict[str, str]
     default_args: List[str] = field(default_factory=list)
     vm_name: Optional[str] = None
+    proxychains: Optional[str] = None
+    proxychains_defined: bool = False
 
 
 class ConfigError(RuntimeError):
@@ -165,11 +167,11 @@ def _normalize_port_forwarding(raw_entry: Any, vm_name: str) -> List[PortForward
     return rules
 
 
-def _normalize_proxychains(value: Any, vm_name: str) -> Optional[str]:
+def _normalize_proxychains(value: Any, field_name: str) -> Optional[str]:
     if value is None:
         return None
     if not isinstance(value, str):
-        raise ConfigError(tr("config.proxychains_not_string", vm_name=vm_name))
+        raise ConfigError(tr("config.proxychains_not_string", field_name=field_name))
     cleaned = value.strip()
     if not cleaned:
         return None
@@ -177,10 +179,10 @@ def _normalize_proxychains(value: Any, vm_name: str) -> Optional[str]:
     parsed = urlparse(cleaned)
     if not parsed.scheme or not parsed.hostname or not parsed.port:
         raise ConfigError(
-            tr("config.proxychains_invalid_url", vm_name=vm_name)
+            tr("config.proxychains_invalid_url", field_name=field_name)
         )
     if parsed.username or parsed.password or parsed.path not in {"", "/"} or parsed.params or parsed.query or parsed.fragment:
-        raise ConfigError(tr("config.proxychains_forbidden_parts", vm_name=vm_name))
+        raise ConfigError(tr("config.proxychains_forbidden_parts", field_name=field_name))
 
     scheme = parsed.scheme.lower()
     allowed_schemes = {"http", "https", "socks4", "socks5"}
@@ -188,7 +190,7 @@ def _normalize_proxychains(value: Any, vm_name: str) -> Optional[str]:
         raise ConfigError(
             tr(
                 "config.proxychains_invalid_scheme",
-                vm_name=vm_name,
+                field_name=field_name,
                 schemes=", ".join(sorted(allowed_schemes)),
             )
         )
@@ -222,7 +224,7 @@ def load_vms_config(config: Dict[str, Any]) -> Dict[str, VmConfig]:
             disk=_validate_size_field(raw_entry.get("disk"), f"vms.{vm_name}.disk"),
             cloud_init=raw_entry.get("cloud-init") or {},
             port_forwarding=_normalize_port_forwarding(raw_entry.get("port-forwarding"), vm_name),
-            proxychains=_normalize_proxychains(raw_entry.get("proxychains"), vm_name),
+            proxychains=_normalize_proxychains(raw_entry.get("proxychains"), f"vms.{vm_name}.proxychains"),
             install=install_bundles,
         )
 
@@ -317,6 +319,12 @@ def load_agents_config(config: Dict[str, Any]) -> Dict[str, AgentConfig]:
         default_args = _normalize_default_args(raw_entry.get("default-args"))
         vm_name = raw_entry.get("vm") or default_vm
         vm_name = str(vm_name) if vm_name else None
+        proxychains_defined = "proxychains" in raw_entry
+        proxychains = (
+            _normalize_proxychains(raw_entry.get("proxychains"), f"agents.{agent_name}.proxychains")
+            if proxychains_defined
+            else None
+        )
 
         agents[agent_name] = AgentConfig(
             name=str(agent_name),
@@ -324,6 +332,8 @@ def load_agents_config(config: Dict[str, Any]) -> Dict[str, AgentConfig]:
             env=env_vars,
             default_args=default_args,
             vm_name=vm_name,
+            proxychains=proxychains,
+            proxychains_defined=proxychains_defined,
         )
 
     return agents

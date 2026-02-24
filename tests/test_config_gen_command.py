@@ -94,3 +94,93 @@ def test_config_gen_refuses_to_overwrite(tmp_path, monkeypatch):
     assert result.exit_code == 0
     assert "уже существует" in result.output
     assert config_path.read_text(encoding="utf-8") == "original: true\n"
+
+
+def test_config_gen_writes_agent_proxychains(tmp_path):
+    config_path = tmp_path / "config.yaml"
+    project_dir = tmp_path / "project"
+
+    runner = CliRunner()
+    user_input = "\n".join(
+        [
+            "",  # VM name
+            "",  # vCPU
+            "",  # RAM
+            "",  # disk
+            "",  # vm proxychains
+            "",  # cloud-init
+            "n",  # add one more VM
+            "",  # add mount
+            str(project_dir),  # source
+            "",  # target
+            "",  # backup
+            "",  # interval
+            "",  # max_backups
+            "",  # backup_clean_method
+            "",  # mount VM choice
+            "n",  # add one more mount
+            "y",  # add agent
+            "qwen",  # agent name
+            "qwen",  # agent type
+            "",  # agent vm
+            "http://10.0.0.5:3128",  # agent proxychains
+            "n",  # add env var
+            "n",  # add one more agent
+            "",  # destination
+        ]
+    ) + "\n"
+
+    result = runner.invoke(
+        config_gen_command,
+        ["--config", str(config_path), "--overwrite"],
+        input=user_input,
+    )
+
+    assert result.exit_code == 0
+    config = yaml.safe_load(config_path.read_text(encoding="utf-8"))
+    assert config["agents"]["qwen"]["proxychains"] == "http://10.0.0.5:3128"
+
+
+def test_config_gen_writes_explicit_empty_agent_proxychains(tmp_path):
+    config_path = tmp_path / "config.yaml"
+    project_dir = tmp_path / "project"
+
+    runner = CliRunner()
+    user_input = "\n".join(
+        [
+            "",  # VM name
+            "",  # vCPU
+            "",  # RAM
+            "",  # disk
+            "",  # vm proxychains
+            "",  # cloud-init
+            "n",  # add one more VM
+            "",  # add mount
+            str(project_dir),  # source
+            "",  # target
+            "",  # backup
+            "",  # interval
+            "",  # max_backups
+            "",  # backup_clean_method
+            "",  # mount VM choice
+            "n",  # add one more mount
+            "y",  # add agent
+            "qwen",  # agent name
+            "qwen",  # agent type
+            "",  # agent vm
+            "\"\"",  # agent proxychains: explicit empty string
+            "n",  # add env var
+            "n",  # add one more agent
+            "",  # destination
+        ]
+    ) + "\n"
+
+    result = runner.invoke(
+        config_gen_command,
+        ["--config", str(config_path), "--overwrite"],
+        input=user_input,
+    )
+
+    assert result.exit_code == 0
+    config = yaml.safe_load(config_path.read_text(encoding="utf-8"))
+    assert config["agents"]["qwen"]["proxychains"] == ""

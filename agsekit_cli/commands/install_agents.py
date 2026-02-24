@@ -190,7 +190,10 @@ def install_agents_command(
                 )
             )
             try:
-                _run_install_playbook(target_vm, playbook_path, proxychains=proxychains)
+                proxychains_override = proxychains
+                if proxychains_override is None and agent.proxychains_defined:
+                    proxychains_override = agent.proxychains if agent.proxychains is not None else ""
+                _run_install_playbook(target_vm, playbook_path, proxychains=proxychains_override)
             except (MultipassError, ConfigError) as exc:
                 raise click.ClickException(str(exc))
             click.echo(

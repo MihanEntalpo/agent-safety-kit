@@ -141,6 +141,11 @@ def _prompt_agents(vm_names: List[str]) -> Dict[str, Dict[str, object]]:
             default=vm_names[0],
             type=click.Choice(vm_names),
         )
+        proxychains = click.prompt(
+            tr("config_gen.agent_proxychains"),
+            default="",
+            show_default=False,
+        ).strip()
 
         env_vars: Dict[str, str] = {}
         while click.confirm(tr("config_gen.agent_env_add"), default=False):
@@ -156,6 +161,10 @@ def _prompt_agents(vm_names: List[str]) -> Dict[str, Dict[str, object]]:
             "env": env_vars,
             "vm": vm_choice,
         }
+        if proxychains == '""':
+            agent_entry["proxychains"] = ""
+        elif proxychains:
+            agent_entry["proxychains"] = proxychains
         agents[name] = agent_entry
 
     return agents

@@ -183,6 +183,9 @@
 - `default-args` (optional) — список аргументов CLI по умолчанию.
   - при `run` одноимённые пользовательские опции переопределяют default-опции.
 - `vm` (optional) — VM по умолчанию для агента; если нет, берётся первая VM.
+- `proxychains` (optional) — proxy URL `scheme://host:port` для этого агента.
+  - используется в `run` и `install-agents`;
+  - если поле присутствует, оно перекрывает `vms.<vm>.proxychains` даже при пустой строке (т.е. может принудительно отключить proxychains для агента).
 
 ## 7. Модель CLI и взаимодействие режимов
 
@@ -254,6 +257,8 @@
 
 Что делает:
 - интерактивно собирает `vms`, `mounts`, `agents`;
+- для агента запрашивает `type`, default `vm`, `env` и optional `proxychains`;
+  - если для agent `proxychains` введено буквально `""`, в YAML сохраняется явная пустая строка (`proxychains: ""`);
 - спрашивает путь сохранения;
 - без `--overwrite` не перезаписывает существующий файл.
 
@@ -489,7 +494,7 @@
 - запрещается создание, если останется меньше 1 CPU или меньше 1 GiB RAM.
 
 ### 9.4 Proxychains режим
-- effective proxy определяется как `override -> vm.proxychains -> none`;
+- effective proxy определяется как `cli --proxychains override -> agents.<name>.proxychains -> vm.proxychains -> none`;
 - helper scripts копируются в VM;
 - helper scripts передаются в VM через `multipass exec ... bash -lc 'cat > ...'` по `stdin` (без чтения локального пути со стороны `multipass transfer`);
 - создаётся временный proxychains config;

@@ -112,6 +112,9 @@ def run_command(
         raise click.ClickException(tr("agents.agent_not_found_empty", name=agent_name))
 
     agent = find_agent(agents_config, agent_name)
+    proxychains_override = proxychains
+    if proxychains_override is None and agent.proxychains_defined:
+        proxychains_override = agent.proxychains if agent.proxychains is not None else ""
 
     mount_entry: Optional[MountConfig] = None
     mount_relative_path: Optional[Path] = None
@@ -140,7 +143,7 @@ def run_command(
         )
 
         try:
-            ensure_agent_binary_available(agent_command, vm_config, proxychains=proxychains, debug=debug)
+            ensure_agent_binary_available(agent_command, vm_config, proxychains=proxychains_override, debug=debug)
         except MultipassError as exc:
             raise click.ClickException(str(exc))
 
@@ -174,7 +177,14 @@ def run_command(
         exit_code = 0
 
         try:
-            exit_code = run_in_vm(vm_config, workdir, agent_command, env_vars, proxychains=proxychains, debug=debug)
+            exit_code = run_in_vm(
+                vm_config,
+                workdir,
+                agent_command,
+                env_vars,
+                proxychains=proxychains_override,
+                debug=debug,
+            )
         except (ConfigError, MultipassError) as exc:
             raise click.ClickException(str(exc))
         finally:
