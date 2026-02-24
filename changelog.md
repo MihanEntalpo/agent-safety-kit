@@ -1,5 +1,9 @@
 # Agent-Safety-Kit versions history
 
+## 1.1.4 - Agent-level proxychains override
+
+* Added support for overriding proxychains at the agent level (`agents.<name>.proxychains`), including explicit empty-string override to disable VM-level proxychains for a specific agent
+
 ## 1.1.3 - Proxychains script copy from hidden paths
 
 * Fixed proxychains helper/runner delivery into VMs when `agsekit` is installed under hidden host paths (for example, `~/.pyenv/...`): scripts are now uploaded via `stdin` + `multipass exec` instead of direct local-file transfer
