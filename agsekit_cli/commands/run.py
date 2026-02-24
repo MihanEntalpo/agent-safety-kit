@@ -118,21 +118,32 @@ def run_command(
 
     mount_entry: Optional[MountConfig] = None
     mount_relative_path: Optional[Path] = None
-    if source_dir is not None:
+
+    source_to_resolve = source_dir
+    strict_mount_match = source_dir is not None
+    if source_to_resolve is None:
+        source_to_resolve = Path.cwd()
+        strict_mount_match = False
+
+    if source_to_resolve is not None:
         try:
-            mount_entry, mount_relative_path = select_mount_for_source(mounts, source_dir, vm_name)
+            mount_entry, mount_relative_path = select_mount_for_source(mounts, source_to_resolve, vm_name)
         except ConfigError as exc:
-            raise click.ClickException(str(exc))
-        if mount_entry.allowed_agents is not None and agent.name not in mount_entry.allowed_agents:
-            allowed_agents = ", ".join(mount_entry.allowed_agents) if mount_entry.allowed_agents else "-"
-            raise click.ClickException(
-                tr(
-                    "run.agent_not_allowed_for_mount",
-                    agent_name=agent.name,
-                    source=mount_entry.source,
-                    allowed_agents=allowed_agents,
-                )
+            if strict_mount_match:
+                raise click.ClickException(str(exc))
+            mount_entry = None
+            mount_relative_path = None
+
+    if mount_entry and mount_entry.allowed_agents is not None and agent.name not in mount_entry.allowed_agents:
+        allowed_agents = ", ".join(mount_entry.allowed_agents) if mount_entry.allowed_agents else "-"
+        raise click.ClickException(
+            tr(
+                "run.agent_not_allowed_for_mount",
+                agent_name=agent.name,
+                source=mount_entry.source,
+                allowed_agents=allowed_agents,
             )
+        )
 
     vm_to_use = resolve_vm(agent, mount_entry, vm_name, config)
     ensure_vm_exists(vm_to_use, vms)

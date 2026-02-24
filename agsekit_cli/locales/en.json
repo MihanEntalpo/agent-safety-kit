@@ -126,7 +126,7 @@
   "config.mount_entry_missing_source": "Mount entry #{index} is missing `source`",
   "config.mount_entry_missing_vm": "Mount entry #{index} is missing `vm` and no default VM is configured",
   "config.mount_entry_not_mapping": "Mount entry #{index} must be a mapping",
-  "config.mount_allowed_agents_not_list": "Mount entry #{index} allowed_agents must be a list of agent names",
+  "config.mount_allowed_agents_not_list": "Mount entry #{index} allowed_agents must be a list of agent names or a comma-separated string",
   "config.mount_allowed_agents_item_invalid": "Mount entry #{index} allowed_agents[{item_index}] must be a non-empty string",
   "config.mount_allowed_agents_unknown_agent": "Mount entry #{index} allowed_agents contains unknown agent `{agent_name}`",
   "config.mount_backup_clean_method_not_string": "Mount entry #{index} backup_clean_method must be a string",

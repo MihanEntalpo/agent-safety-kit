@@ -1,5 +1,10 @@
 # Agent-Safety-Kit versions history
 
+## 1.1.6 - Allowed agents improvements
+
+* Improved `mounts[].allowed_agents`: now `run` also applies mount restrictions when the source path is inferred from the current working directory
+* Improved `mounts[].allowed_agents` config format: it now accepts both YAML lists and comma-separated strings (for example, `allowed_agents: qwen, codex`)
+
 ## 1.1.5 - Mount-level agent restrictions
 
 * Added `mounts[].allowed_agents` to restrict which configured agents can run from a mount source path (including its subdirectories)

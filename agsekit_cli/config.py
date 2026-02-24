@@ -383,11 +383,17 @@ def _normalize_allowed_agents(
 ) -> Optional[List[str]]:
     if raw_value is None:
         return None
-    if not isinstance(raw_value, list):
+
+    raw_items: List[Any]
+    if isinstance(raw_value, list):
+        raw_items = raw_value
+    elif isinstance(raw_value, str):
+        raw_items = raw_value.split(",")
+    else:
         raise ConfigError(tr("config.mount_allowed_agents_not_list", index=index))
 
     normalized: List[str] = []
-    for item_index, item in enumerate(raw_value):
+    for item_index, item in enumerate(raw_items):
         if not isinstance(item, str) or not item.strip():
             raise ConfigError(
                 tr(

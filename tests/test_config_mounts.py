@@ -73,11 +73,25 @@ def test_mount_accepts_allowed_agents():
     assert mounts[0].allowed_agents == ["qwen", "codex"]
 
 
-def test_mount_rejects_non_list_allowed_agents():
+def test_mount_accepts_allowed_agents_as_comma_separated_string():
+    config = {
+        "vms": {"agent": {"cpu": 1, "ram": "1G", "disk": "5G"}},
+        "agents": {
+            "qwen": {"type": "qwen"},
+            "codex": {"type": "codex"},
+        },
+        "mounts": [{"source": "/data", "allowed_agents": "qwen, codex"}],
+    }
+
+    mounts = load_mounts_config(config)
+    assert mounts[0].allowed_agents == ["qwen", "codex"]
+
+
+def test_mount_rejects_non_list_or_string_allowed_agents():
     config = {
         "vms": {"agent": {"cpu": 1, "ram": "1G", "disk": "5G"}},
         "agents": {"qwen": {"type": "qwen"}},
-        "mounts": [{"source": "/data", "allowed_agents": "qwen"}],
+        "mounts": [{"source": "/data", "allowed_agents": 42}],
     }
 
     with pytest.raises(ConfigError):
@@ -89,6 +103,17 @@ def test_mount_rejects_invalid_allowed_agents_item():
         "vms": {"agent": {"cpu": 1, "ram": "1G", "disk": "5G"}},
         "agents": {"qwen": {"type": "qwen"}},
         "mounts": [{"source": "/data", "allowed_agents": ["qwen", ""]}],
+    }
+
+    with pytest.raises(ConfigError):
+        load_mounts_config(config)
+
+
+def test_mount_rejects_empty_allowed_agents_item_in_string():
+    config = {
+        "vms": {"agent": {"cpu": 1, "ram": "1G", "disk": "5G"}},
+        "agents": {"qwen": {"type": "qwen"}},
+        "mounts": [{"source": "/data", "allowed_agents": "qwen,  "}],
     }
 
     with pytest.raises(ConfigError):

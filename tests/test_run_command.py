@@ -270,6 +270,73 @@ def test_run_command_resolves_relative_path_inside_mount(monkeypatch, tmp_path, 
     assert backups["backup"] == (source.parent / "backups").resolve()
 
 
+def test_run_command_uses_current_directory_mount_when_source_not_passed(monkeypatch, tmp_path):
+    source = tmp_path / "project"
+    nested = source / "subdir" / "inner"
+    nested.mkdir(parents=True)
+    config_path = tmp_path / "config.yaml"
+    _write_config(config_path, source)
+
+    calls: Dict[str, object] = {}
+    backups: Dict[str, object] = {}
+
+    def fake_run_in_vm(vm_config, workdir, command, env_vars, proxychains=None, debug=False):
+        calls["workdir"] = workdir
+        return 0
+
+    def fake_start_backup_process(mount, cli_path, skip_first=False, debug=False):
+        backups["source"] = mount.source
+        return None
+
+    monkeypatch.chdir(nested)
+    monkeypatch.setattr(run_module, "_has_existing_backup", lambda *_: True)
+    monkeypatch.setattr(run_module, "run_in_vm", fake_run_in_vm)
+    monkeypatch.setattr(run_module, "start_backup_process", fake_start_backup_process)
+    monkeypatch.setattr(run_module, "ensure_agent_binary_available", lambda *_, **__: None)
+    monkeypatch.setattr(run_module, "backup_once", lambda *_, **__: None)
+
+    runner = CliRunner()
+    result = runner.invoke(run_command, ["qwen", "--config", str(config_path)])
+
+    assert result.exit_code == 0
+    assert calls["workdir"] == Path("/home/ubuntu/project/subdir/inner")
+    assert backups["source"] == source.resolve()
+
+
+def test_run_command_without_source_keeps_default_workdir_when_cwd_not_in_mount(monkeypatch, tmp_path):
+    source = tmp_path / "project"
+    source.mkdir()
+    outside_dir = tmp_path / "outside"
+    outside_dir.mkdir()
+    config_path = tmp_path / "config.yaml"
+    _write_config(config_path, source)
+
+    calls: Dict[str, object] = {}
+    started = {"backup": False}
+
+    def fake_run_in_vm(vm_config, workdir, command, env_vars, proxychains=None, debug=False):
+        calls["workdir"] = workdir
+        return 0
+
+    def fake_start_backup_process(*_args, **_kwargs):
+        started["backup"] = True
+        return None
+
+    monkeypatch.chdir(outside_dir)
+    monkeypatch.setattr(run_module, "_has_existing_backup", lambda *_: True)
+    monkeypatch.setattr(run_module, "run_in_vm", fake_run_in_vm)
+    monkeypatch.setattr(run_module, "start_backup_process", fake_start_backup_process)
+    monkeypatch.setattr(run_module, "ensure_agent_binary_available", lambda *_, **__: None)
+    monkeypatch.setattr(run_module, "backup_once", lambda *_, **__: None)
+
+    runner = CliRunner()
+    result = runner.invoke(run_command, ["qwen", "--config", str(config_path)])
+
+    assert result.exit_code == 0
+    assert calls["workdir"] == run_module.DEFAULT_WORKDIR
+    assert started["backup"] is False
+
+
 def test_run_command_passes_proxychains_override(monkeypatch, tmp_path):
     source = tmp_path / "project"
     config_path = tmp_path / "config.yaml"
@@ -467,3 +534,31 @@ def test_run_command_rejects_agent_in_mount_subdirectory_when_not_allowed(monkey
 
     assert result.exit_code != 0
     assert "allowed_agents" in result.output
+
+
+def test_run_command_without_source_rejects_disallowed_agent_in_current_directory_mount(monkeypatch, tmp_path):
+    source = tmp_path / "project"
+    nested = source / "nested" / "inner"
+    nested.mkdir(parents=True)
+    config_path = tmp_path / "config.yaml"
+    _write_config(config_path, source, mount_allowed_agents=["codex"])
+
+    called = {"run_in_vm": False}
+
+    def fake_run_in_vm(*_args, **_kwargs):
+        called["run_in_vm"] = True
+        return 0
+
+    monkeypatch.chdir(nested)
+    monkeypatch.setattr(run_module, "_has_existing_backup", lambda *_: True)
+    monkeypatch.setattr(run_module, "run_in_vm", fake_run_in_vm)
+    monkeypatch.setattr(run_module, "start_backup_process", lambda *_, **__: None)
+    monkeypatch.setattr(run_module, "ensure_agent_binary_available", lambda *_, **__: None)
+    monkeypatch.setattr(run_module, "backup_once", lambda *_, **__: None)
+
+    runner = CliRunner()
+    result = runner.invoke(run_command, ["qwen", "--config", str(config_path)])
+
+    assert result.exit_code != 0
+    assert "allowed_agents" in result.output
+    assert called["run_in_vm"] is False
