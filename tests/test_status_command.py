@@ -3,6 +3,7 @@ import re
 from datetime import datetime
 from pathlib import Path
 
+import pytest
 from click.testing import CliRunner
 
 ROOT = Path(__file__).resolve().parent.parent
@@ -10,6 +11,7 @@ if str(ROOT) not in sys.path:
     sys.path.insert(0, str(ROOT))
 
 import agsekit_cli.commands.status as status_module
+from agsekit_cli.config import AGENT_RUNTIME_BINARIES
 from agsekit_cli.commands.status import status_command
 
 
@@ -247,3 +249,50 @@ agents:
 
     assert result.exit_code == 0
     assert "PID 321: qwen (config names: qwen_alt, qwen_main), folder: /home/ubuntu/project" in result.output
+
+
+@pytest.mark.parametrize(("agent_type", "runtime_binary"), sorted(AGENT_RUNTIME_BINARIES.items()))
+def test_status_command_uses_runtime_binary_for_agent_type(monkeypatch, tmp_path, agent_type: str, runtime_binary: str):
+    agent_name = f"{agent_type}_main"
+    config_path = tmp_path / "config.yaml"
+    config_path.write_text(
+        f"""
+vms:
+  agent:
+    cpu: 2
+    ram: 2G
+    disk: 16G
+agents:
+  {agent_name}:
+    type: {agent_type}
+    vm: agent
+""",
+        encoding="utf-8",
+    )
+
+    checked_binaries = []
+    collected_binaries = []
+
+    monkeypatch.setattr(status_module, "_load_multipass_entries", lambda: ({"agent": {"state": "Running"}}, None))
+    monkeypatch.setattr(status_module, "_load_multipass_info_entries", lambda: ({}, None))
+    monkeypatch.setattr(status_module, "_is_portforward_running", lambda: True)
+
+    def fake_check(vm_name, binary):
+        checked_binaries.append((vm_name, binary))
+        return True
+
+    def fake_collect(vm_name, binaries):
+        collected_binaries.append((vm_name, list(binaries)))
+        return [("8080", runtime_binary, "/home/ubuntu")]
+
+    monkeypatch.setattr(status_module, "_check_agent_binary_installed", fake_check)
+    monkeypatch.setattr(status_module, "_collect_running_agent_processes", fake_collect)
+
+    runner = CliRunner()
+    result = runner.invoke(status_command, ["--config", str(config_path)], env={"AGSEKIT_LANG": "en"})
+
+    assert result.exit_code == 0
+    assert checked_binaries == [("agent", runtime_binary)]
+    assert collected_binaries == [("agent", [runtime_binary])]
+    assert f"{agent_name} ({agent_type}): installed" in result.output
+    assert f"PID 8080: {runtime_binary} (config name: {agent_name}), folder: /home/ubuntu" in result.output

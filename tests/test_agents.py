@@ -1,12 +1,14 @@
 from pathlib import Path
 import sys
 
+import pytest
+
 ROOT = Path(__file__).resolve().parent.parent
 if str(ROOT) not in sys.path:
     sys.path.insert(0, str(ROOT))
 
 import agsekit_cli.agents as agents
-from agsekit_cli.config import AgentConfig, PortForwardingRule, VmConfig
+from agsekit_cli.config import AGENT_RUNTIME_BINARIES, AgentConfig, PortForwardingRule, VmConfig
 
 
 def test_run_in_vm_uses_cd_and_no_workdir_flag(monkeypatch):
@@ -150,3 +152,18 @@ def test_agent_command_sequence_skips_overridden_inline_space_args():
     command = agents.agent_command_sequence(agent, ["--region", "us-east-1"])
 
     assert command == ["qwen", "--mode", "fast", "--region", "us-east-1"]
+
+
+@pytest.mark.parametrize(("agent_type", "runtime_binary"), sorted(AGENT_RUNTIME_BINARIES.items()))
+def test_agent_command_sequence_uses_runtime_binary(agent_type: str, runtime_binary: str):
+    agent = AgentConfig(
+        name=f"{agent_type}-main",
+        type=agent_type,
+        env={},
+        default_args=["--verbose"],
+        vm_name=None,
+    )
+
+    command = agents.agent_command_sequence(agent, ["--print"])
+
+    assert command == [runtime_binary, "--verbose", "--print"]

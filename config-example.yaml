@@ -29,7 +29,7 @@ mounts:
     vm: agent-ubuntu # имя VM, если не указан - берётся первая VM из конфигурации
 agents:
   qwen: # имя агента, можно добавить столько, сколько нужно
-    type: qwen # тип агента: qwen (используется бинарник qwen), codex, codex-glibc (бинарник codex-glibc) или claude-code
+    type: qwen # тип агента: qwen (используется бинарник qwen), codex, codex-glibc или claude
     proxychains: "" # опционально: proxy URL агента (scheme://host:port); если поле есть, перекрывает proxychains VM даже при пустой строке
     env: # произвольные переменные окружения, которые будут переданы агенту
       OPENAI_API_KEY: "my_local_key"

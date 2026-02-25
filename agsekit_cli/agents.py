@@ -5,7 +5,7 @@ import subprocess
 from pathlib import Path
 from typing import Dict, Iterable, List, Optional, Sequence, Set, Tuple
 
-from .config import AgentConfig, ConfigError, VmConfig, load_agents_config, load_config, load_mounts_config, load_vms_config, resolve_config_path
+from .config import AgentConfig, ConfigError, VmConfig, agent_runtime_binary, load_agents_config, load_config, load_mounts_config, load_vms_config, resolve_config_path
 from .debug import debug_log_command, debug_log_result
 from .i18n import tr
 from .mounts import MountConfig, normalize_path
@@ -265,10 +265,11 @@ def _merge_default_args(default_args: Sequence[str], user_args: Sequence[str]) -
 def agent_command_sequence(
     agent: AgentConfig, extra_args: Sequence[str], *, skip_default_args: bool = False
 ) -> List[str]:
+    runtime_binary = agent_runtime_binary(agent.type)
     if skip_default_args:
-        return [agent.type, *extra_args]
+        return [runtime_binary, *extra_args]
     merged_args = _merge_default_args(agent.default_args, extra_args)
-    return [agent.type, *merged_args]
+    return [runtime_binary, *merged_args]
 
 
 def ensure_vm_exists(vm_name: str, known_vms: Dict[str, object]) -> None:

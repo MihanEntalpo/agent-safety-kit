@@ -1,5 +1,5 @@
 ---
-- name: Install claude-code
+- name: Install claude
   hosts: localhost
   connection: local
   gather_facts: false

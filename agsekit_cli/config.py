@@ -17,9 +17,19 @@ ALLOWED_AGENT_TYPES = {
     "qwen": "qwen",
     "codex": "codex",
     "codex-glibc": "codex-glibc",
-    "claude": "claude-code",
-    "claude-code": "claude-code",
+    "claude": "claude",
 }
+
+AGENT_RUNTIME_BINARIES = {
+    "qwen": "qwen",
+    "codex": "codex",
+    "codex-glibc": "codex-glibc",
+    "claude": "claude",
+}
+
+
+def agent_runtime_binary(agent_type: str) -> str:
+    return AGENT_RUNTIME_BINARIES.get(agent_type, agent_type)
 
 
 @dataclass

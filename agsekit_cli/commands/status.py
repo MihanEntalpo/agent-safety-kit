@@ -17,6 +17,7 @@ from ..config import (
     ConfigError,
     MountConfig,
     VmConfig,
+    agent_runtime_binary,
     load_agents_config,
     load_config,
     load_mounts_config,
@@ -551,11 +552,12 @@ def status_command(config_path: Optional[str], debug: bool, non_interactive: boo
             else:
                 vm_running = state.lower() == "running"
                 for agent in vm_agents:
+                    runtime_binary = agent_runtime_binary(agent.type)
                     install_state: str
                     if not vm_running:
                         install_state = click.style(tr("status.agent_unknown"), fg="bright_black")
                     else:
-                        installed = _check_agent_binary_installed(vm_name, agent.type)
+                        installed = _check_agent_binary_installed(vm_name, runtime_binary)
                         if installed is True:
                             install_state = click.style(tr("status.agent_installed"), fg="green")
                         elif installed is False:
@@ -571,7 +573,7 @@ def status_command(config_path: Optional[str], debug: bool, non_interactive: boo
 
             binary_to_names: Dict[str, List[str]] = {}
             for agent in vm_agents:
-                binary_to_names.setdefault(agent.type, []).append(agent.name)
+                binary_to_names.setdefault(agent_runtime_binary(agent.type), []).append(agent.name)
 
             running_processes = _collect_running_agent_processes(vm_name, list(binary_to_names.keys()))
             if running_processes is None:

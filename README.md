@@ -35,6 +35,7 @@ Currently confirmed working agent types are:
 
 - qwen
 - codex
+- claude
 - codex-glibc (built dynamically)
 
 ## Quick start
@@ -171,7 +172,7 @@ Backups use `rsync` with incremental links (`--link-dest`) to the previous copy:
 * `agsekit install-agents <agent_name> [<vm>|--all-vms] [--config <path>] [--proxychains <value>] [--debug]` — runs the prepared installation playbook for the chosen agent type inside the specified VM (or the agent's default VM if none is provided). If the config defines only one agent, you can skip `<agent_name>` and it will be picked automatically. Use `--proxychains <scheme://host:port>` to override the VM proxy for this installation or `--proxychains ""` to ignore it once.
 * `agsekit install-agents --all-agents [--all-vms] [--config <path>] [--proxychains <value>] [--debug]` — installs every configured agent either into their default VM or into every VM when `--all-vms` is set.
 
-The installation playbooks live in `agsekit_cli/ansible/agents/`: `codex` installs the npm CLI, `codex-glibc` builds the Rust sources with the glibc target and installs the binary as `codex-glibc`, and `qwen`/`claude-code` follow their upstream steps (the `qwen` playbook installs the qwen-code CLI). Other agent types are not supported yet.
+The installation playbooks live in `agsekit_cli/ansible/agents/`: `codex` installs the npm CLI, `codex-glibc` builds the Rust sources with the glibc target and installs the binary as `codex-glibc`, and `qwen`/`claude` follow their upstream steps (the `qwen` playbook installs the qwen-code CLI). For `claude`, the runtime binary is `claude`. Other agent types are not supported yet.
 
 ### Running agents
 
@@ -228,7 +229,7 @@ mounts:
     vm: agent-ubuntu # VM name; defaults to the first VM in the configuration
 agents:
   qwen: # agent name; add as many as you need
-    type: qwen # agent type: qwen (installs and uses the `qwen` binary), codex, codex-glibc (installs the `codex-glibc` binary), or claude-code (other types are not supported yet)
+    type: qwen # agent type: qwen (installs and uses the `qwen` binary), codex, codex-glibc (installs the `codex-glibc` binary), or claude (runs the `claude` binary)
     env: # arbitrary environment variables passed to the agent process
       OPENAI_API_KEY: "my_local_key"
       OPENAI_BASE_URL: "https://127.0.0.1:11556/v1"
@@ -240,7 +241,7 @@ agents:
   codex:
     type: codex 
   claude:
-    type: claude-code
+    type: claude
   codex2:
     type: codex-glibc
 ```

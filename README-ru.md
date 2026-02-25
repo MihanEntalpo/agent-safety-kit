@@ -35,6 +35,7 @@
 
 - qwen
 - codex
+- claude
 - codex-glibc (собирается динамически)
 
 ## Быстрый старт
@@ -168,7 +169,7 @@ docs/build/
 * `agsekit install-agents <agent_name> [<vm>|--all-vms] [--config <path>] [--proxychains <значение>] [--debug]` — выполняет подготовленный playbook установки выбранного типа агента внутри указанной ВМ (или ВМ по умолчанию для агента, если она не указана). Если в конфиге описан единственный агент, имя можно не передавать — он будет выбран автоматически. Укажите `--proxychains <scheme://host:port>`, чтобы временно задать прокси для установки, или `--proxychains ""`, чтобы проигнорировать настройку на один запуск.
 * `agsekit install-agents --all-agents [--all-vms] [--config <path>] [--proxychains <значение>] [--debug]` — устанавливает все описанные агенты либо в их ВМ по умолчанию, либо во все ВМ при флаге `--all-vms`.
 
-Playbook установки лежат в `agsekit_cli/ansible/agents/`: `codex` ставит npm-CLI, `codex-glibc` собирает Rust-версию с glibc и кладёт бинарник под именем `codex-glibc`, а `qwen` и `claude-code` повторяют свои типовые шаги (playbook `qwen` устанавливает qwen-code CLI). Другие типы пока не поддерживаются.
+Playbook установки лежат в `agsekit_cli/ansible/agents/`: `codex` ставит npm-CLI, `codex-glibc` собирает Rust-версию с glibc и кладёт бинарник под именем `codex-glibc`, а `qwen` и `claude` повторяют свои типовые шаги (playbook `qwen` устанавливает qwen-code CLI). Для `claude` рабочий бинарник — `claude`. Другие типы пока не поддерживаются.
 
 ### Запуск агентов
 
@@ -217,7 +218,7 @@ mounts:
     vm: agent-ubuntu # имя VM, если не указан - берётся первая VM из конфигурации
 agents:
   qwen: # имя агента, можно добавить столько, сколько нужно
-    type: qwen # тип агента: qwen (ставит и использует бинарник qwen), codex, codex-glibc (бинарник codex-glibc) или claude-code (другие пока не поддерживаются)
+    type: qwen # тип агента: qwen (ставит и использует бинарник qwen), codex, codex-glibc (бинарник codex-glibc) или claude
     env: # произвольные переменные окружения, которые будут переданы агенту
       OPENAI_API_KEY: "my_local_key"
       OPENAI_BASE_URL: "https://127.0.0.1:11556/v1"
@@ -229,7 +230,7 @@ agents:
   codex:
     type: codex 
   claude:
-    type: claude-code
+    type: claude
   codex2:
     type: codex-glibc
 ```

@@ -1,5 +1,9 @@
 # Agent-Safety-Kit versions history
 
+## 1.2.0 - Claude agent support
+
+* Added support for `claude` as a first-class agent type in configuration and runtime mapping
+
 ## 1.1.6 - Allowed agents improvements
 
 * Improved `mounts[].allowed_agents`: now `run` also applies mount restrictions when the source path is inferred from the current working directory
