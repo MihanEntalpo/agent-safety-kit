@@ -1,5 +1,10 @@
 # Agent-Safety-Kit versions history
 
+## 1.2.1 - Arch Linux host support
+
+* Added `prepare` support for Arch Linux hosts via `pacman` and AUR helpers (`yay`/`aura`) for Multipass installation
+* Added coverage for Arch Linux `prepare` flow in integration tests (Docker-based)
+
 ## 1.2.0 - Claude agent support
 
 * Added support for `claude` as a first-class agent type in configuration and runtime mapping

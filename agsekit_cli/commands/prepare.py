@@ -20,9 +20,16 @@ def _install_multipass() -> None:
 
     click.echo(tr("prepare.installing_dependencies"))
 
-    if shutil.which("apt-get") is None:
+    if shutil.which("pacman") is not None:
+        _install_multipass_arch()
+    elif shutil.which("apt-get") is not None:
+        _install_multipass_debian()
+    else:
         raise click.ClickException(tr("prepare.apt_missing"))
 
+
+def _install_multipass_debian() -> None:
+    """Install Multipass on Debian-based systems via snap."""
     env = {**os.environ, "DEBIAN_FRONTEND": "noninteractive"}
 
     subprocess.run(["sudo", "apt-get", "update"], check=True, env=env)
@@ -37,6 +44,24 @@ def _install_multipass() -> None:
 
     subprocess.run(["sudo", "snap", "install", "multipass", "--classic"], check=True)
     click.echo(tr("prepare.multipass_installed"))
+
+
+def _install_multipass_arch() -> None:
+    """Install Multipass on Arch Linux via an AUR helper."""
+    click.echo(tr("prepare.installing_multipass_arch"))
+
+    if shutil.which("yay") is not None:
+        aur_helper = "yay"
+    elif shutil.which("aura") is not None:
+        aur_helper = "aura"
+    else:
+        raise click.ClickException(tr("prepare.aur_helper_missing"))
+
+    subprocess.run(
+        [aur_helper, "-S", "--noconfirm", "multipass", "libvirt", "dnsmasq", "qemu-base"],
+        check=True,
+    )
+    click.echo(tr("prepare.multipass_installed_arch"))
 
 
 def _install_ansible_collection() -> None:
@@ -57,7 +82,7 @@ def _install_ansible_collection() -> None:
     help=tr("config.option_path"),
 )
 def prepare_command(non_interactive: bool, config_path: Optional[str]) -> None:
-    """Install Multipass dependencies on Debian-based systems and prepare VMs."""
+    """Install Multipass dependencies on supported hosts and prepare VMs."""
     # not used parameter, explicitly removing it so IDEs/linters do not complain
     del non_interactive
     del config_path

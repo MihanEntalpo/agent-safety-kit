@@ -240,8 +240,9 @@
 Что делает:
 1. Проверяет наличие `multipass`.
 2. Если `multipass` отсутствует:
-   - ставит системные зависимости (Debian-based);
-   - ставит Multipass через snap.
+   - на Debian-based (`apt-get`) ставит системные зависимости и Multipass через `snap`;
+   - на Arch Linux (`pacman`) ставит Multipass через AUR helper (`yay` или `aura`) вместе с `libvirt`, `dnsmasq`, `qemu-base`;
+   - если нет ни `apt-get`, ни `pacman`, завершает `prepare` ошибкой о неподдерживаемом дистрибутиве.
 3. Проверяет/ставит Ansible collection `theko2fi.multipass`.
 4. Создаёт SSH-ключи хоста в `~/.config/agsekit/ssh/` (используются для `ssh`/подготовки VM).
 

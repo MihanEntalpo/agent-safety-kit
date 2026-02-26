@@ -31,8 +31,8 @@ def _run(
     return subprocess.run(command, check=check, text=True, capture_output=True, cwd=cwd, env=effective_env)
 
 def _require_host_tools() -> None:
-    if shutil.which("apt-get") is None:
-        pytest.skip("apt-get is required for host integration tests")
+    if shutil.which("apt-get") is None and shutil.which("pacman") is None:
+        pytest.skip("apt-get or pacman is required for host integration tests")
     if os.geteuid() != 0 and shutil.which("sudo") is None:
         pytest.skip("sudo or root access is required for host integration tests")
     if os.geteuid() != 0:
@@ -67,11 +67,6 @@ def _skip_if_multipass_unusable(result: subprocess.CompletedProcess[str]) -> Non
 def test_prepare_installs_multipass_and_generates_keys():
     _require_host_tools()
 
-    snap_bin = Path(_command_path("snap"))
-    if snap_bin.exists():
-        # The test must be non-destructive for host integration runs.
-        _run([str(snap_bin), "--version"], check=False)
-
     env = _clean_env()
     env["AGSEKIT_LANG"] = "en"
     _run(
@@ -86,10 +81,6 @@ def test_prepare_installs_multipass_and_generates_keys():
     multipass_check = _run([str(multipass_bin), "--version"], check=False)
     _skip_if_multipass_unusable(multipass_check)
     assert multipass_check.returncode == 0, multipass_check.stderr or multipass_check.stdout
-
-    snap_bin = Path(_command_path("snap"))
-    assert snap_bin.exists()
-    _run([str(snap_bin), "--version"], check=True)
 
     private_key = SSH_DIR / "id_rsa"
     public_key = SSH_DIR / "id_rsa.pub"
