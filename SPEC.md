@@ -519,7 +519,8 @@
 - helper scripts копируются в VM;
 - helper scripts передаются в VM через `multipass exec ... bash -lc 'cat > ...'` по `stdin` (без чтения локального пути со стороны `multipass transfer`);
 - создаётся временный proxychains config;
-- команда запускается через `proxychains4`.
+- команда запускается через `proxychains4`;
+- в Ansible agent installers сетевые шаги выполняются через `proxychains_prefix` (без отдельного прокидывания proxy env-переменных).
 
 ### 9.5 Ограничение запуска по mount.allowed_agents
 - если для выбранного mount указано `allowed_agents`, запуск разрешается только агентам из этого списка;
@@ -548,7 +549,7 @@ Dependency resolution выполняется кодом до запуска play
 ### 10.3 Agent installers
 - `codex.yml`: установка Node через nvm + `@openai/codex`.
 - `qwen.yml`: установка Node через nvm + `@qwen-code/qwen-code`.
-- `claude.yml`: установка через официальный install script.
+- `claude.yml`: установка через официальный install script; сетевые шаги выполняются через `proxychains_prefix`; если нативный post-install падает, применяется fallback-установка `claude` из уже скачанного бинарника в `~/.claude/downloads`.
 - `codex-glibc.yml`: сборка из исходников `openai/codex`, управление swap при нехватке памяти, установка бинарника `codex-glibc`, post-build проверка.
 
 ## 11. Локализация

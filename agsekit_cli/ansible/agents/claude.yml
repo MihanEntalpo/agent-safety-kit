@@ -30,6 +30,29 @@
 
     - name: Run Claude Code installer
       ansible.builtin.command: "{{ proxychains_prefix }}bash /tmp/claude-install.sh"
+      register: claude_install
+      changed_when: claude_install.rc == 0
+      failed_when: false
+      when: claude_check.rc != 0
+
+    - name: Fallback install Claude binary from downloaded cache
+      ansible.builtin.shell: |
+        set -euo pipefail
+        binary_path="$(ls -1t "$HOME/.claude/downloads"/claude-* 2>/dev/null | head -n 1)"
+        if [ -z "$binary_path" ]; then
+          echo "Downloaded Claude binary not found in $HOME/.claude/downloads" >&2
+          exit 1
+        fi
+        sudo install -m 0755 "$binary_path" /usr/local/bin/claude
+      args:
+        executable: /bin/bash
+      when:
+        - claude_check.rc != 0
+        - claude_install.rc != 0
+
+    - name: Verify Claude CLI after installation
+      ansible.builtin.command: claude --version
+      changed_when: false
       when: claude_check.rc != 0
 
     - name: Remove Claude installer

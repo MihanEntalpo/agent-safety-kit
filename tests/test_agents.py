@@ -50,7 +50,8 @@ def test_run_in_vm_uses_cd_and_no_workdir_flag(monkeypatch):
     assert "qwen --flag" in args[-1]
 
 
-def test_run_in_vm_wraps_with_proxychains(monkeypatch):
+@pytest.mark.parametrize("binary", sorted(set(AGENT_RUNTIME_BINARIES.values())))
+def test_run_in_vm_wraps_with_proxychains(monkeypatch, binary: str):
     calls = {}
 
     def fake_run(args, check):
@@ -79,15 +80,16 @@ def test_run_in_vm_wraps_with_proxychains(monkeypatch):
 
     monkeypatch.setattr(agents, "ensure_proxychains_runner", lambda _vm: "/tmp/agsekit-run_with_proxychains.sh")
 
-    agents.run_in_vm(vm_config, workdir, ["qwen"], env_vars)
+    agents.run_in_vm(vm_config, workdir, [binary], env_vars)
 
     args = calls["args"]
     assert args[:3] == ["multipass", "exec", "agent-vm"]
     assert args[3:6] == ["--", "bash", "-lc"]
     assert "bash /tmp/agsekit-run_with_proxychains.sh --proxy socks5://127.0.0.1:1080 --" in args[6]
+    assert binary in args[6]
 
     calls.clear()
-    agents.run_in_vm(vm_config, workdir, ["qwen"], env_vars, proxychains="")
+    agents.run_in_vm(vm_config, workdir, [binary], env_vars, proxychains="")
     args = calls["args"]
     assert args[0] == "multipass"
 
