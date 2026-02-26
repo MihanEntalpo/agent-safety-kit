@@ -1,5 +1,9 @@
 # Agent-Safety-Kit versions history
 
+## 1.2.2 - Addmount allowed_agents option
+
+* Added `addmount` support for setting `allowed_agents` during mount creation in both non-interactive (`--allowed-agents a,b,c`) and interactive flows
+
 ## 1.2.1 - Arch Linux host support
 
 * Added `prepare` support for Arch Linux hosts via `pacman` and AUR helpers (`yay`/`aura`) for Multipass installation

@@ -16,6 +16,7 @@ from ..config import (
     MountConfig,
     default_mount_backup,
     default_mount_target,
+    load_agents_config,
     load_mounts_config,
     load_vms_config,
     resolve_config_path,
@@ -65,6 +66,55 @@ def _prompt_backup_clean_method(default: str) -> str:
         default=default,
         type=click.Choice(["tail", "thin"], case_sensitive=False),
     )
+
+
+def _parse_allowed_agents_value(raw_value: str, available_agents: list[str]) -> list[str]:
+    parsed: list[str] = []
+    for item in raw_value.split(","):
+        name = item.strip()
+        if not name:
+            raise click.ClickException(tr("addmount.allowed_agents_invalid"))
+        if name in parsed:
+            continue
+        parsed.append(name)
+
+    unknown = [name for name in parsed if name not in available_agents]
+    if unknown:
+        raise click.ClickException(tr("addmount.allowed_agents_unknown", names=", ".join(unknown)))
+    return parsed
+
+
+def _resolve_allowed_agents(
+    raw_value: Optional[str],
+    interactive: bool,
+    available_agents: list[str],
+) -> Optional[list[str]]:
+    if raw_value is not None:
+        return _parse_allowed_agents_value(raw_value, available_agents)
+
+    if not interactive:
+        return None
+
+    if not available_agents:
+        click.echo(tr("addmount.allowed_agents_no_configured"))
+        return None
+
+    enable_restrictions = click.confirm(tr("addmount.allowed_agents_enable_prompt"), default=False)
+    if not enable_restrictions:
+        return None
+
+    while True:
+        selected: list[str] = []
+        for agent_name in available_agents:
+            keep = click.confirm(tr("addmount.allowed_agents_keep_prompt", name=agent_name), default=True)
+            if keep:
+                selected.append(agent_name)
+        if selected:
+            return selected
+
+        click.echo(tr("addmount.allowed_agents_empty_selection"))
+        if click.confirm(tr("addmount.allowed_agents_disable_after_empty"), default=True):
+            return None
 
 
 def _load_config_with_comments(config_path: Path) -> tuple[YAML, CommentedMap]:
@@ -118,6 +168,12 @@ def _backup_config(config_path: Path) -> Path:
     help=tr("addmount.option_mount"),
 )
 @click.option(
+    "--allowed-agents",
+    default=None,
+    show_default=False,
+    help=tr("addmount.option_allowed_agents"),
+)
+@click.option(
     "-y",
     "--yes",
     "assume_yes",
@@ -141,6 +197,7 @@ def addmount_command(
     max_backups: Optional[int],
     backup_clean_method: Optional[str],
     mount_now: bool,
+    allowed_agents: Optional[str],
     assume_yes: bool,
     config_path: Optional[str],
     debug: bool,
@@ -215,9 +272,16 @@ def addmount_command(
             existing_mounts = load_mounts_config(config_data)
         except ConfigError as exc:
             raise click.ClickException(str(exc))
+        try:
+            available_agents = list(load_agents_config(config_data).keys())
+        except ConfigError as exc:
+            raise click.ClickException(str(exc))
 
         if find_mount_by_source(existing_mounts, source_dir) is not None:
             raise click.ClickException(tr("addmount.mount_exists", source=source_dir))
+
+        allowed_agents_value = _resolve_allowed_agents(allowed_agents, interactive, available_agents)
+        allowed_agents_text = ", ".join(allowed_agents_value) if allowed_agents_value else tr("addmount.allowed_agents_none")
 
         click.echo(
             tr(
@@ -228,6 +292,7 @@ def addmount_command(
                 interval=interval_minutes,
                 max_backups=max_backups_value,
                 method=backup_clean_method_value,
+                allowed_agents=allowed_agents_text,
             )
         )
 
@@ -252,6 +317,8 @@ def addmount_command(
         mount_entry["interval"] = interval_minutes
         mount_entry["max_backups"] = max_backups_value
         mount_entry["backup_clean_method"] = backup_clean_method_value
+        if allowed_agents_value is not None:
+            mount_entry["allowed_agents"] = list(allowed_agents_value)
         mounts_section.append(mount_entry)
 
         config_backup_path = _backup_config(resolved_config_path)
@@ -276,6 +343,7 @@ def addmount_command(
                         interval_minutes=interval_minutes,
                         max_backups=max_backups_value,
                         backup_clean_method=backup_clean_method_value,
+                        allowed_agents=allowed_agents_value,
                         vm_name=default_vm,
                     )
                 )

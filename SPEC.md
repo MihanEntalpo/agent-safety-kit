@@ -368,12 +368,15 @@
 #### `agsekit umount [source_dir] [--all] [--debug]`
 - размонтирование по тем же правилам выбора mount.
 
-#### `agsekit addmount [--debug]`
+#### `agsekit addmount [--allowed-agents <a,b,c>] [--debug]`
 Зачем:
 - добавить mount entry в YAML безопасно и без ручного редактирования.
 
 Что делает:
 - запрашивает/вычисляет default значения;
+- поддерживает установку `allowed_agents`:
+  - non-interactive: через `--allowed-agents qwen,codex`;
+  - interactive: предлагает либо «без ограничений», либо выбрать разрешённых агентов из уже настроенных в конфиге;
 - показывает summary;
 - в интерактивном режиме спрашивает подтверждение;
 - делает timestamp backup конфига;
