@@ -1,5 +1,11 @@
 # Agent-Safety-Kit versions history
 
+## 1.2.3 - VM-level allowed_agents
+
+* Added `vms.<name>.allowed_agents` support (list or comma-separated string) with validation against configured agent names
+* Updated `run` restrictions to use `mounts[].allowed_agents` first, then fall back to `vms.<vm>.allowed_agents`; when neither is set, all configured agents are allowed
+* Extended `config-gen` to prompt for VM `allowed_agents` as a comma-separated string
+
 ## 1.2.2 - Addmount allowed_agents option
 
 * Added `addmount` support for setting `allowed_agents` during mount creation in both non-interactive (`--allowed-agents a,b,c`) and interactive flows

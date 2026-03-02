@@ -53,6 +53,7 @@ class VmConfig:
     cloud_init: Dict[str, Any]
     port_forwarding: List["PortForwardingRule"]
     proxychains: Optional[str] = None
+    allowed_agents: Optional[List[str]] = None
     install: List[str] = field(default_factory=list)
 
 
@@ -214,6 +215,9 @@ def load_vms_config(config: Dict[str, Any]) -> Dict[str, VmConfig]:
     if not isinstance(raw_vms, dict) or not raw_vms:
         raise ConfigError(tr("config.vms_missing"))
 
+    raw_agents = config.get("agents")
+    known_agents = {str(name) for name in raw_agents.keys()} if isinstance(raw_agents, dict) else set()
+
     vms: Dict[str, VmConfig] = {}
     for vm_name, raw_entry in raw_vms.items():
         if not isinstance(raw_entry, dict):
@@ -228,6 +232,12 @@ def load_vms_config(config: Dict[str, Any]) -> Dict[str, VmConfig]:
         except ValueError as exc:
             raise ConfigError(str(exc))
 
+        allowed_agents = _normalize_vm_allowed_agents(
+            raw_entry.get("allowed_agents"),
+            vm_name=str(vm_name),
+            known_agents=known_agents,
+        )
+
         vms[vm_name] = VmConfig(
             name=str(vm_name),
             cpu=_require_positive_int(raw_entry.get("cpu"), f"vms.{vm_name}.cpu"),
@@ -236,6 +246,7 @@ def load_vms_config(config: Dict[str, Any]) -> Dict[str, VmConfig]:
             cloud_init=raw_entry.get("cloud-init") or {},
             port_forwarding=_normalize_port_forwarding(raw_entry.get("port-forwarding"), vm_name),
             proxychains=_normalize_proxychains(raw_entry.get("proxychains"), f"vms.{vm_name}.proxychains"),
+            allowed_agents=allowed_agents,
             install=install_bundles,
         )
 
@@ -419,6 +430,47 @@ def _normalize_allowed_agents(
                 tr(
                     "config.mount_allowed_agents_unknown_agent",
                     index=index,
+                    agent_name=agent_name,
+                )
+            )
+        normalized.append(agent_name)
+    return normalized
+
+
+def _normalize_vm_allowed_agents(
+    raw_value: Any,
+    *,
+    vm_name: str,
+    known_agents: set[str],
+) -> Optional[List[str]]:
+    if raw_value is None:
+        return None
+
+    raw_items: List[Any]
+    if isinstance(raw_value, list):
+        raw_items = raw_value
+    elif isinstance(raw_value, str):
+        raw_items = raw_value.split(",")
+    else:
+        raise ConfigError(tr("config.vm_allowed_agents_not_list", vm_name=vm_name))
+
+    normalized: List[str] = []
+    for item_index, item in enumerate(raw_items):
+        if not isinstance(item, str) or not item.strip():
+            raise ConfigError(
+                tr(
+                    "config.vm_allowed_agents_item_invalid",
+                    vm_name=vm_name,
+                    item_index=item_index,
+                )
+            )
+
+        agent_name = item.strip()
+        if agent_name not in known_agents:
+            raise ConfigError(
+                tr(
+                    "config.vm_allowed_agents_unknown_agent",
+                    vm_name=vm_name,
                     agent_name=agent_name,
                 )
             )

@@ -20,6 +20,13 @@ def _prompt_positive_int(message: str, default: int) -> int:
         click.echo(tr("config_gen.value_positive"))
 
 
+def _parse_allowed_agents(raw_value: str) -> List[str]:
+    items = [item.strip() for item in raw_value.split(",")]
+    if not items or any(not item for item in items):
+        raise ValueError
+    return items
+
+
 def _prompt_cloud_init() -> Dict[str, object]:
     path_raw = click.prompt(
         tr("config_gen.cloud_init_path"),
@@ -60,11 +67,27 @@ def _prompt_vms() -> Dict[str, Dict[str, object]]:
             default="",
             show_default=False,
         ).strip()
+        allowed_agents: Optional[List[str]] = None
+        while True:
+            allowed_agents_raw = click.prompt(
+                tr("config_gen.vm_allowed_agents"),
+                default="",
+                show_default=False,
+            ).strip()
+            if not allowed_agents_raw:
+                break
+            try:
+                allowed_agents = _parse_allowed_agents(allowed_agents_raw)
+                break
+            except ValueError:
+                click.echo(tr("config_gen.vm_allowed_agents_invalid"))
         cloud_init = _prompt_cloud_init()
 
         vm_entry: Dict[str, object] = {"cpu": cpu, "ram": ram, "disk": disk, "cloud-init": cloud_init}
         if proxychains:
             vm_entry["proxychains"] = proxychains
+        if allowed_agents is not None:
+            vm_entry["allowed_agents"] = allowed_agents
         vms[name] = vm_entry
 
         if not click.confirm(tr("config_gen.vm_add_more"), default=False):

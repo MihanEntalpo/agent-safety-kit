@@ -23,6 +23,7 @@ def test_config_gen_creates_config_file(tmp_path):
             "",  # RAM
             "",  # disk
             "",  # proxychains
+            "",  # vm allowed_agents
             "",  # cloud-init
             "n",  # добавить ещё ВМ
             "",  # подтвердить добавление монтирования
@@ -77,6 +78,7 @@ def test_config_gen_refuses_to_overwrite(tmp_path, monkeypatch):
             "",  # RAM
             "",  # disk
             "",  # proxychains
+            "",  # vm allowed_agents
             "",  # cloud-init
             "n",  # добавить ещё ВМ
             "n",  # не добавлять монтирования
@@ -108,6 +110,7 @@ def test_config_gen_writes_agent_proxychains(tmp_path):
             "",  # RAM
             "",  # disk
             "",  # vm proxychains
+            "",  # vm allowed_agents
             "",  # cloud-init
             "n",  # add one more VM
             "",  # add mount
@@ -153,6 +156,7 @@ def test_config_gen_writes_explicit_empty_agent_proxychains(tmp_path):
             "",  # RAM
             "",  # disk
             "",  # vm proxychains
+            "",  # vm allowed_agents
             "",  # cloud-init
             "n",  # add one more VM
             "",  # add mount
@@ -184,3 +188,43 @@ def test_config_gen_writes_explicit_empty_agent_proxychains(tmp_path):
     assert result.exit_code == 0
     config = yaml.safe_load(config_path.read_text(encoding="utf-8"))
     assert config["agents"]["qwen"]["proxychains"] == ""
+
+
+def test_config_gen_writes_vm_allowed_agents(tmp_path):
+    config_path = tmp_path / "config.yaml"
+    project_dir = tmp_path / "project"
+
+    runner = CliRunner()
+    user_input = "\n".join(
+        [
+            "",  # VM name
+            "",  # vCPU
+            "",  # RAM
+            "",  # disk
+            "",  # vm proxychains
+            "qwen, codex",  # vm allowed_agents
+            "",  # cloud-init
+            "n",  # add one more VM
+            "",  # add mount
+            str(project_dir),  # source
+            "",  # target
+            "",  # backup
+            "",  # interval
+            "",  # max_backups
+            "",  # backup_clean_method
+            "",  # mount VM choice
+            "n",  # add one more mount
+            "n",  # add agent
+            "",  # destination
+        ]
+    ) + "\n"
+
+    result = runner.invoke(
+        config_gen_command,
+        ["--config", str(config_path), "--overwrite"],
+        input=user_input,
+    )
+
+    assert result.exit_code == 0
+    config = yaml.safe_load(config_path.read_text(encoding="utf-8"))
+    assert config["vms"]["agent-ubuntu"]["allowed_agents"] == ["qwen", "codex"]

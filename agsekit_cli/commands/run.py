@@ -134,20 +134,35 @@ def run_command(
             mount_entry = None
             mount_relative_path = None
 
-    if mount_entry and mount_entry.allowed_agents is not None and agent.name not in mount_entry.allowed_agents:
-        allowed_agents = ", ".join(mount_entry.allowed_agents) if mount_entry.allowed_agents else "-"
-        raise click.ClickException(
-            tr(
-                "run.agent_not_allowed_for_mount",
-                agent_name=agent.name,
-                source=mount_entry.source,
-                allowed_agents=allowed_agents,
-            )
-        )
-
     vm_to_use = resolve_vm(agent, mount_entry, vm_name, config)
     ensure_vm_exists(vm_to_use, vms)
     vm_config = vms[vm_to_use]
+
+    effective_allowed_agents = vm_config.allowed_agents
+    restricted_by_mount = False
+    if mount_entry and mount_entry.allowed_agents is not None:
+        effective_allowed_agents = mount_entry.allowed_agents
+        restricted_by_mount = True
+
+    if effective_allowed_agents is not None and agent.name not in effective_allowed_agents:
+        allowed_agents = ", ".join(effective_allowed_agents) if effective_allowed_agents else "-"
+        if restricted_by_mount and mount_entry is not None:
+            raise click.ClickException(
+                tr(
+                    "run.agent_not_allowed_for_mount",
+                    agent_name=agent.name,
+                    source=mount_entry.source,
+                    allowed_agents=allowed_agents,
+                )
+            )
+        raise click.ClickException(
+            tr(
+                "run.agent_not_allowed_for_vm",
+                agent_name=agent.name,
+                vm_name=vm_to_use,
+                allowed_agents=allowed_agents,
+            )
+        )
 
     env_vars = build_agent_env(agent)
     if mount_entry:

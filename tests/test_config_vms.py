@@ -118,3 +118,94 @@ def test_load_vms_config_rejects_invalid_proxychains_format():
 
     with pytest.raises(ConfigError):
         load_vms_config(config)
+
+
+def test_load_vms_config_accepts_allowed_agents():
+    config = {
+        "vms": {
+            "agent": {
+                "cpu": 2,
+                "ram": "2G",
+                "disk": "10G",
+                "allowed_agents": ["qwen", "codex"],
+            }
+        },
+        "agents": {
+            "qwen": {"type": "qwen"},
+            "codex": {"type": "codex"},
+        },
+    }
+
+    vms = load_vms_config(config)
+    assert vms["agent"].allowed_agents == ["qwen", "codex"]
+
+
+def test_load_vms_config_accepts_allowed_agents_as_comma_separated_string():
+    config = {
+        "vms": {
+            "agent": {
+                "cpu": 2,
+                "ram": "2G",
+                "disk": "10G",
+                "allowed_agents": "qwen, codex",
+            }
+        },
+        "agents": {
+            "qwen": {"type": "qwen"},
+            "codex": {"type": "codex"},
+        },
+    }
+
+    vms = load_vms_config(config)
+    assert vms["agent"].allowed_agents == ["qwen", "codex"]
+
+
+def test_load_vms_config_rejects_non_list_or_string_allowed_agents():
+    config = {
+        "vms": {
+            "agent": {
+                "cpu": 2,
+                "ram": "2G",
+                "disk": "10G",
+                "allowed_agents": 42,
+            }
+        },
+        "agents": {"qwen": {"type": "qwen"}},
+    }
+
+    with pytest.raises(ConfigError):
+        load_vms_config(config)
+
+
+def test_load_vms_config_rejects_invalid_allowed_agents_item():
+    config = {
+        "vms": {
+            "agent": {
+                "cpu": 2,
+                "ram": "2G",
+                "disk": "10G",
+                "allowed_agents": ["qwen", ""],
+            }
+        },
+        "agents": {"qwen": {"type": "qwen"}},
+    }
+
+    with pytest.raises(ConfigError):
+        load_vms_config(config)
+
+
+def test_load_vms_config_rejects_unknown_allowed_agent():
+    config = {
+        "vms": {
+            "agent": {
+                "cpu": 2,
+                "ram": "2G",
+                "disk": "10G",
+                "allowed_agents": ["codex"],
+            }
+        },
+        "agents": {"qwen": {"type": "qwen"}},
+    }
+
+    with pytest.raises(ConfigError):
+        load_vms_config(config)

@@ -22,11 +22,18 @@ def _write_config(
     *,
     agent_type: str = "qwen",
     vm_proxychains: Optional[str] = None,
+    vm_allowed_agents: Optional[list[str]] = None,
     agent_proxychains: Optional[str] = None,
     agent_proxychains_set: bool = False,
     mount_allowed_agents: Optional[list[str]] = None,
+    include_codex_agent: bool = False,
 ) -> None:
     proxychains_line = f"    proxychains: {json.dumps(vm_proxychains)}\n" if vm_proxychains is not None else ""
+    vm_allowed_agents_line = (
+        f"    allowed_agents: {json.dumps(vm_allowed_agents)}\n"
+        if vm_allowed_agents is not None
+        else ""
+    )
     agent_proxychains_line = ""
     if agent_proxychains_set:
         value = "" if agent_proxychains is None else agent_proxychains
@@ -36,6 +43,14 @@ def _write_config(
         if mount_allowed_agents is not None
         else ""
     )
+    codex_agent_block = ""
+    if include_codex_agent:
+        codex_agent_block = """
+  codex:
+    type: codex
+    vm: agent
+    env: {}
+"""
     config_path.write_text(
         f"""
 vms:
@@ -43,7 +58,7 @@ vms:
     cpu: 1
     ram: 1G
     disk: 5G
-{proxychains_line if proxychains_line else ''}mounts:
+{proxychains_line if proxychains_line else ''}{vm_allowed_agents_line if vm_allowed_agents_line else ''}mounts:
   - source: {source}
     target: /home/ubuntu/project
     vm: agent
@@ -55,6 +70,7 @@ agents:
 {agent_proxychains_line if agent_proxychains_line else ''}    vm: agent
     env:
       TOKEN: abc
+{codex_agent_block if codex_agent_block else ''}
 """,
         encoding="utf-8",
     )
@@ -604,4 +620,114 @@ def test_run_command_without_source_rejects_disallowed_agent_in_current_director
 
     assert result.exit_code != 0
     assert "allowed_agents" in result.output
+    assert called["run_in_vm"] is False
+
+
+def test_run_command_rejects_agent_outside_vm_allowed_agents(monkeypatch, tmp_path):
+    source = tmp_path / "project"
+    config_path = tmp_path / "config.yaml"
+    _write_config(config_path, source, vm_allowed_agents=["codex"])
+
+    called = {"run_in_vm": False}
+
+    def fake_run_in_vm(*_args, **_kwargs):
+        called["run_in_vm"] = True
+        return 0
+
+    monkeypatch.setattr(run_module, "_has_existing_backup", lambda *_: True)
+    monkeypatch.setattr(run_module, "run_in_vm", fake_run_in_vm)
+    monkeypatch.setattr(run_module, "start_backup_process", lambda *_, **__: None)
+    monkeypatch.setattr(run_module, "ensure_agent_binary_available", lambda *_, **__: None)
+    monkeypatch.setattr(run_module, "backup_once", lambda *_, **__: None)
+
+    runner = CliRunner()
+    result = runner.invoke(run_command, ["qwen", str(source), "--config", str(config_path)])
+
+    assert result.exit_code != 0
+    assert "allowed_agents" in result.output
+    assert "`agent`" in result.output
+    assert called["run_in_vm"] is False
+
+
+def test_run_command_allows_agent_from_vm_allowed_agents(monkeypatch, tmp_path):
+    source = tmp_path / "project"
+    config_path = tmp_path / "config.yaml"
+    _write_config(config_path, source, vm_allowed_agents=["qwen"])
+
+    called = {"run_in_vm": False}
+
+    def fake_run_in_vm(*_args, **_kwargs):
+        called["run_in_vm"] = True
+        return 0
+
+    monkeypatch.setattr(run_module, "_has_existing_backup", lambda *_: True)
+    monkeypatch.setattr(run_module, "run_in_vm", fake_run_in_vm)
+    monkeypatch.setattr(run_module, "start_backup_process", lambda *_, **__: None)
+    monkeypatch.setattr(run_module, "ensure_agent_binary_available", lambda *_, **__: None)
+    monkeypatch.setattr(run_module, "backup_once", lambda *_, **__: None)
+
+    runner = CliRunner()
+    result = runner.invoke(run_command, ["qwen", str(source), "--config", str(config_path)])
+
+    assert result.exit_code == 0
+    assert called["run_in_vm"] is True
+
+
+def test_run_command_prefers_mount_allowed_agents_over_vm_allowed_agents(monkeypatch, tmp_path):
+    source = tmp_path / "project"
+    config_path = tmp_path / "config.yaml"
+    _write_config(
+        config_path,
+        source,
+        vm_allowed_agents=["codex"],
+        mount_allowed_agents=["qwen"],
+        include_codex_agent=True,
+    )
+
+    called = {"run_in_vm": False}
+
+    def fake_run_in_vm(*_args, **_kwargs):
+        called["run_in_vm"] = True
+        return 0
+
+    monkeypatch.setattr(run_module, "_has_existing_backup", lambda *_: True)
+    monkeypatch.setattr(run_module, "run_in_vm", fake_run_in_vm)
+    monkeypatch.setattr(run_module, "start_backup_process", lambda *_, **__: None)
+    monkeypatch.setattr(run_module, "ensure_agent_binary_available", lambda *_, **__: None)
+    monkeypatch.setattr(run_module, "backup_once", lambda *_, **__: None)
+
+    runner = CliRunner()
+    result = runner.invoke(run_command, ["qwen", str(source), "--config", str(config_path)])
+
+    assert result.exit_code == 0
+    assert called["run_in_vm"] is True
+
+
+def test_run_command_without_mount_uses_vm_allowed_agents(monkeypatch, tmp_path):
+    source = tmp_path / "project"
+    source.mkdir()
+    outside_dir = tmp_path / "outside"
+    outside_dir.mkdir()
+    config_path = tmp_path / "config.yaml"
+    _write_config(config_path, source, vm_allowed_agents=["codex"])
+
+    called = {"run_in_vm": False}
+
+    def fake_run_in_vm(*_args, **_kwargs):
+        called["run_in_vm"] = True
+        return 0
+
+    monkeypatch.chdir(outside_dir)
+    monkeypatch.setattr(run_module, "_has_existing_backup", lambda *_: True)
+    monkeypatch.setattr(run_module, "run_in_vm", fake_run_in_vm)
+    monkeypatch.setattr(run_module, "start_backup_process", lambda *_, **__: None)
+    monkeypatch.setattr(run_module, "ensure_agent_binary_available", lambda *_, **__: None)
+    monkeypatch.setattr(run_module, "backup_once", lambda *_, **__: None)
+
+    runner = CliRunner()
+    result = runner.invoke(run_command, ["qwen", "--config", str(config_path)])
+
+    assert result.exit_code != 0
+    assert "allowed_agents" in result.output
+    assert "`agent`" in result.output
     assert called["run_in_vm"] is False

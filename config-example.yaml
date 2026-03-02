@@ -3,6 +3,7 @@ vms: # параметры виртуальных машин (можно имет
     cpu: 2      # количество vCPU
     ram: 4G     # объём оперативной памяти
     disk: 20G   # размер диска
+    allowed_agents: qwen, codex, claude # опционально: также можно список [qwen, codex]; если не указано, для VM разрешены все агенты
     proxychains: "" # укажите адрес прокси (scheme://host:port) — agsekit сам создаст временный proxychains.conf и обернёт команды Multipass
     cloud-init: {} # здесь можно разместить стандартный конфиг cloud-init, но он не обязателен
     port-forwarding: # проброс портов через multipass shell при запуске агента и установке
