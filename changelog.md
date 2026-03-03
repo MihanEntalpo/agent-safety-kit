@@ -1,5 +1,9 @@
 # Agent-Safety-Kit versions history
 
+## 1.3.0 - Cline agent support
+
+* Added support for `cline` as a first-class agent type in configuration, installation, and runtime mapping
+
 ## 1.2.6 - VM SSH automation and bundle idempotency fixes
 
 * Reworked VM SSH preparation to use Ansible playbooks for `authorized_keys` and local `known_hosts` updates, removing interactive host-auth prompts during `create-vm`/`create-vms`
