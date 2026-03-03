@@ -109,7 +109,7 @@
   - резолв proxychains override и пути раннера.
 - `agsekit_cli/vm_prepare.py`
   - host SSH keypair;
-  - подготовка VM (authorized_keys, known_hosts, base packages, proxychains runner scripts, bundles).
+  - подготовка VM (authorized_keys и known_hosts через Ansible playbook, base packages, proxychains runner scripts, bundles).
 - `agsekit_cli/mounts.py`
   - mount/umount wrappers;
   - поиск mount по пути (longest-prefix).
@@ -566,6 +566,9 @@
 - `docker`
 
 Dependency resolution выполняется кодом до запуска playbooks.
+
+Особенности идемпотентности:
+- `pyenv` и `python` bundles определяют наличие pyenv по маркеру `~/.pyenv/bin/pyenv` (а не по `command -v pyenv`), чтобы повторные прогоны не зависели от shell PATH.
 
 ### 10.3 Agent installers
 - `codex.yml`: установка Node через nvm + `@openai/codex`.

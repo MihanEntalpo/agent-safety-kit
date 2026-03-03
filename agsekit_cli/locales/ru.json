@@ -397,6 +397,7 @@
   "prepare.ssh_keypair_exists": "SSH ключи уже существуют в {path}, используем их.",
   "prepare.ssh_public_missing": "Публичный ключ отсутствует в {path}, генерируем из приватного ключа.",
   "prepare.ssh_ready": "SSH ключи готовы в {path}.",
+  "prepare.ssh_sync_failed": "Не удалось синхронизировать SSH-доступ в ВМ {vm_name}.",
   "prepare.starting_vm": "Запуск ВМ {vm_name}",
   "prepare.syncing_keys": "Синхронизируем SSH ключи в {vm_name} для пользователя ubuntu.",
   "prepare.vm_info_failed": "Не удалось получить информацию о ВМ {vm_name}.",

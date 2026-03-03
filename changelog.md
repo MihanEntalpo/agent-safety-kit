@@ -1,5 +1,11 @@
 # Agent-Safety-Kit versions history
 
+## 1.2.6 - VM SSH automation and bundle idempotency fixes
+
+* Reworked VM SSH preparation to use Ansible playbooks for `authorized_keys` and local `known_hosts` updates, removing interactive host-auth prompts during `create-vm`/`create-vms`
+* Fixed Docker bundle user-group step to work without Ansible facts by using a fact-free VM user reference
+* Fixed `pyenv`/`python` bundle idempotency checks to rely on the `~/.pyenv/bin/pyenv` marker instead of shell `PATH` lookup, preventing false reinstall failures on repeated runs
+
 ## 1.2.5 - Faster proxychains startup in run
 
 * Moved proxychains helper scripts to VM preparation (`vm_packages.yml`): `prepare_vm` now installs `/usr/bin/proxychains_common.sh` and `/usr/bin/agsekit-run_with_proxychains.sh`

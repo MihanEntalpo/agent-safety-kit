@@ -397,6 +397,7 @@
   "prepare.ssh_keypair_exists": "SSH keypair already exists at {path}, reusing.",
   "prepare.ssh_public_missing": "Public key missing in {path}, generating from existing private key.",
   "prepare.ssh_ready": "SSH keypair is ready at {path}.",
+  "prepare.ssh_sync_failed": "Failed to synchronize SSH access in VM {vm_name}.",
   "prepare.starting_vm": "Starting VM {vm_name}",
   "prepare.syncing_keys": "Syncing SSH keys into {vm_name} for user ubuntu.",
   "prepare.vm_info_failed": "Failed to fetch VM info for {vm_name}.",

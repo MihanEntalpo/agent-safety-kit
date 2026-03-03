@@ -5,7 +5,7 @@ import os
 import shlex
 import subprocess
 from pathlib import Path
-from typing import List, Optional, Tuple
+from typing import Iterable, List, Optional, Tuple
 
 import click
 
@@ -74,6 +74,32 @@ def _ensure_vm_packages(vm_name: str) -> None:
         raise MultipassError(tr("prepare.install_failed", vm_name=vm_name))
 
 
+def _ensure_vm_ssh_access(vm_name: str, public_key: Path, vm_known_hosts: Iterable[str]) -> None:
+    click.echo(tr("prepare.syncing_keys", vm_name=vm_name))
+    click.echo(tr("prepare.ensure_authorized_keys", vm_name=vm_name))
+    click.echo(tr("prepare.ensure_known_hosts", vm_name=vm_name))
+
+    playbook = Path(__file__).resolve().parent / "ansible" / "vm_ssh.yml"
+    public_key_line = public_key.read_text(encoding="utf-8").strip()
+    known_hosts = [host.strip() for host in vm_known_hosts if host and host.strip()]
+    extra_vars = {
+        "vm_name": vm_name,
+        "host_public_key": public_key_line,
+        "vm_known_hosts": known_hosts,
+    }
+    command = [
+        "ansible-playbook",
+        "-i",
+        "localhost,",
+        "-e",
+        json.dumps(extra_vars, ensure_ascii=False),
+        str(playbook),
+    ]
+    result = subprocess.run(command, check=False, capture_output=False, text=True)
+    if result.returncode != 0:
+        raise MultipassError(tr("prepare.ssh_sync_failed", vm_name=vm_name))
+
+
 def _install_vm_bundles(vm_name: str, bundles: List[str]) -> None:
     if not bundles:
         click.echo(tr("prepare.install_bundles_none", vm_name=vm_name))
@@ -102,43 +128,6 @@ def _install_vm_bundles(vm_name: str, bundles: List[str]) -> None:
             raise MultipassError(tr("prepare.install_bundle_failed", vm_name=vm_name, bundle=bundle.raw))
 
 
-def _ensure_vm_keypair(vm_name: str, public_key: Path) -> None:
-    click.echo(tr("prepare.syncing_keys", vm_name=vm_name))
-    prep_command = [
-        "multipass",
-        "exec",
-        vm_name,
-        "--",
-        "bash",
-        "-lc",
-        "sudo install -d -m 700 -o ubuntu -g ubuntu /home/ubuntu/.ssh",
-    ]
-    prep_result = _run_multipass(prep_command, tr("prepare.ensure_ssh_dir", vm_name=vm_name))
-    if prep_result.returncode != 0:
-        raise MultipassError(tr("prepare.ensure_ssh_dir_failed", vm_name=vm_name))
-
-    desired_public = public_key.read_text(encoding="utf-8")
-
-    public_key_line = desired_public.strip()
-    click.echo(tr("prepare.ensure_authorized_keys", vm_name=vm_name))
-    authorized_command = [
-        "multipass",
-        "exec",
-        vm_name,
-        "--",
-        "bash",
-        "-lc",
-        "sudo touch /home/ubuntu/.ssh/authorized_keys && "
-        "sudo chown ubuntu:ubuntu /home/ubuntu/.ssh/authorized_keys && "
-        "sudo chmod 600 /home/ubuntu/.ssh/authorized_keys && "
-        f"grep -Fqx {shlex.quote(public_key_line)} /home/ubuntu/.ssh/authorized_keys || "
-        f"echo {shlex.quote(public_key_line)} | sudo tee -a /home/ubuntu/.ssh/authorized_keys >/dev/null",
-    ]
-    authorized_result = _run_multipass(authorized_command, tr("prepare.ensure_authorized_keys_command", vm_name=vm_name))
-    if authorized_result.returncode != 0:
-        raise MultipassError(tr("prepare.authorized_keys_failed", vm_name=vm_name))
-
-
 def _fetch_vm_ips(vm_name: str) -> List[str]:
     result = _run_multipass(
         ["multipass", "info", vm_name, "--format", "json"],
@@ -162,35 +151,6 @@ def _fetch_vm_ips(vm_name: str) -> List[str]:
     return []
 
 
-def _ensure_known_host(host: str) -> None:
-    ssh_dir = Path.home() / ".ssh"
-    ssh_dir.mkdir(parents=True, exist_ok=True)
-    known_hosts = ssh_dir / "known_hosts"
-
-    if known_hosts.exists():
-        check = subprocess.run(
-            ["ssh-keygen", "-F", host, "-f", str(known_hosts)],
-            check=False,
-            capture_output=True,
-            text=True,
-        )
-        if check.returncode == 0:
-            return
-
-    scan = subprocess.run(
-        ["ssh-keyscan", "-H", host],
-        check=False,
-        capture_output=True,
-        text=True,
-    )
-    if scan.returncode != 0 or not scan.stdout.strip():
-        raise MultipassError(tr("prepare.known_hosts_failed", host=host))
-
-    with known_hosts.open("a", encoding="utf-8") as handle:
-        handle.write(scan.stdout)
-    os.chmod(known_hosts, 0o644)
-
-
 def prepare_vm(vm_name: str, public_key: Path, bundles: Optional[List[str]] = None) -> None:
     click.echo(tr("prepare.preparing_vm", vm_name=vm_name))
     try:
@@ -198,13 +158,10 @@ def prepare_vm(vm_name: str, public_key: Path, bundles: Optional[List[str]] = No
     except AnsibleCollectionError as exc:
         raise MultipassError(str(exc))
     _run_multipass(["multipass", "start", vm_name], tr("prepare.starting_vm", vm_name=vm_name))
-    _ensure_vm_keypair(vm_name, public_key)
-    click.echo(tr("prepare.ensure_known_hosts", vm_name=vm_name))
     hosts = _fetch_vm_ips(vm_name)
     if not hosts:
         raise MultipassError(tr("prepare.no_vm_ips", vm_name=vm_name))
-    for host in hosts:
-        _ensure_known_host(host)
+    _ensure_vm_ssh_access(vm_name, public_key, [vm_name, *hosts])
     _ensure_vm_packages(vm_name)
     _install_vm_bundles(vm_name, bundles or [])
     click.echo(tr("prepare.prepared_vm", vm_name=vm_name))

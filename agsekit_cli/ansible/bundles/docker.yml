@@ -81,7 +81,7 @@
 
     - name: Ensure docker group membership
       ansible.builtin.user:
-        name: "{{ ansible_env.USER }}"
+        name: "{{ ansible_user | default('ubuntu') }}"
         groups: docker
         append: true
       when: docker_check.rc != 0

@@ -18,11 +18,15 @@
     python_version: "{{ bundle_version | default('latest') }}"
     pyenv_root: "{{ ansible_env.HOME }}/.pyenv"
   tasks:
-    - name: Ensure pyenv is available
-      ansible.builtin.command: command -v pyenv
-      register: pyenv_check
-      changed_when: false
-      failed_when: pyenv_check.rc != 0
+    - name: Ensure pyenv is installed
+      ansible.builtin.stat:
+        path: "{{ pyenv_root }}/bin/pyenv"
+      register: pyenv_stat
+
+    - name: Fail when pyenv is missing
+      ansible.builtin.fail:
+        msg: "pyenv is not installed. Install the pyenv bundle first."
+      when: not pyenv_stat.stat.exists
 
     - name: Install Python version
       ansible.builtin.shell: |

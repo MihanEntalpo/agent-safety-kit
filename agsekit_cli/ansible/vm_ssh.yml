@@ -1,0 +1,93 @@
+---
+- name: Prepare VM inventory for SSH sync
+  hosts: localhost
+  connection: local
+  gather_facts: false
+  tasks:
+    - name: Register Multipass VM
+      ansible.builtin.add_host:
+        name: "{{ vm_name }}"
+        ansible_host: "{{ vm_name }}"
+        ansible_connection: theko2fi.multipass.multipass
+        ansible_python_interpreter: /usr/bin/python3
+
+- name: Sync SSH access and known_hosts
+  hosts: "{{ vm_name }}"
+  gather_facts: false
+  vars:
+    vm_user: ubuntu
+    vm_home: "/home/{{ vm_user }}"
+  tasks:
+    - name: Ensure VM .ssh directory
+      ansible.builtin.file:
+        path: "{{ vm_home }}/.ssh"
+        state: directory
+        owner: "{{ vm_user }}"
+        group: "{{ vm_user }}"
+        mode: "0700"
+      become: true
+
+    - name: Ensure VM authorized_keys contains host key
+      ansible.builtin.lineinfile:
+        path: "{{ vm_home }}/.ssh/authorized_keys"
+        line: "{{ host_public_key }}"
+        search_string: "{{ host_public_key }}"
+        insertafter: EOF
+        create: true
+        owner: "{{ vm_user }}"
+        group: "{{ vm_user }}"
+        mode: "0600"
+      become: true
+
+    - name: Read VM SSH host public keys
+      ansible.builtin.shell: cat /etc/ssh/ssh_host_*_key.pub
+      args:
+        executable: /bin/bash
+      register: vm_ssh_host_keys_raw
+      changed_when: false
+      become: true
+
+    - name: Normalize VM SSH host public keys
+      ansible.builtin.set_fact:
+        vm_ssh_host_keys: >-
+          {{
+            vm_ssh_host_keys_raw.stdout_lines
+            | map('trim')
+            | select('match', '^(ssh-|ecdsa-)')
+            | list
+          }}
+
+- name: Sync VM host keys into local known_hosts
+  hosts: localhost
+  connection: local
+  gather_facts: false
+  vars:
+    known_hosts_path: "{{ lookup('env', 'HOME') }}/.ssh/known_hosts"
+    normalized_vm_known_hosts: >-
+      {{
+        (vm_known_hosts | default([vm_name]))
+        | select('string')
+        | map('trim')
+        | reject('equalto', '')
+        | unique
+        | list
+      }}
+    vm_ssh_host_keys: "{{ hostvars[vm_name].vm_ssh_host_keys | default([]) }}"
+  tasks:
+    - name: Ensure local .ssh directory
+      ansible.builtin.file:
+        path: "{{ lookup('env', 'HOME') }}/.ssh"
+        state: directory
+        mode: "0700"
+
+    - name: Ensure VM host keys in local known_hosts
+      ansible.builtin.known_hosts:
+        path: "{{ known_hosts_path }}"
+        name: "{{ item.0 }}"
+        key: "{{ item.0 }} {{ item.1 }}"
+        hash_host: true
+        state: present
+      loop: "{{ normalized_vm_known_hosts | product(vm_ssh_host_keys) | list }}"
+      when:
+        - normalized_vm_known_hosts | length > 0
+        - vm_ssh_host_keys | length > 0
