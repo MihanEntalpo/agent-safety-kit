@@ -8,7 +8,7 @@
 
 ## 1. Продукт: зачем он нужен
 
-`Agent Safety Kit` — это CLI-инструмент для безопасной работы с консольными AI-агентами (`qwen`, `codex`, `claude`, `codex-glibc`) через изоляцию в Multipass VM и регулярные инкрементальные бэкапы на хосте.
+`Agent Safety Kit` — это CLI-инструмент для безопасной работы с консольными AI-агентами (`qwen`, `codex`, `claude`, `cline`, `codex-glibc`) через изоляцию в Multipass VM и регулярные инкрементальные бэкапы на хосте.
 
 Ключевая пользовательская проблема:
 - агент может повредить проект (удалить файлы, сломать рабочую копию, внести нежелательные изменения);
@@ -184,8 +184,8 @@
 
 ### 6.5 Секция `agents`
 Поля:
-- `type` (обязателен) — тип агента: `qwen`, `codex`, `codex-glibc`, `claude`.
-  - runtime-бинарники: `qwen -> qwen`, `codex -> codex`, `codex-glibc -> codex-glibc`, `claude -> claude`.
+- `type` (обязателен) — тип агента: `qwen`, `codex`, `codex-glibc`, `claude`, `cline`.
+  - runtime-бинарники: `qwen -> qwen`, `codex -> codex`, `codex-glibc -> codex-glibc`, `claude -> claude`, `cline -> cline`.
   - `codex-glibc` — установка/сборка codex из исходников с установкой бинарника `codex-glibc`.
 - `env` (optional) — mapping переменных окружения, передаваемых агенту при запуске.
   - значение приводится к строке (`null` -> пустая строка).
@@ -195,6 +195,11 @@
 - `proxychains` (optional) — proxy URL `scheme://host:port` для этого агента.
   - используется в `run` и `install-agents`;
   - если поле присутствует, оно перекрывает `vms.<vm>.proxychains` даже при пустой строке (т.е. может принудительно отключить proxychains для агента).
+
+Поведение валидации:
+- ошибки валидации конфига возвращаются с контекстом: путь к config-файлу, путь в YAML (например `agents.cline`) и имя блока (например Agent `cline`);
+- для `agents.<name>.type` при неизвестном значении добавляется подсказка с ближайшим поддерживаемым типом (например `cilne` -> `cline`);
+- при вероятной опечатке имени поля `type` (например `tpye`) в блоке агента возвращается явная ошибка про опечатку поля.
 
 ## 7. Модель CLI и взаимодействие режимов
 
@@ -457,6 +462,8 @@
 - определяет playbook по `agents.<name>.type`;
 - запускает Ansible installer;
 - поддерживает proxy override на один запуск (`--proxychains`).
+- при запуске без аргументов в интерактивном TTY запрашивает выбор агента и цели установки;
+- при запуске без аргументов в non-interactive режиме требует явный выбор агента (ошибка `agent_required`).
 
 Инвариант CLI:
 - установка агентов унифицирована и выполняется только через `install-agents` независимо от типа агента.
@@ -573,6 +580,7 @@ Dependency resolution выполняется кодом до запуска play
 ### 10.3 Agent installers
 - `codex.yml`: установка Node через nvm + `@openai/codex`.
 - `qwen.yml`: установка Node через nvm + `@qwen-code/qwen-code`.
+- `cline.yml`: установка Node через nvm + `cline`.
 - `claude.yml`: установка через официальный install script; сетевые шаги выполняются через `proxychains_prefix`; если нативный post-install падает, применяется fallback-установка `claude` из уже скачанного бинарника в `~/.claude/downloads`.
 - `codex-glibc.yml`: сборка из исходников `openai/codex`, управление swap при нехватке памяти, установка бинарника `codex-glibc`, post-build проверка.
 

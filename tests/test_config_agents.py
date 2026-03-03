@@ -88,6 +88,27 @@ def test_load_agents_config_rejects_invalid_proxychains_type():
         load_agents_config(config)
 
 
+def test_load_agents_config_requires_type_for_known_agent_name():
+    config = {
+        "vms": {"agent": {"cpu": 1, "ram": "1G", "disk": "5G"}},
+        "agents": {
+            "qwen": {
+                "env": {"TOKEN": "abc"},
+            }
+        },
+    }
+
+    with pytest.raises(ConfigError):
+        load_agents_config(config)
+
+
+def test_load_agents_config_requires_type_for_unknown_agent_name():
+    config = {"agents": {"demo": {"env": {}}}}
+
+    with pytest.raises(ConfigError):
+        load_agents_config(config)
+
+
 @pytest.mark.parametrize("agent_type", sorted(set(ALLOWED_AGENT_TYPES.values())))
 def test_load_agents_config_supports_allowed_agent_types(agent_type: str):
     config = {

@@ -17,10 +17,17 @@ def _write_config(
     config_path: Path,
     agents: list[tuple[str, str]],
     *,
+    vm_names: Optional[list[str]] = None,
     vm_proxychains: Optional[str] = None,
     agent_proxychains: Optional[Dict[str, str]] = None,
 ) -> None:
-    vm_proxychains_line = f"    proxychains: {json.dumps(vm_proxychains)}\n" if vm_proxychains is not None else ""
+    defined_vm_names = vm_names if vm_names else ["agent"]
+    vm_entries: list[str] = []
+    for name in defined_vm_names:
+        vm_proxychains_line = f"    proxychains: {json.dumps(vm_proxychains)}\n" if vm_proxychains is not None else ""
+        vm_entries.append(f"  {name}:\n    cpu: 1\n    ram: 1G\n    disk: 5G\n{vm_proxychains_line}")
+    joined_vm_entries = "".join(vm_entries)
+
     proxychains_by_agent = agent_proxychains or {}
     agent_entries = []
     for name, agent_type in agents:
@@ -33,11 +40,7 @@ def _write_config(
     config_path.write_text(
         f"""
 vms:
-  agent:
-    cpu: 1
-    ram: 1G
-    disk: 5G
-{vm_proxychains_line if vm_proxychains_line else ''}agents:
+{joined_vm_entries}agents:
 {joined_agent_entries}
 """,
         encoding="utf-8",
@@ -64,12 +67,85 @@ def test_install_agents_defaults_to_single_agent(monkeypatch, tmp_path):
     assert calls[0][2] is None
 
 
+def test_install_agents_uses_cline_playbook(monkeypatch, tmp_path):
+    config_path = tmp_path / "config.yaml"
+    _write_config(config_path, [("cline_main", "cline")])
+
+    calls: list[tuple[str, str]] = []
+
+    def fake_run_install_playbook(vm, playbook_path: Path, proxychains=None) -> None:
+        del proxychains
+        calls.append((vm.name, playbook_path.name))
+
+    monkeypatch.setattr(install_agents_module, "_run_install_playbook", fake_run_install_playbook)
+
+    runner = CliRunner()
+    result = runner.invoke(install_agents_command, ["--config", str(config_path)])
+
+    assert result.exit_code == 0
+    assert calls == [("agent", "cline.yml")]
+
+
 def test_install_agents_requires_choice_when_multiple(tmp_path):
     config_path = tmp_path / "config.yaml"
     _write_config(config_path, [("qwen", "qwen"), ("codex", "codex")])
 
     runner = CliRunner()
     result = runner.invoke(install_agents_command, ["--config", str(config_path)])
+
+    assert result.exit_code != 0
+    assert "Provide an agent name" in result.output
+
+
+def test_install_agents_without_args_prompts_interactively(monkeypatch, tmp_path):
+    config_path = tmp_path / "config.yaml"
+    _write_config(
+        config_path,
+        [("qwen", "qwen"), ("codex", "codex")],
+        vm_names=["vm1", "vm2"],
+    )
+
+    calls: list[tuple[str, str, object]] = []
+
+    def fake_run_install_playbook(vm, playbook_path: Path, proxychains=None) -> None:
+        calls.append((vm.name, playbook_path.name, proxychains))
+
+    class DummyQuestion:
+        def __init__(self, value):
+            self._value = value
+
+        def ask(self):
+            return self._value
+
+    answers = iter(["codex", "vm2"])
+
+    def fake_select(*_args, **_kwargs):
+        return DummyQuestion(next(answers))
+
+    monkeypatch.setattr(install_agents_module, "is_interactive_terminal", lambda: True)
+    monkeypatch.setattr(install_agents_module.questionary, "select", fake_select)
+    monkeypatch.setattr(install_agents_module, "_run_install_playbook", fake_run_install_playbook)
+
+    runner = CliRunner()
+    result = runner.invoke(install_agents_command, ["--config", str(config_path)])
+
+    assert result.exit_code == 0
+    assert calls == [("vm2", "codex.yml", None)]
+
+
+def test_install_agents_non_interactive_disables_prompts(monkeypatch, tmp_path):
+    config_path = tmp_path / "config.yaml"
+    _write_config(config_path, [("qwen", "qwen"), ("codex", "codex")])
+
+    monkeypatch.setattr(install_agents_module, "is_interactive_terminal", lambda: True)
+    monkeypatch.setattr(
+        install_agents_module.questionary,
+        "select",
+        lambda *_args, **_kwargs: (_ for _ in ()).throw(AssertionError("prompt should not be called")),
+    )
+
+    runner = CliRunner()
+    result = runner.invoke(install_agents_command, ["--config", str(config_path), "--non-interactive"])
 
     assert result.exit_code != 0
     assert "Provide an agent name" in result.output

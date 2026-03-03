@@ -36,6 +36,7 @@
 - qwen
 - codex
 - claude
+- cline
 - codex-glibc (собирается динамически)
 
 ## Быстрый старт
@@ -169,7 +170,7 @@ docs/build/
 * `agsekit install-agents <agent_name> [<vm>|--all-vms] [--config <path>] [--proxychains <значение>] [--debug]` — выполняет подготовленный playbook установки выбранного типа агента внутри указанной ВМ (или ВМ по умолчанию для агента, если она не указана). Если в конфиге описан единственный агент, имя можно не передавать — он будет выбран автоматически. Укажите `--proxychains <scheme://host:port>`, чтобы временно задать прокси для установки, или `--proxychains ""`, чтобы проигнорировать настройку на один запуск.
 * `agsekit install-agents --all-agents [--all-vms] [--config <path>] [--proxychains <значение>] [--debug]` — устанавливает все описанные агенты либо в их ВМ по умолчанию, либо во все ВМ при флаге `--all-vms`.
 
-Playbook установки лежат в `agsekit_cli/ansible/agents/`: `codex` ставит npm-CLI, `codex-glibc` собирает Rust-версию с glibc и кладёт бинарник под именем `codex-glibc`, а `qwen` и `claude` повторяют свои типовые шаги (playbook `qwen` устанавливает qwen-code CLI). Для `claude` рабочий бинарник — `claude`. Другие типы пока не поддерживаются.
+Playbook установки лежат в `agsekit_cli/ansible/agents/`: `codex`, `qwen` и `cline` ставят npm-CLI, `codex-glibc` собирает Rust-версию с glibc и кладёт бинарник под именем `codex-glibc`, а `claude` использует официальный установщик. Рабочие бинарники: `codex`, `qwen`, `cline`, `claude`, `codex-glibc`. Другие типы пока не поддерживаются.
 
 ### Запуск агентов
 
@@ -192,7 +193,7 @@ vms: # параметры виртуальных машин (можно имет
     cpu: 2      # количество vCPU
     ram: 4G     # объём оперативной памяти (поддерживаются 2G, 4096M и т.п.)
     disk: 20G   # размер диска
-    allowed_agents: qwen, codex, claude # опционально: также можно [qwen, codex]; если не указано, для этой ВМ разрешены все агенты
+    allowed_agents: qwen, codex, claude, cline # опционально: также можно [qwen, codex]; если не указано, для этой ВМ разрешены все агенты
     proxychains: "" # укажите адрес прокси (scheme://host:port); agsekit сам создаст временный proxychains.conf и обернёт команды Multipass
     cloud-init: {} # здесь можно разместить стандартный конфиг cloud-init, но он не обязателен
     port-forwarding: # Проброс портов между хостом и ВМ
@@ -219,7 +220,7 @@ mounts:
     vm: agent-ubuntu # имя VM, если не указан - берётся первая VM из конфигурации
 agents:
   qwen: # имя агента, можно добавить столько, сколько нужно
-    type: qwen # тип агента: qwen (ставит и использует бинарник qwen), codex, codex-glibc (бинарник codex-glibc) или claude
+    type: qwen # тип агента: qwen (ставит и использует бинарник qwen), codex, codex-glibc (бинарник codex-glibc), claude или cline (бинарник cline)
     env: # произвольные переменные окружения, которые будут переданы агенту
       OPENAI_API_KEY: "my_local_key"
       OPENAI_BASE_URL: "https://127.0.0.1:11556/v1"
@@ -232,6 +233,8 @@ agents:
     type: codex 
   claude:
     type: claude
+  cline:
+    type: cline
   codex2:
     type: codex-glibc
 ```

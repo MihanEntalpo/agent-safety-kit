@@ -3,7 +3,7 @@ vms: # параметры виртуальных машин (можно имет
     cpu: 2      # количество vCPU
     ram: 4G     # объём оперативной памяти
     disk: 20G   # размер диска
-    allowed_agents: qwen, codex, claude # опционально: также можно список [qwen, codex]; если не указано, для VM разрешены все агенты
+    allowed_agents: qwen, codex, claude, cline # опционально: также можно список [qwen, codex]; если не указано, для VM разрешены все агенты
     proxychains: "" # укажите адрес прокси (scheme://host:port) — agsekit сам создаст временный proxychains.conf и обернёт команды Multipass
     cloud-init: {} # здесь можно разместить стандартный конфиг cloud-init, но он не обязателен
     port-forwarding: # проброс портов через multipass shell при запуске агента и установке
@@ -30,7 +30,7 @@ mounts:
     vm: agent-ubuntu # имя VM, если не указан - берётся первая VM из конфигурации
 agents:
   qwen: # имя агента, можно добавить столько, сколько нужно
-    type: qwen # тип агента: qwen (используется бинарник qwen), codex, codex-glibc или claude
+    type: qwen # тип агента: qwen (используется бинарник qwen), codex, codex-glibc, claude или cline
     proxychains: "" # опционально: proxy URL агента (scheme://host:port); если поле есть, перекрывает proxychains VM даже при пустой строке
     env: # произвольные переменные окружения, которые будут переданы агенту
       OPENAI_API_KEY: "my_local_key"

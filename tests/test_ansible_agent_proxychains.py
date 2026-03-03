@@ -43,3 +43,16 @@ def test_claude_installer_tasks_run_via_proxychains_prefix():
     assert run_task["failed_when"] is False
     assert "claude_install.rc != 0" in fallback_task["when"]
     assert verify_task["ansible.builtin.command"] == "claude --version"
+
+
+def test_cline_installer_tasks_run_via_proxychains_prefix():
+    playbook = _load_yaml(Path("agsekit_cli/ansible/agents/cline.yml"))
+    tasks = playbook[1]["tasks"]
+
+    install_task = next(item for item in tasks if item["name"] == "Install cline CLI")
+    check_task = next(item for item in tasks if item["name"] == "Check cline CLI installation")
+
+    assert install_task["ansible.builtin.command"].startswith("{{ proxychains_prefix }}bash -lc ")
+    assert "npm install -g cline@latest" in install_task["ansible.builtin.command"]
+    assert "environment" not in install_task
+    assert "npm list -g --depth=0 cline" in check_task["ansible.builtin.command"]

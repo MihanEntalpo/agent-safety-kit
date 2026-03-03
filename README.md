@@ -36,6 +36,7 @@ Currently confirmed working agent types are:
 - qwen
 - codex
 - claude
+- cline
 - codex-glibc (built dynamically)
 
 ## Quick start
@@ -172,7 +173,7 @@ Backups use `rsync` with incremental links (`--link-dest`) to the previous copy:
 * `agsekit install-agents <agent_name> [<vm>|--all-vms] [--config <path>] [--proxychains <value>] [--debug]` — runs the prepared installation playbook for the chosen agent type inside the specified VM (or the agent's default VM if none is provided). If the config defines only one agent, you can skip `<agent_name>` and it will be picked automatically. Use `--proxychains <scheme://host:port>` to override the VM proxy for this installation or `--proxychains ""` to ignore it once.
 * `agsekit install-agents --all-agents [--all-vms] [--config <path>] [--proxychains <value>] [--debug]` — installs every configured agent either into their default VM or into every VM when `--all-vms` is set.
 
-The installation playbooks live in `agsekit_cli/ansible/agents/`: `codex` installs the npm CLI, `codex-glibc` builds the Rust sources with the glibc target and installs the binary as `codex-glibc`, and `qwen`/`claude` follow their upstream steps (the `qwen` playbook installs the qwen-code CLI). For `claude`, the runtime binary is `claude`. Other agent types are not supported yet.
+The installation playbooks live in `agsekit_cli/ansible/agents/`: `codex`, `qwen`, and `cline` install npm CLIs, `codex-glibc` builds the Rust sources with the glibc target and installs the binary as `codex-glibc`, and `claude` follows the official installer flow. Runtime binaries are `codex`, `qwen`, `cline`, `claude`, and `codex-glibc`. Other agent types are not supported yet.
 
 ### Running agents
 
@@ -203,7 +204,7 @@ vms: # VM parameters for Multipass (you can define multiple)
     cpu: 2      # number of vCPUs
     ram: 4G     # RAM size (supports 2G, 4096M, etc.)
     disk: 20G   # disk size
-    allowed_agents: qwen, codex, claude # optional: also supports [qwen, codex]; if omitted, all agents are allowed for this VM
+    allowed_agents: qwen, codex, claude, cline # optional: also supports [qwen, codex]; if omitted, all agents are allowed for this VM
     proxychains: "" # optional proxy URL (scheme://host:port); agsekit writes a temporary proxychains.conf and wraps Multipass commands automatically
     cloud-init: {} # place your standard cloud-init config here if needed
     port-forwarding: # Port forwarding config
@@ -230,7 +231,7 @@ mounts:
     vm: agent-ubuntu # VM name; defaults to the first VM in the configuration
 agents:
   qwen: # agent name; add as many as you need
-    type: qwen # agent type: qwen (installs and uses the `qwen` binary), codex, codex-glibc (installs the `codex-glibc` binary), or claude (runs the `claude` binary)
+    type: qwen # agent type: qwen (installs and uses the `qwen` binary), codex, codex-glibc (installs the `codex-glibc` binary), claude (runs the `claude` binary), or cline (runs the `cline` binary)
     env: # arbitrary environment variables passed to the agent process
       OPENAI_API_KEY: "my_local_key"
       OPENAI_BASE_URL: "https://127.0.0.1:11556/v1"
@@ -243,6 +244,8 @@ agents:
     type: codex 
   claude:
     type: claude
+  cline:
+    type: cline
   codex2:
     type: codex-glibc
 ```

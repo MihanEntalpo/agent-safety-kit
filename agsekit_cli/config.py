@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import os
+from difflib import get_close_matches
 from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any, Dict, List, Optional
@@ -18,6 +19,7 @@ ALLOWED_AGENT_TYPES = {
     "codex": "codex",
     "codex-glibc": "codex-glibc",
     "claude": "claude",
+    "cline": "cline",
 }
 
 AGENT_RUNTIME_BINARIES = {
@@ -25,6 +27,7 @@ AGENT_RUNTIME_BINARIES = {
     "codex": "codex",
     "codex-glibc": "codex-glibc",
     "claude": "claude",
+    "cline": "cline",
 }
 
 
@@ -71,6 +74,97 @@ class AgentConfig:
 class ConfigError(RuntimeError):
     """Raised when configuration cannot be loaded."""
 
+    def __init__(
+        self,
+        message: str,
+        *,
+        path: Optional[Path] = None,
+        location: Optional[str] = None,
+        block_kind: Optional[str] = None,
+        block_name: Optional[str] = None,
+    ):
+        super().__init__(message)
+        self.message = message
+        self.path = path
+        self.location = location
+        self.block_kind = block_kind
+        self.block_name = block_name
+
+    def with_context(
+        self,
+        *,
+        path: Optional[Path] = None,
+        location: Optional[str] = None,
+        block_kind: Optional[str] = None,
+        block_name: Optional[str] = None,
+    ) -> "ConfigError":
+        return ConfigError(
+            self.message,
+            path=path if path is not None else self.path,
+            location=location if location is not None else self.location,
+            block_kind=block_kind if block_kind is not None else self.block_kind,
+            block_name=block_name if block_name is not None else self.block_name,
+        )
+
+    def __str__(self) -> str:
+        details = self.message
+        has_context = any([self.path, self.location, self.block_kind, self.block_name])
+        if not has_context:
+            return details
+
+        context_parts: List[str] = []
+        if self.location:
+            context_parts.append(tr("config.error_context_location", location=self.location))
+        if self.block_kind and self.block_name:
+            context_parts.append(
+                tr(
+                    "config.error_context_block_named",
+                    block_kind=self.block_kind,
+                    block_name=self.block_name,
+                )
+            )
+        elif self.block_kind:
+            context_parts.append(tr("config.error_context_block", block_kind=self.block_kind))
+
+        context_text = ", ".join(context_parts)
+        if self.path and context_text:
+            return tr(
+                "config.error_with_path_and_context",
+                path=self.path,
+                context=context_text,
+                details=details,
+            )
+        if self.path:
+            return tr("config.error_with_path", path=self.path, details=details)
+        return tr("config.error_with_context", context=context_text, details=details)
+
+
+class LoadedConfig(dict):
+    def __init__(self, payload: Dict[str, Any], *, path: Path):
+        super().__init__(payload)
+        self.path = path
+
+
+def _config_path(config: Dict[str, Any]) -> Optional[Path]:
+    candidate = getattr(config, "path", None)
+    return candidate if isinstance(candidate, Path) else None
+
+
+def _raise_with_context(
+    exc: ConfigError,
+    *,
+    config: Dict[str, Any],
+    location: Optional[str] = None,
+    block_kind: Optional[str] = None,
+    block_name: Optional[str] = None,
+) -> None:
+    raise exc.with_context(
+        path=_config_path(config),
+        location=location,
+        block_kind=block_kind,
+        block_name=block_name,
+    )
+
 
 def resolve_config_path(explicit_path: Optional[Path] = None) -> Path:
     env_path = os.environ.get(CONFIG_ENV_VAR)
@@ -81,15 +175,28 @@ def resolve_config_path(explicit_path: Optional[Path] = None) -> Path:
 def load_config(path: Optional[Path] = None) -> Dict[str, Any]:
     config_path = resolve_config_path(path)
     if not config_path.exists():
-        raise ConfigError(tr("config.file_not_found", path=config_path))
+        raise ConfigError(tr("config.file_not_found", path=config_path), path=config_path)
 
-    with config_path.open("r", encoding="utf-8") as handle:
-        data = yaml.safe_load(handle) or {}
+    try:
+        with config_path.open("r", encoding="utf-8") as handle:
+            data = yaml.safe_load(handle) or {}
+    except yaml.YAMLError as exc:
+        raise ConfigError(
+            tr("config.parse_error", error=str(exc)),
+            path=config_path,
+            location="root",
+            block_kind=tr("config.block_config"),
+        )
 
     if not isinstance(data, dict):
-        raise ConfigError(tr("config.root_not_mapping"))
+        raise ConfigError(
+            tr("config.root_not_mapping"),
+            path=config_path,
+            location="root",
+            block_kind=tr("config.block_config"),
+        )
 
-    return data
+    return LoadedConfig(data, path=config_path)
 
 
 def _require_positive_int(value: Any, field_name: str) -> int:
@@ -213,42 +320,60 @@ def _normalize_proxychains(value: Any, field_name: str) -> Optional[str]:
 def load_vms_config(config: Dict[str, Any]) -> Dict[str, VmConfig]:
     raw_vms = config.get("vms")
     if not isinstance(raw_vms, dict) or not raw_vms:
-        raise ConfigError(tr("config.vms_missing"))
+        raise ConfigError(tr("config.vms_missing")).with_context(
+            path=_config_path(config),
+            location="vms",
+            block_kind=tr("config.block_config"),
+        )
 
     raw_agents = config.get("agents")
     known_agents = {str(name) for name in raw_agents.keys()} if isinstance(raw_agents, dict) else set()
 
     vms: Dict[str, VmConfig] = {}
     for vm_name, raw_entry in raw_vms.items():
-        if not isinstance(raw_entry, dict):
-            raise ConfigError(tr("config.vm_not_mapping", vm_name=vm_name))
-
-        missing = [field for field in ("cpu", "ram", "disk") if field not in raw_entry]
-        if missing:
-            raise ConfigError(tr("config.vm_missing_fields", vm_name=vm_name, missing=", ".join(missing)))
-
         try:
+            if not isinstance(raw_entry, dict):
+                raise ConfigError(tr("config.vm_not_mapping", vm_name=vm_name))
+
+            missing = [field for field in ("cpu", "ram", "disk") if field not in raw_entry]
+            if missing:
+                raise ConfigError(tr("config.vm_missing_fields", vm_name=vm_name, missing=", ".join(missing)))
+
             install_bundles = normalize_install_bundles(raw_entry.get("install"), vm_name)
+
+            allowed_agents = _normalize_vm_allowed_agents(
+                raw_entry.get("allowed_agents"),
+                vm_name=str(vm_name),
+                known_agents=known_agents,
+            )
+
+            vms[vm_name] = VmConfig(
+                name=str(vm_name),
+                cpu=_require_positive_int(raw_entry.get("cpu"), f"vms.{vm_name}.cpu"),
+                ram=_validate_size_field(raw_entry.get("ram"), f"vms.{vm_name}.ram"),
+                disk=_validate_size_field(raw_entry.get("disk"), f"vms.{vm_name}.disk"),
+                cloud_init=raw_entry.get("cloud-init") or {},
+                port_forwarding=_normalize_port_forwarding(raw_entry.get("port-forwarding"), vm_name),
+                proxychains=_normalize_proxychains(raw_entry.get("proxychains"), f"vms.{vm_name}.proxychains"),
+                allowed_agents=allowed_agents,
+                install=install_bundles,
+            )
         except ValueError as exc:
-            raise ConfigError(str(exc))
-
-        allowed_agents = _normalize_vm_allowed_agents(
-            raw_entry.get("allowed_agents"),
-            vm_name=str(vm_name),
-            known_agents=known_agents,
-        )
-
-        vms[vm_name] = VmConfig(
-            name=str(vm_name),
-            cpu=_require_positive_int(raw_entry.get("cpu"), f"vms.{vm_name}.cpu"),
-            ram=_validate_size_field(raw_entry.get("ram"), f"vms.{vm_name}.ram"),
-            disk=_validate_size_field(raw_entry.get("disk"), f"vms.{vm_name}.disk"),
-            cloud_init=raw_entry.get("cloud-init") or {},
-            port_forwarding=_normalize_port_forwarding(raw_entry.get("port-forwarding"), vm_name),
-            proxychains=_normalize_proxychains(raw_entry.get("proxychains"), f"vms.{vm_name}.proxychains"),
-            allowed_agents=allowed_agents,
-            install=install_bundles,
-        )
+            _raise_with_context(
+                ConfigError(str(exc)),
+                config=config,
+                location=f"vms.{vm_name}",
+                block_kind=tr("config.block_vm"),
+                block_name=str(vm_name),
+            )
+        except ConfigError as exc:
+            _raise_with_context(
+                exc,
+                config=config,
+                location=f"vms.{vm_name}",
+                block_kind=tr("config.block_vm"),
+                block_name=str(vm_name),
+            )
 
     return vms
 
@@ -290,9 +415,20 @@ def _normalize_agent_type(value: Any) -> str:
     if not isinstance(value, str) or not value.strip():
         raise ConfigError(tr("config.agent_type_missing"))
 
-    normalized = ALLOWED_AGENT_TYPES.get(value.strip().lower())
+    cleaned = value.strip().lower()
+    normalized = ALLOWED_AGENT_TYPES.get(cleaned)
     if normalized is None:
-        allowed = ", ".join(sorted({key for key in ALLOWED_AGENT_TYPES if "-" not in key}))
+        allowed = ", ".join(sorted(ALLOWED_AGENT_TYPES.keys()))
+        nearest = get_close_matches(cleaned, sorted(ALLOWED_AGENT_TYPES.keys()), n=1, cutoff=0.7)
+        if nearest:
+            raise ConfigError(
+                tr(
+                    "config.agent_type_unknown_with_hint",
+                    value=value,
+                    allowed=allowed,
+                    hint=nearest[0],
+                )
+            )
         raise ConfigError(tr("config.agent_type_unknown", value=value, allowed=allowed))
     return normalized
 
@@ -328,35 +464,58 @@ def _normalize_default_args(value: Any) -> List[str]:
 def load_agents_config(config: Dict[str, Any]) -> Dict[str, AgentConfig]:
     raw_agents = config.get("agents") or {}
     if not isinstance(raw_agents, dict):
-        raise ConfigError(tr("config.agents_not_mapping"))
+        raise ConfigError(tr("config.agents_not_mapping")).with_context(
+            path=_config_path(config),
+            location="agents",
+            block_kind=tr("config.block_config"),
+        )
 
     default_vm = _default_vm_name(config)
     agents: Dict[str, AgentConfig] = {}
     for agent_name, raw_entry in raw_agents.items():
-        if not isinstance(raw_entry, dict):
-            raise ConfigError(tr("config.agent_not_mapping", agent_name=agent_name))
+        try:
+            if not isinstance(raw_entry, dict):
+                raise ConfigError(tr("config.agent_not_mapping", agent_name=agent_name))
 
-        agent_type = _normalize_agent_type(raw_entry.get("type"))
-        env_vars = _normalize_env_vars(raw_entry.get("env"))
-        default_args = _normalize_default_args(raw_entry.get("default-args"))
-        vm_name = raw_entry.get("vm") or default_vm
-        vm_name = str(vm_name) if vm_name else None
-        proxychains_defined = "proxychains" in raw_entry
-        proxychains = (
-            _normalize_proxychains(raw_entry.get("proxychains"), f"agents.{agent_name}.proxychains")
-            if proxychains_defined
-            else None
-        )
+            if "type" not in raw_entry:
+                raw_keys = [key for key in raw_entry.keys() if isinstance(key, str)]
+                typo_key = get_close_matches("type", raw_keys, n=1, cutoff=0.75)
+                if typo_key:
+                    raise ConfigError(
+                        tr("config.agent_type_field_typo", wrong_field=typo_key[0], expected_field="type")
+                    )
+                raise ConfigError(tr("config.agent_type_required"))
 
-        agents[agent_name] = AgentConfig(
-            name=str(agent_name),
-            type=agent_type,
-            env=env_vars,
-            default_args=default_args,
-            vm_name=vm_name,
-            proxychains=proxychains,
-            proxychains_defined=proxychains_defined,
-        )
+            raw_agent_type = raw_entry.get("type")
+            agent_type = _normalize_agent_type(raw_agent_type)
+            env_vars = _normalize_env_vars(raw_entry.get("env"))
+            default_args = _normalize_default_args(raw_entry.get("default-args"))
+            vm_name = raw_entry.get("vm") or default_vm
+            vm_name = str(vm_name) if vm_name else None
+            proxychains_defined = "proxychains" in raw_entry
+            proxychains = (
+                _normalize_proxychains(raw_entry.get("proxychains"), f"agents.{agent_name}.proxychains")
+                if proxychains_defined
+                else None
+            )
+
+            agents[agent_name] = AgentConfig(
+                name=str(agent_name),
+                type=agent_type,
+                env=env_vars,
+                default_args=default_args,
+                vm_name=vm_name,
+                proxychains=proxychains,
+                proxychains_defined=proxychains_defined,
+            )
+        except ConfigError as exc:
+            _raise_with_context(
+                exc,
+                config=config,
+                location=f"agents.{agent_name}",
+                block_kind=tr("config.block_agent"),
+                block_name=str(agent_name),
+            )
 
     return agents
 
@@ -481,52 +640,69 @@ def _normalize_vm_allowed_agents(
 def load_mounts_config(config: Dict[str, Any]) -> List[MountConfig]:
     raw_mounts = config.get("mounts") or []
     if not isinstance(raw_mounts, list):
-        raise ConfigError(tr("config.mounts_not_list"))
+        raise ConfigError(tr("config.mounts_not_list")).with_context(
+            path=_config_path(config),
+            location="mounts",
+            block_kind=tr("config.block_config"),
+        )
 
     default_vm = _default_vm_name(config)
     if raw_mounts and default_vm is None:
-        raise ConfigError(tr("config.mounts_missing_vms"))
+        raise ConfigError(tr("config.mounts_missing_vms")).with_context(
+            path=_config_path(config),
+            location="mounts",
+            block_kind=tr("config.block_config"),
+        )
 
     raw_agents = config.get("agents")
     known_agents = {str(name) for name in raw_agents.keys()} if isinstance(raw_agents, dict) else set()
 
     mounts: List[MountConfig] = []
     for index, entry in enumerate(raw_mounts):
-        if not isinstance(entry, dict):
-            raise ConfigError(tr("config.mount_entry_not_mapping", index=index + 1))
+        try:
+            if not isinstance(entry, dict):
+                raise ConfigError(tr("config.mount_entry_not_mapping", index=index + 1))
 
-        if "source" not in entry:
-            raise ConfigError(tr("config.mount_entry_missing_source", index=index + 1))
+            if "source" not in entry:
+                raise ConfigError(tr("config.mount_entry_missing_source", index=index + 1))
 
-        source = _ensure_path(entry.get("source"), f"mounts[{index}].source")
-        target_raw = entry.get("target")
-        backup_raw = entry.get("backup")
-        vm_name = entry.get("vm") or default_vm
-        if not vm_name:
-            raise ConfigError(tr("config.mount_entry_missing_vm", index=index + 1))
+            source = _ensure_path(entry.get("source"), f"mounts[{index}].source")
+            target_raw = entry.get("target")
+            backup_raw = entry.get("backup")
+            vm_name = entry.get("vm") or default_vm
+            if not vm_name:
+                raise ConfigError(tr("config.mount_entry_missing_vm", index=index + 1))
 
-        target = _ensure_path(target_raw, f"mounts[{index}].target") if target_raw else _default_target(source)
-        backup = _ensure_path(backup_raw, f"mounts[{index}].backup") if backup_raw else _default_backup(source)
-        interval_minutes = _normalize_interval(entry.get("interval"))
-        max_backups = _normalize_max_backups(entry.get("max_backups"), index + 1)
-        backup_clean_method = _normalize_backup_clean_method(entry.get("backup_clean_method"), index + 1)
-        allowed_agents = _normalize_allowed_agents(
-            entry.get("allowed_agents"),
-            index=index + 1,
-            known_agents=known_agents,
-        )
-
-        mounts.append(
-            MountConfig(
-                source=source,
-                target=target,
-                backup=backup,
-                interval_minutes=interval_minutes,
-                max_backups=max_backups,
-                backup_clean_method=backup_clean_method,
-                vm_name=str(vm_name),
-                allowed_agents=allowed_agents,
+            target = _ensure_path(target_raw, f"mounts[{index}].target") if target_raw else _default_target(source)
+            backup = _ensure_path(backup_raw, f"mounts[{index}].backup") if backup_raw else _default_backup(source)
+            interval_minutes = _normalize_interval(entry.get("interval"))
+            max_backups = _normalize_max_backups(entry.get("max_backups"), index + 1)
+            backup_clean_method = _normalize_backup_clean_method(entry.get("backup_clean_method"), index + 1)
+            allowed_agents = _normalize_allowed_agents(
+                entry.get("allowed_agents"),
+                index=index + 1,
+                known_agents=known_agents,
             )
-        )
+
+            mounts.append(
+                MountConfig(
+                    source=source,
+                    target=target,
+                    backup=backup,
+                    interval_minutes=interval_minutes,
+                    max_backups=max_backups,
+                    backup_clean_method=backup_clean_method,
+                    vm_name=str(vm_name),
+                    allowed_agents=allowed_agents,
+                )
+            )
+        except ConfigError as exc:
+            _raise_with_context(
+                exc,
+                config=config,
+                location=f"mounts[{index}]",
+                block_kind=tr("config.block_mount"),
+                block_name=str(index + 1),
+            )
 
     return mounts

@@ -6,16 +6,21 @@ from pathlib import Path
 from typing import Iterable, List, Optional, Tuple
 
 import click
+import questionary
 
 from ..agents import find_agent
 from ..ansible_utils import AnsibleCollectionError, ensure_multipass_collection
 from ..config import AgentConfig, ConfigError, VmConfig, load_agents_config, load_config, load_vms_config, resolve_config_path
 from ..debug import debug_log_command, debug_log_result, debug_scope
+from ..interactive import is_interactive_terminal
 from ..i18n import tr
 from ..vm import MultipassError, ensure_multipass_available, resolve_proxychains
 from . import debug_option, non_interactive_option
 
 PLAYBOOKS_DIR = Path(__file__).resolve().parents[1] / "ansible" / "agents"
+_ALL_AGENTS_VALUE = "__all_agents__"
+_DEFAULT_VM_VALUE = "__default_vm__"
+_ALL_VMS_VALUE = "__all_vms__"
 
 
 def _playbook_for(agent: AgentConfig) -> Path:
@@ -95,6 +100,45 @@ def _default_vm(agent: AgentConfig, available: Iterable[str]) -> str:
         raise ConfigError(tr("install_agents.no_vms_available"))
 
 
+def _select_agent_interactively(agent_names: List[str]) -> Tuple[bool, Optional[str]]:
+    choices: list[questionary.QuestionChoice] = [questionary.Choice(tr("interactive.agents_all"), value=_ALL_AGENTS_VALUE)]
+    choices.extend(questionary.Choice(name, value=name) for name in agent_names)
+    selected = questionary.select(
+        tr("interactive.agent_install_select"),
+        choices=choices,
+        use_shortcuts=True,
+    ).ask()
+    if selected is None:
+        raise click.Abort()
+    if selected == _ALL_AGENTS_VALUE:
+        return True, None
+    return False, str(selected)
+
+
+def _select_vm_interactively(vms_config: dict[str, VmConfig]) -> Tuple[bool, Optional[str]]:
+    default_vm = next(iter(vms_config.keys())) if vms_config else None
+    default_label = tr("interactive.vm_default_label")
+    if default_vm:
+        default_label += f" ({default_vm})"
+
+    choices: list[questionary.QuestionChoice] = [questionary.Choice(default_label, value=_DEFAULT_VM_VALUE)]
+    choices.extend(questionary.Choice(name, value=name) for name in vms_config)
+    choices.append(questionary.Choice(tr("interactive.vms_all"), value=_ALL_VMS_VALUE))
+
+    selected = questionary.select(
+        tr("interactive.agent_install_target"),
+        choices=choices,
+        use_shortcuts=True,
+    ).ask()
+    if selected is None:
+        raise click.Abort()
+    if selected == _ALL_VMS_VALUE:
+        return True, None
+    if selected == _DEFAULT_VM_VALUE:
+        return False, None
+    return False, str(selected)
+
+
 @click.command(name="install-agents", help=tr("install_agents.command_help"))
 @non_interactive_option
 @click.argument("agent_name", required=False)
@@ -127,8 +171,7 @@ def install_agents_command(
     non_interactive: bool,
 ) -> None:
     """Install configured agents into Multipass VMs."""
-    # not used parameter, explicitly removing it so IDEs/linters do not complain
-    del non_interactive
+    interactive = is_interactive_terminal() and not non_interactive
 
     with debug_scope(debug):
         click.echo(tr("install_agents.preparing"))
@@ -146,6 +189,11 @@ def install_agents_command(
 
         if not agents_config:
             raise click.ClickException(tr("install_agents.no_agents"))
+
+        run_without_args = not agent_name and not vm and not all_agents and not all_vms
+        if run_without_args and interactive:
+            all_agents, agent_name = _select_agent_interactively(list(agents_config.keys()))
+            all_vms, vm = _select_vm_interactively(vms_config)
 
         agent_names: List[str]
         if all_agents:

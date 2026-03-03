@@ -731,3 +731,73 @@ def test_run_command_without_mount_uses_vm_allowed_agents(monkeypatch, tmp_path)
     assert "allowed_agents" in result.output
     assert "`agent`" in result.output
     assert called["run_in_vm"] is False
+
+
+def test_run_command_reports_context_for_agent_type_field_typo(tmp_path):
+    source = tmp_path / "project"
+    source.mkdir()
+    config_path = tmp_path / "config.yaml"
+    config_path.write_text(
+        f"""
+vms:
+  agent:
+    cpu: 1
+    ram: 1G
+    disk: 5G
+mounts:
+  - source: {source}
+    target: /home/ubuntu/project
+    vm: agent
+agents:
+  cline:
+    tpye: cline
+    vm: agent
+    env: {{}}
+""",
+        encoding="utf-8",
+    )
+
+    runner = CliRunner()
+    result = runner.invoke(run_command, ["cline", str(source), "--config", str(config_path)])
+
+    assert result.exit_code != 0
+    assert f"Configuration error in file `{config_path}`" in result.output
+    assert "path agents.cline" in result.output
+    assert "Agent `cline`" in result.output
+    assert "looks like a typo" in result.output
+    assert "`tpye`" in result.output
+
+
+def test_run_command_suggests_agent_type_for_typo(tmp_path):
+    source = tmp_path / "project"
+    source.mkdir()
+    config_path = tmp_path / "config.yaml"
+    config_path.write_text(
+        f"""
+vms:
+  agent:
+    cpu: 1
+    ram: 1G
+    disk: 5G
+mounts:
+  - source: {source}
+    target: /home/ubuntu/project
+    vm: agent
+agents:
+  cline:
+    type: cilne
+    vm: agent
+    env: {{}}
+""",
+        encoding="utf-8",
+    )
+
+    runner = CliRunner()
+    result = runner.invoke(run_command, ["cline", str(source), "--config", str(config_path)])
+
+    assert result.exit_code != 0
+    assert f"Configuration error in file `{config_path}`" in result.output
+    assert "path agents.cline" in result.output
+    assert "Agent `cline`" in result.output
+    assert "Unknown agent type: cilne." in result.output
+    assert "Did you mean `cline`?" in result.output
