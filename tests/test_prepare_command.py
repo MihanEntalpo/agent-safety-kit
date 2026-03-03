@@ -3,6 +3,7 @@ from pathlib import Path
 
 from click.testing import CliRunner
 import pytest
+import yaml
 
 ROOT = Path(__file__).resolve().parent.parent
 if str(ROOT) not in sys.path:
@@ -113,3 +114,21 @@ def test_install_multipass_arch_uses_yay(monkeypatch):
     prepare_module._install_multipass_arch()
 
     assert commands == [["yay", "-S", "--noconfirm", "multipass", "libvirt", "dnsmasq", "qemu-base"]]
+
+
+def test_prepare_vm_packages_installs_proxychains_runner_scripts():
+    playbook_path = Path("agsekit_cli/ansible/vm_packages.yml")
+    playbook = yaml.safe_load(playbook_path.read_text(encoding="utf-8"))
+    tasks = playbook[1]["tasks"]
+
+    common_task = next(item for item in tasks if item["name"] == "Install agsekit proxychains common script")
+    common_copy = common_task["ansible.builtin.copy"]
+    assert common_copy["src"] == "{{ playbook_dir }}/../agent_scripts/proxychains_common.sh"
+    assert common_copy["dest"] == "/usr/bin/proxychains_common.sh"
+    assert common_copy["mode"] == "0644"
+
+    runner_task = next(item for item in tasks if item["name"] == "Install agsekit proxychains runner script")
+    runner_copy = runner_task["ansible.builtin.copy"]
+    assert runner_copy["src"] == "{{ playbook_dir }}/../run_with_proxychains.sh"
+    assert runner_copy["dest"] == "/usr/bin/agsekit-run_with_proxychains.sh"
+    assert runner_copy["mode"] == "0755"

@@ -23,7 +23,7 @@ from ..config import (
 )
 from ..i18n import tr
 from ..interactive import is_interactive_terminal
-from ..mounts import MountAlreadyMountedError, find_mount_by_source, mount_directory, normalize_path
+from ..mounts import MountAlreadyMountedError, mount_directory, normalize_path
 from ..vm import MultipassError
 from ..debug import debug_scope
 
@@ -66,6 +66,27 @@ def _prompt_backup_clean_method(default: str) -> str:
         default=default,
         type=click.Choice(["tail", "thin"], case_sensitive=False),
     )
+
+
+def _resolve_vm_name(raw_vm_name: Optional[str], vms: dict[str, object], interactive: bool) -> str:
+    vm_names = list(vms.keys())
+    if raw_vm_name:
+        if raw_vm_name not in vms:
+            raise click.ClickException(tr("addmount.vm_missing", vm_name=raw_vm_name))
+        return raw_vm_name
+
+    if len(vm_names) == 1:
+        return vm_names[0]
+
+    if interactive:
+        selected = click.prompt(
+            tr("addmount.vm_prompt"),
+            default=vm_names[0],
+            type=click.Choice(vm_names, case_sensitive=True),
+        )
+        return str(selected)
+
+    return vm_names[0]
 
 
 def _parse_allowed_agents_value(raw_value: str, available_agents: list[str]) -> list[str]:
@@ -150,6 +171,12 @@ def _backup_config(config_path: Path) -> Path:
 @click.argument("backup_dir", required=False, type=click.Path(path_type=Path))
 @click.argument("interval", required=False)
 @click.option(
+    "--vm",
+    "vm_name",
+    required=False,
+    help=tr("addmount.option_vm"),
+)
+@click.option(
     "--max-backups",
     type=int,
     default=None,
@@ -194,6 +221,7 @@ def addmount_command(
     target_dir: Optional[Path],
     backup_dir: Optional[Path],
     interval: Optional[str],
+    vm_name: Optional[str],
     max_backups: Optional[int],
     backup_clean_method: Optional[str],
     mount_now: bool,
@@ -277,8 +305,12 @@ def addmount_command(
         except ConfigError as exc:
             raise click.ClickException(str(exc))
 
-        if find_mount_by_source(existing_mounts, source_dir) is not None:
-            raise click.ClickException(tr("addmount.mount_exists", source=source_dir))
+        selected_vm = _resolve_vm_name(vm_name, vms, interactive)
+        has_matching_mount = any(
+            mount.source == source_dir and mount.vm_name == selected_vm for mount in existing_mounts
+        )
+        if has_matching_mount:
+            raise click.ClickException(tr("addmount.mount_exists", source=source_dir, vm_name=selected_vm))
 
         allowed_agents_value = _resolve_allowed_agents(allowed_agents, interactive, available_agents)
         allowed_agents_text = ", ".join(allowed_agents_value) if allowed_agents_value else tr("addmount.allowed_agents_none")
@@ -287,6 +319,7 @@ def addmount_command(
             tr(
                 "addmount.summary",
                 source=source_dir,
+                vm_name=selected_vm,
                 target=target_dir,
                 backup=backup_dir,
                 interval=interval_minutes,
@@ -312,6 +345,7 @@ def addmount_command(
 
         mount_entry = CommentedMap()
         mount_entry["source"] = str(source_dir)
+        mount_entry["vm"] = selected_vm
         mount_entry["target"] = str(target_dir)
         mount_entry["backup"] = str(backup_dir)
         mount_entry["interval"] = interval_minutes
@@ -333,7 +367,6 @@ def addmount_command(
             mount_now = click.confirm(tr("addmount.mount_now_prompt"), default=False)
 
         if mount_now:
-            default_vm = next(iter(vms.keys()))
             try:
                 mount_directory(
                     MountConfig(
@@ -344,7 +377,7 @@ def addmount_command(
                         max_backups=max_backups_value,
                         backup_clean_method=backup_clean_method_value,
                         allowed_agents=allowed_agents_value,
-                        vm_name=default_vm,
+                        vm_name=selected_vm,
                     )
                 )
             except MountAlreadyMountedError:
@@ -352,7 +385,7 @@ def addmount_command(
                     tr(
                         "mounts.already_mounted",
                         source=normalize_path(source_dir),
-                        vm_name=default_vm,
+                        vm_name=selected_vm,
                         target=target_dir,
                     )
                 )
@@ -363,7 +396,7 @@ def addmount_command(
                     tr(
                         "mounts.mounted",
                         source=normalize_path(source_dir),
-                        vm_name=default_vm,
+                        vm_name=selected_vm,
                         target=target_dir,
                     )
                 )

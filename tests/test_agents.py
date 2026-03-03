@@ -78,14 +78,12 @@ def test_run_in_vm_wraps_with_proxychains(monkeypatch, binary: str):
         proxychains="socks5://127.0.0.1:1080",
     )
 
-    monkeypatch.setattr(agents, "ensure_proxychains_runner", lambda _vm: "/tmp/agsekit-run_with_proxychains.sh")
-
     agents.run_in_vm(vm_config, workdir, [binary], env_vars)
 
     args = calls["args"]
     assert args[:3] == ["multipass", "exec", "agent-vm"]
     assert args[3:6] == ["--", "bash", "-lc"]
-    assert "bash /tmp/agsekit-run_with_proxychains.sh --proxy socks5://127.0.0.1:1080 --" in args[6]
+    assert f"bash {agents.PROXYCHAINS_RUNNER_PATH} --proxy socks5://127.0.0.1:1080 --" in args[6]
     assert binary in args[6]
 
     calls.clear()

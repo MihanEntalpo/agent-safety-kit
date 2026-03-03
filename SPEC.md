@@ -106,10 +106,10 @@
   - сравнение существующих VM и проверка ресурсов хоста;
   - запуск VM;
   - port-forward аргументы;
-  - proxychains helper transfer.
+  - резолв proxychains override и пути раннера.
 - `agsekit_cli/vm_prepare.py`
   - host SSH keypair;
-  - подготовка VM (authorized_keys, known_hosts, base packages, bundles).
+  - подготовка VM (authorized_keys, known_hosts, base packages, proxychains runner scripts, bundles).
 - `agsekit_cli/mounts.py`
   - mount/umount wrappers;
   - поиск mount по пути (longest-prefix).
@@ -373,12 +373,16 @@
 #### `agsekit umount [source_dir] [--all] [--debug]`
 - размонтирование по тем же правилам выбора mount.
 
-#### `agsekit addmount [--allowed-agents <a,b,c>] [--debug]`
+#### `agsekit addmount [--vm <vm_name>] [--allowed-agents <a,b,c>] [--debug]`
 Зачем:
 - добавить mount entry в YAML безопасно и без ручного редактирования.
 
 Что делает:
 - запрашивает/вычисляет default значения;
+- поддерживает выбор VM для новой записи:
+  - non-interactive: через `--vm <name>`;
+  - interactive: при нескольких VM предлагает выбрать VM;
+  - если в конфиге ровно одна VM, выбирает её автоматически;
 - поддерживает установку `allowed_agents`:
   - non-interactive: через `--allowed-agents qwen,codex`;
   - interactive: предлагает либо «без ограничений», либо выбрать разрешённых агентов из уже настроенных в конфиге;
@@ -529,8 +533,8 @@
 
 ### 9.4 Proxychains режим
 - effective proxy определяется как `cli --proxychains override -> agents.<name>.proxychains -> vm.proxychains -> none`;
-- helper scripts копируются в VM;
-- helper scripts передаются в VM через `multipass exec ... bash -lc 'cat > ...'` по `stdin` (без чтения локального пути со стороны `multipass transfer`);
+- раннер `run_with_proxychains.sh` и `proxychains_common.sh` устанавливаются на этапе подготовки VM (`vm_packages.yml`) в `/usr/bin`;
+- `run` и binary precheck используют предустановленный раннер `/usr/bin/agsekit-run_with_proxychains.sh` без runtime-инициализации/копирования;
 - создаётся временный proxychains config;
 - команда запускается через `proxychains4`;
 - в Ansible agent installers сетевые шаги выполняются через `proxychains_prefix` (без отдельного прокидывания proxy env-переменных).
@@ -548,6 +552,8 @@
 - `git`
 - `proxychains4`
 - `ripgrep`
+- `/usr/bin/proxychains_common.sh`
+- `/usr/bin/agsekit-run_with_proxychains.sh`
 
 ### 10.2 Install bundles (`vms.<vm>.install`)
 Поддерживаемые bundles:
@@ -588,14 +594,13 @@ Dependency resolution выполняется кодом до запуска play
 - timestamp backups конфига при `addmount`/`removemount`
 
 Внутри VM:
-- временные proxychains helper scripts в `/tmp`
+- системные proxychains helper scripts в `/usr/bin`
 - установленный agent/toolchain stack по выбранным playbooks
 
 ## 13. Ограничения и текущие особенности
 
 - Нельзя in-place менять `cpu/ram/disk` у уже созданной VM (только детект mismatch).
 - `systemd install/uninstall` ожидает unit-файл `systemd/agsekit-portforward.service` в текущем рабочем каталоге.
-- `addmount` не предлагает явный выбор VM поля entry; при резолве используется default VM логика.
 - `shell` не включает автоматически порт-форвардинг; для постоянных туннелей используется `portforward`/`systemd`.
 - Источником истины для текущего поведения являются код и тесты.
 

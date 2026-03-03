@@ -1,5 +1,14 @@
 # Agent-Safety-Kit versions history
 
+## 1.2.5 - Faster proxychains startup in run
+
+* Moved proxychains helper scripts to VM preparation (`vm_packages.yml`): `prepare_vm` now installs `/usr/bin/proxychains_common.sh` and `/usr/bin/agsekit-run_with_proxychains.sh`
+* Removed per-run proxychains helper upload to `/tmp` from `run`, reducing agent startup latency for proxychains-enabled launches
+
+## 1.2.4 - Addmount VM selection
+
+* Improved `addmount`: VM can now be chosen explicitly via `--vm`, selected interactively when multiple VMs are configured, and auto-selected when exactly one VM is configured
+
 ## 1.2.3 - VM-level allowed_agents
 
 * Added `vms.<name>.allowed_agents` support (list or comma-separated string) with validation against configured agent names

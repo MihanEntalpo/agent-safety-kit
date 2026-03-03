@@ -37,9 +37,8 @@ done
 [[ -n "$proxy_setting" ]] || usage
 [[ $# -gt 0 ]] || usage
 
-SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 # shellcheck disable=SC1091
-. "$SCRIPT_DIR/agent_scripts/proxychains_common.sh"
+. /usr/bin/proxychains_common.sh
 
 PROXYCHAINS_PROXY="$proxy_setting"
 PROXYCHAINS_QUIET=1

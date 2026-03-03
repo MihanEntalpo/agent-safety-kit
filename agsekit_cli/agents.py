@@ -9,7 +9,7 @@ from .config import AgentConfig, ConfigError, VmConfig, agent_runtime_binary, lo
 from .debug import debug_log_command, debug_log_result
 from .i18n import tr
 from .mounts import MountConfig, normalize_path
-from .vm import MultipassError, ensure_multipass_available, ensure_proxychains_runner, resolve_proxychains
+from .vm import MultipassError, PROXYCHAINS_RUNNER_PATH, ensure_multipass_available, resolve_proxychains
 
 
 NVM_LOAD_SNIPPET = (
@@ -128,9 +128,8 @@ def run_in_vm(
     shell_command = build_shell_command(workdir, agent_command, env_vars)
     effective_proxychains = resolve_proxychains(vm, proxychains)
     if effective_proxychains:
-        runner = ensure_proxychains_runner(vm)
         wrapped_command = (
-            f"bash {shlex.quote(runner)} --proxy {shlex.quote(effective_proxychains)} -- "
+            f"bash {shlex.quote(PROXYCHAINS_RUNNER_PATH)} --proxy {shlex.quote(effective_proxychains)} -- "
             f"bash -lc {shlex.quote(shell_command)}"
         )
         command = ["multipass", "exec", vm.name, "--", "bash", "-lc", wrapped_command]
@@ -155,9 +154,8 @@ def ensure_agent_binary_available(
     parts.append(f"command -v {shlex.quote(binary)} >/dev/null 2>&1")
     check_command = " && ".join(parts)
     if effective_proxychains:
-        runner = ensure_proxychains_runner(vm)
         wrapped_command = (
-            f"bash {shlex.quote(runner)} --proxy {shlex.quote(effective_proxychains)} -- "
+            f"bash {shlex.quote(PROXYCHAINS_RUNNER_PATH)} --proxy {shlex.quote(effective_proxychains)} -- "
             f"bash -lc {shlex.quote(check_command)}"
         )
         command = ["multipass", "exec", vm.name, "--", "bash", "-lc", wrapped_command]

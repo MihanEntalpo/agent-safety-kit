@@ -3,7 +3,6 @@ from __future__ import annotations
 import json
 import os
 import re
-import shlex
 import shutil
 import subprocess
 import tempfile
@@ -451,81 +450,7 @@ def build_port_forwarding_args(rules: Iterable[PortForwardingRule]) -> List[str]
     return args
 
 
-PROXYCHAINS_RUNNER_REMOTE = "/tmp/agsekit-run_with_proxychains.sh"
-PROXYCHAINS_HELPER_REMOTE_DIR = "/tmp/agent_scripts"
-PROXYCHAINS_HELPER_REMOTE = f"{PROXYCHAINS_HELPER_REMOTE_DIR}/proxychains_common.sh"
-
-
-def _copy_file_into_vm_via_stdin(local_path: Path, remote_path: str, vm_name: str, error_key: str) -> None:
-    try:
-        payload = local_path.read_text(encoding="utf-8")
-    except OSError as exc:
-        raise MultipassError(tr(error_key, vm_name=vm_name, stdout="-", stderr=str(exc)))
-
-    upload_command = [
-        "multipass",
-        "exec",
-        vm_name,
-        "--",
-        "bash",
-        "-lc",
-        f"cat > {shlex.quote(remote_path)}",
-    ]
-    debug_log_command(upload_command)
-    upload_result = subprocess.run(
-        upload_command,
-        check=False,
-        capture_output=True,
-        text=True,
-        input=payload,
-    )
-    debug_log_result(upload_result)
-    if upload_result.returncode != 0:
-        raise MultipassError(
-            tr(
-                error_key,
-                vm_name=vm_name,
-                stdout=(upload_result.stdout or "").strip() or "-",
-                stderr=(upload_result.stderr or "").strip() or "-",
-            )
-        )
-
-
-def ensure_proxychains_runner(vm: VmConfig) -> str:
-    helper = Path(__file__).resolve().parent / "agent_scripts" / "proxychains_common.sh"
-    mkdir_command = ["multipass", "exec", vm.name, "--", "mkdir", "-p", PROXYCHAINS_HELPER_REMOTE_DIR]
-    debug_log_command(mkdir_command)
-    mkdir_result = subprocess.run(mkdir_command, check=False, capture_output=True, text=True)
-    debug_log_result(mkdir_result)
-    if mkdir_result.returncode != 0:
-        raise MultipassError(
-            tr(
-                "vm.proxychains_helper_dir_failed",
-                vm_name=vm.name,
-                stdout=(mkdir_result.stdout or "").strip() or "-",
-                stderr=(mkdir_result.stderr or "").strip() or "-",
-            )
-        )
-    _copy_file_into_vm_via_stdin(helper, PROXYCHAINS_HELPER_REMOTE, vm.name, "vm.proxychains_helper_transfer_failed")
-
-    runner = Path(__file__).resolve().parent / "run_with_proxychains.sh"
-    _copy_file_into_vm_via_stdin(runner, PROXYCHAINS_RUNNER_REMOTE, vm.name, "vm.proxychains_transfer_failed")
-
-    chmod_command = ["multipass", "exec", vm.name, "--", "chmod", "+x", PROXYCHAINS_RUNNER_REMOTE]
-    debug_log_command(chmod_command)
-    chmod_result = subprocess.run(chmod_command, check=False, capture_output=True, text=True)
-    debug_log_result(chmod_result)
-    if chmod_result.returncode != 0:
-        raise MultipassError(
-            tr(
-                "vm.proxychains_chmod_failed",
-                vm_name=vm.name,
-                stdout=(chmod_result.stdout or "").strip() or "-",
-                stderr=(chmod_result.stderr or "").strip() or "-",
-            )
-        )
-
-    return PROXYCHAINS_RUNNER_REMOTE
+PROXYCHAINS_RUNNER_PATH = "/usr/bin/agsekit-run_with_proxychains.sh"
 
 
 def resolve_proxychains(vm: VmConfig, override: Optional[str]) -> Optional[str]:

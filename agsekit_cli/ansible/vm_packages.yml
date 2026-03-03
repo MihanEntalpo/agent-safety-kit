@@ -27,3 +27,19 @@
           - proxychains4
           - ripgrep
         state: present
+
+    - name: Install agsekit proxychains common script
+      ansible.builtin.copy:
+        src: "{{ playbook_dir }}/../agent_scripts/proxychains_common.sh"
+        dest: /usr/bin/proxychains_common.sh
+        owner: root
+        group: root
+        mode: "0644"
+
+    - name: Install agsekit proxychains runner script
+      ansible.builtin.copy:
+        src: "{{ playbook_dir }}/../run_with_proxychains.sh"
+        dest: /usr/bin/agsekit-run_with_proxychains.sh
+        owner: root
+        group: root
+        mode: "0755"
