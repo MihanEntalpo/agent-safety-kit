@@ -156,8 +156,54 @@ def test_status_command_uses_multipass_info_for_nested_resource_values(monkeypat
 
     assert result.exit_code == 0
     assert "CPU: 2 cores (real: 4 cores)" in result.output
-    assert "RAM: 2G (real: 4.0 GB)" in result.output
-    assert "Disk: 16G (real: 20.0 GB)" in result.output
+    assert "RAM: 2G (real: 4.0 GiB / 4G)" in result.output
+    assert "Disk: 16G (real: 20.0 GiB / 21G)" in result.output
+
+
+def test_status_command_uses_tolerance_for_resource_mismatch(monkeypatch, tmp_path):
+    config_path = tmp_path / "config.yaml"
+    config_path.write_text(
+        """
+vms:
+  agent:
+    cpu: 2
+    ram: 4G
+    disk: 20G
+agents:
+  qwen_main:
+    type: qwen
+    vm: agent
+""",
+        encoding="utf-8",
+    )
+
+    monkeypatch.setattr(
+        status_module,
+        "_load_multipass_entries",
+        lambda: (
+            {
+                "agent": {
+                    "name": "agent",
+                    "state": "Running",
+                    "cpus": 2,
+                    "mem": "3.8GiB",
+                    "disk": "19.3GiB",
+                }
+            },
+            None,
+        ),
+    )
+    monkeypatch.setattr(status_module, "_load_multipass_info_entries", lambda: ({}, None))
+    monkeypatch.setattr(status_module, "_is_portforward_running", lambda: True)
+    monkeypatch.setattr(status_module, "_check_agent_binary_installed", lambda *_args, **_kwargs: True)
+    monkeypatch.setattr(status_module, "_collect_running_agent_processes", lambda *_args, **_kwargs: [])
+
+    runner = CliRunner()
+    result = runner.invoke(status_command, ["--config", str(config_path)], env={"AGSEKIT_LANG": "en"})
+
+    assert result.exit_code == 0
+    assert "RAM: 4G (real:" not in result.output
+    assert "Disk: 20G (real:" not in result.output
 
 
 def test_collect_running_agent_processes_filters_child_processes(monkeypatch):

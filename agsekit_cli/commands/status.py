@@ -27,7 +27,7 @@ from ..config import (
 )
 from ..debug import debug_log_command, debug_log_result, debug_scope
 from ..i18n import tr
-from ..vm import fetch_existing_info, to_bytes
+from ..vm import RESOURCE_SIZE_RELATIVE_TOLERANCE, fetch_existing_info, to_bytes
 
 NODE_AGENT_BINARIES = {"codex", "qwen", "qwen-code", "cline"}
 NVM_LOAD_SNIPPET = (
@@ -41,13 +41,32 @@ def _human_size(value: Optional[int]) -> str:
     if value is None:
         return tr("status.size_unknown")
     amount = float(value)
-    for unit in ("B", "KB", "MB", "GB", "TB"):
-        if amount < 1024.0 or unit == "TB":
-            if unit in {"B", "KB"}:
+    for unit in ("B", "KiB", "MiB", "GiB", "TiB"):
+        if amount < 1024.0 or unit == "TiB":
+            if unit in {"B", "KiB"}:
                 return f"{int(amount)} {unit}"
             return f"{amount:.1f} {unit}"
         amount /= 1024.0
     return f"{int(value)} B"
+
+
+def _format_capacity_real(actual_bytes: Optional[int]) -> str:
+    return f"{_human_size(actual_bytes)} / {_human_size_decimal_g(actual_bytes)}"
+
+
+def _human_size_decimal_g(value: Optional[int]) -> str:
+    if value is None:
+        return tr("status.size_unknown")
+    return f"{int(float(value) / (1000.0 ** 3))}G"
+
+
+def _resource_size_matches(actual: Optional[int], expected: Optional[int]) -> bool:
+    if actual is None or expected is None:
+        return True
+    if actual == expected:
+        return True
+    delta = abs(actual - expected)
+    return (delta / max(expected, 1)) <= RESOURCE_SIZE_RELATIVE_TOLERANCE
 
 
 def _load_multipass_entries() -> tuple[Dict[str, Dict[str, object]], Optional[str]]:
@@ -486,8 +505,8 @@ def status_command(config_path: Optional[str], debug: bool, non_interactive: boo
             expected_disk_bytes = to_bytes(vm.disk)
 
             cpu_mismatch = actual_cpu is not None and actual_cpu != str(vm.cpu)
-            ram_mismatch = expected_ram_bytes is not None and actual_ram_bytes is not None and expected_ram_bytes != actual_ram_bytes
-            disk_mismatch = expected_disk_bytes is not None and actual_disk_bytes is not None and expected_disk_bytes != actual_disk_bytes
+            ram_mismatch = not _resource_size_matches(actual_ram_bytes, expected_ram_bytes)
+            disk_mismatch = not _resource_size_matches(actual_disk_bytes, expected_disk_bytes)
 
             cpu_value = f"{vm.cpu} {tr('status.cpu_unit')}"
             cpu_real = f"{actual_cpu} {tr('status.cpu_unit')}" if actual_cpu is not None else tr("status.size_unknown")
@@ -497,8 +516,8 @@ def status_command(config_path: Optional[str], debug: bool, non_interactive: boo
             resources_line = ", ".join(
                 [
                     f"CPU: {cpu_value}{_format_real_suffix(cpu_real, cpu_mismatch)}",
-                    f"RAM: {ram_value}{_format_real_suffix(_human_size(actual_ram_bytes), ram_mismatch)}",
-                    f"Disk: {disk_value}{_format_real_suffix(_human_size(actual_disk_bytes), disk_mismatch)}",
+                    f"RAM: {ram_value}{_format_real_suffix(_format_capacity_real(actual_ram_bytes), ram_mismatch)}",
+                    f"Disk: {disk_value}{_format_real_suffix(_format_capacity_real(actual_disk_bytes), disk_mismatch)}",
                 ]
             )
             click.echo(tr("status.vm_resources", resources=resources_line))

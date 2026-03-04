@@ -1,5 +1,10 @@
 # Agent-Safety-Kit versions history
 
+## 1.3.2 - Status output improvements
+
+* Improved `status` resource formatting: RAM/Disk now show factual values in two representations (`GiB` and converted `G`) for easier comparison
+* Improved `status` mismatch highlighting for RAM/Disk by applying tolerance to avoid false-positive differences from effective Multipass sizes
+
 ## 1.3.1 - Multi-VM agent bindings
 
 * Added `agents.<name>.vms` support (YAML list or comma-separated string) and merged it with `agents.<name>.vm` for agent-to-VM bindings
