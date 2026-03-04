@@ -67,6 +67,7 @@ class AgentConfig:
     env: Dict[str, str]
     default_args: List[str] = field(default_factory=list)
     vm_name: Optional[str] = None
+    vm_names: Optional[List[str]] = None
     proxychains: Optional[str] = None
     proxychains_defined: bool = False
 
@@ -461,6 +462,67 @@ def _normalize_default_args(value: Any) -> List[str]:
     return normalized
 
 
+def _normalize_agent_vms(
+    raw_vm: Any,
+    raw_vms: Any,
+    *,
+    agent_name: str,
+    known_vms: set[str],
+) -> Optional[List[str]]:
+    raw_items: List[Any] = []
+
+    if raw_vm is not None:
+        if isinstance(raw_vm, str):
+            raw_vm_value = raw_vm.strip()
+        else:
+            raw_vm_value = str(raw_vm).strip()
+        if raw_vm_value:
+            raw_items.append(raw_vm_value)
+
+    if raw_vms is not None:
+        vms_items: List[Any]
+        if isinstance(raw_vms, list):
+            vms_items = raw_vms
+        elif isinstance(raw_vms, str):
+            stripped = raw_vms.strip()
+            if not stripped:
+                vms_items = []
+            else:
+                vms_items = raw_vms.split(",")
+        else:
+            raise ConfigError(tr("config.agent_vms_not_list", agent_name=agent_name))
+
+        if vms_items:
+            if all(isinstance(item, str) and not item.strip() for item in vms_items):
+                vms_items = []
+            else:
+                for item_index, item in enumerate(vms_items):
+                    if not isinstance(item, str) or not item.strip():
+                        raise ConfigError(
+                            tr(
+                                "config.agent_vms_item_invalid",
+                                agent_name=agent_name,
+                                item_index=item_index,
+                            )
+                        )
+        raw_items.extend(vms_items)
+
+    if not raw_items:
+        return None
+
+    normalized: List[str] = []
+    seen: set[str] = set()
+    for item in raw_items:
+        vm_name = item.strip()
+        if vm_name in seen:
+            continue
+        if known_vms and vm_name not in known_vms:
+            raise ConfigError(tr("config.agent_vms_unknown_vm", agent_name=agent_name, vm_name=vm_name))
+        seen.add(vm_name)
+        normalized.append(vm_name)
+    return normalized
+
+
 def load_agents_config(config: Dict[str, Any]) -> Dict[str, AgentConfig]:
     raw_agents = config.get("agents") or {}
     if not isinstance(raw_agents, dict):
@@ -470,7 +532,8 @@ def load_agents_config(config: Dict[str, Any]) -> Dict[str, AgentConfig]:
             block_kind=tr("config.block_config"),
         )
 
-    default_vm = _default_vm_name(config)
+    raw_vms = config.get("vms")
+    known_vms = {str(name) for name in raw_vms.keys()} if isinstance(raw_vms, dict) else set()
     agents: Dict[str, AgentConfig] = {}
     for agent_name, raw_entry in raw_agents.items():
         try:
@@ -490,8 +553,13 @@ def load_agents_config(config: Dict[str, Any]) -> Dict[str, AgentConfig]:
             agent_type = _normalize_agent_type(raw_agent_type)
             env_vars = _normalize_env_vars(raw_entry.get("env"))
             default_args = _normalize_default_args(raw_entry.get("default-args"))
-            vm_name = raw_entry.get("vm") or default_vm
-            vm_name = str(vm_name) if vm_name else None
+            vm_names = _normalize_agent_vms(
+                raw_entry.get("vm"),
+                raw_entry.get("vms"),
+                agent_name=str(agent_name),
+                known_vms=known_vms,
+            )
+            vm_name = vm_names[0] if vm_names else None
             proxychains_defined = "proxychains" in raw_entry
             proxychains = (
                 _normalize_proxychains(raw_entry.get("proxychains"), f"agents.{agent_name}.proxychains")
@@ -505,6 +573,7 @@ def load_agents_config(config: Dict[str, Any]) -> Dict[str, AgentConfig]:
                 env=env_vars,
                 default_args=default_args,
                 vm_name=vm_name,
+                vm_names=vm_names,
                 proxychains=proxychains,
                 proxychains_defined=proxychains_defined,
             )

@@ -78,14 +78,23 @@ def resolve_vm(agent: AgentConfig, mount: Optional[MountConfig], vm_override: Op
         return vm_override
     if mount is not None:
         return mount.vm_name
-    if agent.vm_name:
-        return agent.vm_name
 
     vms = load_vms_config(config)
-    default_vm = next(iter(vms.keys())) if vms else None
-    if not default_vm:
+    available_vm_names = list(vms.keys())
+    configured_vms = configured_agent_vms(agent, available_vm_names)
+    if configured_vms:
+        return configured_vms[0]
+    if not available_vm_names:
         raise ConfigError(tr("agents.vm_not_determined"))
-    return default_vm
+    return available_vm_names[0]
+
+
+def configured_agent_vms(agent: AgentConfig, available_vms: Iterable[str]) -> List[str]:
+    available = [str(vm_name) for vm_name in available_vms]
+    if not agent.vm_names:
+        return available
+    available_set = set(available)
+    return [vm_name for vm_name in agent.vm_names if vm_name in available_set]
 
 
 def build_agent_env(agent: AgentConfig) -> Dict[str, str]:

@@ -1,5 +1,12 @@
 # Agent-Safety-Kit versions history
 
+## 1.3.1 - Multi-VM agent bindings
+
+* Added `agents.<name>.vms` support (YAML list or comma-separated string) and merged it with `agents.<name>.vm` for agent-to-VM bindings
+* Changed empty `agents.<name>.vm` + `agents.<name>.vms` behavior: agents are now treated as configured for all VMs
+* Updated `status` to show agents per VM using the new binding rules
+* Updated `install-agents` default target selection: without explicit VM flags it now installs into all VMs bound to each agent
+
 ## 1.3.0 - Cline agent support
 
 * Added support for `cline` as a first-class agent type in configuration, installation, and runtime mapping

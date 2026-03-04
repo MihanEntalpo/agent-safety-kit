@@ -20,6 +20,8 @@ def _write_config(
     vm_names: Optional[list[str]] = None,
     vm_proxychains: Optional[str] = None,
     agent_proxychains: Optional[Dict[str, str]] = None,
+    agent_vm: Optional[Dict[str, str]] = None,
+    agent_vms: Optional[Dict[str, object]] = None,
 ) -> None:
     defined_vm_names = vm_names if vm_names else ["agent"]
     vm_entries: list[str] = []
@@ -29,12 +31,18 @@ def _write_config(
     joined_vm_entries = "".join(vm_entries)
 
     proxychains_by_agent = agent_proxychains or {}
+    vm_by_agent = agent_vm or {}
+    vms_by_agent = agent_vms or {}
     agent_entries = []
     for name, agent_type in agents:
         proxychains_line = ""
         if name in proxychains_by_agent:
             proxychains_line = f"    proxychains: {json.dumps(proxychains_by_agent[name])}\n"
-        agent_entries.append(f"  {name}:\n    type: {agent_type}\n{proxychains_line}    env:\n      TOKEN: abc")
+        vm_line = f"    vm: {json.dumps(vm_by_agent[name])}\n" if name in vm_by_agent else ""
+        vms_line = f"    vms: {json.dumps(vms_by_agent[name])}\n" if name in vms_by_agent else ""
+        agent_entries.append(
+            f"  {name}:\n    type: {agent_type}\n{vm_line}{vms_line}{proxychains_line}    env:\n      TOKEN: abc"
+        )
     joined_agent_entries = "\n".join(agent_entries)
 
     config_path.write_text(
@@ -222,3 +230,56 @@ def test_install_agents_agent_empty_proxychains_disables_vm_proxy(monkeypatch, t
 
     assert result.exit_code == 0
     assert calls and calls[0][2] == ""
+
+
+def test_install_agents_uses_all_bound_vms_from_vms_list(monkeypatch, tmp_path):
+    config_path = tmp_path / "config.yaml"
+    _write_config(
+        config_path,
+        [("qwen", "qwen")],
+        vm_names=["vm1", "vm2", "vm3"],
+        agent_vms={"qwen": ["vm2", "vm1"]},
+    )
+
+    calls: list[tuple[str, str, object]] = []
+
+    def fake_run_install_playbook(vm, playbook_path: Path, proxychains=None) -> None:
+        calls.append((vm.name, playbook_path.name, proxychains))
+
+    monkeypatch.setattr(install_agents_module, "_run_install_playbook", fake_run_install_playbook)
+
+    runner = CliRunner()
+    result = runner.invoke(
+        install_agents_command,
+        ["--config", str(config_path)],
+    )
+
+    assert result.exit_code == 0
+    assert calls == [("vm2", "qwen.yml", None), ("vm1", "qwen.yml", None)]
+
+
+def test_install_agents_empty_vm_and_vms_installs_into_all_vms(monkeypatch, tmp_path):
+    config_path = tmp_path / "config.yaml"
+    _write_config(
+        config_path,
+        [("qwen", "qwen")],
+        vm_names=["vm1", "vm2"],
+        agent_vm={"qwen": ""},
+        agent_vms={"qwen": ""},
+    )
+
+    calls: list[tuple[str, str, object]] = []
+
+    def fake_run_install_playbook(vm, playbook_path: Path, proxychains=None) -> None:
+        calls.append((vm.name, playbook_path.name, proxychains))
+
+    monkeypatch.setattr(install_agents_module, "_run_install_playbook", fake_run_install_playbook)
+
+    runner = CliRunner()
+    result = runner.invoke(
+        install_agents_command,
+        ["--config", str(config_path)],
+    )
+
+    assert result.exit_code == 0
+    assert calls == [("vm1", "qwen.yml", None), ("vm2", "qwen.yml", None)]

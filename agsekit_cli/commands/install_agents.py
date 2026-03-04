@@ -8,7 +8,7 @@ from typing import Iterable, List, Optional, Tuple
 import click
 import questionary
 
-from ..agents import find_agent
+from ..agents import configured_agent_vms, find_agent
 from ..ansible_utils import AnsibleCollectionError, ensure_multipass_collection
 from ..config import AgentConfig, ConfigError, VmConfig, load_agents_config, load_config, load_vms_config, resolve_config_path
 from ..debug import debug_log_command, debug_log_result, debug_scope
@@ -91,13 +91,11 @@ def _run_install_playbook(vm: VmConfig, playbook_path: Path, proxychains: Option
         raise MultipassError(tr("install_agents.install_failed", vm_name=vm.name, code=result.returncode))
 
 
-def _default_vm(agent: AgentConfig, available: Iterable[str]) -> str:
-    if agent.vm_name:
-        return agent.vm_name
-    try:
-        return next(iter(available))
-    except StopIteration:
+def _default_vms(agent: AgentConfig, available: Iterable[str]) -> List[str]:
+    target_vms = configured_agent_vms(agent, available)
+    if not target_vms:
         raise ConfigError(tr("install_agents.no_vms_available"))
+    return target_vms
 
 
 def _select_agent_interactively(agent_names: List[str]) -> Tuple[bool, Optional[str]]:
@@ -220,10 +218,16 @@ def install_agents_command(
                 for vm_name in vms_config:
                     targets.append((agent.name, vms_config[vm_name]))
             else:
-                chosen_vm = selected_vms[0] if vm else _default_vm(agent, vms_config.keys())
-                if chosen_vm not in vms_config:
-                    raise click.ClickException(tr("install_agents.vm_missing", vm_name=chosen_vm))
-                targets.append((agent.name, vms_config[chosen_vm]))
+                if vm:
+                    chosen_vm = selected_vms[0]
+                    if chosen_vm not in vms_config:
+                        raise click.ClickException(tr("install_agents.vm_missing", vm_name=chosen_vm))
+                    targets.append((agent.name, vms_config[chosen_vm]))
+                else:
+                    for target_vm_name in _default_vms(agent, vms_config.keys()):
+                        if target_vm_name not in vms_config:
+                            raise click.ClickException(tr("install_agents.vm_missing", vm_name=target_vm_name))
+                        targets.append((agent.name, vms_config[target_vm_name]))
 
         for target_agent_name, target_vm in targets:
             agent = find_agent(agents_config, target_agent_name)

@@ -11,6 +11,7 @@ from typing import Dict, Iterable, List, Optional, Sequence, Tuple
 import click
 
 from . import debug_option, non_interactive_option
+from ..agents import configured_agent_vms
 from ..backup import list_backup_snapshots
 from ..config import (
     AgentConfig,
@@ -450,6 +451,11 @@ def status_command(config_path: Optional[str], debug: bool, non_interactive: boo
         entries, multipass_error = _load_multipass_entries()
         info_entries, info_error = _load_multipass_info_entries()
         inventory_available = multipass_error is None or info_error is None
+        vm_names = list(vms.keys())
+        agents_by_vm: Dict[str, List[AgentConfig]] = {vm_name: [] for vm_name in vm_names}
+        for agent in agents.values():
+            for vm_name in configured_agent_vms(agent, vm_names):
+                agents_by_vm[vm_name].append(agent)
 
         if multipass_error and info_error:
             click.echo(click.style(tr("status.multipass_unavailable", error=multipass_error), fg="yellow"))
@@ -545,7 +551,7 @@ def status_command(config_path: Optional[str], debug: bool, non_interactive: boo
                     rows,
                 )
 
-            vm_agents = [agent for agent in agents.values() if agent.vm_name == vm_name]
+            vm_agents = agents_by_vm.get(vm_name, [])
             click.echo(click.style(tr("status.agents_installed_header"), bold=True))
             if not vm_agents:
                 click.echo(tr("status.agents_empty"))

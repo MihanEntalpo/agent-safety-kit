@@ -85,7 +85,7 @@ Currently confirmed working agent types are:
    agsekit mount --all
    ```
 
-7. Install all configured agents into their default VMs:
+7. Install all configured agents into their configured VM targets:
    ```bash
    agsekit install-agents --all-agents
    ```
@@ -107,7 +107,7 @@ Most commands that interact with Multipass support `--debug`; in this mode the C
 * `agsekit config-example [<path>]` — copies `config-example.yaml` to the target path (defaults to `~/.config/agsekit/config.yaml`). If the default config already exists, the command skips copying.
 * `agsekit pip-upgrade` — upgrades agsekit using `pip install agsekit --upgrade` inside the same Python environment that runs the CLI. If agsekit is not installed in that environment via pip, the command reports that it cannot be upgraded there.
 * `agsekit version` — prints the installed package version along with the project version from `pyproject.toml` when available.
-* `agsekit status [--config <path>] [--debug]` — prints a consolidated status report for configured VMs: config location, VM state (running/stopped), configured vs real resources, port-forwarding rules and `agsekit portforward` process status, mount backup table (including last snapshot time and “backups running?” heuristic), configured/installed agents, and currently running agent processes in each VM (PID, binary, config names, and process working directory).
+* `agsekit status [--config <path>] [--debug]` — prints a consolidated status report for configured VMs: config location, VM state (running/stopped), configured vs real resources, port-forwarding rules and `agsekit portforward` process status, mount backup table (including last snapshot time and “backups running?” heuristic), configured/installed agents per VM (using `agents.<name>.vm` + `agents.<name>.vms`; if both are empty, the agent is shown for all VMs), and currently running agent processes in each VM (PID, binary, config names, and process working directory).
 * `agsekit create-vms [--debug]` — creates every VM defined in the YAML configuration and prepares them (installs packages via ansible and syncs SSH keys).
 * `agsekit create-vm <name> [--debug]` — launches just one VM and prepares it (installs packages via ansible and syncs SSH keys). If the config contains only one VM, you can omit `<name>` and it will be used automatically. If a VM already exists, the command compares the desired resources with the current ones and reports any differences. Changing resources of an existing VM is not supported yet.
 * `agsekit shell [<vm_name>] [--config <path>] [--debug]` — opens an interactive `multipass shell` session inside the chosen VM, applying any configured port forwarding. If only
@@ -170,14 +170,14 @@ Backups use `rsync` with incremental links (`--link-dest`) to the previous copy:
 
 ### Agent installation
 
-* `agsekit install-agents <agent_name> [<vm>|--all-vms] [--config <path>] [--proxychains <value>] [--debug]` — runs the prepared installation playbook for the chosen agent type inside the specified VM (or the agent's default VM if none is provided). If the config defines only one agent, you can skip `<agent_name>` and it will be picked automatically. Use `--proxychains <scheme://host:port>` to override the VM proxy for this installation or `--proxychains ""` to ignore it once.
-* `agsekit install-agents --all-agents [--all-vms] [--config <path>] [--proxychains <value>] [--debug]` — installs every configured agent either into their default VM or into every VM when `--all-vms` is set.
+* `agsekit install-agents <agent_name> [<vm>|--all-vms] [--config <path>] [--proxychains <value>] [--debug]` — runs the prepared installation playbook for the chosen agent type inside the specified VM, or (without `<vm>`) in the VM targets configured for that agent (`agents.<name>.vm` + `agents.<name>.vms`). If both `vm` and `vms` are empty, the agent target is all configured VMs. If the config defines only one agent, you can skip `<agent_name>` and it will be picked automatically. Use `--proxychains <scheme://host:port>` to override the VM proxy for this installation or `--proxychains ""` to ignore it once.
+* `agsekit install-agents --all-agents [--all-vms] [--config <path>] [--proxychains <value>] [--debug]` — installs every configured agent either into their configured VM targets or into every VM when `--all-vms` is set.
 
 The installation playbooks live in `agsekit_cli/ansible/agents/`: `codex`, `qwen`, and `cline` install npm CLIs, `codex-glibc` builds the Rust sources with the glibc target and installs the binary as `codex-glibc`, and `claude` follows the official installer flow. Runtime binaries are `codex`, `qwen`, `cline`, `claude`, and `codex-glibc`. Other agent types are not supported yet.
 
 ### Running agents
 
-* `agsekit run <agent_name> [<source_dir>|--vm <vm_name>] [--config <path>] [--proxychains <value>] [--disable-backups] [--skip-default-args] [--debug] -- <agent_args...>` — starts an interactive agent command inside Multipass. Environment variables from the config are passed to the process. If `source_dir` from the mounts list is provided, the agent starts inside the mounted target path in the matching VM. If `source_dir` is omitted, `agsekit` first tries to resolve the current directory as a mount path and uses it when matched; otherwise it launches in the home directory of the default VM. Unless `--disable-backups` is set, background repeated backups for the selected mount are started for the duration of the run. When no backups exist yet, the CLI first creates an initial snapshot with progress output before launching the agent and then starts the repeated loop with the initial run skipped. Arguments from `agents.<name>.default-args` are added unless `--skip-default-args` is set; if the user already passed an option with the same name (for example `--openai-api-key`), the default value is skipped. Agent restrictions are resolved in order: `mounts[].allowed_agents` (if set for the selected mount), otherwise `vms.<vm>.allowed_agents`; if neither is set, any configured agent may run. With `--debug`, the CLI prints executed commands, exit codes, and captured `stdout`/`stderr` to simplify troubleshooting. Use `--proxychains <scheme://host:port>` to override the VM setting for one run; pass an empty string to disable it temporarily.
+* `agsekit run <agent_name> [<source_dir>|--vm <vm_name>] [--config <path>] [--proxychains <value>] [--disable-backups] [--skip-default-args] [--debug] -- <agent_args...>` — starts an interactive agent command inside Multipass. Environment variables from the config are passed to the process. If `source_dir` from the mounts list is provided, the agent starts inside the mounted target path in the matching VM. If `source_dir` is omitted, `agsekit` first tries to resolve the current directory as a mount path and uses it when matched; otherwise it launches in the home directory of the first VM from the agent target list (`agents.<name>.vm` + `agents.<name>.vms`), or the first VM in config when both are empty. Unless `--disable-backups` is set, background repeated backups for the selected mount are started for the duration of the run. When no backups exist yet, the CLI first creates an initial snapshot with progress output before launching the agent and then starts the repeated loop with the initial run skipped. Arguments from `agents.<name>.default-args` are added unless `--skip-default-args` is set; if the user already passed an option with the same name (for example `--openai-api-key`), the default value is skipped. Agent restrictions are resolved in order: `mounts[].allowed_agents` (if set for the selected mount), otherwise `vms.<vm>.allowed_agents`; if neither is set, any configured agent may run. With `--debug`, the CLI prints executed commands, exit codes, and captured `stdout`/`stderr` to simplify troubleshooting. Use `--proxychains <scheme://host:port>` to override the VM setting for one run; pass an empty string to disable it temporarily.
 
 ### Interactive mode
 
@@ -239,7 +239,9 @@ agents:
     default-args: # arguments passed to the agent unless the user overrides them
       - "--openai-api-key=my_local_key"
       - "--openai-base-url=https://127.0.0.1:11556/v1"
-    vm: qwen-ubuntu # default VM for this agent; falls back to the mount VM or the first VM in the list
+    vm: agent-ubuntu # optional single VM target for this agent
+    vms: agent-ubuntu # optional multiple VM targets; also supports [agent-ubuntu, another-vm]; merged with vm
+    # if both vm and vms are empty or omitted, this agent is treated as configured for all VMs
   codex:
     type: codex 
   claude:

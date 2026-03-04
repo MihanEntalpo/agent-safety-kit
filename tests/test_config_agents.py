@@ -26,9 +26,122 @@ def test_load_agents_config_defaults(tmp_path):
 
     assert agent.type == "qwen"
     assert agent.env == {"TOKEN": "123"}
-    assert agent.vm_name == "agent"
+    assert agent.vm_name is None
+    assert agent.vm_names is None
     assert agent.proxychains is None
     assert agent.proxychains_defined is False
+
+
+def test_load_agents_config_accepts_single_vm():
+    config = {
+        "vms": {
+            "agent": {"cpu": 1, "ram": "1G", "disk": "5G"},
+            "agent-2": {"cpu": 1, "ram": "1G", "disk": "5G"},
+        },
+        "agents": {
+            "qwen": {
+                "type": "qwen",
+                "vm": "agent-2",
+            }
+        },
+    }
+
+    agent = load_agents_config(config)["qwen"]
+
+    assert agent.vm_name == "agent-2"
+    assert agent.vm_names == ["agent-2"]
+
+
+def test_load_agents_config_accepts_multi_vms_from_string():
+    config = {
+        "vms": {
+            "agent": {"cpu": 1, "ram": "1G", "disk": "5G"},
+            "agent-2": {"cpu": 1, "ram": "1G", "disk": "5G"},
+        },
+        "agents": {
+            "qwen": {
+                "type": "qwen",
+                "vms": "agent-2, agent",
+            }
+        },
+    }
+
+    agent = load_agents_config(config)["qwen"]
+
+    assert agent.vm_name == "agent-2"
+    assert agent.vm_names == ["agent-2", "agent"]
+
+
+def test_load_agents_config_empty_vm_and_vms_means_all_vms():
+    config = {
+        "vms": {
+            "agent": {"cpu": 1, "ram": "1G", "disk": "5G"},
+            "agent-2": {"cpu": 1, "ram": "1G", "disk": "5G"},
+        },
+        "agents": {
+            "qwen": {
+                "type": "qwen",
+                "vm": " ",
+                "vms": "   ",
+            }
+        },
+    }
+
+    agent = load_agents_config(config)["qwen"]
+
+    assert agent.vm_name is None
+    assert agent.vm_names is None
+
+
+def test_load_agents_config_accepts_vm_and_vms_union():
+    config = {
+        "vms": {
+            "agent": {"cpu": 1, "ram": "1G", "disk": "5G"},
+            "agent-2": {"cpu": 1, "ram": "1G", "disk": "5G"},
+        },
+        "agents": {
+            "qwen": {
+                "type": "qwen",
+                "vm": "agent",
+                "vms": ["agent-2", "agent"],
+            }
+        },
+    }
+
+    agent = load_agents_config(config)["qwen"]
+
+    assert agent.vm_name == "agent"
+    assert agent.vm_names == ["agent", "agent-2"]
+
+
+def test_load_agents_config_rejects_unknown_vms():
+    config = {
+        "vms": {"agent": {"cpu": 1, "ram": "1G", "disk": "5G"}},
+        "agents": {
+            "qwen": {
+                "type": "qwen",
+                "vms": "agent,missing",
+            }
+        },
+    }
+
+    with pytest.raises(ConfigError):
+        load_agents_config(config)
+
+
+def test_load_agents_config_rejects_invalid_vms_value():
+    config = {
+        "vms": {"agent": {"cpu": 1, "ram": "1G", "disk": "5G"}},
+        "agents": {
+            "qwen": {
+                "type": "qwen",
+                "vms": 123,
+            }
+        },
+    }
+
+    with pytest.raises(ConfigError):
+        load_agents_config(config)
 
 
 def test_load_agents_config_accepts_proxychains_override():

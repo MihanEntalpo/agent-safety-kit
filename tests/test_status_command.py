@@ -251,6 +251,90 @@ agents:
     assert "PID 321: qwen (config names: qwen_alt, qwen_main), folder: /home/ubuntu/project" in result.output
 
 
+def test_status_command_shows_agent_without_vm_on_all_vms(monkeypatch, tmp_path):
+    config_path = tmp_path / "config.yaml"
+    config_path.write_text(
+        """
+vms:
+  vm1:
+    cpu: 2
+    ram: 2G
+    disk: 16G
+  vm2:
+    cpu: 2
+    ram: 2G
+    disk: 16G
+agents:
+  qwen_main:
+    type: qwen
+""",
+        encoding="utf-8",
+    )
+
+    monkeypatch.setattr(
+        status_module,
+        "_load_multipass_entries",
+        lambda: (
+            {"vm1": {"state": "Running"}, "vm2": {"state": "Running"}},
+            None,
+        ),
+    )
+    monkeypatch.setattr(status_module, "_load_multipass_info_entries", lambda: ({}, None))
+    monkeypatch.setattr(status_module, "_is_portforward_running", lambda: True)
+    monkeypatch.setattr(status_module, "_check_agent_binary_installed", lambda *_args, **_kwargs: True)
+    monkeypatch.setattr(status_module, "_collect_running_agent_processes", lambda *_args, **_kwargs: [])
+
+    runner = CliRunner()
+    result = runner.invoke(status_command, ["--config", str(config_path)], env={"AGSEKIT_LANG": "en"})
+
+    assert result.exit_code == 0
+    assert result.output.count("qwen_main (qwen): installed") == 2
+
+
+def test_status_command_shows_agent_only_for_configured_vms_list(monkeypatch, tmp_path):
+    config_path = tmp_path / "config.yaml"
+    config_path.write_text(
+        """
+vms:
+  vm1:
+    cpu: 2
+    ram: 2G
+    disk: 16G
+  vm2:
+    cpu: 2
+    ram: 2G
+    disk: 16G
+agents:
+  qwen_main:
+    type: qwen
+    vms: vm2
+""",
+        encoding="utf-8",
+    )
+
+    monkeypatch.setattr(
+        status_module,
+        "_load_multipass_entries",
+        lambda: (
+            {"vm1": {"state": "Running"}, "vm2": {"state": "Running"}},
+            None,
+        ),
+    )
+    monkeypatch.setattr(status_module, "_load_multipass_info_entries", lambda: ({}, None))
+    monkeypatch.setattr(status_module, "_is_portforward_running", lambda: True)
+    monkeypatch.setattr(status_module, "_check_agent_binary_installed", lambda *_args, **_kwargs: True)
+    monkeypatch.setattr(status_module, "_collect_running_agent_processes", lambda *_args, **_kwargs: [])
+
+    runner = CliRunner()
+    result = runner.invoke(status_command, ["--config", str(config_path)], env={"AGSEKIT_LANG": "en"})
+
+    assert result.exit_code == 0
+    vm1_block = result.output.split("VM: vm1", 1)[1].split("VM: vm2", 1)[0]
+    vm2_block = result.output.split("VM: vm2", 1)[1]
+    assert "No agents configured for this VM." in vm1_block
+    assert "qwen_main (qwen): installed" in vm2_block
+
+
 @pytest.mark.parametrize(("agent_type", "runtime_binary"), sorted(AGENT_RUNTIME_BINARIES.items()))
 def test_status_command_uses_runtime_binary_for_agent_type(monkeypatch, tmp_path, agent_type: str, runtime_binary: str):
     agent_name = f"{agent_type}_main"
