@@ -9,9 +9,9 @@ import click
 import questionary
 
 from ..agents import configured_agent_vms, find_agent
-from ..ansible_utils import AnsibleCollectionError, ensure_multipass_collection
+from ..ansible_utils import AnsibleCollectionError, ansible_playbook_command, ensure_multipass_collection, run_ansible_playbook
 from ..config import AgentConfig, ConfigError, VmConfig, load_agents_config, load_config, load_vms_config, resolve_config_path
-from ..debug import debug_log_command, debug_log_result, debug_scope
+from ..debug import debug_scope
 from ..interactive import is_interactive_terminal
 from ..i18n import tr
 from ..vm import MultipassError, ensure_multipass_available, resolve_proxychains
@@ -49,21 +49,6 @@ def _log_failed_command(
         click.echo(tr("install_agents.stderr_label", output=stderr), err=True)
 
 
-def _run_command(
-    command: List[str],
-    description: str,
-    capture_output: bool = True,
-) -> subprocess.CompletedProcess[str]:
-    click.echo(tr("install_agents.command_running", description=description, command=_format_command(command)))
-    debug_log_command(command)
-    if capture_output:
-        result = subprocess.run(command, check=False, capture_output=True, text=True)
-    else:
-        result = subprocess.run(command, check=False, text=True)
-    debug_log_result(result)
-    return result
-
-
 def _run_install_playbook(vm: VmConfig, playbook_path: Path, proxychains: Optional[str] = None) -> None:
     ensure_multipass_available()
     try:
@@ -72,7 +57,7 @@ def _run_install_playbook(vm: VmConfig, playbook_path: Path, proxychains: Option
         raise MultipassError(str(exc))
     effective_proxychains = resolve_proxychains(vm, proxychains)
     install_command = [
-        "ansible-playbook",
+        *ansible_playbook_command(),
         "-i",
         "localhost,",
         "-e",
@@ -81,10 +66,9 @@ def _run_install_playbook(vm: VmConfig, playbook_path: Path, proxychains: Option
     if effective_proxychains:
         install_command.extend(["-e", f"proxychains_url={effective_proxychains}"])
     install_command.append(str(playbook_path))
-    result = _run_command(
+    result = run_ansible_playbook(
         install_command,
-        tr("install_agents.run_installer", script=playbook_path.name, vm_name=vm.name),
-        capture_output=False,
+        playbook_path=playbook_path,
     )
     if result.returncode != 0:
         _log_failed_command(install_command, result, tr("install_agents.installer_execution_label"))

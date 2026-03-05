@@ -1,5 +1,12 @@
 # Agent-Safety-Kit versions history
 
+## 1.3.4 - Ansible progress mode
+
+* Added a compact default progress output for `ansible-playbook` runs (task counter + progress bar) with automatic fallback to standard Ansible output in `--debug` mode
+* Unified Ansible playbook execution through a shared runner used by VM preparation and agent installation flows
+* Added `--debug` support to `prepare`
+* Switched Ansible playbook execution to `sys.executable -m ansible.cli.playbook`, so playbooks always run with the same Python interpreter as `agsekit`
+
 ## 1.3.3 - Opencode agent support
 
 * Added support for `opencode` as a first-class agent type in configuration, installation, and runtime mapping

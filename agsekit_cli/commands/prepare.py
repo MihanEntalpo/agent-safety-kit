@@ -8,9 +8,10 @@ from typing import Optional
 import click
 
 from ..ansible_utils import AnsibleCollectionError, ensure_multipass_collection
+from ..debug import debug_scope
 from ..i18n import tr
 from ..vm_prepare import ensure_host_ssh_keypair
-from . import non_interactive_option
+from . import debug_option, non_interactive_option
 
 
 def _install_multipass() -> None:
@@ -81,13 +82,15 @@ def _install_ansible_collection() -> None:
     default=None,
     help=tr("config.option_path"),
 )
-def prepare_command(non_interactive: bool, config_path: Optional[str]) -> None:
+@debug_option
+def prepare_command(non_interactive: bool, config_path: Optional[str], debug: bool) -> None:
     """Install Multipass dependencies on supported hosts and prepare VMs."""
     # not used parameter, explicitly removing it so IDEs/linters do not complain
     del non_interactive
     del config_path
 
-    _install_multipass()
-    _install_ansible_collection()
-    click.echo(tr("prepare.ensure_keypair"))
-    ensure_host_ssh_keypair()
+    with debug_scope(debug):
+        _install_multipass()
+        _install_ansible_collection()
+        click.echo(tr("prepare.ensure_keypair"))
+        ensure_host_ssh_keypair()

@@ -9,7 +9,12 @@ from typing import Iterable, List, Optional, Tuple
 
 import click
 
-from .ansible_utils import AnsibleCollectionError, ensure_multipass_collection
+from .ansible_utils import (
+    AnsibleCollectionError,
+    ansible_playbook_command,
+    ensure_multipass_collection,
+    run_ansible_playbook,
+)
 from .debug import debug_log_command, debug_log_result
 from .i18n import tr
 from .vm_bundles import resolve_bundles
@@ -62,14 +67,17 @@ def _ensure_vm_packages(vm_name: str) -> None:
     click.echo(tr("prepare.installing_packages", vm_name=vm_name))
     playbook = Path(__file__).resolve().parent / "ansible" / "vm_packages.yml"
     command = [
-        "ansible-playbook",
+        *ansible_playbook_command(),
         "-i",
         "localhost,",
         "-e",
         f"vm_name={vm_name}",
         str(playbook),
     ]
-    result = subprocess.run(command, check=False, capture_output=False, text=True)
+    result = run_ansible_playbook(
+        command,
+        playbook_path=playbook,
+    )
     if result.returncode != 0:
         raise MultipassError(tr("prepare.install_failed", vm_name=vm_name))
 
@@ -88,14 +96,17 @@ def _ensure_vm_ssh_access(vm_name: str, public_key: Path, vm_known_hosts: Iterab
         "vm_known_hosts": known_hosts,
     }
     command = [
-        "ansible-playbook",
+        *ansible_playbook_command(),
         "-i",
         "localhost,",
         "-e",
         json.dumps(extra_vars, ensure_ascii=False),
         str(playbook),
     ]
-    result = subprocess.run(command, check=False, capture_output=False, text=True)
+    result = run_ansible_playbook(
+        command,
+        playbook_path=playbook,
+    )
     if result.returncode != 0:
         raise MultipassError(tr("prepare.ssh_sync_failed", vm_name=vm_name))
 
@@ -113,7 +124,7 @@ def _install_vm_bundles(vm_name: str, bundles: List[str]) -> None:
         click.echo(tr("prepare.install_bundle_running", vm_name=vm_name, bundle=bundle.raw))
         playbook = bundle.playbook
         command = [
-            "ansible-playbook",
+            *ansible_playbook_command(),
             "-i",
             "localhost,",
             "-e",
@@ -122,8 +133,10 @@ def _install_vm_bundles(vm_name: str, bundles: List[str]) -> None:
         if bundle.version:
             command.extend(["-e", f"bundle_version={bundle.version}"])
         command.append(str(playbook))
-        click.echo(tr("prepare.install_bundle_exec", vm_name=vm_name, bundle=bundle.raw))
-        install_result = subprocess.run(command, check=False, capture_output=False, text=True)
+        install_result = run_ansible_playbook(
+            command,
+            playbook_path=playbook,
+        )
         if install_result.returncode != 0:
             raise MultipassError(tr("prepare.install_bundle_failed", vm_name=vm_name, bundle=bundle.raw))
 

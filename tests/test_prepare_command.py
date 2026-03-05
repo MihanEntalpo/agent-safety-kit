@@ -165,24 +165,26 @@ def test_prepare_vm_ssh_playbook_manages_authorized_keys_and_known_hosts():
 def test_ensure_vm_ssh_access_runs_ansible_playbook(monkeypatch, tmp_path):
     public_key = tmp_path / "id_rsa.pub"
     public_key.write_text("ssh-rsa AAAAB3Nza test@example\n", encoding="utf-8")
-    calls: list[list[str]] = []
+    calls: list[tuple[list[str], Path, str | None]] = []
 
     class Result:
         returncode = 0
 
-    def fake_run(command, check=False, capture_output=False, text=False):
-        del check, capture_output, text
-        calls.append(command)
+    def fake_run_ansible_playbook(command, *, playbook_path, progress_header=None):
+        calls.append((list(command), Path(playbook_path), progress_header))
         return Result()
 
-    monkeypatch.setattr(vm_prepare_module.subprocess, "run", fake_run)
+    monkeypatch.setattr(vm_prepare_module, "run_ansible_playbook", fake_run_ansible_playbook)
 
     vm_prepare_module._ensure_vm_ssh_access("agent", public_key, ["agent", "10.0.0.15", ""])
 
     assert len(calls) == 1
-    command = calls[0]
-    assert command[:3] == ["ansible-playbook", "-i", "localhost,"]
+    command, playbook_path, progress_header = calls[0]
+    assert command[:3] == [sys.executable, "-m", "ansible.cli.playbook"]
+    assert command[3:5] == ["-i", "localhost,"]
     assert command[-1].endswith("/ansible/vm_ssh.yml")
+    assert playbook_path.name == "vm_ssh.yml"
+    assert progress_header is None
 
     payload = json.loads(command[command.index("-e") + 1])
     assert payload["vm_name"] == "agent"

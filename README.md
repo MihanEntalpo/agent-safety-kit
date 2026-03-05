@@ -103,7 +103,7 @@ Currently confirmed working agent types are:
 
 Most commands that interact with Multipass support `--debug`; in this mode the CLI prints the executed command, exit code, and captured `stdout`/`stderr`.
 
-* `agsekit prepare` — installs required system dependencies (including Multipass; requires sudo and supports Debian-based systems via `apt` and Arch Linux via `pacman` + an AUR helper such as `yay`/`aura`) and creates the SSH keypair used to access VMs.
+* `agsekit prepare [--debug]` — installs required system dependencies (including Multipass; requires sudo and supports Debian-based systems via `apt` and Arch Linux via `pacman` + an AUR helper such as `yay`/`aura`) and creates the SSH keypair used to access VMs.
 * `agsekit config-gen [--config <path>] [--overwrite]` — interactive wizard that asks about VMs, mounts, and agents, then writes a YAML config to the chosen path (defaults to `~/.config/agsekit/config.yaml`). Without `--overwrite`, the command warns if the file already exists.
 * `agsekit config-example [<path>]` — copies `config-example.yaml` to the target path (defaults to `~/.config/agsekit/config.yaml`). If the default config already exists, the command skips copying.
 * `agsekit pip-upgrade` — upgrades agsekit using `pip install agsekit --upgrade` inside the same Python environment that runs the CLI. If agsekit is not installed in that environment via pip, the command reports that it cannot be upgraded there.

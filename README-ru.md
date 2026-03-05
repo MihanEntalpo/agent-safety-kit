@@ -103,7 +103,7 @@
 
 Большинство команд, взаимодействующих с Multipass, поддерживают `--debug`; в этом режиме CLI выводит запускаемую команду, код завершения и захваченные `stdout`/`stderr`.
 
-* `agsekit prepare` — устанавливает системные зависимости (включая Multipass; требует sudo, поддерживает Debian-based системы через `apt` и Arch Linux через `pacman` + AUR helper `yay`/`aura`) и создаёт SSH-ключи для доступа к ВМ.
+* `agsekit prepare [--debug]` — устанавливает системные зависимости (включая Multipass; требует sudo, поддерживает Debian-based системы через `apt` и Arch Linux через `pacman` + AUR helper `yay`/`aura`) и создаёт SSH-ключи для доступа к ВМ.
 * `agsekit config-gen [--config <path>] [--overwrite]` — интерактивный мастер, который задаёт вопросы про ВМ, монтирования и агентов и записывает YAML-конфиг в выбранный путь (по умолчанию `~/.config/agsekit/config.yaml`). Без флага `--overwrite` команда предупредит о существующем файле.
 * `agsekit config-example [<path>]` — копирует `config-example.yaml` в указанный путь (по умолчанию `~/.config/agsekit/config.yaml`). Если конфиг уже существует, копирование по умолчанию пропускается.
 * `agsekit pip-upgrade` — обновляет agsekit через `pip install agsekit --upgrade` в том же Python-окружении, где запущена CLI. Если agsekit не установлен в этом окружении через pip, команда сообщает, что обновление невозможно.
