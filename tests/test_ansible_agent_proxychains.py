@@ -56,3 +56,18 @@ def test_cline_installer_tasks_run_via_proxychains_prefix():
     assert "npm install -g cline@latest" in install_task["ansible.builtin.command"]
     assert "environment" not in install_task
     assert "npm list -g --depth=0 cline" in check_task["ansible.builtin.command"]
+
+
+def test_opencode_installer_tasks_run_via_proxychains_prefix():
+    playbook = _load_yaml(Path("agsekit_cli/ansible/agents/opencode.yml"))
+    tasks = playbook[1]["tasks"]
+
+    install_task = next(item for item in tasks if item["name"] == "Install OpenCode CLI")
+    check_task = next(item for item in tasks if item["name"] == "Check OpenCode CLI installation")
+    verify_task = next(item for item in tasks if item["name"] == "Verify OpenCode CLI after installation")
+
+    assert install_task["ansible.builtin.command"].startswith("{{ proxychains_prefix }}bash -lc ")
+    assert "npm install -g opencode-ai@latest" in install_task["ansible.builtin.command"]
+    assert "environment" not in install_task
+    assert "npm list -g --depth=0 opencode-ai" in check_task["ansible.builtin.command"]
+    assert "opencode --version" in verify_task["ansible.builtin.command"]

@@ -1,5 +1,9 @@
 # Agent-Safety-Kit versions history
 
+## 1.3.3 - Opencode agent support
+
+* Added support for `opencode` as a first-class agent type in configuration, installation, and runtime mapping
+
 ## 1.3.2 - Status output improvements
 
 * Improved `status` resource formatting: RAM/Disk now show factual values in two representations (`GiB` and converted `G`) for easier comparison

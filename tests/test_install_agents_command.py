@@ -94,6 +94,25 @@ def test_install_agents_uses_cline_playbook(monkeypatch, tmp_path):
     assert calls == [("agent", "cline.yml")]
 
 
+def test_install_agents_uses_opencode_playbook(monkeypatch, tmp_path):
+    config_path = tmp_path / "config.yaml"
+    _write_config(config_path, [("opencode_main", "opencode")])
+
+    calls: list[tuple[str, str]] = []
+
+    def fake_run_install_playbook(vm, playbook_path: Path, proxychains=None) -> None:
+        del proxychains
+        calls.append((vm.name, playbook_path.name))
+
+    monkeypatch.setattr(install_agents_module, "_run_install_playbook", fake_run_install_playbook)
+
+    runner = CliRunner()
+    result = runner.invoke(install_agents_command, ["--config", str(config_path)])
+
+    assert result.exit_code == 0
+    assert calls == [("agent", "opencode.yml")]
+
+
 def test_install_agents_requires_choice_when_multiple(tmp_path):
     config_path = tmp_path / "config.yaml"
     _write_config(config_path, [("qwen", "qwen"), ("codex", "codex")])

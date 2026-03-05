@@ -29,7 +29,7 @@ from ..debug import debug_log_command, debug_log_result, debug_scope
 from ..i18n import tr
 from ..vm import RESOURCE_SIZE_RELATIVE_TOLERANCE, fetch_existing_info, to_bytes
 
-NODE_AGENT_BINARIES = {"codex", "qwen", "qwen-code", "cline"}
+NODE_AGENT_BINARIES = {"codex", "qwen", "qwen-code", "cline", "opencode"}
 NVM_LOAD_SNIPPET = (
     "export NVM_DIR=${NVM_DIR:-$HOME/.nvm}; "
     "if [ -s \"$NVM_DIR/nvm.sh\" ]; then . \"$NVM_DIR/nvm.sh\"; "

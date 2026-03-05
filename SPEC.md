@@ -8,7 +8,7 @@
 
 ## 1. Продукт: зачем он нужен
 
-`Agent Safety Kit` — это CLI-инструмент для безопасной работы с консольными AI-агентами (`qwen`, `codex`, `claude`, `cline`, `codex-glibc`) через изоляцию в Multipass VM и регулярные инкрементальные бэкапы на хосте.
+`Agent Safety Kit` — это CLI-инструмент для безопасной работы с консольными AI-агентами (`qwen`, `codex`, `opencode`, `claude`, `cline`, `codex-glibc`) через изоляцию в Multipass VM и регулярные инкрементальные бэкапы на хосте.
 
 Ключевая пользовательская проблема:
 - агент может повредить проект (удалить файлы, сломать рабочую копию, внести нежелательные изменения);
@@ -184,8 +184,8 @@
 
 ### 6.5 Секция `agents`
 Поля:
-- `type` (обязателен) — тип агента: `qwen`, `codex`, `codex-glibc`, `claude`, `cline`.
-  - runtime-бинарники: `qwen -> qwen`, `codex -> codex`, `codex-glibc -> codex-glibc`, `claude -> claude`, `cline -> cline`.
+- `type` (обязателен) — тип агента: `qwen`, `codex`, `opencode`, `codex-glibc`, `claude`, `cline`.
+  - runtime-бинарники: `qwen -> qwen`, `codex -> codex`, `opencode -> opencode`, `codex-glibc -> codex-glibc`, `claude -> claude`, `cline -> cline`.
   - `codex-glibc` — установка/сборка codex из исходников с установкой бинарника `codex-glibc`.
 - `env` (optional) — mapping переменных окружения, передаваемых агенту при запуске.
   - значение приводится к строке (`null` -> пустая строка).
@@ -589,6 +589,7 @@ Dependency resolution выполняется кодом до запуска play
 ### 10.3 Agent installers
 - `codex.yml`: установка Node через nvm + `@openai/codex`.
 - `qwen.yml`: установка Node через nvm + `@qwen-code/qwen-code`.
+- `opencode.yml`: установка Node через nvm + `opencode-ai`.
 - `cline.yml`: установка Node через nvm + `cline`.
 - `claude.yml`: установка через официальный install script; сетевые шаги выполняются через `proxychains_prefix`; если нативный post-install падает, применяется fallback-установка `claude` из уже скачанного бинарника в `~/.claude/downloads`.
 - `codex-glibc.yml`: сборка из исходников `openai/codex`, управление swap при нехватке памяти, установка бинарника `codex-glibc`, post-build проверка.

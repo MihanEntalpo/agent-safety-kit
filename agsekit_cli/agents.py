@@ -17,7 +17,7 @@ NVM_LOAD_SNIPPET = (
     "if [ -s \"$NVM_DIR/nvm.sh\" ]; then . \"$NVM_DIR/nvm.sh\"; "
     "elif [ -s \"$NVM_DIR/bash_completion\" ]; then . \"$NVM_DIR/bash_completion\"; fi"
 )
-NODE_AGENT_BINARIES = {"codex", "qwen", "qwen-code", "cline"}
+NODE_AGENT_BINARIES = {"codex", "qwen", "qwen-code", "cline", "opencode"}
 
 
 def load_agents_from_file(config_path: Optional[Union[str, Path]]) -> Dict[str, AgentConfig]:

@@ -17,6 +17,7 @@ DEFAULT_CONFIG_PATH = Path.home() / ".config" / "agsekit" / "config.yaml"
 ALLOWED_AGENT_TYPES = {
     "qwen": "qwen",
     "codex": "codex",
+    "opencode": "opencode",
     "codex-glibc": "codex-glibc",
     "claude": "claude",
     "cline": "cline",
@@ -25,6 +26,7 @@ ALLOWED_AGENT_TYPES = {
 AGENT_RUNTIME_BINARIES = {
     "qwen": "qwen",
     "codex": "codex",
+    "opencode": "opencode",
     "codex-glibc": "codex-glibc",
     "claude": "claude",
     "cline": "cline",
