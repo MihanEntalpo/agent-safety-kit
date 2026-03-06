@@ -23,7 +23,7 @@ from ..agents import (
 from ..config import ConfigError, load_agents_config, load_config, load_mounts_config, load_vms_config, resolve_config_path
 from ..i18n import tr
 from ..vm import MultipassError
-from ..mounts import MountConfig
+from ..mounts import MountConfig, host_path_has_entries, is_mount_registered, load_multipass_mounts, normalize_path, vm_path_has_entries
 from ..debug import debug_scope
 from . import debug_option, non_interactive_option
 
@@ -53,6 +53,30 @@ def _cli_entry_path() -> Path:
         return repo_entry
 
     raise click.ClickException(tr("run.cli_not_found"))
+
+
+def _warn_if_vm_directory_is_empty(
+    mount_entry: Optional[MountConfig],
+    local_path: Optional[Path],
+    vm_path: Path,
+    *,
+    debug: bool = False,
+) -> None:
+    if mount_entry is None or local_path is None:
+        return
+
+    host_has_entries = host_path_has_entries(local_path)
+    if not host_has_entries:
+        return
+
+    mounted_by_vm = load_multipass_mounts(debug=debug)
+    if not is_mount_registered(mount_entry, mounted_by_vm):
+        return
+
+    if vm_path_has_entries(mount_entry.vm_name, vm_path, debug=debug):
+        return
+
+    click.echo(tr("run.mount_empty_warning", source_dir=normalize_path(local_path)))
 
 
 @click.command(name="run", context_settings={"ignore_unknown_options": True}, help=tr("run.command_help"))
@@ -177,6 +201,17 @@ def run_command(
         click.echo(
             tr("run.starting_agent", agent=agent.name, vm_name=vm_to_use, workdir=workdir)
         )
+
+        warning_source_dir = normalize_path(source_to_resolve) if mount_entry is not None and source_to_resolve is not None else None
+        try:
+            _warn_if_vm_directory_is_empty(
+                mount_entry,
+                warning_source_dir,
+                workdir,
+                debug=debug,
+            )
+        except MultipassError:
+            pass
 
         try:
             ensure_agent_binary_available(agent_command, vm_config, proxychains=proxychains_override, debug=debug)

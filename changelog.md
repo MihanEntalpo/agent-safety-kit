@@ -1,5 +1,9 @@
 # Agent-Safety-Kit versions history
 
+## 1.3.5 - Doctor diagnostics
+
+* Added the `agsekit doctor` command for diagnostics and safe auto-repair of known installation and configuration issues
+
 ## 1.3.4 - Ansible progress mode
 
 * Added a compact default progress output for `ansible-playbook` runs (task counter + progress bar) with automatic fallback to standard Ansible output in `--debug` mode

@@ -320,6 +320,108 @@ def test_run_command_uses_current_directory_mount_when_source_not_passed(monkeyp
     assert backups["source"] == source.resolve()
 
 
+def test_run_command_warns_when_mounted_directory_is_empty_inside_vm(monkeypatch, tmp_path):
+    source = tmp_path / "project"
+    source.mkdir()
+    (source / "main.py").write_text("print('hi')", encoding="utf-8")
+    config_path = tmp_path / "config.yaml"
+    _write_config(config_path, source)
+
+    def fake_run_in_vm(vm_config, workdir, command, env_vars, proxychains=None, debug=False):
+        return 0
+
+    monkeypatch.setattr(run_module, "_has_existing_backup", lambda *_: True)
+    monkeypatch.setattr(run_module, "run_in_vm", fake_run_in_vm)
+    monkeypatch.setattr(run_module, "start_backup_process", lambda *_, **__: None)
+    monkeypatch.setattr(run_module, "ensure_agent_binary_available", lambda *_, **__: None)
+    monkeypatch.setattr(run_module, "backup_once", lambda *_, **__: None)
+    monkeypatch.setattr(
+        run_module,
+        "load_multipass_mounts",
+        lambda **_kwargs: {"agent": {(source.resolve(), Path("/home/ubuntu/project"))}},
+    )
+    monkeypatch.setattr(run_module, "vm_path_has_entries", lambda *_args, **_kwargs: False)
+
+    runner = CliRunner()
+    result = runner.invoke(
+        run_command,
+        ["qwen", str(source), "--config", str(config_path)],
+        env={"AGSEKIT_LANG": "ru"},
+    )
+
+    assert result.exit_code == 0
+    assert (
+        f"WARNING: Папка {source.resolve()} примонтирована, но внутри ВМ в ней пусто, воспользуйтесь командой agsekit doctor"
+        in result.output
+    )
+
+
+def test_run_command_does_not_warn_for_unmounted_directory(monkeypatch, tmp_path):
+    source = tmp_path / "project"
+    source.mkdir()
+    (source / "main.py").write_text("print('hi')", encoding="utf-8")
+    config_path = tmp_path / "config.yaml"
+    _write_config(config_path, source)
+
+    def fake_run_in_vm(vm_config, workdir, command, env_vars, proxychains=None, debug=False):
+        return 0
+
+    monkeypatch.setattr(run_module, "_has_existing_backup", lambda *_: True)
+    monkeypatch.setattr(run_module, "run_in_vm", fake_run_in_vm)
+    monkeypatch.setattr(run_module, "start_backup_process", lambda *_, **__: None)
+    monkeypatch.setattr(run_module, "ensure_agent_binary_available", lambda *_, **__: None)
+    monkeypatch.setattr(run_module, "backup_once", lambda *_, **__: None)
+    monkeypatch.setattr(run_module, "load_multipass_mounts", lambda **_kwargs: {"agent": set()})
+
+    runner = CliRunner()
+    result = runner.invoke(
+        run_command,
+        ["qwen", str(source), "--config", str(config_path)],
+        env={"AGSEKIT_LANG": "ru"},
+    )
+
+    assert result.exit_code == 0
+    assert "WARNING: Папка" not in result.output
+
+
+def test_run_command_does_not_warn_for_empty_host_directory(monkeypatch, tmp_path):
+    source = tmp_path / "project"
+    source.mkdir()
+    config_path = tmp_path / "config.yaml"
+    _write_config(config_path, source)
+
+    def fake_run_in_vm(vm_config, workdir, command, env_vars, proxychains=None, debug=False):
+        return 0
+
+    monkeypatch.setattr(run_module, "_has_existing_backup", lambda *_: True)
+    monkeypatch.setattr(run_module, "run_in_vm", fake_run_in_vm)
+    monkeypatch.setattr(run_module, "start_backup_process", lambda *_, **__: None)
+    monkeypatch.setattr(run_module, "ensure_agent_binary_available", lambda *_, **__: None)
+    monkeypatch.setattr(run_module, "backup_once", lambda *_, **__: None)
+    monkeypatch.setattr(
+        run_module,
+        "load_multipass_mounts",
+        lambda **_kwargs: {"agent": {(source.resolve(), Path("/home/ubuntu/project"))}},
+    )
+    vm_checks: list[str] = []
+    monkeypatch.setattr(
+        run_module,
+        "vm_path_has_entries",
+        lambda *_args, **_kwargs: vm_checks.append("checked") or False,
+    )
+
+    runner = CliRunner()
+    result = runner.invoke(
+        run_command,
+        ["qwen", str(source), "--config", str(config_path)],
+        env={"AGSEKIT_LANG": "ru"},
+    )
+
+    assert result.exit_code == 0
+    assert "WARNING: Папка" not in result.output
+    assert not vm_checks
+
+
 def test_run_command_without_source_keeps_default_workdir_when_cwd_not_in_mount(monkeypatch, tmp_path):
     source = tmp_path / "project"
     source.mkdir()

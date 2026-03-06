@@ -29,6 +29,7 @@ from .commands.pip_upgrade import pip_upgrade_command
 from .commands.start_vm import start_vm_command
 from .commands.stop import stop_vm_command
 from .commands.destroy_vm import destroy_vm_command
+from .commands.doctor import doctor_command
 from .commands.version import version_command
 from .config import resolve_config_path
 from .i18n import set_language, tr
@@ -45,6 +46,7 @@ COMMANDS_REQUIRING_CONFIG = {
     "install-agents",
     "mount",
     "destroy-vm",
+    "doctor",
     "run",
     "shell",
     "ssh",
@@ -111,6 +113,7 @@ def main() -> None:
         pip_upgrade_command,
         version_command,
         status_command,
+        doctor_command,
         systemd_group,
         destroy_vm_command,
     ):
