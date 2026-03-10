@@ -8,9 +8,10 @@ from typing import Optional
 
 import click
 
-from ..config import ConfigError, load_config, load_vms_config, resolve_config_path
+from ..config import ConfigError, MountConfig, load_config, load_mounts_config, load_vms_config, resolve_config_path
 from ..debug import debug_log_command, debug_log_result, debug_scope
 from ..i18n import tr
+from ..mounts import is_mount_registered, load_multipass_mounts, umount_directory
 from ..vm import MultipassError, ensure_multipass_available
 from . import debug_option, non_interactive_option
 
@@ -70,6 +71,19 @@ def _stop_vm(vm_name: str, *, debug: bool = False) -> None:
         raise MultipassError(tr("stop_vm.stop_failed", vm_name=vm_name, details=details))
 
 
+def _unmount_vm_mounts(vm_name: str, mounts: list[MountConfig], *, debug: bool = False) -> None:
+    vm_mounts = [mount for mount in mounts if mount.vm_name == vm_name]
+    if not vm_mounts:
+        return
+
+    mounted_by_vm = load_multipass_mounts(debug=debug)
+    for mount in vm_mounts:
+        if not is_mount_registered(mount, mounted_by_vm):
+            continue
+        umount_directory(mount)
+        click.echo(tr("mounts.unmounted", vm_name=mount.vm_name, target=mount.target))
+
+
 @click.command(name="stop-vm", help=tr("stop_vm.command_help"))
 @non_interactive_option
 @click.argument("vm_name", required=False)
@@ -98,6 +112,7 @@ def stop_vm_command(
     try:
         config = load_config(resolved_path)
         vms = load_vms_config(config)
+        mounts = load_mounts_config(config)
     except ConfigError as exc:
         raise click.ClickException(str(exc))
 
@@ -126,8 +141,9 @@ def stop_vm_command(
             raise click.ClickException(str(exc))
 
         for target in targets:
-            click.echo(tr("stop_vm.stopping", vm_name=target))
             try:
+                _unmount_vm_mounts(target, mounts, debug=debug)
+                click.echo(tr("stop_vm.stopping", vm_name=target))
                 _stop_vm(target, debug=debug)
             except MultipassError as exc:
                 raise click.ClickException(str(exc))

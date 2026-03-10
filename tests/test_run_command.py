@@ -15,6 +15,13 @@ import agsekit_cli.commands.run as run_module
 from agsekit_cli.config import AGENT_RUNTIME_BINARIES
 from agsekit_cli.commands.run import run_command
 
+_REAL_ENSURE_MOUNT_REGISTERED_FOR_RUN = run_module._ensure_mount_registered_for_run
+
+
+@pytest.fixture(autouse=True)
+def bypass_mount_registration_prompt(monkeypatch):
+    monkeypatch.setattr(run_module, "_ensure_mount_registered_for_run", lambda *args, **kwargs: True)
+
 
 def _write_config(
     config_path: Path,
@@ -347,6 +354,7 @@ def test_run_command_warns_when_mounted_directory_is_empty_inside_vm(monkeypatch
         run_command,
         ["qwen", str(source), "--config", str(config_path)],
         env={"AGSEKIT_LANG": "ru"},
+        input="y\n",
     )
 
     assert result.exit_code == 0
@@ -354,6 +362,90 @@ def test_run_command_warns_when_mounted_directory_is_empty_inside_vm(monkeypatch
         f"WARNING: Папка {source.resolve()} примонтирована, но внутри ВМ в ней пусто, воспользуйтесь командой agsekit doctor"
         in result.output
     )
+    assert "Всё равно запустить агента? [y/N]: y" in result.output
+
+
+def test_run_command_warns_and_confirms_for_current_directory(monkeypatch, tmp_path):
+    source = tmp_path / "project"
+    source.mkdir()
+    (source / "main.py").write_text("print('hi')", encoding="utf-8")
+    config_path = tmp_path / "config.yaml"
+    _write_config(config_path, source, include_codex_agent=True)
+
+    calls: Dict[str, object] = {}
+
+    def fake_run_in_vm(vm_config, workdir, command, env_vars, proxychains=None, debug=False):
+        calls["workdir"] = workdir
+        calls["command"] = command
+        return 0
+
+    monkeypatch.chdir(source)
+    monkeypatch.setattr(run_module, "_has_existing_backup", lambda *_: True)
+    monkeypatch.setattr(run_module, "run_in_vm", fake_run_in_vm)
+    monkeypatch.setattr(run_module, "start_backup_process", lambda *_, **__: None)
+    monkeypatch.setattr(run_module, "ensure_agent_binary_available", lambda *_, **__: None)
+    monkeypatch.setattr(run_module, "backup_once", lambda *_, **__: None)
+    monkeypatch.setattr(
+        run_module,
+        "load_multipass_mounts",
+        lambda **_kwargs: {"agent": {(source.resolve(), Path("/home/ubuntu/project"))}},
+    )
+    monkeypatch.setattr(run_module, "vm_path_has_entries", lambda *_args, **_kwargs: False)
+
+    runner = CliRunner()
+    result = runner.invoke(
+        run_command,
+        ["codex", ".", "--config", str(config_path)],
+        env={"AGSEKIT_LANG": "ru"},
+        input="y\n",
+    )
+
+    assert result.exit_code == 0
+    assert (
+        f"WARNING: Папка {source.resolve()} примонтирована, но внутри ВМ в ней пусто, воспользуйтесь командой agsekit doctor"
+        in result.output
+    )
+    assert "Всё равно запустить агента? [y/N]: y" in result.output
+    assert calls["workdir"] == Path("/home/ubuntu/project")
+    assert calls["command"] == ["codex"]
+
+
+def test_run_command_aborts_when_empty_vm_directory_warning_is_rejected(monkeypatch, tmp_path):
+    source = tmp_path / "project"
+    source.mkdir()
+    (source / "main.py").write_text("print('hi')", encoding="utf-8")
+    config_path = tmp_path / "config.yaml"
+    _write_config(config_path, source)
+
+    run_calls: list[str] = []
+
+    def fake_run_in_vm(vm_config, workdir, command, env_vars, proxychains=None, debug=False):
+        run_calls.append("run")
+        return 0
+
+    monkeypatch.setattr(run_module, "_has_existing_backup", lambda *_: True)
+    monkeypatch.setattr(run_module, "run_in_vm", fake_run_in_vm)
+    monkeypatch.setattr(run_module, "start_backup_process", lambda *_, **__: None)
+    monkeypatch.setattr(run_module, "ensure_agent_binary_available", lambda *_, **__: None)
+    monkeypatch.setattr(run_module, "backup_once", lambda *_, **__: None)
+    monkeypatch.setattr(
+        run_module,
+        "load_multipass_mounts",
+        lambda **_kwargs: {"agent": {(source.resolve(), Path("/home/ubuntu/project"))}},
+    )
+    monkeypatch.setattr(run_module, "vm_path_has_entries", lambda *_args, **_kwargs: False)
+
+    runner = CliRunner()
+    result = runner.invoke(
+        run_command,
+        ["qwen", str(source), "--config", str(config_path)],
+        env={"AGSEKIT_LANG": "ru"},
+        input="\n",
+    )
+
+    assert result.exit_code != 0
+    assert "Всё равно запустить агента? [y/N]:" in result.output
+    assert not run_calls
 
 
 def test_run_command_does_not_warn_for_unmounted_directory(monkeypatch, tmp_path):
@@ -382,6 +474,188 @@ def test_run_command_does_not_warn_for_unmounted_directory(monkeypatch, tmp_path
 
     assert result.exit_code == 0
     assert "WARNING: Папка" not in result.output
+
+
+def test_run_command_prompts_to_mount_unmounted_directory_and_continues(monkeypatch, tmp_path):
+    source = tmp_path / "project"
+    source.mkdir()
+    (source / "main.py").write_text("print('hi')", encoding="utf-8")
+    config_path = tmp_path / "config.yaml"
+    _write_config(config_path, source)
+
+    run_calls: list[Path] = []
+    mount_calls: list[Path] = []
+
+    def fake_run_in_vm(vm_config, workdir, command, env_vars, proxychains=None, debug=False):
+        run_calls.append(workdir)
+        return 0
+
+    monkeypatch.setattr(run_module, "_ensure_mount_registered_for_run", _REAL_ENSURE_MOUNT_REGISTERED_FOR_RUN)
+    monkeypatch.setattr(run_module, "_has_existing_backup", lambda *_: True)
+    monkeypatch.setattr(run_module, "run_in_vm", fake_run_in_vm)
+    monkeypatch.setattr(run_module, "start_backup_process", lambda *_, **__: None)
+    monkeypatch.setattr(run_module, "ensure_agent_binary_available", lambda *_, **__: None)
+    monkeypatch.setattr(run_module, "backup_once", lambda *_, **__: None)
+    monkeypatch.setattr(run_module, "load_multipass_mounts", lambda **_kwargs: {"agent": set()})
+    monkeypatch.setattr(run_module, "mount_directory", lambda mount: mount_calls.append(mount.source))
+
+    runner = CliRunner()
+    result = runner.invoke(
+        run_command,
+        ["qwen", str(source), "--config", str(config_path)],
+        env={"AGSEKIT_LANG": "ru"},
+        input="y\n",
+    )
+
+    assert result.exit_code == 0
+    assert f"Папка {source.resolve()} сейчас не примонтирована. Примонтировать? [Y/n]: y" in result.output
+    assert f"Смонтировано {source.resolve()} в agent:/home/ubuntu/project." in result.output
+    assert mount_calls == [source.resolve()]
+    assert run_calls == [Path("/home/ubuntu/project")]
+
+
+def test_run_command_stops_when_mount_prompt_is_rejected(monkeypatch, tmp_path):
+    source = tmp_path / "project"
+    source.mkdir()
+    (source / "main.py").write_text("print('hi')", encoding="utf-8")
+    config_path = tmp_path / "config.yaml"
+    _write_config(config_path, source)
+
+    run_calls: list[str] = []
+    mount_calls: list[str] = []
+
+    def fake_run_in_vm(vm_config, workdir, command, env_vars, proxychains=None, debug=False):
+        run_calls.append("run")
+        return 0
+
+    monkeypatch.setattr(run_module, "_ensure_mount_registered_for_run", _REAL_ENSURE_MOUNT_REGISTERED_FOR_RUN)
+    monkeypatch.setattr(run_module, "_has_existing_backup", lambda *_: True)
+    monkeypatch.setattr(run_module, "run_in_vm", fake_run_in_vm)
+    monkeypatch.setattr(run_module, "start_backup_process", lambda *_, **__: None)
+    monkeypatch.setattr(run_module, "ensure_agent_binary_available", lambda *_, **__: None)
+    monkeypatch.setattr(run_module, "backup_once", lambda *_, **__: None)
+    monkeypatch.setattr(run_module, "load_multipass_mounts", lambda **_kwargs: {"agent": set()})
+    monkeypatch.setattr(run_module, "mount_directory", lambda mount: mount_calls.append("mount"))
+
+    runner = CliRunner()
+    result = runner.invoke(
+        run_command,
+        ["qwen", str(source), "--config", str(config_path)],
+        env={"AGSEKIT_LANG": "ru"},
+        input="n\n",
+    )
+
+    assert result.exit_code == 0
+    assert f"Папка {source.resolve()} сейчас не примонтирована. Примонтировать? [Y/n]: n" in result.output
+    assert not mount_calls
+    assert not run_calls
+
+
+def test_run_command_requires_mounted_directory_in_non_interactive_mode(monkeypatch, tmp_path):
+    source = tmp_path / "project"
+    source.mkdir()
+    (source / "main.py").write_text("print('hi')", encoding="utf-8")
+    config_path = tmp_path / "config.yaml"
+    _write_config(config_path, source)
+
+    run_calls: list[str] = []
+
+    def fake_run_in_vm(vm_config, workdir, command, env_vars, proxychains=None, debug=False):
+        run_calls.append("run")
+        return 0
+
+    monkeypatch.setattr(run_module, "_ensure_mount_registered_for_run", _REAL_ENSURE_MOUNT_REGISTERED_FOR_RUN)
+    monkeypatch.setattr(run_module, "_has_existing_backup", lambda *_: True)
+    monkeypatch.setattr(run_module, "run_in_vm", fake_run_in_vm)
+    monkeypatch.setattr(run_module, "start_backup_process", lambda *_, **__: None)
+    monkeypatch.setattr(run_module, "ensure_agent_binary_available", lambda *_, **__: None)
+    monkeypatch.setattr(run_module, "backup_once", lambda *_, **__: None)
+    monkeypatch.setattr(run_module, "load_multipass_mounts", lambda **_kwargs: {"agent": set()})
+
+    runner = CliRunner()
+    result = runner.invoke(
+        run_command,
+        ["qwen", str(source), "--config", str(config_path), "--non-interactive"],
+        env={"AGSEKIT_LANG": "ru"},
+    )
+
+    assert result.exit_code != 0
+    assert "но сейчас не примонтирована в Multipass" in result.output
+    assert not run_calls
+
+
+def test_run_command_auto_mounts_without_prompt_in_interactive_mode(monkeypatch, tmp_path):
+    source = tmp_path / "project"
+    source.mkdir()
+    (source / "main.py").write_text("print('hi')", encoding="utf-8")
+    config_path = tmp_path / "config.yaml"
+    _write_config(config_path, source)
+
+    run_calls: list[Path] = []
+    mount_calls: list[Path] = []
+
+    def fake_run_in_vm(vm_config, workdir, command, env_vars, proxychains=None, debug=False):
+        run_calls.append(workdir)
+        return 0
+
+    monkeypatch.setattr(run_module, "_ensure_mount_registered_for_run", _REAL_ENSURE_MOUNT_REGISTERED_FOR_RUN)
+    monkeypatch.setattr(run_module, "_has_existing_backup", lambda *_: True)
+    monkeypatch.setattr(run_module, "run_in_vm", fake_run_in_vm)
+    monkeypatch.setattr(run_module, "start_backup_process", lambda *_, **__: None)
+    monkeypatch.setattr(run_module, "ensure_agent_binary_available", lambda *_, **__: None)
+    monkeypatch.setattr(run_module, "backup_once", lambda *_, **__: None)
+    monkeypatch.setattr(run_module, "load_multipass_mounts", lambda **_kwargs: {"agent": set()})
+    monkeypatch.setattr(run_module, "mount_directory", lambda mount: mount_calls.append(mount.source))
+
+    runner = CliRunner()
+    result = runner.invoke(
+        run_command,
+        ["qwen", str(source), "--config", str(config_path), "--auto-mount"],
+        env={"AGSEKIT_LANG": "ru"},
+    )
+
+    assert result.exit_code == 0
+    assert "сейчас не примонтирована. Примонтировать?" not in result.output
+    assert f"Смонтировано {source.resolve()} в agent:/home/ubuntu/project." in result.output
+    assert mount_calls == [source.resolve()]
+    assert run_calls == [Path("/home/ubuntu/project")]
+
+
+def test_run_command_auto_mounts_in_non_interactive_mode(monkeypatch, tmp_path):
+    source = tmp_path / "project"
+    source.mkdir()
+    (source / "main.py").write_text("print('hi')", encoding="utf-8")
+    config_path = tmp_path / "config.yaml"
+    _write_config(config_path, source)
+
+    run_calls: list[Path] = []
+    mount_calls: list[Path] = []
+
+    def fake_run_in_vm(vm_config, workdir, command, env_vars, proxychains=None, debug=False):
+        run_calls.append(workdir)
+        return 0
+
+    monkeypatch.setattr(run_module, "_ensure_mount_registered_for_run", _REAL_ENSURE_MOUNT_REGISTERED_FOR_RUN)
+    monkeypatch.setattr(run_module, "_has_existing_backup", lambda *_: True)
+    monkeypatch.setattr(run_module, "run_in_vm", fake_run_in_vm)
+    monkeypatch.setattr(run_module, "start_backup_process", lambda *_, **__: None)
+    monkeypatch.setattr(run_module, "ensure_agent_binary_available", lambda *_, **__: None)
+    monkeypatch.setattr(run_module, "backup_once", lambda *_, **__: None)
+    monkeypatch.setattr(run_module, "load_multipass_mounts", lambda **_kwargs: {"agent": set()})
+    monkeypatch.setattr(run_module, "mount_directory", lambda mount: mount_calls.append(mount.source))
+
+    runner = CliRunner()
+    result = runner.invoke(
+        run_command,
+        ["qwen", str(source), "--config", str(config_path), "--non-interactive", "--auto-mount"],
+        env={"AGSEKIT_LANG": "ru"},
+    )
+
+    assert result.exit_code == 0
+    assert "сейчас не примонтирована. Примонтировать?" not in result.output
+    assert f"Смонтировано {source.resolve()} в agent:/home/ubuntu/project." in result.output
+    assert mount_calls == [source.resolve()]
+    assert run_calls == [Path("/home/ubuntu/project")]
 
 
 def test_run_command_does_not_warn_for_empty_host_directory(monkeypatch, tmp_path):

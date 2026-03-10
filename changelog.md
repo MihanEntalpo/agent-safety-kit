@@ -1,5 +1,12 @@
 # Agent-Safety-Kit versions history
 
+## 1.3.6 - Run warning confirmation
+
+* Added an explicit confirmation prompt in `agsekit run` after the empty-mounted-directory warning, so the agent does not start immediately when the VM-side mount looks empty
+* Added an interactive mount prompt in `agsekit run` for configured-but-currently-unmounted folders, with automatic mounting on confirmation and a non-interactive failure mode when prompting is not possible
+* Improved `agsekit doctor` after `snap restart multipass`: it now waits for the Multipass socket to come back and keeps rechecking affected mounts for a short time instead of relying on a single immediate post-restart snapshot
+* Updated `stop-vm` to unmount all currently registered mounts of the target VM before shutting it down
+
 ## 1.3.5 - Doctor diagnostics
 
 * Added the `agsekit doctor` command for diagnostics and safe auto-repair of known installation and configuration issues

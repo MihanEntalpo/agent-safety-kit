@@ -9,12 +9,27 @@ if str(ROOT) not in sys.path:
     sys.path.insert(0, str(ROOT))
 
 import agsekit_cli.commands.stop as stop_module
+from agsekit_cli.config import MountConfig
 from agsekit_cli.commands.stop import stop_vm_command
 
 
-def _write_config(config_path: Path, vm_names: list[str]) -> None:
+def _write_config(config_path: Path, vm_names: list[str], mounts: list[dict[str, str]] | None = None) -> None:
     entries = "\n".join(f"  {name}:\n    cpu: 1\n    ram: 1G\n    disk: 5G" for name in vm_names)
-    config_path.write_text(f"vms:\n{entries}\n", encoding="utf-8")
+    mounts_block = ""
+    if mounts:
+        rendered = []
+        for mount in mounts:
+            rendered.append(
+                "\n".join(
+                    [
+                        "  - source: " + mount["source"],
+                        "    target: " + mount["target"],
+                        "    vm: " + mount["vm"],
+                    ]
+                )
+            )
+        mounts_block = "mounts:\n" + "\n".join(rendered) + "\n"
+    config_path.write_text(f"vms:\n{entries}\n{mounts_block}", encoding="utf-8")
 
 
 def _result(*, returncode: int = 0, stdout: str = "", stderr: str = ""):
@@ -190,3 +205,57 @@ def test_stop_uses_force_if_vm_stays_running(monkeypatch, tmp_path):
         ["multipass", "stop", "--force", "agent"],
     ]
     assert sleep_calls == [30]
+
+
+def test_stop_unmounts_registered_vm_mounts_before_shutdown(monkeypatch, tmp_path):
+    config_path = tmp_path / "config.yaml"
+    source_one = tmp_path / "project-one"
+    source_two = tmp_path / "project-two"
+    other_source = tmp_path / "other-project"
+    for path in (source_one, source_two, other_source):
+        path.mkdir()
+
+    _write_config(
+        config_path,
+        ["agent", "other"],
+        mounts=[
+            {"source": str(source_one), "target": "/home/ubuntu/project-one", "vm": "agent"},
+            {"source": str(source_two), "target": "/home/ubuntu/project-two", "vm": "agent"},
+            {"source": str(other_source), "target": "/home/ubuntu/other-project", "vm": "other"},
+        ],
+    )
+
+    events: list[tuple[str, str]] = []
+    mounted = {
+        "agent": {
+            (source_one.resolve(), Path("/home/ubuntu/project-one")),
+            (source_two.resolve(), Path("/home/ubuntu/project-two")),
+        },
+        "other": {
+            (other_source.resolve(), Path("/home/ubuntu/other-project")),
+        },
+    }
+
+    def fake_umount_directory(mount: MountConfig) -> None:
+        events.append(("umount", f"{mount.vm_name}:{mount.target}"))
+
+    def fake_stop_vm(vm_name: str, *, debug: bool = False) -> None:
+        events.append(("stop", vm_name))
+
+    monkeypatch.setattr(stop_module, "ensure_multipass_available", lambda: None)
+    monkeypatch.setattr(stop_module, "load_multipass_mounts", lambda **_kwargs: mounted)
+    monkeypatch.setattr(stop_module, "umount_directory", fake_umount_directory)
+    monkeypatch.setattr(stop_module, "_stop_vm", fake_stop_vm)
+
+    runner = CliRunner()
+    result = runner.invoke(stop_vm_command, ["agent", "--config", str(config_path)], env={"AGSEKIT_LANG": "en"})
+
+    assert result.exit_code == 0
+    assert events == [
+        ("umount", "agent:/home/ubuntu/project-one"),
+        ("umount", "agent:/home/ubuntu/project-two"),
+        ("stop", "agent"),
+    ]
+    assert "Unmounted agent:/home/ubuntu/project-one" in result.output
+    assert "Unmounted agent:/home/ubuntu/project-two" in result.output
+    assert "Stopping VM `agent`..." in result.output

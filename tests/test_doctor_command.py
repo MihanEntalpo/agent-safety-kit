@@ -120,6 +120,7 @@ def test_doctor_fails_when_mount_stays_broken_after_restart(monkeypatch, tmp_pat
             "agent": {(source_dir.resolve(), Path("/home/ubuntu/project"))},
         },
     )
+    monkeypatch.setattr(doctor_module, "DOCTOR_RESTART_RECOVERY_TIMEOUT_SECONDS", 0.0)
     monkeypatch.setattr(doctor_module, "vm_path_has_entries", lambda *_args, **_kwargs: False)
     monkeypatch.setattr(doctor_module, "_restart_multipass", lambda **_kwargs: None)
 
@@ -231,3 +232,83 @@ def test_doctor_requires_yes_in_non_interactive_mode(monkeypatch, tmp_path):
     assert result.exit_code != 0
     assert "Re-run with -y in non-interactive mode." in result.output
     assert not restart_calls
+
+
+def test_doctor_waits_for_multipass_socket_after_restart(monkeypatch, tmp_path):
+    source_dir = tmp_path / "project"
+    source_dir.mkdir()
+    (source_dir / "file.txt").write_text("hello", encoding="utf-8")
+    config_path = tmp_path / "config.yaml"
+    _write_config(config_path, source_dir)
+
+    fetch_calls = {"count": 0}
+
+    def fake_fetch_existing_info():
+        fetch_calls["count"] += 1
+        if fetch_calls["count"] == 2:
+            raise doctor_module.MultipassError("cannot connect to the multipass socket")
+        return '{"list":[{"name":"agent","state":"Running"}]}'
+
+    monkeypatch.setattr(doctor_module, "ensure_multipass_available", lambda: None)
+    monkeypatch.setattr(doctor_module, "fetch_existing_info", fake_fetch_existing_info)
+    monkeypatch.setattr(
+        doctor_module,
+        "load_multipass_mounts",
+        lambda **_kwargs: {
+            "agent": {(source_dir.resolve(), Path("/home/ubuntu/project"))},
+        },
+    )
+    vm_checks = iter([False, True])
+    monkeypatch.setattr(doctor_module, "vm_path_has_entries", lambda *_args, **_kwargs: next(vm_checks))
+    monkeypatch.setattr(doctor_module, "_restart_multipass", lambda **_kwargs: None)
+    sleep_calls: list[float] = []
+    monkeypatch.setattr(doctor_module.time, "sleep", lambda seconds: sleep_calls.append(seconds))
+
+    runner = CliRunner()
+    result = runner.invoke(
+        doctor_command,
+        ["--config", str(config_path), "-y"],
+        env={"AGSEKIT_LANG": "en"},
+    )
+
+    assert result.exit_code == 0
+    assert sleep_calls == [doctor_module.DOCTOR_RESTART_RECOVERY_POLL_SECONDS]
+    assert "Doctor repaired all detected issues." in result.output
+
+
+def test_doctor_waits_for_mounts_to_reappear_after_restart(monkeypatch, tmp_path):
+    source_dir = tmp_path / "project"
+    source_dir.mkdir()
+    (source_dir / "file.txt").write_text("hello", encoding="utf-8")
+    config_path = tmp_path / "config.yaml"
+    _write_config(config_path, source_dir)
+
+    monkeypatch.setattr(doctor_module, "ensure_multipass_available", lambda: None)
+    monkeypatch.setattr(
+        doctor_module,
+        "fetch_existing_info",
+        lambda: '{"list":[{"name":"agent","state":"Running"}]}',
+    )
+    monkeypatch.setattr(
+        doctor_module,
+        "load_multipass_mounts",
+        lambda **_kwargs: {
+            "agent": {(source_dir.resolve(), Path("/home/ubuntu/project"))},
+        },
+    )
+    vm_checks = iter([False, False, False, True])
+    monkeypatch.setattr(doctor_module, "vm_path_has_entries", lambda *_args, **_kwargs: next(vm_checks))
+    monkeypatch.setattr(doctor_module, "_restart_multipass", lambda **_kwargs: None)
+    sleep_calls: list[float] = []
+    monkeypatch.setattr(doctor_module.time, "sleep", lambda seconds: sleep_calls.append(seconds))
+
+    runner = CliRunner()
+    result = runner.invoke(
+        doctor_command,
+        ["--config", str(config_path), "-y"],
+        env={"AGSEKIT_LANG": "en"},
+    )
+
+    assert result.exit_code == 0
+    assert sleep_calls == [doctor_module.DOCTOR_RESTART_RECOVERY_POLL_SECONDS, doctor_module.DOCTOR_RESTART_RECOVERY_POLL_SECONDS]
+    assert "Doctor repaired all detected issues." in result.output

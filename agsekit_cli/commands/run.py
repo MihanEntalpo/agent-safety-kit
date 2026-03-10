@@ -23,7 +23,16 @@ from ..agents import (
 from ..config import ConfigError, load_agents_config, load_config, load_mounts_config, load_vms_config, resolve_config_path
 from ..i18n import tr
 from ..vm import MultipassError
-from ..mounts import MountConfig, host_path_has_entries, is_mount_registered, load_multipass_mounts, normalize_path, vm_path_has_entries
+from ..mounts import (
+    MountAlreadyMountedError,
+    MountConfig,
+    host_path_has_entries,
+    is_mount_registered,
+    load_multipass_mounts,
+    mount_directory,
+    normalize_path,
+    vm_path_has_entries,
+)
 from ..debug import debug_scope
 from . import debug_option, non_interactive_option
 
@@ -55,28 +64,74 @@ def _cli_entry_path() -> Path:
     raise click.ClickException(tr("run.cli_not_found"))
 
 
-def _warn_if_vm_directory_is_empty(
+def _vm_directory_is_empty_while_host_has_files(
     mount_entry: Optional[MountConfig],
     local_path: Optional[Path],
     vm_path: Path,
     *,
     debug: bool = False,
-) -> None:
+) -> bool:
     if mount_entry is None or local_path is None:
-        return
+        return False
 
     host_has_entries = host_path_has_entries(local_path)
     if not host_has_entries:
-        return
+        return False
 
     mounted_by_vm = load_multipass_mounts(debug=debug)
     if not is_mount_registered(mount_entry, mounted_by_vm):
-        return
+        return False
 
     if vm_path_has_entries(mount_entry.vm_name, vm_path, debug=debug):
-        return
+        return False
 
-    click.echo(tr("run.mount_empty_warning", source_dir=normalize_path(local_path)))
+    return True
+
+
+def _ensure_mount_registered_for_run(
+    mount_entry: Optional[MountConfig],
+    *,
+    debug: bool = False,
+    non_interactive: bool = False,
+    auto_mount: bool = False,
+) -> bool:
+    if mount_entry is None:
+        return True
+
+    mounted_by_vm = load_multipass_mounts(debug=debug)
+    if is_mount_registered(mount_entry, mounted_by_vm):
+        return True
+
+    if auto_mount:
+        should_mount = True
+    else:
+        should_mount = False
+
+    if non_interactive:
+        if not auto_mount:
+            raise click.ClickException(
+                tr("run.mount_confirm_required", source=mount_entry.source, vm_name=mount_entry.vm_name, target=mount_entry.target)
+            )
+    elif not auto_mount:
+        should_mount = click.confirm(tr("run.mount_confirm", source=normalize_path(mount_entry.source)), default=True)
+
+    if not should_mount:
+        return False
+
+    try:
+        mount_directory(mount_entry)
+    except MountAlreadyMountedError:
+        return True
+
+    click.echo(
+        tr(
+            "mounts.mounted",
+            source=normalize_path(mount_entry.source),
+            vm_name=mount_entry.vm_name,
+            target=mount_entry.target,
+        )
+    )
+    return True
 
 
 @click.command(name="run", context_settings={"ignore_unknown_options": True}, help=tr("run.command_help"))
@@ -93,6 +148,7 @@ def _warn_if_vm_directory_is_empty(
     help=tr("config.option_path"),
 )
 @click.option("--disable-backups", is_flag=True, help=tr("run.option_disable_backups"))
+@click.option("--auto-mount", is_flag=True, help=tr("run.option_auto_mount"))
 @debug_option
 @click.option("--skip-default-args", is_flag=True, help=tr("run.option_skip_default_args"))
 @click.option(
@@ -108,6 +164,7 @@ def run_command(
     vm_name: Optional[str],
     config_path: Optional[str],
     disable_backups: bool,
+    auto_mount: bool,
     debug: bool,
     skip_default_args: bool,
     proxychains: Optional[str],
@@ -115,9 +172,6 @@ def run_command(
     non_interactive: bool,
 ) -> None:
     """Запускает интерактивную сессию агента в Multipass ВМ."""
-    # not used parameter, explicitly removing it so IDEs/linters do not complain
-    del non_interactive
-
     resolved_path = resolve_config_path(Path(config_path) if config_path else None)
     try:
         config = load_config(resolved_path)
@@ -198,18 +252,29 @@ def run_command(
     agent_command = agent_command_sequence(agent, agent_args, skip_default_args=skip_default_args)
 
     with debug_scope(debug):
-        click.echo(
-            tr("run.starting_agent", agent=agent.name, vm_name=vm_to_use, workdir=workdir)
-        )
+        try:
+            should_continue = _ensure_mount_registered_for_run(
+                mount_entry,
+                debug=debug,
+                non_interactive=non_interactive,
+                auto_mount=auto_mount,
+            )
+        except MultipassError as exc:
+            raise click.ClickException(str(exc))
+        if not should_continue:
+            return
 
         warning_source_dir = normalize_path(source_to_resolve) if mount_entry is not None and source_to_resolve is not None else None
         try:
-            _warn_if_vm_directory_is_empty(
+            should_warn_about_empty_vm_dir = _vm_directory_is_empty_while_host_has_files(
                 mount_entry,
                 warning_source_dir,
                 workdir,
                 debug=debug,
             )
+            if should_warn_about_empty_vm_dir and warning_source_dir is not None:
+                click.echo(tr("run.mount_empty_warning", source_dir=warning_source_dir))
+                click.confirm(tr("run.mount_empty_confirm"), default=False, abort=True)
         except MultipassError:
             pass
 
@@ -217,6 +282,10 @@ def run_command(
             ensure_agent_binary_available(agent_command, vm_config, proxychains=proxychains_override, debug=debug)
         except MultipassError as exc:
             raise click.ClickException(str(exc))
+
+        click.echo(
+            tr("run.starting_agent", agent=agent.name, vm_name=vm_to_use, workdir=workdir)
+        )
 
         backup_process = None
         if not disable_backups and mount_entry is not None:
