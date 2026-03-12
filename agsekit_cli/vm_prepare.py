@@ -29,25 +29,33 @@ def _run_multipass(command: list[str], description: str, capture_output: bool = 
     return result
 
 
+def _derive_public_key(private_key: Path) -> str:
+    result = subprocess.run(
+        ["ssh-keygen", "-y", "-f", str(private_key)],
+        check=True,
+        capture_output=True,
+        text=True,
+    )
+    return result.stdout.strip()
+
+
 def ensure_host_ssh_keypair() -> Tuple[Path, Path]:
     ssh_dir = Path.home() / ".config" / "agsekit" / "ssh"
     private_key = ssh_dir / "id_rsa"
     public_key = ssh_dir / "id_rsa.pub"
     ssh_dir.mkdir(parents=True, exist_ok=True)
 
-    if private_key.exists() and public_key.exists():
-        click.echo(tr("prepare.ssh_keypair_exists", path=ssh_dir))
-        return private_key, public_key
+    if private_key.exists():
+        expected_public_key = _derive_public_key(private_key)
+        existing_public_key = public_key.read_text(encoding="utf-8").strip() if public_key.exists() else None
 
-    if private_key.exists() and not public_key.exists():
-        click.echo(tr("prepare.ssh_public_missing", path=ssh_dir))
-        result = subprocess.run(
-            ["ssh-keygen", "-y", "-f", str(private_key)],
-            check=True,
-            capture_output=True,
-            text=True,
-        )
-        public_key.write_text(result.stdout, encoding="utf-8")
+        if existing_public_key == expected_public_key:
+            click.echo(tr("prepare.ssh_keypair_exists", path=ssh_dir))
+            return private_key, public_key
+
+        if not public_key.exists():
+            click.echo(tr("prepare.ssh_public_missing", path=ssh_dir))
+        public_key.write_text(f"{expected_public_key}\n", encoding="utf-8")
     else:
         click.echo(tr("prepare.ssh_generating", path=ssh_dir))
         subprocess.run(

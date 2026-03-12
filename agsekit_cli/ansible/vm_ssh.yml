@@ -62,6 +62,7 @@
   connection: local
   gather_facts: false
   vars:
+    ansible_python_interpreter: "{{ ansible_playbook_python }}"
     known_hosts_path: "{{ lookup('env', 'HOME') }}/.ssh/known_hosts"
     normalized_vm_known_hosts: >-
       {{

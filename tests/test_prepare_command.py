@@ -20,14 +20,34 @@ def test_prepare_logs_existing_ssh_keypair(monkeypatch, tmp_path, capsys):
     ssh_dir = home / ".config" / "agsekit" / "ssh"
     ssh_dir.mkdir(parents=True)
     (ssh_dir / "id_rsa").write_text("private", encoding="utf-8")
-    (ssh_dir / "id_rsa.pub").write_text("public", encoding="utf-8")
+    (ssh_dir / "id_rsa.pub").write_text("ssh-rsa AAAA expected@example\n", encoding="utf-8")
 
     monkeypatch.setattr(vm_prepare_module.Path, "home", lambda: home)
+    monkeypatch.setattr(vm_prepare_module, "_derive_public_key", lambda _path: "ssh-rsa AAAA expected@example")
 
     vm_prepare_module.ensure_host_ssh_keypair()
 
     captured = capsys.readouterr()
     assert f"SSH keypair already exists at {ssh_dir}, reusing." in captured.out
+
+
+def test_prepare_repairs_mismatched_public_key(monkeypatch, tmp_path):
+    home = tmp_path / "home"
+    ssh_dir = home / ".config" / "agsekit" / "ssh"
+    ssh_dir.mkdir(parents=True)
+    private_key = ssh_dir / "id_rsa"
+    public_key = ssh_dir / "id_rsa.pub"
+    private_key.write_text("private", encoding="utf-8")
+    public_key.write_text("ssh-rsa AAAA stale@example\n", encoding="utf-8")
+
+    monkeypatch.setattr(vm_prepare_module.Path, "home", lambda: home)
+    monkeypatch.setattr(vm_prepare_module, "_derive_public_key", lambda path: f"ssh-rsa AAAA {path.name}@current")
+
+    returned_private, returned_public = vm_prepare_module.ensure_host_ssh_keypair()
+
+    assert returned_private == private_key
+    assert returned_public == public_key
+    assert public_key.read_text(encoding="utf-8") == "ssh-rsa AAAA id_rsa@current\n"
 
 
 def test_prepare_command_installs_dependencies_and_keys(monkeypatch):
@@ -154,6 +174,7 @@ def test_prepare_vm_ssh_playbook_manages_authorized_keys_and_known_hosts():
     local_sync_play = playbook[2]
     assert local_sync_play["hosts"] == "localhost"
     assert local_sync_play["connection"] == "local"
+    assert local_sync_play["vars"]["ansible_python_interpreter"] == "{{ ansible_playbook_python }}"
     local_sync_tasks = local_sync_play["tasks"]
 
     known_hosts_task = next(item for item in local_sync_tasks if item["name"] == "Ensure VM host keys in local known_hosts")

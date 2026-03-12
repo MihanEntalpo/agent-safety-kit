@@ -1,5 +1,10 @@
 # Agent-Safety-Kit versions history
 
+## 1.3.7 - VM SSH key sync fixes
+
+* Fixed `create-vm`/`create-vms` SSH key preparation to repair stale or mismatched `~/.config/agsekit/ssh/id_rsa.pub` before syncing it into the VM `authorized_keys`
+* Fixed `create-vm`/`create-vms` local `known_hosts` sync to run with the current `agsekit` Python interpreter instead of a broken auto-discovered `pyenv` shim
+
 ## 1.3.6 - Run warning confirmation
 
 * Added an explicit confirmation prompt in `agsekit run` after the empty-mounted-directory warning, so the agent does not start immediately when the VM-side mount looks empty
