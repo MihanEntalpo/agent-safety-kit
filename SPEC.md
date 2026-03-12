@@ -555,6 +555,7 @@
 
 #### `agsekit portforward [--debug]`
 - поднимает и мониторит SSH-туннели по `port-forwarding` правилам из конфига.
+- при ошибке туннеля сообщает, что `remote`-проброс на порты ниже 1024 внутри VM может быть причиной (из-за ограничения sshd).
 
 #### `agsekit systemd install/uninstall`
 - `install`:

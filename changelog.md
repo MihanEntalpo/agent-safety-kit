@@ -1,5 +1,9 @@
 # Agent-Safety-Kit versions history
 
+## 1.3.8 - Debug info on unsecesfull remote port forwarding
+
+* Added info in case of -R port forwarding unsuccesfull in case of remote port < 1024
+
 ## 1.3.7 - VM SSH key sync fixes
 
 * Fixed `create-vm`/`create-vms` SSH key preparation to repair stale or mismatched `~/.config/agsekit/ssh/id_rsa.pub` before syncing it into the VM `authorized_keys`

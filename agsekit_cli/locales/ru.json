@@ -395,6 +395,7 @@
   "portforward.cli_not_found": "Не удалось найти исполняемый файл agsekit.",
   "portforward.command_help": "Запустить SSH-туннели по правилам port-forwarding из конфигурации.",
   "portforward.process_restarting": "Проброс портов для {vm_name} завершился с кодом {code}. Перезапуск...",
+  "portforward.privileged_port_hint": "Проброс портов для {vm_name} завершился с ошибкой. Если в VM используются порты < 1024 ({ports}), sshd может не иметь права слушать их.",
   "portforward.rules_missing": "В конфигурации не найдено правил port-forwarding.",
   "portforward.starting": "Запуск проброса портов для {vm_name}: {command}",
   "portforward.stop_requested": "Получен сигнал завершения, останавливаем проброс портов...",

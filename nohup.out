@@ -1,0 +1,384 @@
+bind [127.0.0.1]:14001: Address already in use
+channel_setup_fwd_listener_tcpip: cannot listen to port: 14001
+Warning: remote port forwarding failed for listen port 10988
+Warning: remote port forwarding failed for listen port 10988
+Warning: remote port forwarding failed for listen port 10988
+Warning: remote port forwarding failed for listen port 10988
+Warning: remote port forwarding failed for listen port 10988
+Warning: remote port forwarding failed for listen port 10988
+Warning: remote port forwarding failed for listen port 10988
+Warning: remote port forwarding failed for listen port 10988
+Warning: remote port forwarding failed for listen port 10988
+Warning: remote port forwarding failed for listen port 10988
+Warning: remote port forwarding failed for listen port 10988
+Warning: remote port forwarding failed for listen port 10988
+Warning: remote port forwarding failed for listen port 10988
+Warning: remote port forwarding failed for listen port 10988
+channel 6: open failed: connect failed: Connection refused
+channel 10: open failed: connect failed: No address associated with hostname
+client_loop: send disconnect: Broken pipe
+Warning: remote port forwarding failed for listen port 10988
+client_loop: send disconnect: Broken pipe
+bind [127.0.0.1]:14001: Address already in use
+channel_setup_fwd_listener_tcpip: cannot listen to port: 14001
+Warning: remote port forwarding failed for listen port 10984
+Warning: remote port forwarding failed for listen port 7666
+Warning: remote port forwarding failed for listen port 15903
+Warning: remote port forwarding failed for listen port 14002
+Warning: remote port forwarding failed for listen port 9000
+client_loop: send disconnect: Broken pipe
+Warning: remote port forwarding failed for listen port 10986
+Warning: remote port forwarding failed for listen port 7666
+Warning: remote port forwarding failed for listen port 25903
+Warning: remote port forwarding failed for listen port 24002
+channel 8: open failed: connect failed: Connection refused
+bind [127.0.0.1]:14001: Address already in use
+channel_setup_fwd_listener_tcpip: cannot listen to port: 14001
+ssh: connect to host 94.72.141.96 port 22: Connection timed out
+ssh: connect to host 94.72.141.96 port 22: Connection timed out
+ssh: connect to host 94.72.141.96 port 22: Connection timed out
+Timeout, server 80.93.177.2 not responding.
+ssh: connect to host 94.72.141.96 port 22: Connection timed out
+ssh: connect to host 80.93.177.2 port 22: Connection timed out
+ssh: connect to host 94.72.141.96 port 22: Connection timed out
+ssh: connect to host 80.93.177.2 port 22: Connection timed out
+ssh: connect to host 94.72.141.96 port 22: Connection timed out
+ssh: connect to host 80.93.177.2 port 22: Connection timed out
+ssh: connect to host 94.72.141.96 port 22: Connection timed out
+ssh: connect to host 80.93.177.2 port 22: Connection timed out
+ssh: connect to host 80.93.177.2 port 22: Connection timed out
+ssh: connect to host 94.72.141.96 port 22: Connection timed out
+ssh: connect to host 80.93.177.2 port 22: Connection timed out
+ssh: connect to host 80.93.177.2 port 22: Connection timed out
+ssh: connect to host 94.72.141.96 port 22: Connection timed out
+ssh: connect to host 80.93.177.2 port 22: Connection timed out
+ssh: connect to host 80.93.177.2 port 22: Connection timed out
+ssh: connect to host 94.72.141.96 port 22: Connection timed out
+ssh: connect to host 109.248.250.94 port 22: Connection timed out
+ssh: connect to host 109.248.250.94 port 22: Connection timed out
+ssh: connect to host 109.248.250.94 port 22: Connection timed out
+ssh: connect to host 109.248.250.94 port 22: Connection timed out
+ssh: connect to host 80.93.177.2 port 22: Connection timed out
+ssh: connect to host 109.248.250.94 port 22: Connection timed out
+ssh: connect to host 109.248.250.94 port 22: Connection timed out
+ssh: connect to host 94.72.141.96 port 22: Connection timed out
+ssh: connect to host 109.248.250.94 port 22: Connection timed out
+ssh: connect to host 109.248.250.94 port 22: Connection timed out
+ssh: connect to host 80.93.177.2 port 22: Connection timed out
+ssh: connect to host 109.248.250.94 port 22: Connection timed out
+ssh: connect to host 94.72.141.96 port 22: Connection timed out
+ssh: connect to host 109.248.250.94 port 22: Connection timed out
+ssh: connect to host 80.93.177.2 port 22: Connection timed out
+ssh: connect to host 109.248.250.94 port 22: Connection timed out
+ssh: connect to host 94.72.141.96 port 22: Connection timed out
+ssh: connect to host 80.93.177.2 port 22: Connection timed out
+ssh: connect to host 109.248.250.94 port 22: Connection timed out
+ssh: connect to host 94.72.141.96 port 22: Connection timed out
+ssh: connect to host 109.248.250.94 port 22: Connection timed out
+ssh: connect to host 80.93.177.2 port 22: Connection timed out
+Warning: remote port forwarding failed for listen port 10986
+Warning: remote port forwarding failed for listen port 7666
+Warning: remote port forwarding failed for listen port 25903
+Warning: remote port forwarding failed for listen port 24002
+bind [127.0.0.1]:14001: Address already in use
+channel_setup_fwd_listener_tcpip: cannot listen to port: 14001
+Warning: remote port forwarding failed for listen port 10984
+Warning: remote port forwarding failed for listen port 7666
+Warning: remote port forwarding failed for listen port 15903
+Warning: remote port forwarding failed for listen port 14002
+Warning: remote port forwarding failed for listen port 9000
+bind [127.0.0.1]:14001: Address already in use
+channel_setup_fwd_listener_tcpip: cannot listen to port: 14001
+Warning: remote port forwarding failed for listen port 10988
+Warning: remote port forwarding failed for listen port 10988
+Warning: remote port forwarding failed for listen port 10988
+Warning: remote port forwarding failed for listen port 10988
+Warning: remote port forwarding failed for listen port 10988
+Warning: remote port forwarding failed for listen port 10988
+Warning: remote port forwarding failed for listen port 10988
+Warning: remote port forwarding failed for listen port 10988
+Warning: remote port forwarding failed for listen port 10988
+Warning: remote port forwarding failed for listen port 10988
+Warning: remote port forwarding failed for listen port 10988
+Warning: remote port forwarding failed for listen port 10988
+Warning: remote port forwarding failed for listen port 10988
+Warning: remote port forwarding failed for listen port 10988
+Warning: remote port forwarding failed for listen port 10988
+Warning: remote port forwarding failed for listen port 10988
+Warning: remote port forwarding failed for listen port 10988
+Warning: remote port forwarding failed for listen port 10988
+Warning: remote port forwarding failed for listen port 10988
+Warning: remote port forwarding failed for listen port 10988
+Warning: remote port forwarding failed for listen port 10988
+Warning: remote port forwarding failed for listen port 10988
+Warning: remote port forwarding failed for listen port 10988
+Warning: remote port forwarding failed for listen port 10988
+Warning: remote port forwarding failed for listen port 10988
+channel 7: open failed: connect failed: Connection refused
+client_loop: send disconnect: Broken pipe
+bind [127.0.0.1]:14001: Address already in use
+channel_setup_fwd_listener_tcpip: cannot listen to port: 14001
+Warning: remote port forwarding failed for listen port 10984
+Warning: remote port forwarding failed for listen port 7666
+Warning: remote port forwarding failed for listen port 15903
+Warning: remote port forwarding failed for listen port 14002
+Warning: remote port forwarding failed for listen port 9000
+client_loop: send disconnect: Broken pipe
+Warning: remote port forwarding failed for listen port 10988
+client_loop: send disconnect: Broken pipe
+Warning: remote port forwarding failed for listen port 10986
+Warning: remote port forwarding failed for listen port 7666
+Warning: remote port forwarding failed for listen port 25903
+Warning: remote port forwarding failed for listen port 24002
+channel 7: open failed: connect failed: Connection refused
+bind [127.0.0.1]:14001: Address already in use
+channel_setup_fwd_listener_tcpip: cannot listen to port: 14001
+Warning: remote port forwarding failed for listen port 10984
+Warning: remote port forwarding failed for listen port 7666
+Warning: remote port forwarding failed for listen port 15903
+Warning: remote port forwarding failed for listen port 14002
+Warning: remote port forwarding failed for listen port 9000
+Warning: remote port forwarding failed for listen port 10986
+Warning: remote port forwarding failed for listen port 7666
+Warning: remote port forwarding failed for listen port 25903
+Warning: remote port forwarding failed for listen port 24002
+bind [127.0.0.1]:14001: Address already in use
+channel_setup_fwd_listener_tcpip: cannot listen to port: 14001
+Warning: remote port forwarding failed for listen port 10984
+Warning: remote port forwarding failed for listen port 7666
+Warning: remote port forwarding failed for listen port 15903
+Warning: remote port forwarding failed for listen port 14002
+Warning: remote port forwarding failed for listen port 9000
+Warning: remote port forwarding failed for listen port 10986
+Warning: remote port forwarding failed for listen port 7666
+Warning: remote port forwarding failed for listen port 25903
+Warning: remote port forwarding failed for listen port 24002
+channel 13: open failed: connect failed: Connection refused
+bind [127.0.0.1]:14001: Address already in use
+channel_setup_fwd_listener_tcpip: cannot listen to port: 14001
+channel 11: open failed: connect failed: Connection refused
+Connection to 94.72.141.96 closed by remote host.
+ssh: connect to host 94.72.141.96 port 22: Connection timed out
+ssh: connect to host 94.72.141.96 port 22: Connection timed out
+ssh: connect to host 94.72.141.96 port 22: Connection timed out
+ssh: connect to host 94.72.141.96 port 22: Connection timed out
+ssh: connect to host 94.72.141.96 port 22: Connection timed out
+ssh: connect to host 94.72.141.96 port 22: Connection timed out
+ssh: connect to host 94.72.141.96 port 22: Connection timed out
+ssh: connect to host 94.72.141.96 port 22: Connection timed out
+ssh: connect to host 94.72.141.96 port 22: Connection timed out
+ssh: connect to host 94.72.141.96 port 22: Connection timed out
+ssh: connect to host 94.72.141.96 port 22: Connection timed out
+ssh: connect to host 94.72.141.96 port 22: Connection timed out
+ssh: connect to host 94.72.141.96 port 22: Connection timed out
+ssh: connect to host 94.72.141.96 port 22: Connection timed out
+ssh: connect to host 94.72.141.96 port 22: Connection timed out
+ssh: connect to host 94.72.141.96 port 22: Connection timed out
+ssh: connect to host 94.72.141.96 port 22: Connection timed out
+ssh: connect to host 94.72.141.96 port 22: Connection timed out
+ssh: connect to host 94.72.141.96 port 22: Connection timed out
+ssh: connect to host 94.72.141.96 port 22: Connection timed out
+ssh: connect to host 94.72.141.96 port 22: Connection timed out
+ssh: connect to host 94.72.141.96 port 22: Connection timed out
+ssh: connect to host 94.72.141.96 port 22: Connection timed out
+ssh: connect to host 94.72.141.96 port 22: Connection timed out
+ssh: connect to host 94.72.141.96 port 22: Connection timed out
+ssh: connect to host 94.72.141.96 port 22: Connection timed out
+ssh: connect to host 94.72.141.96 port 22: Connection timed out
+ssh: connect to host 94.72.141.96 port 22: Connection timed out
+ssh: connect to host 94.72.141.96 port 22: Connection timed out
+ssh: connect to host 94.72.141.96 port 22: Connection timed out
+ssh: connect to host 94.72.141.96 port 22: Connection timed out
+ssh: connect to host 94.72.141.96 port 22: Connection timed out
+ssh: connect to host 94.72.141.96 port 22: Connection timed out
+ssh: connect to host 94.72.141.96 port 22: Connection timed out
+ssh: connect to host 94.72.141.96 port 22: Connection timed out
+ssh: connect to host 94.72.141.96 port 22: Connection timed out
+ssh: connect to host 94.72.141.96 port 22: Connection timed out
+ssh: connect to host 94.72.141.96 port 22: Connection timed out
+ssh: connect to host 94.72.141.96 port 22: Connection timed out
+ssh: connect to host 94.72.141.96 port 22: Connection timed out
+ssh: connect to host 94.72.141.96 port 22: Connection timed out
+ssh: connect to host 94.72.141.96 port 22: Connection timed out
+ssh: connect to host 94.72.141.96 port 22: Connection timed out
+ssh: connect to host 94.72.141.96 port 22: Connection timed out
+ssh: connect to host 94.72.141.96 port 22: Connection timed out
+ssh: connect to host 94.72.141.96 port 22: Connection timed out
+ssh: connect to host 94.72.141.96 port 22: Connection timed out
+ssh: connect to host 94.72.141.96 port 22: Connection timed out
+ssh: connect to host 94.72.141.96 port 22: Connection timed out
+ssh: connect to host 94.72.141.96 port 22: Connection timed out
+ssh: connect to host 94.72.141.96 port 22: Connection timed out
+ssh: connect to host 94.72.141.96 port 22: Connection timed out
+ssh: connect to host 94.72.141.96 port 22: Connection timed out
+ssh: connect to host 94.72.141.96 port 22: Connection timed out
+ssh: connect to host 94.72.141.96 port 22: Connection timed out
+Warning: remote port forwarding failed for listen port 10988
+Timeout, server 80.93.177.2 not responding.
+ssh: connect to host 80.93.177.2 port 22: Network is unreachable
+ssh: connect to host 80.93.177.2 port 22: Network is unreachable
+ssh: connect to host 80.93.177.2 port 22: Network is unreachable
+ssh: connect to host 80.93.177.2 port 22: Network is unreachable
+ssh: connect to host 80.93.177.2 port 22: Network is unreachable
+ssh: connect to host 80.93.177.2 port 22: Network is unreachable
+ssh: connect to host 80.93.177.2 port 22: Network is unreachable
+ssh: connect to host 80.93.177.2 port 22: Network is unreachable
+ssh: connect to host 80.93.177.2 port 22: Network is unreachable
+ssh: connect to host 80.93.177.2 port 22: Network is unreachable
+ssh: connect to host 80.93.177.2 port 22: Network is unreachable
+ssh: connect to host 80.93.177.2 port 22: Network is unreachable
+client_loop: send disconnect: Broken pipe
+Warning: remote port forwarding failed for listen port 10986
+Warning: remote port forwarding failed for listen port 7666
+Warning: remote port forwarding failed for listen port 25903
+Warning: remote port forwarding failed for listen port 24002
+client_loop: send disconnect: Broken pipe
+Warning: remote port forwarding failed for listen port 10988
+bind [127.0.0.1]:14001: Address already in use
+channel_setup_fwd_listener_tcpip: cannot listen to port: 14001
+Warning: remote port forwarding failed for listen port 10984
+Warning: remote port forwarding failed for listen port 7666
+Warning: remote port forwarding failed for listen port 15903
+Warning: remote port forwarding failed for listen port 14002
+Warning: remote port forwarding failed for listen port 9000
+Warning: remote port forwarding failed for listen port 10986
+Warning: remote port forwarding failed for listen port 7666
+Warning: remote port forwarding failed for listen port 25903
+Warning: remote port forwarding failed for listen port 24002
+channel 7: open failed: connect failed: Connection refused
+bind [127.0.0.1]:14001: Address already in use
+channel_setup_fwd_listener_tcpip: cannot listen to port: 14001
+Warning: remote port forwarding failed for listen port 10984
+Warning: remote port forwarding failed for listen port 7666
+Warning: remote port forwarding failed for listen port 15903
+Warning: remote port forwarding failed for listen port 14002
+Warning: remote port forwarding failed for listen port 9000
+Warning: remote port forwarding failed for listen port 10986
+Warning: remote port forwarding failed for listen port 7666
+Warning: remote port forwarding failed for listen port 25903
+Warning: remote port forwarding failed for listen port 24002
+bind [127.0.0.1]:14001: Address already in use
+channel_setup_fwd_listener_tcpip: cannot listen to port: 14001
+Warning: remote port forwarding failed for listen port 10984
+Warning: remote port forwarding failed for listen port 7666
+Warning: remote port forwarding failed for listen port 15903
+Warning: remote port forwarding failed for listen port 14002
+Warning: remote port forwarding failed for listen port 9000
+channel 11: open failed: connect failed: Connection refused
+channel 13: open failed: connect failed: Connection refused
+bind [127.0.0.1]:14001: Address already in use
+channel_setup_fwd_listener_tcpip: cannot listen to port: 14001
+Timeout, server 80.93.177.2 not responding.
+ssh: connect to host 80.93.177.2 port 22: Network is unreachable
+ssh: connect to host 80.93.177.2 port 22: Network is unreachable
+ssh: connect to host 80.93.177.2 port 22: Network is unreachable
+ssh: connect to host 80.93.177.2 port 22: Network is unreachable
+ssh: connect to host 80.93.177.2 port 22: Network is unreachable
+ssh: connect to host 80.93.177.2 port 22: Network is unreachable
+ssh: connect to host 80.93.177.2 port 22: Network is unreachable
+ssh: connect to host 80.93.177.2 port 22: Network is unreachable
+ssh: connect to host 80.93.177.2 port 22: Network is unreachable
+client_loop: send disconnect: Broken pipe
+Warning: remote port forwarding failed for listen port 10988
+client_loop: send disconnect: Broken pipe
+Warning: remote port forwarding failed for listen port 10986
+Warning: remote port forwarding failed for listen port 7666
+Warning: remote port forwarding failed for listen port 25903
+Warning: remote port forwarding failed for listen port 24002
+bind [127.0.0.1]:14001: Address already in use
+channel_setup_fwd_listener_tcpip: cannot listen to port: 14001
+Warning: remote port forwarding failed for listen port 10984
+Warning: remote port forwarding failed for listen port 7666
+Warning: remote port forwarding failed for listen port 15903
+Warning: remote port forwarding failed for listen port 14002
+Warning: remote port forwarding failed for listen port 9000
+channel 7: open failed: connect failed: Connection refused
+Warning: remote port forwarding failed for listen port 10988
+Warning: remote port forwarding failed for listen port 10986
+Warning: remote port forwarding failed for listen port 7666
+Warning: remote port forwarding failed for listen port 25903
+Warning: remote port forwarding failed for listen port 24002
+bind [127.0.0.1]:14001: Address already in use
+channel_setup_fwd_listener_tcpip: cannot listen to port: 14001
+Warning: remote port forwarding failed for listen port 10984
+Warning: remote port forwarding failed for listen port 7666
+Warning: remote port forwarding failed for listen port 15903
+Warning: remote port forwarding failed for listen port 14002
+Warning: remote port forwarding failed for listen port 9000
+Warning: remote port forwarding failed for listen port 10988
+Warning: remote port forwarding failed for listen port 10986
+Warning: remote port forwarding failed for listen port 7666
+Warning: remote port forwarding failed for listen port 25903
+Warning: remote port forwarding failed for listen port 24002
+bind [127.0.0.1]:14001: Address already in use
+channel_setup_fwd_listener_tcpip: cannot listen to port: 14001
+Warning: remote port forwarding failed for listen port 10984
+Warning: remote port forwarding failed for listen port 7666
+Warning: remote port forwarding failed for listen port 15903
+Warning: remote port forwarding failed for listen port 14002
+Warning: remote port forwarding failed for listen port 9000
+channel 11: open failed: connect failed: Connection refused
+channel 13: open failed: connect failed: Connection refused
+Warning: remote port forwarding failed for listen port 10988
+bind [127.0.0.1]:14001: Address already in use
+channel_setup_fwd_listener_tcpip: cannot listen to port: 14001
+Warning: remote port forwarding failed for listen port 10988
+Warning: remote port forwarding failed for listen port 10988
+Warning: remote port forwarding failed for listen port 10988
+Warning: remote port forwarding failed for listen port 10988
+Warning: remote port forwarding failed for listen port 10988
+Warning: remote port forwarding failed for listen port 10988
+channel 5: open failed: connect failed: Connection timed out
+channel 6: open failed: connect failed: Connection timed out
+channel 7: open failed: connect failed: Connection timed out
+channel 8: open failed: connect failed: Connection timed out
+channel 9: open failed: connect failed: Connection timed out
+channel 10: open failed: connect failed: Connection timed out
+channel 11: open failed: connect failed: Connection timed out
+channel 12: open failed: connect failed: Connection timed out
+channel 13: open failed: connect failed: Connection timed out
+channel 14: open failed: connect failed: Connection timed out
+channel 15: open failed: connect failed: Connection timed out
+channel 16: open failed: connect failed: Connection timed out
+channel 17: open failed: connect failed: Connection timed out
+channel 18: open failed: connect failed: Connection timed out
+channel 5: open failed: connect failed: Connection timed out
+channel 6: open failed: connect failed: Connection timed out
+channel 7: open failed: connect failed: Connection timed out
+channel 8: open failed: connect failed: Connection timed out
+Warning: remote port forwarding failed for listen port 10988
+Warning: remote port forwarding failed for listen port 10988
+Warning: remote port forwarding failed for listen port 10988
+Warning: remote port forwarding failed for listen port 10988
+Warning: remote port forwarding failed for listen port 10988
+Warning: remote port forwarding failed for listen port 10988
+Warning: remote port forwarding failed for listen port 10988
+Warning: remote port forwarding failed for listen port 10988
+Warning: remote port forwarding failed for listen port 10988
+Warning: remote port forwarding failed for listen port 10988
+Warning: remote port forwarding failed for listen port 10988
+Warning: remote port forwarding failed for listen port 10988
+Warning: remote port forwarding failed for listen port 10988
+Warning: remote port forwarding failed for listen port 10988
+Warning: remote port forwarding failed for listen port 10988
+Warning: remote port forwarding failed for listen port 10988
+Warning: remote port forwarding failed for listen port 10988
+Warning: remote port forwarding failed for listen port 10988
+Warning: remote port forwarding failed for listen port 10988
+Warning: remote port forwarding failed for listen port 10988
+Warning: remote port forwarding failed for listen port 10988
+Warning: remote port forwarding failed for listen port 10988
+Warning: remote port forwarding failed for listen port 10988
+Warning: remote port forwarding failed for listen port 10988
+Warning: remote port forwarding failed for listen port 10988
+Warning: remote port forwarding failed for listen port 10988
+Warning: remote port forwarding failed for listen port 10988
+Warning: remote port forwarding failed for listen port 10988
+Warning: remote port forwarding failed for listen port 10988
+Warning: remote port forwarding failed for listen port 10988
+Warning: remote port forwarding failed for listen port 10988
+Warning: remote port forwarding failed for listen port 10988
+Warning: remote port forwarding failed for listen port 10988
+Warning: remote port forwarding failed for listen port 10988
+Warning: remote port forwarding failed for listen port 10988
+channel 7: open failed: connect failed: Connection refused

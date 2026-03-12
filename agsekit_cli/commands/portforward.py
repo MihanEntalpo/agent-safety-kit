@@ -6,11 +6,11 @@ import signal
 import subprocess
 import time
 from pathlib import Path
-from typing import Dict, List, Optional
+from typing import Dict, List, Optional, Sequence
 
 import click
 
-from ..config import ConfigError, load_config, load_vms_config, resolve_config_path
+from ..config import ConfigError, PortForwardingRule, load_config, load_vms_config, resolve_config_path
 from ..i18n import tr
 from ..vm import MultipassError, build_port_forwarding_args, ensure_multipass_available
 from . import debug_option, non_interactive_option
@@ -30,6 +30,20 @@ def _resolve_agsekit_command() -> List[str]:
 
 def _format_command(command: List[str]) -> str:
     return " ".join(shlex.quote(part) for part in command)
+
+
+def _find_privileged_remote_ports(rules: Sequence[PortForwardingRule]) -> List[int]:
+    ports: List[int] = []
+    for rule in rules:
+        if rule.type != "remote":
+            continue
+        try:
+            port = int(rule.vm_addr.rsplit(":", 1)[-1])
+        except ValueError:
+            continue
+        if 0 < port < 1024:
+            ports.append(port)
+    return sorted(set(ports))
 
 
 def _start_forwarder(
@@ -111,10 +125,12 @@ def portforward_command(config_path: Optional[str], debug: bool, non_interactive
 
     base_command = _resolve_agsekit_command()
     forward_targets: Dict[str, List[str]] = {}
+    privileged_remote_ports: Dict[str, List[int]] = {}
     for vm_name, vm in vms.items():
         port_args = build_port_forwarding_args(vm.port_forwarding)
         if port_args:
             forward_targets[vm_name] = port_args
+            privileged_remote_ports[vm_name] = _find_privileged_remote_ports(vm.port_forwarding)
 
     if not forward_targets:
         click.echo(tr("portforward.rules_missing"))
@@ -144,6 +160,14 @@ def portforward_command(config_path: Optional[str], debug: bool, non_interactive
                 if stop_requested:
                     break
                 click.echo(tr("portforward.process_restarting", vm_name=vm_name, code=return_code))
+                if privileged_remote_ports.get(vm_name):
+                    click.echo(
+                        tr(
+                            "portforward.privileged_port_hint",
+                            vm_name=vm_name,
+                            ports=", ".join(str(port) for port in privileged_remote_ports[vm_name]),
+                        )
+                    )
                 processes[vm_name] = _start_forwarder(
                     base_command, vm_name, resolved_path, forward_targets[vm_name], debug=debug
                 )

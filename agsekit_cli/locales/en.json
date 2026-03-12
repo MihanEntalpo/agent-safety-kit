@@ -395,6 +395,7 @@
   "portforward.cli_not_found": "Could not find the agsekit executable.",
   "portforward.command_help": "Start SSH tunnels based on port-forwarding rules from the configuration.",
   "portforward.process_restarting": "Port forwarding for {vm_name} exited with code {code}. Restarting...",
+  "portforward.privileged_port_hint": "Port forwarding for {vm_name} failed. If remote forwarding uses ports below 1024 in the VM ({ports}), sshd may not be allowed to listen on them.",
   "portforward.rules_missing": "No port-forwarding rules found in the configuration.",
   "portforward.starting": "Starting port forwarding for {vm_name}: {command}",
   "portforward.stop_requested": "Termination signal received, stopping port forwarding...",
