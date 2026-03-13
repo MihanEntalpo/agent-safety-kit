@@ -1,6 +1,9 @@
 import sys
 from pathlib import Path
 
+from typing import cast
+
+import click
 from click.testing import CliRunner
 
 ROOT = Path(__file__).resolve().parent.parent
@@ -9,6 +12,10 @@ if str(ROOT) not in sys.path:
 
 import agsekit_cli.commands.create_vm as create_vm_module
 from agsekit_cli.commands.create_vm import create_vm_command
+
+
+def _invoke_command(runner: CliRunner, command: click.Command, args: list[str]):
+    return runner.invoke(cast(click.Command, command), args)
 
 
 def _write_config(config_path: Path, vm_names: list[str]) -> None:
@@ -31,7 +38,7 @@ def test_create_vm_defaults_to_single_vm(monkeypatch, tmp_path):
     monkeypatch.setattr(
         create_vm_module,
         "ensure_host_ssh_keypair",
-        lambda: (Path("id_rsa"), Path("id_rsa.pub")),
+        lambda *_, **__: (Path("id_rsa"), Path("id_rsa.pub")),
     )
     monkeypatch.setattr(
         create_vm_module,
@@ -40,7 +47,7 @@ def test_create_vm_defaults_to_single_vm(monkeypatch, tmp_path):
     )
 
     runner = CliRunner()
-    result = runner.invoke(create_vm_command, ["--config", str(config_path)])
+    result = _invoke_command(runner, create_vm_command, ["--config", str(config_path)])
 
     assert result.exit_code == 0
     assert calls == [(str(config_path), "agent")]
@@ -54,7 +61,7 @@ def test_create_vm_requires_name_when_multiple(tmp_path, monkeypatch):
     _write_config(config_path, ["first", "second"])
 
     runner = CliRunner()
-    result = runner.invoke(create_vm_command, ["--config", str(config_path)])
+    result = _invoke_command(runner, create_vm_command, ["--config", str(config_path)])
 
     assert result.exit_code != 0
     assert "Укажите имя ВМ" in result.output
@@ -68,7 +75,7 @@ def test_create_vm_wraps_prepare_errors(monkeypatch, tmp_path):
     monkeypatch.setattr(
         create_vm_module,
         "ensure_host_ssh_keypair",
-        lambda: (Path("id_rsa"), Path("id_rsa.pub")),
+        lambda *_, **__: (Path("id_rsa"), Path("id_rsa.pub")),
     )
 
     def fail_prepare(*_args, **_kwargs):
@@ -77,7 +84,7 @@ def test_create_vm_wraps_prepare_errors(monkeypatch, tmp_path):
     monkeypatch.setattr(create_vm_module, "prepare_vm", fail_prepare)
 
     runner = CliRunner()
-    result = runner.invoke(create_vm_command, ["--config", str(config_path)])
+    result = _invoke_command(runner, create_vm_command, ["--config", str(config_path)])
 
     assert result.exit_code != 0
     assert "prepare failed" in result.output

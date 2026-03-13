@@ -3,6 +3,9 @@ import sys
 from pathlib import Path
 from typing import Dict, Optional
 
+from typing import cast
+
+import click
 from click.testing import CliRunner
 
 ROOT = Path(__file__).resolve().parent.parent
@@ -55,19 +58,23 @@ vms:
     )
 
 
+def _invoke_command(runner: CliRunner, command: click.Command, args: list[str]):
+    return runner.invoke(cast(click.Command, command), args)
+
+
 def test_install_agents_defaults_to_single_agent(monkeypatch, tmp_path):
     config_path = tmp_path / "config.yaml"
     _write_config(config_path, [("qwen", "qwen")])
 
     calls: list[tuple[str, str]] = []
 
-    def fake_run_install_playbook(vm, playbook_path: Path, proxychains=None) -> None:
+    def fake_run_install_playbook(vm, playbook_path: Path, proxychains=None, **_kwargs) -> None:
         calls.append((vm.name, playbook_path.name, proxychains))
 
     monkeypatch.setattr(install_agents_module, "_run_install_playbook", fake_run_install_playbook)
 
     runner = CliRunner()
-    result = runner.invoke(install_agents_command, ["--config", str(config_path)])
+    result = _invoke_command(runner, install_agents_command, ["--config", str(config_path)])
 
     assert result.exit_code == 0
     assert calls and calls[0][0] == "agent"
@@ -81,14 +88,14 @@ def test_install_agents_uses_cline_playbook(monkeypatch, tmp_path):
 
     calls: list[tuple[str, str]] = []
 
-    def fake_run_install_playbook(vm, playbook_path: Path, proxychains=None) -> None:
+    def fake_run_install_playbook(vm, playbook_path: Path, proxychains=None, **_kwargs) -> None:
         del proxychains
         calls.append((vm.name, playbook_path.name))
 
     monkeypatch.setattr(install_agents_module, "_run_install_playbook", fake_run_install_playbook)
 
     runner = CliRunner()
-    result = runner.invoke(install_agents_command, ["--config", str(config_path)])
+    result = _invoke_command(runner, install_agents_command, ["--config", str(config_path)])
 
     assert result.exit_code == 0
     assert calls == [("agent", "cline.yml")]
@@ -100,14 +107,14 @@ def test_install_agents_uses_opencode_playbook(monkeypatch, tmp_path):
 
     calls: list[tuple[str, str]] = []
 
-    def fake_run_install_playbook(vm, playbook_path: Path, proxychains=None) -> None:
+    def fake_run_install_playbook(vm, playbook_path: Path, proxychains=None, **_kwargs) -> None:
         del proxychains
         calls.append((vm.name, playbook_path.name))
 
     monkeypatch.setattr(install_agents_module, "_run_install_playbook", fake_run_install_playbook)
 
     runner = CliRunner()
-    result = runner.invoke(install_agents_command, ["--config", str(config_path)])
+    result = _invoke_command(runner, install_agents_command, ["--config", str(config_path)])
 
     assert result.exit_code == 0
     assert calls == [("agent", "opencode.yml")]
@@ -118,7 +125,7 @@ def test_install_agents_requires_choice_when_multiple(tmp_path):
     _write_config(config_path, [("qwen", "qwen"), ("codex", "codex")])
 
     runner = CliRunner()
-    result = runner.invoke(install_agents_command, ["--config", str(config_path)])
+    result = _invoke_command(runner, install_agents_command, ["--config", str(config_path)])
 
     assert result.exit_code != 0
     assert "Provide an agent name" in result.output
@@ -134,7 +141,7 @@ def test_install_agents_without_args_prompts_interactively(monkeypatch, tmp_path
 
     calls: list[tuple[str, str, object]] = []
 
-    def fake_run_install_playbook(vm, playbook_path: Path, proxychains=None) -> None:
+    def fake_run_install_playbook(vm, playbook_path: Path, proxychains=None, **_kwargs) -> None:
         calls.append((vm.name, playbook_path.name, proxychains))
 
     class DummyQuestion:
@@ -154,7 +161,7 @@ def test_install_agents_without_args_prompts_interactively(monkeypatch, tmp_path
     monkeypatch.setattr(install_agents_module, "_run_install_playbook", fake_run_install_playbook)
 
     runner = CliRunner()
-    result = runner.invoke(install_agents_command, ["--config", str(config_path)])
+    result = _invoke_command(runner, install_agents_command, ["--config", str(config_path)])
 
     assert result.exit_code == 0
     assert calls == [("vm2", "codex.yml", None)]
@@ -172,7 +179,7 @@ def test_install_agents_non_interactive_disables_prompts(monkeypatch, tmp_path):
     )
 
     runner = CliRunner()
-    result = runner.invoke(install_agents_command, ["--config", str(config_path), "--non-interactive"])
+    result = _invoke_command(runner, install_agents_command, ["--config", str(config_path), "--non-interactive"])
 
     assert result.exit_code != 0
     assert "Provide an agent name" in result.output
@@ -184,13 +191,14 @@ def test_install_agents_passes_proxychains_override(monkeypatch, tmp_path):
 
     calls: list[tuple[str, str, object]] = []
 
-    def fake_run_install_playbook(vm, playbook_path: Path, proxychains=None) -> None:
+    def fake_run_install_playbook(vm, playbook_path: Path, proxychains=None, **_kwargs) -> None:
         calls.append((vm.name, playbook_path.name, proxychains))
 
     monkeypatch.setattr(install_agents_module, "_run_install_playbook", fake_run_install_playbook)
 
     runner = CliRunner()
-    result = runner.invoke(
+    result = _invoke_command(
+        runner,
         install_agents_command,
         ["--config", str(config_path), "--proxychains", "socks5://127.0.0.1:1080"],
     )
@@ -210,13 +218,14 @@ def test_install_agents_uses_agent_proxychains_override(monkeypatch, tmp_path):
 
     calls: list[tuple[str, str, object]] = []
 
-    def fake_run_install_playbook(vm, playbook_path: Path, proxychains=None) -> None:
+    def fake_run_install_playbook(vm, playbook_path: Path, proxychains=None, **_kwargs) -> None:
         calls.append((vm.name, playbook_path.name, proxychains))
 
     monkeypatch.setattr(install_agents_module, "_run_install_playbook", fake_run_install_playbook)
 
     runner = CliRunner()
-    result = runner.invoke(
+    result = _invoke_command(
+        runner,
         install_agents_command,
         ["--config", str(config_path)],
     )
@@ -236,13 +245,14 @@ def test_install_agents_agent_empty_proxychains_disables_vm_proxy(monkeypatch, t
 
     calls: list[tuple[str, str, object]] = []
 
-    def fake_run_install_playbook(vm, playbook_path: Path, proxychains=None) -> None:
+    def fake_run_install_playbook(vm, playbook_path: Path, proxychains=None, **_kwargs) -> None:
         calls.append((vm.name, playbook_path.name, proxychains))
 
     monkeypatch.setattr(install_agents_module, "_run_install_playbook", fake_run_install_playbook)
 
     runner = CliRunner()
-    result = runner.invoke(
+    result = _invoke_command(
+        runner,
         install_agents_command,
         ["--config", str(config_path)],
     )
@@ -262,13 +272,14 @@ def test_install_agents_uses_all_bound_vms_from_vms_list(monkeypatch, tmp_path):
 
     calls: list[tuple[str, str, object]] = []
 
-    def fake_run_install_playbook(vm, playbook_path: Path, proxychains=None) -> None:
+    def fake_run_install_playbook(vm, playbook_path: Path, proxychains=None, **_kwargs) -> None:
         calls.append((vm.name, playbook_path.name, proxychains))
 
     monkeypatch.setattr(install_agents_module, "_run_install_playbook", fake_run_install_playbook)
 
     runner = CliRunner()
-    result = runner.invoke(
+    result = _invoke_command(
+        runner,
         install_agents_command,
         ["--config", str(config_path)],
     )
@@ -289,13 +300,14 @@ def test_install_agents_empty_vm_and_vms_installs_into_all_vms(monkeypatch, tmp_
 
     calls: list[tuple[str, str, object]] = []
 
-    def fake_run_install_playbook(vm, playbook_path: Path, proxychains=None) -> None:
+    def fake_run_install_playbook(vm, playbook_path: Path, proxychains=None, **_kwargs) -> None:
         calls.append((vm.name, playbook_path.name, proxychains))
 
     monkeypatch.setattr(install_agents_module, "_run_install_playbook", fake_run_install_playbook)
 
     runner = CliRunner()
-    result = runner.invoke(
+    result = _invoke_command(
+        runner,
         install_agents_command,
         ["--config", str(config_path)],
     )

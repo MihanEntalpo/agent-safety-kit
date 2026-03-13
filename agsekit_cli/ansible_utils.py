@@ -4,7 +4,7 @@ import os
 import subprocess
 import sys
 from pathlib import Path
-from typing import Any, Iterable, Optional, Sequence
+from typing import Any, Callable, Iterable, Optional, Sequence
 
 import click
 import yaml
@@ -155,15 +155,23 @@ def run_ansible_playbook(
     *,
     playbook_path: Path,
     progress_header: Optional[str] = None,
+    progress_handler: Optional[Callable[[int, int, str], None]] = None,
+    progress_output: Optional[Callable[[str], None]] = None,
 ) -> subprocess.CompletedProcess[str]:
     command_list = [str(part) for part in command]
     debug_log_command(command_list)
+
+    if progress_handler and is_debug_enabled():
+        progress_handler = None
 
     env = None
     if not is_debug_enabled():
         callback_dir = _callback_plugins_dir()
         env = dict(os.environ)
-        env["ANSIBLE_STDOUT_CALLBACK"] = _ANSIBLE_PROGRESS_CALLBACK
+        if progress_handler:
+            env["ANSIBLE_STDOUT_CALLBACK"] = "agsekit_rich"
+        else:
+            env["ANSIBLE_STDOUT_CALLBACK"] = _ANSIBLE_PROGRESS_CALLBACK
         env["ANSIBLE_LOAD_CALLBACK_PLUGINS"] = "1"
         env["ANSIBLE_CALLBACK_PLUGINS"] = _merge_callback_plugin_paths(env.get("ANSIBLE_CALLBACK_PLUGINS"), callback_dir)
         env[_ANSIBLE_PROGRESS_TOTAL_ENV] = str(count_playbook_tasks(playbook_path))
@@ -171,6 +179,43 @@ def run_ansible_playbook(
             env[_ANSIBLE_PROGRESS_HEADER_ENV] = progress_header
         else:
             env.pop(_ANSIBLE_PROGRESS_HEADER_ENV, None)
+
+    if progress_handler:
+        process = subprocess.Popen(
+            command_list,
+            stdout=subprocess.PIPE,
+            stderr=subprocess.STDOUT,
+            text=True,
+            env=env,
+            bufsize=1,
+        )
+        output_lines: list[str] = []
+        if process.stdout is not None:
+            for line in process.stdout:
+                stripped = line.strip()
+                if stripped.startswith("AGSEKIT_PROGRESS "):
+                    parts = stripped.split(" ", 3)
+                    if len(parts) == 4:
+                        try:
+                            current = int(parts[1])
+                            total = int(parts[2])
+                        except ValueError:
+                            continue
+                        progress_handler(current, total, parts[3])
+                    continue
+                if stripped.startswith("AGSEKIT_FAILED "):
+                    message = stripped.replace("AGSEKIT_FAILED ", "", 1)
+                    if progress_output:
+                        progress_output(message)
+                    else:
+                        click.echo(message)
+                    continue
+                output_lines.append(line)
+        return_code = process.wait()
+        stdout_value = "".join(output_lines)
+        result = subprocess.CompletedProcess(command_list, return_code, stdout=stdout_value, stderr=None)
+        debug_log_result(result)
+        return result
 
     result = subprocess.run(
         command_list,

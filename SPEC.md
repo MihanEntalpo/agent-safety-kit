@@ -390,6 +390,7 @@
 
 #### `agsekit create-vms [--debug]`
 - то же самое для всех VM из конфига.
+- отображает общий прогресс и несколько параллельных progress-bar'ов через `rich` (VM, шаги подготовки, бандлы и ansible).
 
 #### `agsekit start-vm`, `stop-vm`, `destroy-vm` (`--debug` поддерживается)
 Зачем:
@@ -502,6 +503,7 @@
 - запускает Ansible installer через общий runner;
   - по умолчанию runner включает компактный progress-вывод (`X/Y task-name` + progress bar) через custom callback plugin;
   - при `--debug` progress callback отключается и используется стандартный вывод ansible;
+- показывает progress-bar'ы установки агентов через `rich`, включая шаги Ansible;
 - поддерживает proxy override на один запуск (`--proxychains`).
 - при запуске без аргументов в интерактивном TTY запрашивает выбор агента и цели установки;
 - при запуске без аргументов в non-interactive режиме требует явный выбор агента (ошибка `agent_required`).

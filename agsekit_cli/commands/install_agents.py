@@ -9,11 +9,18 @@ import click
 import questionary
 
 from ..agents import configured_agent_vms, find_agent
-from ..ansible_utils import AnsibleCollectionError, ansible_playbook_command, ensure_multipass_collection, run_ansible_playbook
+from ..ansible_utils import (
+    AnsibleCollectionError,
+    ansible_playbook_command,
+    count_playbook_tasks,
+    ensure_multipass_collection,
+    run_ansible_playbook,
+)
 from ..config import AgentConfig, ConfigError, VmConfig, load_agents_config, load_config, load_vms_config, resolve_config_path
 from ..debug import debug_scope
 from ..interactive import is_interactive_terminal
 from ..i18n import tr
+from ..progress import ProgressManager
 from ..vm import MultipassError, ensure_multipass_available, resolve_proxychains
 from . import debug_option, non_interactive_option
 
@@ -49,7 +56,14 @@ def _log_failed_command(
         click.echo(tr("install_agents.stderr_label", output=stderr), err=True)
 
 
-def _run_install_playbook(vm: VmConfig, playbook_path: Path, proxychains: Optional[str] = None) -> None:
+def _run_install_playbook(
+    vm: VmConfig,
+    playbook_path: Path,
+    proxychains: Optional[str] = None,
+    *,
+    progress: Optional[ProgressManager] = None,
+    label: Optional[str] = None,
+) -> None:
     ensure_multipass_available()
     try:
         ensure_multipass_collection()
@@ -66,10 +80,28 @@ def _run_install_playbook(vm: VmConfig, playbook_path: Path, proxychains: Option
     if effective_proxychains:
         install_command.extend(["-e", f"proxychains_url={effective_proxychains}"])
     install_command.append(str(playbook_path))
-    result = run_ansible_playbook(
-        install_command,
-        playbook_path=playbook_path,
-    )
+    if progress and label:
+        total = count_playbook_tasks(playbook_path)
+        task_id = progress.add_task(label, total=max(total, 1))
+
+        def _handle_progress(current: int, total_tasks: int, task_name: str) -> None:
+            effective_total = total_tasks if total_tasks > 0 else total
+            progress.update(task_id, description=task_name, completed=min(current, effective_total))
+
+        try:
+            result = run_ansible_playbook(
+                install_command,
+                playbook_path=playbook_path,
+                progress_handler=_handle_progress,
+                progress_output=progress.print,
+            )
+        finally:
+            progress.remove_task(task_id)
+    else:
+        result = run_ansible_playbook(
+            install_command,
+            playbook_path=playbook_path,
+        )
     if result.returncode != 0:
         _log_failed_command(install_command, result, tr("install_agents.installer_execution_label"))
         raise MultipassError(tr("install_agents.install_failed", vm_name=vm.name, code=result.returncode))
@@ -213,30 +245,48 @@ def install_agents_command(
                             raise click.ClickException(tr("install_agents.vm_missing", vm_name=target_vm_name))
                         targets.append((agent.name, vms_config[target_vm_name]))
 
-        for target_agent_name, target_vm in targets:
-            agent = find_agent(agents_config, target_agent_name)
-            playbook_path = _playbook_for(agent)
-            click.echo(
-                tr(
-                    "install_agents.installing",
-                    agent_name=agent.name,
-                    agent_type=agent.type,
-                    vm_name=target_vm.name,
-                    script=playbook_path.name,
-                )
-            )
-            try:
-                proxychains_override = proxychains
-                if proxychains_override is None and agent.proxychains_defined:
-                    proxychains_override = agent.proxychains if agent.proxychains is not None else ""
-                _run_install_playbook(target_vm, playbook_path, proxychains=proxychains_override)
-            except (MultipassError, ConfigError) as exc:
-                raise click.ClickException(str(exc))
-            click.echo(
-                tr(
-                    "install_agents.installed",
-                    agent_name=agent.name,
-                    agent_type=agent.type,
-                    vm_name=target_vm.name,
-                )
-            )
+        with ProgressManager() as progress:
+            overall_task = progress.add_task(tr("progress.install_agents_title"), total=len(targets))
+            for target_agent_name, target_vm in targets:
+                agent = find_agent(agents_config, target_agent_name)
+                playbook_path = _playbook_for(agent)
+                if debug:
+                    click.echo(
+                        tr(
+                            "install_agents.installing",
+                            agent_name=agent.name,
+                            agent_type=agent.type,
+                            vm_name=target_vm.name,
+                            script=playbook_path.name,
+                        )
+                    )
+                try:
+                    proxychains_override = proxychains
+                    if proxychains_override is None and agent.proxychains_defined:
+                        proxychains_override = agent.proxychains if agent.proxychains is not None else ""
+                    install_label = tr(
+                        "progress.install_agent_target",
+                        agent_name=agent.name,
+                        agent_type=agent.type,
+                        vm_name=target_vm.name,
+                    )
+                    progress.update(overall_task, description=install_label)
+                    _run_install_playbook(
+                        target_vm,
+                        playbook_path,
+                        proxychains=proxychains_override,
+                        progress=progress,
+                        label=install_label,
+                    )
+                except (MultipassError, ConfigError) as exc:
+                    raise click.ClickException(str(exc))
+                if debug:
+                    click.echo(
+                        tr(
+                            "install_agents.installed",
+                            agent_name=agent.name,
+                            agent_type=agent.type,
+                            vm_name=target_vm.name,
+                        )
+                    )
+                progress.advance(overall_task)

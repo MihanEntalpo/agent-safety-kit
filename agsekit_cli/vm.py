@@ -496,7 +496,7 @@ def create_vm_from_config(path: Optional[str], vm_name: str) -> tuple[str, Optio
     return do_launch(target_vm, existing_info), None
 
 
-def create_all_vms_from_config(path: Optional[str]) -> tuple[List[str], List[str]]:
+def create_all_vms_from_config(path: Optional[str]) -> tuple[List[str], List[str], Dict[str, str]]:
     vms = _load_vms(path)
 
     ensure_multipass_available()
@@ -531,4 +531,11 @@ def create_all_vms_from_config(path: Optional[str]) -> tuple[List[str], List[str
         elif status == "mismatch":
             messages.append(tr("vm.exists_continue", vm_name=name))
 
-    return messages, mismatch_messages
+    final_statuses: Dict[str, str] = {}
+    for name, status in statuses.items():
+        if status == "absent":
+            final_statuses[name] = "created"
+        else:
+            final_statuses[name] = status
+
+    return messages, mismatch_messages, final_statuses

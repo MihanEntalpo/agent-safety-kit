@@ -1,5 +1,11 @@
 # Agent-Safety-Kit versions history
 
+## 1.3.9 - Rich progress for long operations
+
+* Updated create-vms progress output to use Rich multi-progress bars for long operations
+* Added Rich progress bars to install-agents, including Ansible task progress
+* Added detailed progress steps for VM creation and preparation
+
 ## 1.3.8 - Debug info on unsecesfull remote port forwarding
 
 * Added info in case of -R port forwarding unsuccesfull in case of remote port < 1024

@@ -11,6 +11,7 @@ from ..config import ConfigError, load_config, load_vms_config, resolve_config_p
 from ..debug import debug_scope
 from ..i18n import tr
 from ..vm import MultipassError, create_all_vms_from_config, create_vm_from_config
+from ..progress import ProgressManager
 from ..vm_prepare import ensure_host_ssh_keypair, prepare_vm
 
 
@@ -64,7 +65,7 @@ def create_vm_command(vm_name: Optional[str], config_path: Optional[str], debug:
 
         click.echo(message)
         click.echo(tr("prepare.ensure_keypair"))
-        _private_key, public_key = ensure_host_ssh_keypair()
+        _private_key, public_key = ensure_host_ssh_keypair(verbose=debug)
         bundles = vms[target_vm].install
         try:
             if bundles:
@@ -103,21 +104,33 @@ def create_vms_command(config_path: Optional[str], debug: bool, non_interactive:
     with debug_scope(debug):
         click.echo(tr("create_vm.creating_all", config_path=resolved_path))
         try:
-            messages, mismatch_messages = create_all_vms_from_config(str(resolved_path))
+            messages, mismatch_messages, statuses = create_all_vms_from_config(str(resolved_path))
         except ConfigError as exc:
             raise click.ClickException(str(exc))
         except MultipassError as exc:
             raise click.ClickException(str(exc))
 
-        for message in messages:
-            click.echo(message)
+        if debug:
+            for message in messages:
+                click.echo(message)
 
         click.echo(tr("prepare.ensure_keypair"))
-        _private_key, public_key = ensure_host_ssh_keypair()
-        for vm in vms.values():
-            try:
-                prepare_vm(vm.name, public_key, vm.install)
-            except MultipassError as exc:
-                raise click.ClickException(str(exc))
-        for mismatch in mismatch_messages:
-            click.echo(mismatch)
+        _private_key, public_key = ensure_host_ssh_keypair(verbose=debug)
+        with ProgressManager() as progress:
+            overall_task = progress.add_task(tr("progress.create_vms_title"), total=len(vms))
+            for vm in vms.values():
+                try:
+                    progress.update(overall_task, description=tr("progress.create_vms_vm_stage", vm_name=vm.name))
+                    vm_task = progress.add_task(tr("progress.vm_title", vm_name=vm.name), total=6)
+                    vm_status = statuses.get(vm.name)
+                    if vm_status == "created":
+                        progress.update(vm_task, description=tr("progress.vm_step_create"))
+                    else:
+                        progress.update(vm_task, description=tr("progress.vm_step_exists"))
+                    progress.advance(vm_task)
+                    prepare_vm(vm.name, public_key, vm.install, progress=progress, step_task_id=vm_task, debug=debug)
+                    progress.advance(overall_task)
+                except MultipassError as exc:
+                    raise click.ClickException(str(exc))
+            for mismatch in mismatch_messages:
+                progress.print(mismatch)
