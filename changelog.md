@@ -1,14 +1,21 @@
 # Agent-Safety-Kit versions history
 
+## 1.4.0 - Backup locking, systemd fix, integration tests 
+
+* Added filesystem-based backup locking for backup-once and backup-repeated to prevent concurrent snapshots per backup folder
+* Fixed systemd uninstall to remove the user unit link without relying on unsupported systemctl verbs
+* Removed WorkingDirectory from the systemd unit to avoid bad unit settings on env expansion
+* Increased integration test coverage
+
 ## 1.3.9 - Rich progress for long operations
 
 * Updated create-vms progress output to use Rich multi-progress bars for long operations
 * Added Rich progress bars to install-agents, including Ansible task progress
 * Added detailed progress steps for VM creation and preparation
 
-## 1.3.8 - Debug info on unsecesfull remote port forwarding
+## 1.3.8 - Debug info on unsuccessful remote port forwarding
 
-* Added info in case of -R port forwarding unsuccesfull in case of remote port < 1024
+* Added info in case of -R port forwarding unsuccessful in case of remote port < 1024
 
 ## 1.3.7 - VM SSH key sync fixes
 

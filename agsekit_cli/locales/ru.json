@@ -82,6 +82,8 @@
   "backup.snapshot_created": "Снапшот создан: {path}",
   "backup.source_dir_missing": "Исходная директория не найдена: {path}",
   "backup.waiting_minutes": "Готово, ждём {minutes} минут",
+  "backup.lock_waiting": "Бэкап для {path} уже выполняется в процессе {pid}, ждём завершения...",
+  "backup.lock_pid_unknown": "неизвестно",
   "backup_clean.backup_missing": "Каталог для бэкапов не найден: {path}",
   "backup_clean.command_help": "Очистить старые снапшоты для монтирования из конфигурации.",
   "backup_clean.keep_non_negative": "Количество сохраняемых копий должно быть больше либо равно нулю.",

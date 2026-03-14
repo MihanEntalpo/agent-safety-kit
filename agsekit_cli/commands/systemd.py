@@ -104,5 +104,10 @@ def systemd_uninstall_command(non_interactive: bool) -> None:
 
     _run_systemctl(["systemctl", "--user", "stop", "agsekit-portforward"])
     _run_systemctl(["systemctl", "--user", "disable", "agsekit-portforward"])
-    _run_systemctl(["systemctl", "--user", "unlink", str(unit_path)])
+    linked_unit = Path.home() / ".config" / "systemd" / "user" / "agsekit-portforward.service"
+    try:
+        if linked_unit.exists():
+            linked_unit.unlink()
+    except OSError as exc:
+        raise click.ClickException(str(exc))
     _run_systemctl(["systemctl", "--user", "daemon-reload"])

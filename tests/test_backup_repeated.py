@@ -10,11 +10,13 @@ import pytest
 from agsekit_cli import backup
 
 
-def test_backup_repeated_runs_immediately_and_respects_interval(monkeypatch, capsys):
+def test_backup_repeated_runs_immediately_and_respects_interval(monkeypatch, capsys, tmp_path):
     calls = []
     clean_calls = []
+    source_dir = tmp_path / "src"
+    dest_dir = tmp_path / "dst"
 
-    def fake_backup_once(source_dir: Path, dest_dir: Path, extra_excludes=None):
+    def fake_backup_once(source_dir: Path, dest_dir: Path, extra_excludes=None, **_kwargs):
         calls.append((source_dir, dest_dir, tuple(extra_excludes or ())))
 
     def fake_clean_backups(
@@ -32,8 +34,8 @@ def test_backup_repeated_runs_immediately_and_respects_interval(monkeypatch, cap
     monkeypatch.setattr(backup, "clean_backups", fake_clean_backups)
 
     backup.backup_repeated(
-        Path("/src"),
-        Path("/dst"),
+        source_dir,
+        dest_dir,
         interval_minutes=2,
         extra_excludes=["*.log"],
         sleep_func=fake_sleep,
@@ -41,12 +43,12 @@ def test_backup_repeated_runs_immediately_and_respects_interval(monkeypatch, cap
     )
 
     assert calls == [
-        (Path("/src"), Path("/dst"), ("*.log",)),
-        (Path("/src"), Path("/dst"), ("*.log",)),
+        (source_dir, dest_dir, ("*.log",)),
+        (source_dir, dest_dir, ("*.log",)),
     ]
     assert clean_calls == [
-        (Path("/dst"), 100, "thin", 2),
-        (Path("/dst"), 100, "thin", 2),
+        (dest_dir, 100, "thin", 2),
+        (dest_dir, 100, "thin", 2),
     ]
     assert sleep_calls == [120]
 
@@ -54,11 +56,13 @@ def test_backup_repeated_runs_immediately_and_respects_interval(monkeypatch, cap
     assert output.count("Done, waiting 2 minutes") == 2
 
 
-def test_backup_repeated_can_skip_first(monkeypatch, capsys):
+def test_backup_repeated_can_skip_first(monkeypatch, capsys, tmp_path):
     calls = []
     clean_calls = []
+    source_dir = tmp_path / "src"
+    dest_dir = tmp_path / "dst"
 
-    def fake_backup_once(source_dir: Path, dest_dir: Path, extra_excludes=None):
+    def fake_backup_once(source_dir: Path, dest_dir: Path, extra_excludes=None, **_kwargs):
         calls.append((source_dir, dest_dir, tuple(extra_excludes or ())))
 
     def fake_clean_backups(
@@ -76,16 +80,16 @@ def test_backup_repeated_can_skip_first(monkeypatch, capsys):
     monkeypatch.setattr(backup, "clean_backups", fake_clean_backups)
 
     backup.backup_repeated(
-        Path("/src"),
-        Path("/dst"),
+        source_dir,
+        dest_dir,
         interval_minutes=2,
         sleep_func=fake_sleep,
         max_runs=1,
         skip_first=True,
     )
 
-    assert calls == [(Path("/src"), Path("/dst"), ())]
-    assert clean_calls == [(Path("/dst"), 100, "thin", 2)]
+    assert calls == [(source_dir, dest_dir, ())]
+    assert clean_calls == [(dest_dir, 100, "thin", 2)]
     assert sleep_calls == [120]
     assert "Done, waiting 2 minutes" in capsys.readouterr().out
 

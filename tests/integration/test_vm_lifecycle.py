@@ -233,7 +233,7 @@ def test_create_all_vms_from_config_creates_multiple_vms(managed_vms, tmp_path):
         },
     )
 
-    messages, mismatches = create_all_vms_from_config(str(config_path))
+    messages, mismatches, _statuses = create_all_vms_from_config(str(config_path))
 
     assert len(messages) >= 2
     assert not mismatches
@@ -287,7 +287,7 @@ def test_destroy_vm_command_deletes_single_instance(managed_vms, tmp_path):
             },
         },
     )
-    messages, mismatches = create_all_vms_from_config(str(config_path))
+    messages, mismatches, _statuses = create_all_vms_from_config(str(config_path))
     assert messages
     assert not mismatches
 
@@ -320,7 +320,7 @@ def test_destroy_vm_all_deletes_all_instances(managed_vms, tmp_path):
             },
         },
     )
-    messages, mismatches = create_all_vms_from_config(str(config_path))
+    messages, mismatches, _statuses = create_all_vms_from_config(str(config_path))
     assert messages
     assert not mismatches
 

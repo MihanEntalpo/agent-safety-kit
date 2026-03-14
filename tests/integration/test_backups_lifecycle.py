@@ -199,6 +199,40 @@ def test_backup_repeated_stops_on_sigint_and_keeps_snapshot(tmp_path: Path) -> N
     assert len(_snapshot_dirs(dest)) >= 1
 
 
+def test_backup_repeated_creates_lock_file_with_ags_pid(tmp_path: Path) -> None:
+    source = tmp_path / "source"
+    dest = tmp_path / "dest"
+    source.mkdir()
+    dest.mkdir()
+    (source / "file.txt").write_text("content", encoding="utf-8")
+
+    process = _start_cli(
+        [
+            "backup-repeated",
+            "--source-dir",
+            str(source),
+            "--dest-dir",
+            str(dest),
+            "--interval",
+            "1",
+            "--max-backups",
+            "2",
+            "--backup-clean-method",
+            "thin",
+            "--non-interactive",
+        ]
+    )
+    try:
+        lock_path = dest / "backup.pid"
+        _wait_for(lambda: lock_path.exists(), timeout=10.0, message="backup.pid was not created")
+        pid_raw = lock_path.read_text(encoding="utf-8").strip()
+        assert pid_raw.isdigit()
+        cmdline = Path(f"/proc/{pid_raw}/cmdline").read_text(encoding="utf-8", errors="ignore")
+        assert "agsekit" in cmdline
+    finally:
+        _stop_process_with_sigint(process)
+
+
 def test_backup_repeated_mount_uses_mount_entry_from_config(tmp_path: Path) -> None:
     source = tmp_path / "source"
     backup = tmp_path / "backups"

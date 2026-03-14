@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import fcntl
 import os
 import sys
 import shutil
@@ -21,6 +22,105 @@ class ThinParams:
     interval_minutes: int = 5
     protect_newest_k: int = 3
     max_intervals_space: int = 288
+
+
+class BackupLock:
+    def __init__(
+        self,
+        dest_dir: Path,
+        *,
+        announce_wait: bool = True,
+        announce_once: bool = False,
+        sleep_seconds: int = 60,
+        logger: Callable[[str], None] = print,
+        sleep_func: Callable[[float], None] = time.sleep,
+    ) -> None:
+        self.dest_dir = dest_dir
+        self.announce_wait = announce_wait
+        self.announce_once = announce_once
+        self.sleep_seconds = sleep_seconds
+        self.logger = logger
+        self.sleep_func = sleep_func
+        self._handle: Optional[object] = None
+
+    def __enter__(self) -> "BackupLock":
+        self.dest_dir.mkdir(parents=True, exist_ok=True)
+        lock_path = self.dest_dir / "backup.pid"
+        handle = lock_path.open("a+", encoding="utf-8")
+        self._handle = handle
+
+        announced = False
+        while True:
+            if _try_acquire_lock(handle):
+                _write_lock_pid(handle)
+                return self
+
+            pid = _read_lock_pid(handle)
+            pid_display = None
+            if pid is not None and _pid_is_ags_backup(pid):
+                pid_display = str(pid)
+
+            if self.announce_wait and (not announced or not self.announce_once):
+                self.logger(
+                    tr(
+                        "backup.lock_waiting",
+                        path=self.dest_dir,
+                        pid=pid_display or tr("backup.lock_pid_unknown"),
+                    )
+                )
+                announced = True
+
+            self.sleep_func(self.sleep_seconds)
+
+    def __exit__(self, exc_type, exc, traceback) -> None:
+        if self._handle is None:
+            return
+        try:
+            fcntl.flock(self._handle.fileno(), fcntl.LOCK_UN)
+        finally:
+            self._handle.close()
+            self._handle = None
+
+
+def _try_acquire_lock(handle) -> bool:
+    try:
+        fcntl.flock(handle.fileno(), fcntl.LOCK_EX | fcntl.LOCK_NB)
+    except BlockingIOError:
+        return False
+    return True
+
+
+def _read_lock_pid(handle) -> Optional[int]:
+    try:
+        handle.seek(0)
+        content = handle.read().strip()
+    except OSError:
+        return None
+    if not content:
+        return None
+    token = content.split(maxsplit=1)[0]
+    if not token.isdigit():
+        return None
+    return int(token)
+
+
+def _write_lock_pid(handle) -> None:
+    handle.seek(0)
+    handle.truncate(0)
+    handle.write(str(os.getpid()))
+    handle.flush()
+
+
+def _pid_is_ags_backup(pid: int) -> bool:
+    cmdline_path = Path(f"/proc/{pid}/cmdline")
+    try:
+        raw = cmdline_path.read_text(encoding="utf-8", errors="ignore")
+    except OSError:
+        return False
+    if not raw:
+        return False
+    command = raw.replace("\x00", " ").strip()
+    return "agsekit" in command
 
 
 def gather_backupignore_rules(source_dir: Path) -> List[FilterRule]:
@@ -382,7 +482,12 @@ def dry_run_has_changes(command: List[str]) -> bool:
 
 
 def backup_once(
-    source_dir: Path, dest_dir: Path, extra_excludes: Optional[Iterable[str]] = None, *, show_progress: bool = False
+    source_dir: Path,
+    dest_dir: Path,
+    extra_excludes: Optional[Iterable[str]] = None,
+    *,
+    show_progress: bool = False,
+    use_lock: bool = True,
 ) -> None:
     source_dir = source_dir.expanduser().resolve()
     dest_dir = dest_dir.expanduser().resolve()
@@ -393,54 +498,69 @@ def backup_once(
 
     dest_dir.mkdir(parents=True, exist_ok=True)
 
-    timestamp = datetime.now().strftime("%Y%m%d-%H%M%S")
-    remove_inprogress_dirs(dest_dir)
+    lock_ctx = BackupLock(dest_dir) if use_lock else None
+    if lock_ctx is None:
+        _backup_once_impl(source_dir, dest_dir, extra_excludes=extra_excludes, show_progress=show_progress)
+        return
+    with lock_ctx:
+        _backup_once_impl(source_dir, dest_dir, extra_excludes=extra_excludes, show_progress=show_progress)
 
-    previous_backup = find_previous_backup(dest_dir)
 
-    rules = gather_backupignore_rules(source_dir)
-    for cli_pattern in extra_excludes or []:
-        if cli_pattern:
-            rules.append(("-", cli_pattern))
+def _backup_once_impl(
+    source_dir: Path,
+    dest_dir: Path,
+    extra_excludes: Optional[Iterable[str]],
+    *,
+    show_progress: bool,
+) -> None:
+        timestamp = datetime.now().strftime("%Y%m%d-%H%M%S")
+        remove_inprogress_dirs(dest_dir)
 
-    if previous_backup is not None:
-        change_check_command = build_rsync_command(
-            source_dir,
-            previous_backup,
-            None,
-            rules,
-            extra_flags=["--dry-run", "--itemize-changes"],
-        )
+        previous_backup = find_previous_backup(dest_dir)
 
-        if not dry_run_has_changes(change_check_command):
-            print(tr("backup.no_changes_detected"))
-            return
+        rules = gather_backupignore_rules(source_dir)
+        for cli_pattern in extra_excludes or []:
+            if cli_pattern:
+                rules.append(("-", cli_pattern))
 
-    inprogress_dir = dest_dir / f"{timestamp}-partial"
-    final_dir = dest_dir / timestamp
-    inprogress_dir.mkdir(parents=True, exist_ok=True)
-    time.sleep(0.1)
+        if previous_backup is not None:
+            change_check_command = build_rsync_command(
+                source_dir,
+                previous_backup,
+                None,
+                rules,
+                extra_flags=["--dry-run", "--itemize-changes"],
+            )
 
-    extra_flags = ["--progress", "--info=progress2"] if show_progress else None
-    command = build_rsync_command(source_dir, inprogress_dir, previous_backup, rules, extra_flags=extra_flags)
+            if not dry_run_has_changes(change_check_command):
+                print(tr("backup.no_changes_detected"))
+                return
 
-    print(tr("backup.rsync_running", path=inprogress_dir))
-    result = _run_rsync(command, show_progress=show_progress)
-    if result.returncode != 0:
-        if _is_rsync_warning(result.returncode):
-            print(tr("backup.rsync_warning", code=result.returncode), file=sys.stderr)
-            if result.stderr:
-                print(result.stderr, file=sys.stderr, end="" if result.stderr.endswith("\n") else "\n")
-        else:
-            if result.stderr:
-                print(result.stderr, file=sys.stderr, end="" if result.stderr.endswith("\n") else "\n")
+        inprogress_dir = dest_dir / f"{timestamp}-partial"
+        final_dir = dest_dir / timestamp
+        inprogress_dir.mkdir(parents=True, exist_ok=True)
+        time.sleep(0.1)
+
+        extra_flags = ["--progress", "--info=progress2"] if show_progress else None
+        command = build_rsync_command(source_dir, inprogress_dir, previous_backup, rules, extra_flags=extra_flags)
+
+        print(tr("backup.rsync_running", path=inprogress_dir))
+        result = _run_rsync(command, show_progress=show_progress)
+        if result.returncode != 0:
+            if _is_rsync_warning(result.returncode):
+                print(tr("backup.rsync_warning", code=result.returncode), file=sys.stderr)
+                if result.stderr:
+                    print(result.stderr, file=sys.stderr, end="" if result.stderr.endswith("\n") else "\n")
             else:
-                print(tr("backup.rsync_failed"), file=sys.stderr)
-            raise SystemExit(result.returncode)
+                if result.stderr:
+                    print(result.stderr, file=sys.stderr, end="" if result.stderr.endswith("\n") else "\n")
+                else:
+                    print(tr("backup.rsync_failed"), file=sys.stderr)
+                raise SystemExit(result.returncode)
 
-    inprogress_dir.rename(final_dir)
-    print(tr("backup.snapshot_created", path=final_dir))
-    write_inode_snapshot(final_dir)
+        inprogress_dir.rename(final_dir)
+        print(tr("backup.snapshot_created", path=final_dir))
+        write_inode_snapshot(final_dir)
 
 
 def backup_repeated(
@@ -467,23 +587,25 @@ def backup_repeated(
     if max_backups <= 0:
         raise ValueError(tr("backup.keep_positive_required"))
 
-    runs_completed = 0
-    first_cycle = True
-    while True:
-        if skip_first and first_cycle:
+    announce_lock_wait = os.environ.get("AGSEKIT_BACKUP_LOCK_QUIET") != "1"
+    with BackupLock(dest_dir, announce_wait=announce_lock_wait, sleep_func=sleep_func):
+        runs_completed = 0
+        first_cycle = True
+        while True:
+            if skip_first and first_cycle:
+                first_cycle = False
+                sleep_func(interval_minutes * 60)
+                continue
+
+            backup_once(source_dir, dest_dir, extra_excludes=extra_excludes, use_lock=False)
+            removed = clean_backups(dest_dir, max_backups, backup_clean_method, interval_minutes=interval_minutes)
+            for path in removed:
+                print(tr("backup_clean.removed_snapshot", path=path))
             first_cycle = False
+            runs_completed += 1
+            print(tr("backup.waiting_minutes", minutes=interval_minutes))
+
+            if max_runs is not None and runs_completed >= max_runs:
+                return
+
             sleep_func(interval_minutes * 60)
-            continue
-
-        backup_once(source_dir, dest_dir, extra_excludes=extra_excludes)
-        removed = clean_backups(dest_dir, max_backups, backup_clean_method, interval_minutes=interval_minutes)
-        for path in removed:
-            print(tr("backup_clean.removed_snapshot", path=path))
-        first_cycle = False
-        runs_completed += 1
-        print(tr("backup.waiting_minutes", minutes=interval_minutes))
-
-        if max_runs is not None and runs_completed >= max_runs:
-            return
-
-        sleep_func(interval_minutes * 60)

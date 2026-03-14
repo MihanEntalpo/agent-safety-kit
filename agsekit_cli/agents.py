@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import os
 import shlex
 import subprocess
 from pathlib import Path
@@ -217,8 +218,12 @@ def start_backup_process(
     mount.backup.mkdir(parents=True, exist_ok=True)
     log_file = open(mount.backup / "backup.log", "a", buffering=1)
 
+    env = os.environ.copy()
+    if skip_first:
+        env["AGSEKIT_BACKUP_LOCK_QUIET"] = "1"
+
     debug_log_command(command, enabled=debug)
-    process = subprocess.Popen(command, stdout=log_file, stderr=subprocess.STDOUT)
+    process = subprocess.Popen(command, stdout=log_file, stderr=subprocess.STDOUT, env=env)
     process.log_file = log_file  # type: ignore[attr-defined]
     return process
 
