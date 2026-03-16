@@ -41,7 +41,7 @@ Currently confirmed working agent types are:
 - codex-glibc (built from source)
 - codex-glibc-prebuilt (prebuilt glibc binary)
 
-Agent Safety Kit ships prebuilt glibc Codex binaries built from the official Codex repository. To use them and skip the source build inside the VM, set the agent type to `codex-glibc-prebuilt`.
+`codex-glibc-prebuilt` downloads a prebuilt glibc Codex binary from this project's GitHub Releases. These binaries are built automatically from the official Codex repository tags, so they do not bloat the PyPI package. To use them and skip the source build inside the VM, set the agent type to `codex-glibc-prebuilt`.
 
 ## Quick start
 
@@ -178,7 +178,13 @@ Backups use `rsync` with incremental links (`--link-dest`) to the previous copy:
 * `agsekit install-agents <agent_name> [<vm>|--all-vms] [--config <path>] [--proxychains <value>] [--debug]` — runs the prepared installation playbook for the chosen agent type inside the specified VM, or (without `<vm>`) in the VM targets configured for that agent (`agents.<name>.vm` + `agents.<name>.vms`). If both `vm` and `vms` are empty, the agent target is all configured VMs. If the config defines only one agent, you can skip `<agent_name>` and it will be picked automatically. Use `--proxychains <scheme://host:port>` to override the VM proxy for this installation or `--proxychains ""` to ignore it once.
 * `agsekit install-agents --all-agents [--all-vms] [--config <path>] [--proxychains <value>] [--debug]` — installs every configured agent either into their configured VM targets or into every VM when `--all-vms` is set.
 
-The installation playbooks live in `agsekit_cli/ansible/agents/`: `codex`, `qwen`, `opencode`, and `cline` install npm CLIs, `codex-glibc` builds the Rust sources with the glibc target and installs the binary as `codex-glibc`, `codex-glibc-prebuilt` installs the packaged prebuilt `codex-glibc` binary, and `claude` follows the official installer flow. Runtime binaries are `codex`, `qwen`, `opencode`, `cline`, `claude`, and `codex-glibc`. Other agent types are not supported yet.
+The installation playbooks live in `agsekit_cli/ansible/agents/`: `codex`, `qwen`, `opencode`, and `cline` install npm CLIs, `codex-glibc` builds the Rust sources with the glibc target and installs the binary as `codex-glibc`, `codex-glibc-prebuilt` downloads a published `codex-glibc` build from this repository's GitHub Releases, and `claude` follows the official installer flow. Runtime binaries are `codex`, `qwen`, `opencode`, `cline`, `claude`, and `codex-glibc`. Other agent types are not supported yet.
+
+For `codex-glibc-prebuilt`, you can override the release source with environment variables on the host where `agsekit install-agents` runs:
+
+- `AGSEKIT_CODEX_GLIBC_PREBUILT_REPO` — GitHub repository in `owner/name` format. Default: `MihanEntalpo/agent-safety-kit`.
+- `AGSEKIT_CODEX_GLIBC_PREBUILT_TAG` — exact release tag to install. If unset, `agsekit` picks the latest matching `codex-glibc-rust-v<major>.<minor>.<patch>` release.
+- `AGSEKIT_CODEX_GLIBC_PREBUILT_ASSET` — asset name. Default: `codex-glibc-linux-amd64.gz`.
 
 ### Running agents
 

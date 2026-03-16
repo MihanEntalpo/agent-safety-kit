@@ -3,4 +3,6 @@ recursive-include agsekit_cli/agent_scripts *.sh
 recursive-include agsekit_cli/vm_installers *.sh
 include agsekit_cli/run_with_proxychains.sh
 recursive-include agsekit_cli/locales *.json
-recursive-include prebuilt-agents *
+include prebuilt-agents/codex-glibc/.dockerignore
+recursive-include prebuilt-agents *.sh Dockerfile
+prune prebuilt-agents/codex-glibc/builds

@@ -11,34 +11,15 @@
         ansible_connection: theko2fi.multipass.multipass
         ansible_python_interpreter: /usr/bin/python3
 
-    - name: Locate codex-glibc prebuilt archive
+    - name: Resolve codex-glibc prebuilt release
       ansible.builtin.command: >-
-        python3 - <<'PYCODE'
-        import sys
-        import sysconfig
-        from pathlib import Path
-
-        playbook_dir = Path("{{ playbook_dir }}").resolve()
-        repo_root = playbook_dir.parents[3]
-        repo_candidate = repo_root / "prebuilt-agents" / "codex-glibc" / "builds"
-        data_root = Path(sysconfig.get_paths()["data"]) / "share" / "agsekit" / "prebuilt-agents" / "codex-glibc" / "builds"
-
-        candidates = [repo_candidate, data_root]
-        for candidate in candidates:
-            gz_path = candidate / "codex-glibc-linux-amd64.gz"
-            if gz_path.exists():
-                print(gz_path)
-                sys.exit(0)
-
-        print("codex-glibc prebuilt archive not found in: " + ", ".join(str(c) for c in candidates), file=sys.stderr)
-        sys.exit(1)
-        PYCODE
-      register: codex_glibc_prebuilt_path
+        {{ ansible_playbook_python }} -m agsekit_cli.prebuilt resolve-codex-glibc-prebuilt
+      register: codex_glibc_prebuilt_release
       changed_when: false
 
-    - name: Cache codex-glibc prebuilt path
+    - name: Cache codex-glibc prebuilt release metadata
       ansible.builtin.set_fact:
-        codex_glibc_prebuilt_gz: "{{ codex_glibc_prebuilt_path.stdout | trim }}"
+        codex_glibc_prebuilt_meta: "{{ codex_glibc_prebuilt_release.stdout | from_json }}"
 
 - name: Install codex-glibc prebuilt binary
   hosts: "{{ vm_name }}"
@@ -47,7 +28,7 @@
     codex_binary_name: codex-glibc
     codex_system_path: /usr/local/bin/codex-glibc
     codex_user_path: "{{ ansible_env.HOME }}/.local/bin/codex-glibc"
-    codex_prebuilt_gz: "{{ hostvars['localhost'].codex_glibc_prebuilt_gz }}"
+    codex_prebuilt_url: "{{ hostvars['localhost'].codex_glibc_prebuilt_meta.download_url }}"
   tasks:
     - name: Install gzip
       ansible.builtin.apt:
@@ -76,11 +57,12 @@
       failed_when: false
       when: not codex_glibc_installed
 
-    - name: Upload codex-glibc prebuilt archive
-      ansible.builtin.copy:
-        src: "{{ codex_prebuilt_gz }}"
+    - name: Download codex-glibc prebuilt archive
+      ansible.builtin.get_url:
+        url: "{{ codex_prebuilt_url }}"
         dest: /tmp/codex-glibc-prebuilt.gz
         mode: "0644"
+        force: true
       when: not codex_glibc_installed
 
     - name: Install codex-glibc system-wide

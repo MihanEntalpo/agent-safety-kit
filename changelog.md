@@ -2,8 +2,8 @@
 
 ## 1.4.2 - Prebuilt codex-glibc binaries
 
-* Added `codex-glibc-prebuilt` agent type that installs a packaged glibc-compatible Codex binary instead of building in-VM
-* Added build tooling and packaging hooks for distributing the prebuilt codex-glibc gzip artifact
+* Added `codex-glibc-prebuilt` agent type that installs a glibc-compatible Codex binary from project GitHub Releases instead of building it in the VM
+* Added GitHub Actions automation to build and publish versioned `codex-glibc` prebuilt artifacts from upstream Codex release tags
 
 ## 1.4.1 - Run source-dir validation
 

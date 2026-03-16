@@ -187,7 +187,7 @@
 - `type` (обязателен) — тип агента: `qwen`, `codex`, `opencode`, `codex-glibc`, `codex-glibc-prebuilt`, `claude`, `cline`.
   - runtime-бинарники: `qwen -> qwen`, `codex -> codex`, `opencode -> opencode`, `codex-glibc -> codex-glibc`, `codex-glibc-prebuilt -> codex-glibc`, `claude -> claude`, `cline -> cline`.
   - `codex-glibc` — установка/сборка codex из исходников с установкой бинарника `codex-glibc`.
-  - `codex-glibc-prebuilt` — установка заранее собранного `codex-glibc` (glibc-compatible) из пакета.
+  - `codex-glibc-prebuilt` — установка заранее собранного `codex-glibc` (glibc-compatible) из GitHub Releases проекта; по умолчанию берётся свежий тег вида `codex-glibc-rust-v<major>.<minor>.<patch>`, источник можно переопределить через `AGSEKIT_CODEX_GLIBC_PREBUILT_REPO`, `AGSEKIT_CODEX_GLIBC_PREBUILT_TAG`, `AGSEKIT_CODEX_GLIBC_PREBUILT_ASSET`.
 - `env` (optional) — mapping переменных окружения, передаваемых агенту при запуске.
   - значение приводится к строке (`null` -> пустая строка).
 - `default-args` (optional) — список аргументов CLI по умолчанию.
@@ -656,7 +656,7 @@ Dependency resolution выполняется кодом до запуска play
 - `cline.yml`: установка Node через nvm + `cline`.
 - `claude.yml`: установка через официальный install script; сетевые шаги выполняются через `proxychains_prefix`; если нативный post-install падает, применяется fallback-установка `claude` из уже скачанного бинарника в `~/.claude/downloads`.
 - `codex-glibc.yml`: сборка из исходников `openai/codex`, управление swap при нехватке памяти, установка бинарника `codex-glibc`, post-build проверка.
-- `codex-glibc-prebuilt.yml`: установка заранее упакованного `codex-glibc` бинарника без сборки в VM.
+- `codex-glibc-prebuilt.yml`: разрешение подходящего GitHub Release проекта и установка опубликованного `codex-glibc` бинарника без сборки в VM.
 
 ## 11. Локализация
 

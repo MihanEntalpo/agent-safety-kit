@@ -41,7 +41,7 @@
 - codex-glibc (сборка из исходников)
 - codex-glibc-prebuilt (готовый glibc-бинарник)
 
-Agent Safety Kit включает готовые glibc-сборки Codex из официального репозитория Codex. Чтобы использовать их и не ждать сборку внутри ВМ, укажите тип агента `codex-glibc-prebuilt`.
+`codex-glibc-prebuilt` скачивает готовый glibc-бинарник Codex из GitHub Releases этого проекта. Эти бинарники собираются автоматически по тегам официального репозитория Codex и не раздувают пакет на PyPI. Чтобы использовать их и не ждать сборку внутри ВМ, укажите тип агента `codex-glibc-prebuilt`.
 
 ## Быстрый старт
 
@@ -175,7 +175,13 @@ docs/build/
 * `agsekit install-agents <agent_name> [<vm>|--all-vms] [--config <path>] [--proxychains <значение>] [--debug]` — выполняет подготовленный playbook установки выбранного типа агента внутри указанной ВМ, либо (без `<vm>`) во всех целевых ВМ агента из конфигурации (`agents.<name>.vm` + `agents.<name>.vms`). Если `vm` и `vms` у агента пустые, целевыми считаются все ВМ из секции `vms`. Если в конфиге описан единственный агент, имя можно не передавать — он будет выбран автоматически. Укажите `--proxychains <scheme://host:port>`, чтобы временно задать прокси для установки, или `--proxychains ""`, чтобы проигнорировать настройку на один запуск.
 * `agsekit install-agents --all-agents [--all-vms] [--config <path>] [--proxychains <значение>] [--debug]` — устанавливает все описанные агенты либо в их целевые ВМ из конфигурации, либо во все ВМ при флаге `--all-vms`.
 
-Playbook установки лежат в `agsekit_cli/ansible/agents/`: `codex`, `qwen`, `opencode` и `cline` ставят npm-CLI, `codex-glibc` собирает Rust-версию с glibc и кладёт бинарник под именем `codex-glibc`, `codex-glibc-prebuilt` ставит упакованный заранее `codex-glibc`, а `claude` использует официальный установщик. Рабочие бинарники: `codex`, `qwen`, `opencode`, `cline`, `claude`, `codex-glibc`. Другие типы пока не поддерживаются.
+Playbook установки лежат в `agsekit_cli/ansible/agents/`: `codex`, `qwen`, `opencode` и `cline` ставят npm-CLI, `codex-glibc` собирает Rust-версию с glibc и кладёт бинарник под именем `codex-glibc`, `codex-glibc-prebuilt` скачивает опубликованную сборку `codex-glibc` из GitHub Releases этого репозитория, а `claude` использует официальный установщик. Рабочие бинарники: `codex`, `qwen`, `opencode`, `cline`, `claude`, `codex-glibc`. Другие типы пока не поддерживаются.
+
+Для `codex-glibc-prebuilt` источник релиза можно переопределить через переменные окружения на хосте, где выполняется `agsekit install-agents`:
+
+- `AGSEKIT_CODEX_GLIBC_PREBUILT_REPO` — GitHub-репозиторий в формате `owner/name`. По умолчанию: `MihanEntalpo/agent-safety-kit`.
+- `AGSEKIT_CODEX_GLIBC_PREBUILT_TAG` — точный тег релиза для установки. Если не задан, `agsekit` выберет самый свежий релиз с тегом вида `codex-glibc-rust-v<major>.<minor>.<patch>`.
+- `AGSEKIT_CODEX_GLIBC_PREBUILT_ASSET` — имя ассета. По умолчанию: `codex-glibc-linux-amd64.gz`.
 
 ### Запуск агентов
 
