@@ -1,5 +1,14 @@
 # Agent-Safety-Kit versions history
 
+## 1.4.2 - Prebuilt codex-glibc binaries
+
+* Added `codex-glibc-prebuilt` agent type that installs a packaged glibc-compatible Codex binary instead of building in-VM
+* Added build tooling and packaging hooks for distributing the prebuilt codex-glibc gzip artifact
+
+## 1.4.1 - Run source-dir validation
+
+* `run` now reports a clear error when the provided source directory does not exist
+
 ## 1.4.0 - Backup locking, systemd fix, integration tests 
 
 * Added filesystem-based backup locking for backup-once and backup-repeated to prevent concurrent snapshots per backup folder

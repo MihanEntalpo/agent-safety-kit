@@ -8,7 +8,7 @@
 
 ## 1. Продукт: зачем он нужен
 
-`Agent Safety Kit` — это CLI-инструмент для безопасной работы с консольными AI-агентами (`qwen`, `codex`, `opencode`, `claude`, `cline`, `codex-glibc`) через изоляцию в Multipass VM и регулярные инкрементальные бэкапы на хосте.
+`Agent Safety Kit` — это CLI-инструмент для безопасной работы с консольными AI-агентами (`qwen`, `codex`, `opencode`, `claude`, `cline`, `codex-glibc`, `codex-glibc-prebuilt`) через изоляцию в Multipass VM и регулярные инкрементальные бэкапы на хосте.
 
 Ключевая пользовательская проблема:
 - агент может повредить проект (удалить файлы, сломать рабочую копию, внести нежелательные изменения);
@@ -184,9 +184,10 @@
 
 ### 6.5 Секция `agents`
 Поля:
-- `type` (обязателен) — тип агента: `qwen`, `codex`, `opencode`, `codex-glibc`, `claude`, `cline`.
-  - runtime-бинарники: `qwen -> qwen`, `codex -> codex`, `opencode -> opencode`, `codex-glibc -> codex-glibc`, `claude -> claude`, `cline -> cline`.
+- `type` (обязателен) — тип агента: `qwen`, `codex`, `opencode`, `codex-glibc`, `codex-glibc-prebuilt`, `claude`, `cline`.
+  - runtime-бинарники: `qwen -> qwen`, `codex -> codex`, `opencode -> opencode`, `codex-glibc -> codex-glibc`, `codex-glibc-prebuilt -> codex-glibc`, `claude -> claude`, `cline -> cline`.
   - `codex-glibc` — установка/сборка codex из исходников с установкой бинарника `codex-glibc`.
+  - `codex-glibc-prebuilt` — установка заранее собранного `codex-glibc` (glibc-compatible) из пакета.
 - `env` (optional) — mapping переменных окружения, передаваемых агенту при запуске.
   - значение приводится к строке (`null` -> пустая строка).
 - `default-args` (optional) — список аргументов CLI по умолчанию.
@@ -523,6 +524,7 @@
 1. определяет агента и VM;
    - при выборе VM действует порядок: `--vm` override -> VM выбранного mount -> первая VM из `agents.<name>.vm + agents.<name>.vms` -> первая VM из секции `vms`;
 2. определяет mount-контекст:
+   - если передан `source_dir` и путь не существует — завершает команду с ошибкой;
    - если передан `source_dir`, ищет mount по нему;
    - если `source_dir` не передан, пытается найти mount по текущей директории (`cwd`);
    - если mount не найден (и `source_dir` не передан), работает без mount-контекста;
@@ -654,6 +656,7 @@ Dependency resolution выполняется кодом до запуска play
 - `cline.yml`: установка Node через nvm + `cline`.
 - `claude.yml`: установка через официальный install script; сетевые шаги выполняются через `proxychains_prefix`; если нативный post-install падает, применяется fallback-установка `claude` из уже скачанного бинарника в `~/.claude/downloads`.
 - `codex-glibc.yml`: сборка из исходников `openai/codex`, управление swap при нехватке памяти, установка бинарника `codex-glibc`, post-build проверка.
+- `codex-glibc-prebuilt.yml`: установка заранее упакованного `codex-glibc` бинарника без сборки в VM.
 
 ## 11. Локализация
 

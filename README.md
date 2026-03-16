@@ -38,7 +38,10 @@ Currently confirmed working agent types are:
 - opencode
 - claude
 - cline
-- codex-glibc (built dynamically)
+- codex-glibc (built from source)
+- codex-glibc-prebuilt (prebuilt glibc binary)
+
+Agent Safety Kit ships prebuilt glibc Codex binaries built from the official Codex repository. To use them and skip the source build inside the VM, set the agent type to `codex-glibc-prebuilt`.
 
 ## Quick start
 
@@ -175,7 +178,7 @@ Backups use `rsync` with incremental links (`--link-dest`) to the previous copy:
 * `agsekit install-agents <agent_name> [<vm>|--all-vms] [--config <path>] [--proxychains <value>] [--debug]` — runs the prepared installation playbook for the chosen agent type inside the specified VM, or (without `<vm>`) in the VM targets configured for that agent (`agents.<name>.vm` + `agents.<name>.vms`). If both `vm` and `vms` are empty, the agent target is all configured VMs. If the config defines only one agent, you can skip `<agent_name>` and it will be picked automatically. Use `--proxychains <scheme://host:port>` to override the VM proxy for this installation or `--proxychains ""` to ignore it once.
 * `agsekit install-agents --all-agents [--all-vms] [--config <path>] [--proxychains <value>] [--debug]` — installs every configured agent either into their configured VM targets or into every VM when `--all-vms` is set.
 
-The installation playbooks live in `agsekit_cli/ansible/agents/`: `codex`, `qwen`, `opencode`, and `cline` install npm CLIs, `codex-glibc` builds the Rust sources with the glibc target and installs the binary as `codex-glibc`, and `claude` follows the official installer flow. Runtime binaries are `codex`, `qwen`, `opencode`, `cline`, `claude`, and `codex-glibc`. Other agent types are not supported yet.
+The installation playbooks live in `agsekit_cli/ansible/agents/`: `codex`, `qwen`, `opencode`, and `cline` install npm CLIs, `codex-glibc` builds the Rust sources with the glibc target and installs the binary as `codex-glibc`, `codex-glibc-prebuilt` installs the packaged prebuilt `codex-glibc` binary, and `claude` follows the official installer flow. Runtime binaries are `codex`, `qwen`, `opencode`, `cline`, `claude`, and `codex-glibc`. Other agent types are not supported yet.
 
 ### Running agents
 
@@ -233,7 +236,7 @@ mounts:
     vm: agent-ubuntu # VM name; defaults to the first VM in the configuration
 agents:
   qwen: # agent name; add as many as you need
-    type: qwen # agent type: qwen (installs and uses the `qwen` binary), codex, opencode, codex-glibc (installs the `codex-glibc` binary), claude (runs the `claude` binary), or cline (runs the `cline` binary)
+    type: qwen # agent type: qwen (installs and uses the `qwen` binary), codex, opencode, codex-glibc (installs the `codex-glibc` binary), codex-glibc-prebuilt (prebuilt `codex-glibc` binary), claude (runs the `claude` binary), or cline (runs the `cline` binary)
     env: # arbitrary environment variables passed to the agent process
       OPENAI_API_KEY: "my_local_key"
       OPENAI_BASE_URL: "https://127.0.0.1:11556/v1"

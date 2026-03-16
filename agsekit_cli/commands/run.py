@@ -203,6 +203,9 @@ def run_command(
         source_to_resolve = Path.cwd()
         strict_mount_match = False
 
+    if source_dir is not None and not source_dir.is_dir():
+        raise click.ClickException(tr("run.source_dir_missing", path=normalize_path(source_dir)))
+
     if source_to_resolve is not None:
         try:
             mount_entry, mount_relative_path = select_mount_for_source(mounts, source_to_resolve, vm_name)

@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "agsekit"
-version = "1.4.0"
+version = "1.4.1"
 description = "Agent Safety Kit command-line utilities"
 authors = [
   { name = "Mihanentalpo", email = "mihanentalpo@yandex.ru" },
@@ -44,3 +44,7 @@ agsekit_cli = [
 
 [tool.setuptools.data-files]
 "share/agsekit" = ["config-example.yaml"]
+"share/agsekit/prebuilt-agents/codex-glibc/builds" = [
+  "prebuilt-agents/codex-glibc/builds/codex-glibc-linux-amd64.gz",
+  "prebuilt-agents/codex-glibc/builds/README.md",
+]

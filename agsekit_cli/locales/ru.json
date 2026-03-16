@@ -481,6 +481,7 @@
   "run.starting_agent": "Запуск агента `{agent}` в ВМ `{vm_name}` (рабочий каталог: {workdir}).",
   "run.mount_empty_warning": "WARNING: Папка {source_dir} примонтирована, но внутри ВМ в ней пусто, воспользуйтесь командой agsekit doctor",
   "run.mount_empty_confirm": "Всё равно запустить агента?",
+  "run.source_dir_missing": "Папка не найдена: {path}",
   "run.starting_background_backups": "Запуск фоновых повторяющихся бэкапов для монтирования {source} -> {destination}.",
   "run.agent_not_allowed_for_mount": "Агент `{agent_name}` не разрешён для монтирования {source}. allowed_agents: {allowed_agents}",
   "run.agent_not_allowed_for_vm": "Агент `{agent_name}` не разрешён для ВМ `{vm_name}`. allowed_agents: {allowed_agents}",

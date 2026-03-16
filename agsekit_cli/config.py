@@ -19,6 +19,7 @@ ALLOWED_AGENT_TYPES = {
     "codex": "codex",
     "opencode": "opencode",
     "codex-glibc": "codex-glibc",
+    "codex-glibc-prebuilt": "codex-glibc-prebuilt",
     "claude": "claude",
     "cline": "cline",
 }
@@ -28,6 +29,7 @@ AGENT_RUNTIME_BINARIES = {
     "codex": "codex",
     "opencode": "opencode",
     "codex-glibc": "codex-glibc",
+    "codex-glibc-prebuilt": "codex-glibc",
     "claude": "claude",
     "cline": "cline",
 }

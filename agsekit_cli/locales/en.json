@@ -481,6 +481,7 @@
   "run.starting_agent": "Starting agent `{agent}` in VM `{vm_name}` (workdir: {workdir}).",
   "run.mount_empty_warning": "WARNING: Folder {source_dir} is mounted, but it is empty inside the VM. Use the agsekit doctor command.",
   "run.mount_empty_confirm": "Start the agent anyway?",
+  "run.source_dir_missing": "Source directory does not exist: {path}",
   "run.starting_background_backups": "Starting background repeated backups for mount {source} -> {destination}.",
   "run.agent_not_allowed_for_mount": "Agent `{agent_name}` is not allowed for mount {source}. allowed_agents: {allowed_agents}",
   "run.agent_not_allowed_for_vm": "Agent `{agent_name}` is not allowed for VM `{vm_name}`. allowed_agents: {allowed_agents}",
