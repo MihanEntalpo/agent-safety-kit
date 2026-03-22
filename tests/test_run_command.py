@@ -14,6 +14,7 @@ if str(ROOT) not in sys.path:
 import agsekit_cli.commands.run as run_module
 from agsekit_cli.config import AGENT_RUNTIME_BINARIES
 from agsekit_cli.commands.run import run_command
+from agsekit_cli.mounts import normalize_path
 
 _REAL_ENSURE_MOUNT_REGISTERED_FOR_RUN = run_module._ensure_mount_registered_for_run
 
@@ -34,7 +35,10 @@ def _write_config(
     agent_proxychains_set: bool = False,
     mount_allowed_agents: Optional[list[str]] = None,
     include_codex_agent: bool = False,
+    create_source: bool = True,
 ) -> None:
+    if create_source:
+        source.mkdir(parents=True, exist_ok=True)
     proxychains_line = f"    proxychains: {json.dumps(vm_proxychains)}\n" if vm_proxychains is not None else ""
     vm_allowed_agents_line = (
         f"    allowed_agents: {json.dumps(vm_allowed_agents)}\n"
@@ -144,6 +148,20 @@ def test_run_command_starts_backup_and_agent(monkeypatch, tmp_path):
     assert backups and backups[0][0] == source.resolve()
     assert backups[0][3] is True
     assert calls["proxychains"] is None
+
+
+def test_run_command_reports_missing_source_dir(monkeypatch, tmp_path):
+    monkeypatch.setenv("AGSEKIT_LANG", "en")
+    source = tmp_path / "missing"
+    config_path = tmp_path / "config.yaml"
+    _write_config(config_path, source, create_source=False)
+
+    runner = CliRunner()
+    result = runner.invoke(run_command, ["qwen", str(source), "--config", str(config_path)])
+
+    assert result.exit_code != 0
+    assert str(normalize_path(source)) in result.output
+    assert "does not exist" in result.output
 
 
 def test_run_command_does_not_set_proxy_for_agent(monkeypatch, tmp_path):
