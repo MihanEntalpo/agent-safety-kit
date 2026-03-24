@@ -21,10 +21,12 @@
     - name: Configure proxychains
       ansible.builtin.include_tasks: "{{ playbook_dir }}/proxychains.yml"
 
-    - name: Install curl
+    - name: Install Codex dependencies
       ansible.builtin.apt:
         update_cache: true
-        name: curl
+        name:
+          - bubblewrap
+          - curl
       become: true
 
     - name: Check for node

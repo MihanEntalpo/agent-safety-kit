@@ -41,7 +41,14 @@ Currently confirmed working agent types are:
 - codex-glibc (built from source)
 - codex-glibc-prebuilt (prebuilt glibc binary)
 
-`codex-glibc-prebuilt` downloads a prebuilt glibc Codex binary from this project's GitHub Releases. These binaries are built automatically from the official Codex repository tags, so they do not bloat the PyPI package. To use them and skip the source build inside the VM, set the agent type to `codex-glibc-prebuilt`.
+`codex-glibc` and `codex-glibc-prebuilt` can be used with proxychains and a SOCKS proxy when your network is restricted.
+
+`codex-glibc` is built locally inside the VM from source, and that can take a considerable amount of time. On a small VM, the build may take about an hour.
+
+`codex-glibc-prebuilt` downloads a prebuilt glibc Codex binary from this project's GitHub Releases.
+These binaries are built automatically from the official Codex repository tags, so you do not need to wait for the long build inside the VM.
+
+All three agents, `codex`, `codex-glibc`, and `codex-glibc-prebuilt`, use separate runtime binaries and can coexist.
 
 ## Quick start
 
@@ -178,7 +185,7 @@ Backups use `rsync` with incremental links (`--link-dest`) to the previous copy:
 * `agsekit install-agents <agent_name> [<vm>|--all-vms] [--config <path>] [--proxychains <value>] [--debug]` — runs the prepared installation playbook for the chosen agent type inside the specified VM, or (without `<vm>`) in the VM targets configured for that agent (`agents.<name>.vm` + `agents.<name>.vms`). If both `vm` and `vms` are empty, the agent target is all configured VMs. If the config defines only one agent, you can skip `<agent_name>` and it will be picked automatically. Use `--proxychains <scheme://host:port>` to override the VM proxy for this installation or `--proxychains ""` to ignore it once.
 * `agsekit install-agents --all-agents [--all-vms] [--config <path>] [--proxychains <value>] [--debug]` — installs every configured agent either into their configured VM targets or into every VM when `--all-vms` is set.
 
-The installation playbooks live in `agsekit_cli/ansible/agents/`: `codex`, `qwen`, `opencode`, and `cline` install npm CLIs, `codex-glibc` builds the Rust sources with the glibc target and installs the binary as `codex-glibc`, `codex-glibc-prebuilt` downloads a published `codex-glibc` build from this repository's GitHub Releases, and `claude` follows the official installer flow. Runtime binaries are `codex`, `qwen`, `opencode`, `cline`, `claude`, and `codex-glibc`. Other agent types are not supported yet.
+The installation playbooks live in `agsekit_cli/ansible/agents/`: `codex`, `qwen`, `opencode`, and `cline` install npm CLIs, `codex-glibc` builds the Rust sources with the glibc target and installs the binary as `codex-glibc`, `codex-glibc-prebuilt` downloads a published `codex-glibc` build from this repository's GitHub Releases and installs it as `codex-glibc-prebuilt`, and `claude` follows the official installer flow. Runtime binaries are `codex`, `qwen`, `opencode`, `cline`, `claude`, `codex-glibc`, and `codex-glibc-prebuilt`. Other agent types are not supported yet.
 
 For `codex-glibc-prebuilt`, you can override the release source with environment variables on the host where `agsekit install-agents` runs:
 
@@ -242,7 +249,7 @@ mounts:
     vm: agent-ubuntu # VM name; defaults to the first VM in the configuration
 agents:
   qwen: # agent name; add as many as you need
-    type: qwen # agent type: qwen (installs and uses the `qwen` binary), codex, opencode, codex-glibc (installs the `codex-glibc` binary), codex-glibc-prebuilt (prebuilt `codex-glibc` binary), claude (runs the `claude` binary), or cline (runs the `cline` binary)
+    type: qwen # agent type: qwen, codex, opencode, codex-glibc (installs the `codex-glibc` binary), codex-glibc-prebuilt (installs and uses the `codex-glibc-prebuilt` binary), claude (runs the `claude` binary), or cline (runs the `cline` binary)
     env: # arbitrary environment variables passed to the agent process
       OPENAI_API_KEY: "my_local_key"
       OPENAI_BASE_URL: "https://127.0.0.1:11556/v1"

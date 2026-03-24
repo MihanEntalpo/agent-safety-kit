@@ -1,13 +1,15 @@
 # Agent-Safety-Kit versions history
 
-## 1.4.2 - Prebuilt codex-glibc binaries
-
-* Added `codex-glibc-prebuilt` agent type that installs a glibc-compatible Codex binary from project GitHub Releases instead of building it in the VM
-* Added GitHub Actions automation to build and publish versioned `codex-glibc` prebuilt artifacts from upstream Codex release tags
-
 ## 1.4.1 - Run source-dir validation
 
 * `run` now reports a clear error when the provided source directory does not exist
+* Added `codex-glibc-prebuilt` agent type that installs a glibc-compatible Codex binary from project GitHub Releases instead of building it in the VM
+* Added GitHub Actions automation to build and publish versioned `codex-glibc` prebuilt artifacts from upstream Codex release tags
+* Changed `codex-glibc-prebuilt` to install and run as a separate `codex-glibc-prebuilt` binary, so it can coexist with a source-built `codex-glibc`
+* Updated `codex`, `codex-glibc`, and `codex-glibc-prebuilt` installers to install system `bubblewrap`
+* Updated base VM preparation to install `7zip`, `gzip`, `zip`, and `zstd`
+* Updated single-VM `create-vm` progress output to use the same Rich/Ansible progress engine as `install-agents` and `create-vms`
+* Changed `create-vm`, `create-vms`, and `install-agents` debug mode to disable Rich progress bars and keep only detailed log output
 
 ## 1.4.0 - Backup locking, systemd fix, integration tests 
 

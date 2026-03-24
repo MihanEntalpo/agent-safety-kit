@@ -23,9 +23,13 @@
     - name: Install base packages
       ansible.builtin.apt:
         name:
+          - 7zip
           - git
+          - gzip
           - proxychains4
           - ripgrep
+          - zip
+          - zstd
         state: present
 
     - name: Install agsekit proxychains common script

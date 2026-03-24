@@ -68,10 +68,14 @@ def create_vm_command(vm_name: Optional[str], config_path: Optional[str], debug:
         _private_key, public_key = ensure_host_ssh_keypair(verbose=debug)
         bundles = vms[target_vm].install
         try:
-            if bundles:
-                prepare_vm(target_vm, public_key, bundles)
-            else:
-                prepare_vm(target_vm, public_key)
+            with ProgressManager(debug=debug) as progress:
+                vm_task = progress.add_task(tr("progress.vm_title", vm_name=target_vm), total=6)
+                if message == tr("vm.already_matches", vm_name=target_vm) or mismatch_message is not None:
+                    progress.update(vm_task, description=tr("progress.vm_step_exists"))
+                else:
+                    progress.update(vm_task, description=tr("progress.vm_step_create"))
+                progress.advance(vm_task)
+                prepare_vm(target_vm, public_key, bundles, progress=progress, step_task_id=vm_task, debug=debug)
         except MultipassError as exc:
             raise click.ClickException(str(exc))
         if mismatch_message:
@@ -116,7 +120,7 @@ def create_vms_command(config_path: Optional[str], debug: bool, non_interactive:
 
         click.echo(tr("prepare.ensure_keypair"))
         _private_key, public_key = ensure_host_ssh_keypair(verbose=debug)
-        with ProgressManager() as progress:
+        with ProgressManager(debug=debug) as progress:
             overall_task = progress.add_task(tr("progress.create_vms_title"), total=len(vms))
             for vm in vms.values():
                 try:

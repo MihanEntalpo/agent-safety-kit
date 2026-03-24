@@ -43,7 +43,7 @@ def test_create_vm_defaults_to_single_vm(monkeypatch, tmp_path):
     monkeypatch.setattr(
         create_vm_module,
         "prepare_vm",
-        lambda vm_name, public_key: prep_calls.append((vm_name, public_key.name)),
+        lambda vm_name, public_key, *args, **kwargs: prep_calls.append((vm_name, public_key.name)),
     )
 
     runner = CliRunner()
@@ -88,3 +88,59 @@ def test_create_vm_wraps_prepare_errors(monkeypatch, tmp_path):
 
     assert result.exit_code != 0
     assert "prepare failed" in result.output
+
+
+def test_create_vm_debug_uses_dummy_progress_manager(monkeypatch, tmp_path):
+    config_path = tmp_path / "config.yaml"
+    _write_config(config_path, ["agent"])
+
+    progress_debug_args: list[bool] = []
+    prepare_kwargs: list[dict[str, object]] = []
+
+    monkeypatch.setattr(create_vm_module, "create_vm_from_config", lambda path, vm_name: f"created {vm_name}")
+    monkeypatch.setattr(
+        create_vm_module,
+        "ensure_host_ssh_keypair",
+        lambda *_, **__: (Path("id_rsa"), Path("id_rsa.pub")),
+    )
+
+    class DummyProgressManager:
+        def __init__(self, *, debug: bool = False):
+            progress_debug_args.append(debug)
+            self.debug = debug
+
+        def __bool__(self):
+            return not self.debug
+
+        def __enter__(self):
+            return self
+
+        def __exit__(self, exc_type, exc, traceback):
+            return None
+
+        def add_task(self, description, total):
+            del description, total
+            return 0
+
+        def update(self, task_id, *, description=None, completed=None):
+            del task_id, description, completed
+
+        def advance(self, task_id, amount=1):
+            del task_id, amount
+
+    def fake_prepare_vm(vm_name, public_key, *args, **kwargs):
+        del vm_name, public_key, args
+        prepare_kwargs.append(kwargs)
+
+    monkeypatch.setattr(create_vm_module, "ProgressManager", DummyProgressManager)
+    monkeypatch.setattr(create_vm_module, "prepare_vm", fake_prepare_vm)
+
+    runner = CliRunner()
+    result = _invoke_command(runner, create_vm_command, ["--config", str(config_path), "--debug"])
+
+    assert result.exit_code == 0
+    assert progress_debug_args == [True]
+    assert len(prepare_kwargs) == 1
+    assert prepare_kwargs[0]["debug"] is True
+    assert isinstance(prepare_kwargs[0]["progress"], DummyProgressManager)
+    assert prepare_kwargs[0]["step_task_id"] == 0

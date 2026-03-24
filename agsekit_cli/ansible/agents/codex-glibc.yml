@@ -29,6 +29,7 @@
       ansible.builtin.apt:
         update_cache: true
         name:
+          - bubblewrap
           - build-essential
           - pkg-config
           - libssl-dev

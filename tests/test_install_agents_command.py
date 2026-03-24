@@ -314,3 +314,52 @@ def test_install_agents_empty_vm_and_vms_installs_into_all_vms(monkeypatch, tmp_
 
     assert result.exit_code == 0
     assert calls == [("vm1", "qwen.yml", None), ("vm2", "qwen.yml", None)]
+
+
+def test_install_agents_debug_uses_dummy_progress_manager(monkeypatch, tmp_path):
+    config_path = tmp_path / "config.yaml"
+    _write_config(config_path, [("qwen", "qwen")])
+
+    progress_debug_args: list[bool] = []
+    calls: list[tuple[str, str, object, object, object]] = []
+
+    class DummyProgressManager:
+        def __init__(self, *, debug: bool = False):
+            progress_debug_args.append(debug)
+            self.debug = debug
+
+        def __bool__(self):
+            return not self.debug
+
+        def __enter__(self):
+            return self
+
+        def __exit__(self, exc_type, exc, traceback):
+            return None
+
+        def add_task(self, description, total):
+            del description, total
+            return 0
+
+        def update(self, task_id, *, description=None, completed=None):
+            del task_id, description, completed
+
+        def advance(self, task_id, amount=1):
+            del task_id, amount
+
+    def fake_run_install_playbook(vm, playbook_path: Path, proxychains=None, **kwargs) -> None:
+        calls.append((vm.name, playbook_path.name, proxychains, kwargs.get("progress"), kwargs.get("label")))
+
+    monkeypatch.setattr(install_agents_module, "ProgressManager", DummyProgressManager)
+    monkeypatch.setattr(install_agents_module, "_run_install_playbook", fake_run_install_playbook)
+
+    runner = CliRunner()
+    result = _invoke_command(runner, install_agents_command, ["--config", str(config_path), "--debug"])
+
+    assert result.exit_code == 0
+    assert progress_debug_args == [True]
+    assert len(calls) == 1
+    assert calls[0][0:2] == ("agent", "qwen.yml")
+    assert calls[0][2] is None
+    assert isinstance(calls[0][3], DummyProgressManager)
+    assert calls[0][4] is not None

@@ -142,6 +142,10 @@ def test_prepare_vm_packages_installs_proxychains_runner_scripts():
     playbook = yaml.safe_load(playbook_path.read_text(encoding="utf-8"))
     tasks = playbook[1]["tasks"]
 
+    package_task = next(item for item in tasks if item["name"] == "Install base packages")
+    packages = package_task["ansible.builtin.apt"]["name"]
+    assert packages == ["7zip", "git", "gzip", "proxychains4", "ripgrep", "zip", "zstd"]
+
     common_task = next(item for item in tasks if item["name"] == "Install agsekit proxychains common script")
     common_copy = common_task["ansible.builtin.copy"]
     assert common_copy["src"] == "{{ playbook_dir }}/../agent_scripts/proxychains_common.sh"

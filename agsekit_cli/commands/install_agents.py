@@ -245,7 +245,7 @@ def install_agents_command(
                             raise click.ClickException(tr("install_agents.vm_missing", vm_name=target_vm_name))
                         targets.append((agent.name, vms_config[target_vm_name]))
 
-        with ProgressManager() as progress:
+        with ProgressManager(debug=debug) as progress:
             overall_task = progress.add_task(tr("progress.install_agents_title"), total=len(targets))
             for target_agent_name, target_vm in targets:
                 agent = find_agent(agents_config, target_agent_name)

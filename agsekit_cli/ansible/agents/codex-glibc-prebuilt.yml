@@ -3,6 +3,8 @@
   hosts: localhost
   connection: local
   gather_facts: false
+  vars:
+    ansible_python_interpreter: "{{ ansible_playbook_python }}"
   tasks:
     - name: Register Multipass VM
       ansible.builtin.add_host:
@@ -25,37 +27,52 @@
   hosts: "{{ vm_name }}"
   gather_facts: true
   vars:
-    codex_binary_name: codex-glibc
-    codex_system_path: /usr/local/bin/codex-glibc
-    codex_user_path: "{{ ansible_env.HOME }}/.local/bin/codex-glibc"
+    codex_binary_name: codex-glibc-prebuilt
+    codex_system_path: /usr/local/bin/codex-glibc-prebuilt
+    codex_user_path: "{{ ansible_env.HOME }}/.local/bin/codex-glibc-prebuilt"
     codex_prebuilt_url: "{{ hostvars['localhost'].codex_glibc_prebuilt_meta.download_url }}"
   tasks:
-    - name: Install gzip
+    - name: Install codex-glibc-prebuilt dependencies
       ansible.builtin.apt:
         update_cache: true
-        name: gzip
+        name:
+          - bubblewrap
+          - gzip
       become: true
 
-    - name: Check for codex-glibc binary (system)
+    - name: Check for codex-glibc-prebuilt binary (system)
       ansible.builtin.stat:
         path: "{{ codex_system_path }}"
       register: codex_system_stat
 
-    - name: Check for codex-glibc binary (user)
+    - name: Check for codex-glibc-prebuilt binary (user)
       ansible.builtin.stat:
         path: "{{ codex_user_path }}"
       register: codex_user_stat
-
-    - name: Set codex-glibc installation status
-      ansible.builtin.set_fact:
-        codex_glibc_installed: "{{ codex_system_stat.stat.exists or codex_user_stat.stat.exists }}"
 
     - name: Check sudo availability
       ansible.builtin.command: sudo -n true
       register: sudo_check
       changed_when: false
       failed_when: false
-      when: not codex_glibc_installed
+
+    - name: Fail when system codex-glibc-prebuilt exists but sudo is unavailable
+      ansible.builtin.fail:
+        msg: >-
+          codex-glibc-prebuilt already exists at {{ codex_system_path }}, but sudo is unavailable,
+          so codex-glibc-prebuilt cannot update the installed prebuilt binary.
+      when: codex_system_stat.stat.exists and sudo_check.rc != 0
+
+    - name: Determine codex-glibc-prebuilt install target
+      ansible.builtin.set_fact:
+        codex_install_mode: >-
+          {%- if codex_system_stat.stat.exists -%}system
+          {%- elif codex_user_stat.stat.exists -%}user
+          {%- elif sudo_check.rc == 0 -%}system
+          {%- else -%}user
+          {%- endif -%}
+        codex_install_path: >-
+          {{ codex_system_path if codex_system_stat.stat.exists or sudo_check.rc == 0 else codex_user_path }}
 
     - name: Download codex-glibc prebuilt archive
       ansible.builtin.get_url:
@@ -63,15 +80,14 @@
         dest: /tmp/codex-glibc-prebuilt.gz
         mode: "0644"
         force: true
-      when: not codex_glibc_installed
 
-    - name: Install codex-glibc system-wide
+    - name: Install codex-glibc-prebuilt system-wide
       ansible.builtin.shell: |
         set -euo pipefail
         gzip -dc /tmp/codex-glibc-prebuilt.gz > /tmp/codex-glibc-prebuilt
         sudo install -m 0755 /tmp/codex-glibc-prebuilt "{{ codex_system_path }}"
         rm -f /tmp/codex-glibc-prebuilt /tmp/codex-glibc-prebuilt.gz
-      when: not codex_glibc_installed and sudo_check.rc == 0
+      when: codex_install_mode == "system"
       args:
         executable: /bin/bash
 
@@ -80,15 +96,15 @@
         path: "{{ ansible_env.HOME }}/.local/bin"
         state: directory
         mode: "0755"
-      when: not codex_glibc_installed and sudo_check.rc != 0
+      when: codex_install_mode == "user"
 
-    - name: Install codex-glibc to user bin
+    - name: Install codex-glibc-prebuilt to user bin
       ansible.builtin.shell: |
         set -euo pipefail
         gzip -dc /tmp/codex-glibc-prebuilt.gz > /tmp/codex-glibc-prebuilt
         install -m 0755 /tmp/codex-glibc-prebuilt "{{ codex_user_path }}"
         rm -f /tmp/codex-glibc-prebuilt /tmp/codex-glibc-prebuilt.gz
-      when: not codex_glibc_installed and sudo_check.rc != 0
+      when: codex_install_mode == "user"
       args:
         executable: /bin/bash
 
@@ -97,16 +113,14 @@
         path: "{{ ansible_env.HOME }}/.profile"
         line: 'export PATH="$HOME/.local/bin:$PATH"'
         create: true
-      when: not codex_glibc_installed and sudo_check.rc != 0
+      when: codex_install_mode == "user"
 
-    - name: Verify codex-glibc binary exists
+    - name: Verify codex-glibc-prebuilt binary exists
       ansible.builtin.stat:
-        path: "{{ codex_system_path if sudo_check.rc == 0 else codex_user_path }}"
+        path: "{{ codex_install_path }}"
       register: installed_codex_stat
-      when: not codex_glibc_installed
 
-    - name: Verify codex-glibc binary works
-      ansible.builtin.command: "{{ codex_system_path if sudo_check.rc == 0 else codex_user_path }} --version"
+    - name: Verify codex-glibc-prebuilt binary works
+      ansible.builtin.command: "{{ codex_install_path }} --version"
       register: codex_version_check
       changed_when: false
-      when: not codex_glibc_installed

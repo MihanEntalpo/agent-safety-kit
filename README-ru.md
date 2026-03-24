@@ -41,7 +41,14 @@
 - codex-glibc (сборка из исходников)
 - codex-glibc-prebuilt (готовый glibc-бинарник)
 
-`codex-glibc-prebuilt` скачивает готовый glibc-бинарник Codex из GitHub Releases этого проекта. Эти бинарники собираются автоматически по тегам официального репозитория Codex и не раздувают пакет на PyPI. Чтобы использовать их и не ждать сборку внутри ВМ, укажите тип агента `codex-glibc-prebuilt`.
+`codex-glibc` и `codex-glibc-prebuilt` можно использовать вместе с proxychains и SOCKS-прокси, если сеть ограничена.
+
+`codex-glibc` собирается локально из исходников внутри ВМ, и это может занимать заметное время. На небольшой ВМ сборка может идти около часа.
+
+`codex-glibc-prebuilt` скачивает готовый glibc-бинарник Codex из GitHub Releases этого проекта.
+Эти бинарники собираются автоматически по тегам официального репозитория Codex, поэтому не нужно ждать долгую сборку внутри ВМ.
+
+Все три агента, `codex`, `codex-glibc` и `codex-glibc-prebuilt`, используют соответствующие разные бинарники и могут сосуществовать в одной ВМ.
 
 ## Быстрый старт
 
@@ -175,7 +182,7 @@ docs/build/
 * `agsekit install-agents <agent_name> [<vm>|--all-vms] [--config <path>] [--proxychains <значение>] [--debug]` — выполняет подготовленный playbook установки выбранного типа агента внутри указанной ВМ, либо (без `<vm>`) во всех целевых ВМ агента из конфигурации (`agents.<name>.vm` + `agents.<name>.vms`). Если `vm` и `vms` у агента пустые, целевыми считаются все ВМ из секции `vms`. Если в конфиге описан единственный агент, имя можно не передавать — он будет выбран автоматически. Укажите `--proxychains <scheme://host:port>`, чтобы временно задать прокси для установки, или `--proxychains ""`, чтобы проигнорировать настройку на один запуск.
 * `agsekit install-agents --all-agents [--all-vms] [--config <path>] [--proxychains <значение>] [--debug]` — устанавливает все описанные агенты либо в их целевые ВМ из конфигурации, либо во все ВМ при флаге `--all-vms`.
 
-Playbook установки лежат в `agsekit_cli/ansible/agents/`: `codex`, `qwen`, `opencode` и `cline` ставят npm-CLI, `codex-glibc` собирает Rust-версию с glibc и кладёт бинарник под именем `codex-glibc`, `codex-glibc-prebuilt` скачивает опубликованную сборку `codex-glibc` из GitHub Releases этого репозитория, а `claude` использует официальный установщик. Рабочие бинарники: `codex`, `qwen`, `opencode`, `cline`, `claude`, `codex-glibc`. Другие типы пока не поддерживаются.
+Playbook установки лежат в `agsekit_cli/ansible/agents/`: `codex`, `qwen`, `opencode` и `cline` ставят npm-CLI, `codex-glibc` собирает Rust-версию с glibc и кладёт бинарник под именем `codex-glibc`, `codex-glibc-prebuilt` скачивает опубликованную сборку `codex-glibc` из GitHub Releases этого репозитория и ставит её как `codex-glibc-prebuilt`, а `claude` использует официальный установщик. Рабочие бинарники: `codex`, `qwen`, `opencode`, `cline`, `claude`, `codex-glibc`, `codex-glibc-prebuilt`. Другие типы пока не поддерживаются.
 
 Для `codex-glibc-prebuilt` источник релиза можно переопределить через переменные окружения на хосте, где выполняется `agsekit install-agents`:
 
@@ -231,7 +238,7 @@ mounts:
     vm: agent-ubuntu # имя VM, если не указан - берётся первая VM из конфигурации
 agents:
   qwen: # имя агента, можно добавить столько, сколько нужно
-    type: qwen # тип агента: qwen (ставит и использует бинарник qwen), codex, opencode, codex-glibc (бинарник codex-glibc), codex-glibc-prebuilt (готовый codex-glibc), claude или cline (бинарник cline)
+    type: qwen # тип агента: qwen (ставит и использует бинарник qwen), codex, opencode, codex-glibc (бинарник codex-glibc), codex-glibc-prebuilt (бинарник codex-glibc-prebuilt), claude или cline (бинарник cline)
     env: # произвольные переменные окружения, которые будут переданы агенту
       OPENAI_API_KEY: "my_local_key"
       OPENAI_BASE_URL: "https://127.0.0.1:11556/v1"

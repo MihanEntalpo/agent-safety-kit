@@ -185,9 +185,9 @@
 ### 6.5 Секция `agents`
 Поля:
 - `type` (обязателен) — тип агента: `qwen`, `codex`, `opencode`, `codex-glibc`, `codex-glibc-prebuilt`, `claude`, `cline`.
-  - runtime-бинарники: `qwen -> qwen`, `codex -> codex`, `opencode -> opencode`, `codex-glibc -> codex-glibc`, `codex-glibc-prebuilt -> codex-glibc`, `claude -> claude`, `cline -> cline`.
+  - runtime-бинарники: `qwen -> qwen`, `codex -> codex`, `opencode -> opencode`, `codex-glibc -> codex-glibc`, `codex-glibc-prebuilt -> codex-glibc-prebuilt`, `claude -> claude`, `cline -> cline`.
   - `codex-glibc` — установка/сборка codex из исходников с установкой бинарника `codex-glibc`.
-  - `codex-glibc-prebuilt` — установка заранее собранного `codex-glibc` (glibc-compatible) из GitHub Releases проекта; по умолчанию берётся свежий тег вида `codex-glibc-rust-v<major>.<minor>.<patch>`, источник можно переопределить через `AGSEKIT_CODEX_GLIBC_PREBUILT_REPO`, `AGSEKIT_CODEX_GLIBC_PREBUILT_TAG`, `AGSEKIT_CODEX_GLIBC_PREBUILT_ASSET`.
+  - `codex-glibc-prebuilt` — установка заранее собранного `codex-glibc` (glibc-compatible) из GitHub Releases проекта; по умолчанию берётся свежий тег вида `codex-glibc-rust-v<major>.<minor>.<patch>`, источник можно переопределить через `AGSEKIT_CODEX_GLIBC_PREBUILT_REPO`, `AGSEKIT_CODEX_GLIBC_PREBUILT_TAG`, `AGSEKIT_CODEX_GLIBC_PREBUILT_ASSET`; бинарник устанавливается отдельно под именем `codex-glibc-prebuilt` и может сосуществовать с `codex-glibc`.
 - `env` (optional) — mapping переменных окружения, передаваемых агенту при запуске.
   - значение приводится к строке (`null` -> пустая строка).
 - `default-args` (optional) — список аргументов CLI по умолчанию.
@@ -306,6 +306,7 @@
 - печатает запускаемую внешнюю команду;
 - печатает код завершения;
 - при наличии — печатает `stdout`/`stderr`.
+- отключает compact/Rich progress-режимы для длинных Ansible- и VM-операций, чтобы не смешивать progress-bar'ы с подробным логом.
 
 Список команд с поддержкой `--debug`:
 - `prepare`
@@ -388,10 +389,13 @@
   - known_hosts;
   - install base packages;
   - install bundles.
+- без `--debug` отображает тот же `rich` progress для шагов подготовки, ansible и install bundles, что и `create-vms`/`install-agents`;
+- при `--debug` Rich progress отключается и остаётся только подробный лог внешних команд и шагов подготовки.
 
 #### `agsekit create-vms [--debug]`
 - то же самое для всех VM из конфига.
-- отображает общий прогресс и несколько параллельных progress-bar'ов через `rich` (VM, шаги подготовки, бандлы и ansible).
+- без `--debug` отображает общий прогресс и несколько параллельных progress-bar'ов через `rich` (VM, шаги подготовки, бандлы и ansible).
+- при `--debug` Rich progress отключается и остаётся обычный подробный вывод шагов и внешних команд.
 
 #### `agsekit start-vm`, `stop-vm`, `destroy-vm` (`--debug` поддерживается)
 Зачем:
@@ -508,7 +512,8 @@
 - запускает Ansible installer через общий runner;
   - по умолчанию runner включает компактный progress-вывод (`X/Y task-name` + progress bar) через custom callback plugin;
   - при `--debug` progress callback отключается и используется стандартный вывод ansible;
-- показывает progress-bar'ы установки агентов через `rich`, включая шаги Ansible;
+- без `--debug` показывает progress-bar'ы установки агентов через `rich`, включая шаги Ansible;
+- при `--debug` Rich progress тоже отключается, чтобы вывод установки оставался обычным потоковым логом;
 - поддерживает proxy override на один запуск (`--proxychains`).
 - при запуске без аргументов в интерактивном TTY запрашивает выбор агента и цели установки;
 - при запуске без аргументов в non-interactive режиме требует явный выбор агента (ошибка `agent_required`).
@@ -628,9 +633,13 @@
 - в `--debug` callback отключается, и ansible выводится в стандартном режиме.
 
 ### 10.1 Базовая подготовка VM (`vm_packages.yml`)
+- `7zip`
 - `git`
+- `gzip`
 - `proxychains4`
 - `ripgrep`
+- `zip`
+- `zstd`
 - `/usr/bin/proxychains_common.sh`
 - `/usr/bin/agsekit-run_with_proxychains.sh`
 
@@ -650,13 +659,13 @@ Dependency resolution выполняется кодом до запуска play
 - `pyenv` и `python` bundles определяют наличие pyenv по маркеру `~/.pyenv/bin/pyenv` (а не по `command -v pyenv`), чтобы повторные прогоны не зависели от shell PATH.
 
 ### 10.3 Agent installers
-- `codex.yml`: установка Node через nvm + `@openai/codex`.
+- `codex.yml`: установка `bubblewrap`, Node через nvm + `@openai/codex`.
 - `qwen.yml`: установка Node через nvm + `@qwen-code/qwen-code`.
 - `opencode.yml`: установка Node через nvm + `opencode-ai`.
 - `cline.yml`: установка Node через nvm + `cline`.
 - `claude.yml`: установка через официальный install script; сетевые шаги выполняются через `proxychains_prefix`; если нативный post-install падает, применяется fallback-установка `claude` из уже скачанного бинарника в `~/.claude/downloads`.
-- `codex-glibc.yml`: сборка из исходников `openai/codex`, управление swap при нехватке памяти, установка бинарника `codex-glibc`, post-build проверка.
-- `codex-glibc-prebuilt.yml`: разрешение подходящего GitHub Release проекта и установка опубликованного `codex-glibc` бинарника без сборки в VM.
+- `codex-glibc.yml`: установка `bubblewrap`, сборка из исходников `openai/codex`, управление swap при нехватке памяти, установка бинарника `codex-glibc`, post-build проверка.
+- `codex-glibc-prebuilt.yml`: установка `bubblewrap`, разрешение подходящего GitHub Release проекта и установка опубликованного `codex-glibc` бинарника под именем `codex-glibc-prebuilt` без сборки в VM.
 
 ## 11. Локализация
 
