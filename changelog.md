@@ -6,6 +6,7 @@
 * Added Linux `arm64` prebuilt publishing for `codex-glibc-prebuilt` and automatic architecture-based asset selection during installation
 * Fixed the `codex-glibc-prebuilt` GitHub Actions workflow to rebuild and upload missing assets when a release tag already exists but is incomplete
 * Fixed the `codex-glibc-prebuilt` publish job to talk to GitHub Releases without requiring a checked-out `.git` repository
+* Added the `restart-vm` command as a `stop-vm` + `start-vm` flow with the same arguments and target selection rules
 
 
 ## 1.4.1 - Run source-dir validation

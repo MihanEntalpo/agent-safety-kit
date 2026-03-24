@@ -26,6 +26,7 @@ from .commands.install_agents import install_agents_command
 from .commands.list_bundles import list_bundles_command
 from .commands.portforward import portforward_command
 from .commands.pip_upgrade import pip_upgrade_command
+from .commands.restart_vm import restart_vm_command
 from .commands.start_vm import start_vm_command
 from .commands.stop import stop_vm_command
 from .commands.destroy_vm import destroy_vm_command
@@ -51,6 +52,7 @@ COMMANDS_REQUIRING_CONFIG = {
     "shell",
     "ssh",
     "portforward",
+    "restart-vm",
     "start-vm",
     "stop-vm",
     "umount",
@@ -102,6 +104,7 @@ def main() -> None:
         umount_command,
         install_agents_command,
         list_bundles_command,
+        restart_vm_command,
         start_vm_command,
         stop_vm_command,
         run_command,

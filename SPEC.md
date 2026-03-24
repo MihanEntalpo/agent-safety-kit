@@ -311,7 +311,7 @@
 Список команд с поддержкой `--debug`:
 - `prepare`
 - `create-vm`, `create-vms`
-- `start-vm`, `stop-vm`, `destroy-vm`
+- `start-vm`, `restart-vm`, `stop-vm`, `destroy-vm`
 - `doctor`
 - `mount`, `umount`, `addmount`, `removemount`
 - `install-agents`
@@ -397,13 +397,14 @@
 - без `--debug` отображает общий прогресс и несколько параллельных progress-bar'ов через `rich` (VM, шаги подготовки, бандлы и ansible).
 - при `--debug` Rich progress отключается и остаётся обычный подробный вывод шагов и внешних команд.
 
-#### `agsekit start-vm`, `stop-vm`, `destroy-vm` (`--debug` поддерживается)
+#### `agsekit start-vm`, `restart-vm`, `stop-vm`, `destroy-vm` (`--debug` поддерживается)
 Зачем:
 - оперативное управление жизненным циклом VM.
 
 Особенности:
 - поддержка single/all режимов;
 - если VM одна — имя можно не указывать;
+- `restart-vm` для тех же аргументов и правил выбора целей выполняет сначала `stop-vm`, затем `start-vm`;
 - `stop-vm` перед выключением размонтирует все mount-ы выбранной ВМ, которые сейчас реально зарегистрированы в Multipass;
 - `stop-vm` выключает гостевую ОС изнутри через `multipass exec <vm> -- sudo poweroff`, ждёт 30 секунд и при незавершённом shutdown выполняет `multipass stop --force <vm>`;
 - `destroy-vm` требует подтверждение (если нет `-y`), затем `delete` + `purge`.

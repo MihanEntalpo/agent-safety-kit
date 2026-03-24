@@ -129,6 +129,8 @@ Most commands that interact with Multipass support `--debug`; in this mode the C
 * `agsekit portforward [--config <path>] [--debug]` — starts a dedicated `agsekit ssh` tunnel for each VM that defines `port-forwarding` rules, monitoring the child processes and restarting them if they exit. Stop with Ctrl+C to gracefully terminate the tunnels.
 * `agsekit start-vm <vm_name> [--config <path>] [--debug]` — starts the specified VM from the configuration. If only one VM is configured, the name can be omitted.
 * `agsekit start-vm --all-vms [--config <path>] [--debug]` — starts every VM declared in the config file.
+* `agsekit restart-vm <vm_name> [--config <path>] [--debug]` — restarts the specified VM from the configuration by running the same stop/start sequence as `stop-vm` followed by `start-vm`. If only one VM is configured, the name can be omitted.
+* `agsekit restart-vm --all-vms [--config <path>] [--debug]` — restarts every VM declared in the config file.
 * `agsekit stop-vm <vm_name> [--config <path>] [--debug]` — stops the specified VM from the configuration. If only one VM is configured, the name can be omitted.
 * `agsekit stop-vm --all-vms [--config <path>] [--debug]` — stops every VM declared in the config file.
 * `agsekit destroy-vm <vm_name> [--config <path>] [-y] [--debug]` — deletes the specified VM from Multipass. Without `-y`, the CLI asks for interactive confirmation.

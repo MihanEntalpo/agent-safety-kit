@@ -418,6 +418,23 @@ def build_stop_vm(session: InteractiveSession) -> List[str]:
     return args
 
 
+def build_restart_vm(session: InteractiveSession) -> List[str]:
+    vms = session.load_vms()
+    if not vms:
+        raise click.ClickException(tr("interactive.no_vms"))
+
+    choices: list[questionary.QuestionChoice] = [questionary.Choice(tr("interactive.vms_all"), value="__all__")]
+    choices.extend(questionary.Choice(name, value=name) for name in vms)
+    selection = _select_from_list(tr("interactive.restart_vm_select"), choices)
+
+    args = ["restart-vm", *session.config_option()]
+    if selection == "__all__":
+        args.append("--all-vms")
+    else:
+        args.append(str(selection))
+    return args
+
+
 def build_destroy_vm(session: InteractiveSession) -> List[str]:
     vms = session.load_vms()
     if not vms:
@@ -458,6 +475,7 @@ def _command_builders() -> Dict[str, CommandBuilder]:
         "systemd": build_systemd,
         "start-vm": build_start_vm,
         "stop-vm": build_stop_vm,
+        "restart-vm": build_restart_vm,
         "destroy-vm": build_destroy_vm,
         "run": build_run,
         "install-agents": build_install_agents,
@@ -479,7 +497,7 @@ def _select_command(cli: click.Group, preselected: Optional[str]) -> click.Comma
         ),
         (
             tr("interactive.section_virtual_machines"),
-            ["create-vms", "create-vm", "stop-vm", "start-vm", "destroy-vm"],
+            ["create-vms", "create-vm", "stop-vm", "start-vm", "restart-vm", "destroy-vm"],
         ),
         (tr("interactive.section_mounts"), ["mount", "umount", "addmount", "removemount"]),
         (
