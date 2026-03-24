@@ -4,6 +4,7 @@
 
 * Changed prebuilt release publishing to attach `*-info.txt` build metadata files instead of placeholder README assets
 * Added Linux `arm64` prebuilt publishing for `codex-glibc-prebuilt` and automatic architecture-based asset selection during installation
+* Fixed the `codex-glibc-prebuilt` GitHub Actions workflow to rebuild and upload missing assets when a release tag already exists but is incomplete
 
 
 ## 1.4.1 - Run source-dir validation

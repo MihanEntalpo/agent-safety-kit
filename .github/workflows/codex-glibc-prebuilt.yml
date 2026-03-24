@@ -19,6 +19,7 @@ jobs:
       codex_ref: ${{ steps.codex.outputs.codex_ref }}
       release_tag: ${{ steps.codex.outputs.release_tag }}
       exists: ${{ steps.release.outputs.exists }}
+      complete: ${{ steps.release.outputs.complete }}
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
@@ -48,23 +49,49 @@ jobs:
           echo "Resolved Codex tag: ${codex_ref}" >> "${GITHUB_STEP_SUMMARY}"
           echo "Target release tag: ${release_tag}" >> "${GITHUB_STEP_SUMMARY}"
 
-      - name: Check whether release already exists
+      - name: Check whether release already exists and contains all required assets
         id: release
         env:
           GH_TOKEN: ${{ github.token }}
         shell: bash
         run: |
           set -euo pipefail
+          expected_assets=(
+            "codex-glibc-linux-amd64.gz"
+            "codex-glibc-linux-amd64-info.txt"
+            "codex-glibc-linux-arm64.gz"
+            "codex-glibc-linux-arm64-info.txt"
+          )
+
           if gh release view "${{ steps.codex.outputs.release_tag }}" >/dev/null 2>&1; then
             echo "exists=true" >> "${GITHUB_OUTPUT}"
-            echo "Release already exists, skipping build." >> "${GITHUB_STEP_SUMMARY}"
+            release_json="$(gh release view "${{ steps.codex.outputs.release_tag }}" --json assets)"
+            asset_names="$(printf '%s' "${release_json}" | python3 -c 'import json, sys; data=json.load(sys.stdin); print("\n".join(asset["name"] for asset in data.get("assets", [])))')"
+            missing_assets=()
+            for asset in "${expected_assets[@]}"; do
+              if ! printf '%s\n' "${asset_names}" | grep -Fxq "${asset}"; then
+                missing_assets+=("${asset}")
+              fi
+            done
+
+            if [[ "${#missing_assets[@]}" -eq 0 ]]; then
+              echo "complete=true" >> "${GITHUB_OUTPUT}"
+              echo "Release already exists and already contains all required assets, skipping build." >> "${GITHUB_STEP_SUMMARY}"
+            else
+              echo "complete=false" >> "${GITHUB_OUTPUT}"
+              {
+                echo "Release exists but is missing assets:"
+                printf -- '- %s\n' "${missing_assets[@]}"
+              } >> "${GITHUB_STEP_SUMMARY}"
+            fi
           else
             echo "exists=false" >> "${GITHUB_OUTPUT}"
+            echo "complete=false" >> "${GITHUB_OUTPUT}"
           fi
 
   build:
     needs: resolve
-    if: needs.resolve.outputs.exists != 'true'
+    if: needs.resolve.outputs.complete != 'true'
     strategy:
       fail-fast: false
       matrix:
@@ -106,7 +133,7 @@ jobs:
     needs:
       - resolve
       - build
-    if: needs.resolve.outputs.exists != 'true'
+    if: needs.resolve.outputs.complete != 'true'
     runs-on: ubuntu-24.04
     steps:
       - name: Download workflow artifacts
@@ -134,11 +161,20 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
-          gh release create "${{ needs.resolve.outputs.release_tag }}" \
-            /tmp/codex-glibc-release/codex-glibc-amd64/codex-glibc-linux-amd64.gz \
-            /tmp/codex-glibc-release/codex-glibc-amd64/codex-glibc-linux-amd64-info.txt \
-            /tmp/codex-glibc-release/codex-glibc-arm64/codex-glibc-linux-arm64.gz \
-            /tmp/codex-glibc-release/codex-glibc-arm64/codex-glibc-linux-arm64-info.txt \
-            --title "codex-glibc prebuilt ${{ needs.resolve.outputs.codex_ref }}" \
-            --notes-file /tmp/codex-glibc-release/release-notes.txt
-          echo "Published release ${{ needs.resolve.outputs.release_tag }}" >> "${GITHUB_STEP_SUMMARY}"
+          assets=(
+            /tmp/codex-glibc-release/codex-glibc-amd64/codex-glibc-linux-amd64.gz
+            /tmp/codex-glibc-release/codex-glibc-amd64/codex-glibc-linux-amd64-info.txt
+            /tmp/codex-glibc-release/codex-glibc-arm64/codex-glibc-linux-arm64.gz
+            /tmp/codex-glibc-release/codex-glibc-arm64/codex-glibc-linux-arm64-info.txt
+          )
+
+          if [[ "${{ needs.resolve.outputs.exists }}" == "true" ]]; then
+            gh release upload "${{ needs.resolve.outputs.release_tag }}" "${assets[@]}" --clobber
+            echo "Uploaded missing or refreshed assets to existing release ${{ needs.resolve.outputs.release_tag }}" >> "${GITHUB_STEP_SUMMARY}"
+          else
+            gh release create "${{ needs.resolve.outputs.release_tag }}" \
+              "${assets[@]}" \
+              --title "codex-glibc prebuilt ${{ needs.resolve.outputs.codex_ref }}" \
+              --notes-file /tmp/codex-glibc-release/release-notes.txt
+            echo "Published release ${{ needs.resolve.outputs.release_tag }}" >> "${GITHUB_STEP_SUMMARY}"
+          fi
