@@ -32,11 +32,15 @@
     codex_user_path: "{{ ansible_env.HOME }}/.local/bin/codex-glibc-prebuilt"
     codex_prebuilt_url: "{{ hostvars['localhost'].codex_glibc_prebuilt_meta.download_url }}"
   tasks:
+    - name: Configure proxychains
+      ansible.builtin.include_tasks: "{{ playbook_dir }}/proxychains.yml"
+
     - name: Install codex-glibc-prebuilt dependencies
       ansible.builtin.apt:
         update_cache: true
         name:
           - bubblewrap
+          - curl
           - gzip
       become: true
 
@@ -72,14 +76,12 @@
           {%- else -%}user
           {%- endif -%}
         codex_install_path: >-
-          {{ codex_system_path if codex_system_stat.stat.exists or sudo_check.rc == 0 else codex_user_path }}
+          {{ codex_system_path if codex_system_stat.stat.exists or (not codex_user_stat.stat.exists and sudo_check.rc == 0) else codex_user_path }}
 
     - name: Download codex-glibc prebuilt archive
-      ansible.builtin.get_url:
-        url: "{{ codex_prebuilt_url }}"
-        dest: /tmp/codex-glibc-prebuilt.gz
-        mode: "0644"
-        force: true
+      ansible.builtin.command: >-
+        {{ proxychains_prefix }}curl -fsSL "{{ codex_prebuilt_url }}" -o /tmp/codex-glibc-prebuilt.gz
+      changed_when: true
 
     - name: Install codex-glibc-prebuilt system-wide
       ansible.builtin.shell: |

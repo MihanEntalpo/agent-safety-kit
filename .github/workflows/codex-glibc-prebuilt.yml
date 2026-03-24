@@ -74,7 +74,7 @@ jobs:
           set -euo pipefail
           gh release create "${{ steps.codex.outputs.release_tag }}" \
             prebuilt-agents/codex-glibc/builds/codex-glibc-linux-amd64.gz \
-            prebuilt-agents/codex-glibc/builds/README.md \
+            prebuilt-agents/codex-glibc/builds/codex-glibc-info.txt \
             --title "codex-glibc prebuilt ${{ steps.codex.outputs.codex_ref }}" \
-            --notes-file prebuilt-agents/codex-glibc/builds/README.md
+            --notes-file prebuilt-agents/codex-glibc/builds/codex-glibc-info.txt
           echo "Published release ${{ steps.codex.outputs.release_tag }}" >> "${GITHUB_STEP_SUMMARY}"

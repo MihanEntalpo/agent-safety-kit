@@ -71,3 +71,15 @@ def test_opencode_installer_tasks_run_via_proxychains_prefix():
     assert "environment" not in install_task
     assert "npm list -g --depth=0 opencode-ai" in check_task["ansible.builtin.command"]
     assert "opencode --version" in verify_task["ansible.builtin.command"]
+
+
+def test_codex_glibc_prebuilt_installer_tasks_run_via_proxychains_prefix():
+    playbook = _load_yaml(Path("agsekit_cli/ansible/agents/codex-glibc-prebuilt.yml"))
+    tasks = playbook[1]["tasks"]
+
+    download_task = next(item for item in tasks if item["name"] == "Download codex-glibc prebuilt archive")
+    verify_task = next(item for item in tasks if item["name"] == "Verify codex-glibc-prebuilt binary works")
+
+    assert download_task["ansible.builtin.command"].startswith("{{ proxychains_prefix }}curl ")
+    assert "environment" not in download_task
+    assert verify_task["ansible.builtin.command"] == "{{ codex_install_path }} --version"

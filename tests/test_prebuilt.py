@@ -25,7 +25,7 @@ def test_resolve_codex_glibc_prebuilt_release_selects_latest_matching_release(mo
         {
             "tag_name": "codex-glibc-rust-v0.115.0",
             "draft": False,
-            "assets": [{"name": "README.md"}],
+            "assets": [{"name": "codex-glibc-info.txt"}],
         },
         {
             "tag_name": "codex-glibc-rust-v0.113.0",

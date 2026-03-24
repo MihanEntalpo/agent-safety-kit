@@ -6,6 +6,7 @@ CODEX_REF="${CODEX_REF:-}"
 OUTPUT_DIR="${OUTPUT_DIR:-/out}"
 RUST_TARGET="${RUST_TARGET:-x86_64-unknown-linux-gnu}"
 OUTPUT_BASENAME="${OUTPUT_BASENAME:-codex-glibc-linux-amd64}"
+OUTPUT_INFO_NAME="${OUTPUT_INFO_NAME:-codex-glibc-info.txt}"
 
 mkdir -p "${OUTPUT_DIR}"
 
@@ -87,7 +88,7 @@ OUTPUT_GZ="${OUTPUT_DIR}/${OUTPUT_BASENAME}.gz"
 
 gzip -9 -c "${BUILT_BINARY}" > "${OUTPUT_GZ}"
 
-cat <<README > "${OUTPUT_DIR}/README.md"
+cat <<INFO > "${OUTPUT_DIR}/${OUTPUT_INFO_NAME}"
 Codex glibc prebuilt binary
 
 Repository: ${CODEX_REPO}
@@ -97,4 +98,4 @@ Built at (UTC): ${BUILD_DATE}
 Rust target: ${RUST_TARGET}
 Cargo manifest: ${MANIFEST_PATH}
 Build command: CARGO_TARGET_DIR=${CARGO_TARGET_DIR} CARGO_BUILD_JOBS=1 CARGO_PROFILE_RELEASE_LTO=off CARGO_PROFILE_RELEASE_CODEGEN_UNITS=1 CARGO_PROFILE_RELEASE_DEBUG=false ${BUILD_COMMAND[*]}
-README
+INFO
