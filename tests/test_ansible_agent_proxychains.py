@@ -77,9 +77,16 @@ def test_codex_glibc_prebuilt_installer_tasks_run_via_proxychains_prefix():
     playbook = _load_yaml(Path("agsekit_cli/ansible/agents/codex-glibc-prebuilt.yml"))
     tasks = playbook[1]["tasks"]
 
+    arch_task = next(item for item in tasks if item["name"] == "Determine codex-glibc prebuilt architecture")
+    resolve_task = next(
+        item for item in tasks if item["name"] == "Resolve codex-glibc prebuilt release metadata for VM architecture"
+    )
     download_task = next(item for item in tasks if item["name"] == "Download codex-glibc prebuilt archive")
     verify_task = next(item for item in tasks if item["name"] == "Verify codex-glibc-prebuilt binary works")
 
+    assert "ansible_architecture" in arch_task["ansible.builtin.set_fact"]["codex_prebuilt_arch"]
+    assert resolve_task["delegate_to"] == "localhost"
+    assert resolve_task["ansible.builtin.command"]["argv"][-2:] == ["--arch", "{{ codex_prebuilt_arch }}"]
     assert download_task["ansible.builtin.command"].startswith("{{ proxychains_prefix }}curl ")
     assert "environment" not in download_task
     assert verify_task["ansible.builtin.command"] == "{{ codex_install_path }} --version"

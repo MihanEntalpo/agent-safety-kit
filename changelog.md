@@ -1,5 +1,11 @@
 # Agent-Safety-Kit versions history
 
+## 1.4.2 - codex-glibc-prebuilt fixes, http proxy  
+
+* Changed prebuilt release publishing to attach `*-info.txt` build metadata files instead of placeholder README assets
+* Added Linux `arm64` prebuilt publishing for `codex-glibc-prebuilt` and automatic architecture-based asset selection during installation
+
+
 ## 1.4.1 - Run source-dir validation
 
 * `run` now reports a clear error when the provided source directory does not exist

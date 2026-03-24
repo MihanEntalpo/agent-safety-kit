@@ -13,8 +13,12 @@ concurrency:
   cancel-in-progress: false
 
 jobs:
-  publish:
+  resolve:
     runs-on: ubuntu-24.04
+    outputs:
+      codex_ref: ${{ steps.codex.outputs.codex_ref }}
+      release_tag: ${{ steps.codex.outputs.release_tag }}
+      exists: ${{ steps.release.outputs.exists }}
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
@@ -58,23 +62,83 @@ jobs:
             echo "exists=false" >> "${GITHUB_OUTPUT}"
           fi
 
+  build:
+    needs: resolve
+    if: needs.resolve.outputs.exists != 'true'
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - runner: ubuntu-24.04
+            arch: amd64
+            rust_target: x86_64-unknown-linux-gnu
+            output_basename: codex-glibc-linux-amd64
+            output_info_name: codex-glibc-linux-amd64-info.txt
+          - runner: ubuntu-24.04-arm
+            arch: arm64
+            rust_target: aarch64-unknown-linux-gnu
+            output_basename: codex-glibc-linux-arm64
+            output_info_name: codex-glibc-linux-arm64-info.txt
+    runs-on: ${{ matrix.runner }}
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
       - name: Build codex-glibc prebuilt archive
-        if: steps.release.outputs.exists != 'true'
         shell: bash
         env:
-          CODEX_REF: ${{ steps.codex.outputs.codex_ref }}
+          CODEX_REF: ${{ needs.resolve.outputs.codex_ref }}
+          RUST_TARGET: ${{ matrix.rust_target }}
+          OUTPUT_BASENAME: ${{ matrix.output_basename }}
+          OUTPUT_INFO_NAME: ${{ matrix.output_info_name }}
         run: ./prebuilt-agents/codex-glibc/build.sh
 
+      - name: Upload workflow artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: codex-glibc-${{ matrix.arch }}
+          path: |
+            prebuilt-agents/codex-glibc/builds/${{ matrix.output_basename }}.gz
+            prebuilt-agents/codex-glibc/builds/${{ matrix.output_info_name }}
+          if-no-files-found: error
+
+  publish:
+    needs:
+      - resolve
+      - build
+    if: needs.resolve.outputs.exists != 'true'
+    runs-on: ubuntu-24.04
+    steps:
+      - name: Download workflow artifacts
+        uses: actions/download-artifact@v4
+        with:
+          path: /tmp/codex-glibc-release
+
+      - name: Create release notes
+        shell: bash
+        run: |
+          set -euo pipefail
+          cat <<EOF > /tmp/codex-glibc-release/release-notes.txt
+          codex-glibc prebuilt ${{ needs.resolve.outputs.codex_ref }}
+
+          Published assets:
+          - codex-glibc-linux-amd64.gz
+          - codex-glibc-linux-amd64-info.txt
+          - codex-glibc-linux-arm64.gz
+          - codex-glibc-linux-arm64-info.txt
+          EOF
+
       - name: Publish GitHub release
-        if: steps.release.outputs.exists != 'true'
         env:
           GH_TOKEN: ${{ github.token }}
         shell: bash
         run: |
           set -euo pipefail
-          gh release create "${{ steps.codex.outputs.release_tag }}" \
-            prebuilt-agents/codex-glibc/builds/codex-glibc-linux-amd64.gz \
-            prebuilt-agents/codex-glibc/builds/codex-glibc-info.txt \
-            --title "codex-glibc prebuilt ${{ steps.codex.outputs.codex_ref }}" \
-            --notes-file prebuilt-agents/codex-glibc/builds/codex-glibc-info.txt
-          echo "Published release ${{ steps.codex.outputs.release_tag }}" >> "${GITHUB_STEP_SUMMARY}"
+          gh release create "${{ needs.resolve.outputs.release_tag }}" \
+            /tmp/codex-glibc-release/codex-glibc-amd64/codex-glibc-linux-amd64.gz \
+            /tmp/codex-glibc-release/codex-glibc-amd64/codex-glibc-linux-amd64-info.txt \
+            /tmp/codex-glibc-release/codex-glibc-arm64/codex-glibc-linux-arm64.gz \
+            /tmp/codex-glibc-release/codex-glibc-arm64/codex-glibc-linux-arm64-info.txt \
+            --title "codex-glibc prebuilt ${{ needs.resolve.outputs.codex_ref }}" \
+            --notes-file /tmp/codex-glibc-release/release-notes.txt
+          echo "Published release ${{ needs.resolve.outputs.release_tag }}" >> "${GITHUB_STEP_SUMMARY}"

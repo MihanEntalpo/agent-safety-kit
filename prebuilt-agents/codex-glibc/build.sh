@@ -39,6 +39,9 @@ fi
 
 echo "[build.sh] Using CODEX_REPO: ${CODEX_REPO:-https://github.com/openai/codex.git}"
 echo "[build.sh] Using CODEX_REF: ${CODEX_REF}"
+echo "[build.sh] Using RUST_TARGET: ${RUST_TARGET:-x86_64-unknown-linux-gnu}"
+echo "[build.sh] Using OUTPUT_BASENAME: ${OUTPUT_BASENAME:-codex-glibc-linux-amd64}"
+echo "[build.sh] Using OUTPUT_INFO_NAME: ${OUTPUT_INFO_NAME:-${OUTPUT_BASENAME:-codex-glibc-linux-amd64}-info.txt}"
 
 echo "[build.sh] Building Docker image..."
 if [[ "${DRY_RUN}" == "1" ]]; then
@@ -53,6 +56,9 @@ if [[ "${DRY_RUN}" == "1" ]]; then
   echo "[build.sh]   --user \"$(id -u):$(id -g)\" \\"
   echo "[build.sh]   -e CODEX_REPO=\"${CODEX_REPO:-https://github.com/openai/codex.git}\" \\"
   echo "[build.sh]   -e CODEX_REF=\"${CODEX_REF}\" \\"
+  echo "[build.sh]   -e RUST_TARGET=\"${RUST_TARGET:-x86_64-unknown-linux-gnu}\" \\"
+  echo "[build.sh]   -e OUTPUT_BASENAME=\"${OUTPUT_BASENAME:-codex-glibc-linux-amd64}\" \\"
+  echo "[build.sh]   -e OUTPUT_INFO_NAME=\"${OUTPUT_INFO_NAME:-${OUTPUT_BASENAME:-codex-glibc-linux-amd64}-info.txt}\" \\"
   echo "[build.sh]   -e OUTPUT_DIR=/out \\"
   echo "[build.sh]   -v \"${BUILD_DIR}:/out\" \\"
   echo "[build.sh]   \"${IMAGE_NAME}\""
@@ -61,6 +67,9 @@ else
     --user "$(id -u):$(id -g)" \
     -e CODEX_REPO="${CODEX_REPO:-https://github.com/openai/codex.git}" \
     -e CODEX_REF="${CODEX_REF}" \
+    -e RUST_TARGET="${RUST_TARGET:-x86_64-unknown-linux-gnu}" \
+    -e OUTPUT_BASENAME="${OUTPUT_BASENAME:-codex-glibc-linux-amd64}" \
+    -e OUTPUT_INFO_NAME="${OUTPUT_INFO_NAME:-${OUTPUT_BASENAME:-codex-glibc-linux-amd64}-info.txt}" \
     -e OUTPUT_DIR=/out \
     -v "${BUILD_DIR}:/out" \
     "${IMAGE_NAME}"

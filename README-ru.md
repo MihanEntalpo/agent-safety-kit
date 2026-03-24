@@ -46,7 +46,7 @@
 `codex-glibc` собирается локально из исходников внутри ВМ, и это может занимать заметное время. На небольшой ВМ сборка может идти около часа.
 
 `codex-glibc-prebuilt` скачивает готовый glibc-бинарник Codex из GitHub Releases этого проекта.
-Эти бинарники собираются автоматически по тегам официального репозитория Codex, поэтому не нужно ждать долгую сборку внутри ВМ.
+Эти бинарники автоматически собираются по тегам официального репозитория Codex для Linux `amd64` и Linux `arm64`, поэтому не нужно ждать долгую сборку внутри ВМ.
 
 Все три агента, `codex`, `codex-glibc` и `codex-glibc-prebuilt`, используют соответствующие разные бинарники и могут сосуществовать в одной ВМ.
 
@@ -188,7 +188,7 @@ Playbook установки лежат в `agsekit_cli/ansible/agents/`: `codex`
 
 - `AGSEKIT_CODEX_GLIBC_PREBUILT_REPO` — GitHub-репозиторий в формате `owner/name`. По умолчанию: `MihanEntalpo/agent-safety-kit`.
 - `AGSEKIT_CODEX_GLIBC_PREBUILT_TAG` — точный тег релиза для установки. Если не задан, `agsekit` выберет самый свежий релиз с тегом вида `codex-glibc-rust-v<major>.<minor>.<patch>`.
-- `AGSEKIT_CODEX_GLIBC_PREBUILT_ASSET` — имя ассета. По умолчанию: `codex-glibc-linux-amd64.gz`.
+- `AGSEKIT_CODEX_GLIBC_PREBUILT_ASSET` — имя ассета. По умолчанию `agsekit` выбирает `codex-glibc-linux-amd64.gz` для ВМ `x86_64` и `codex-glibc-linux-arm64.gz` для ВМ `aarch64`/`arm64`.
 
 ### Запуск агентов
 

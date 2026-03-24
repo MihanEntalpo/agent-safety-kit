@@ -46,7 +46,7 @@ Currently confirmed working agent types are:
 `codex-glibc` is built locally inside the VM from source, and that can take a considerable amount of time. On a small VM, the build may take about an hour.
 
 `codex-glibc-prebuilt` downloads a prebuilt glibc Codex binary from this project's GitHub Releases.
-These binaries are built automatically from the official Codex repository tags, so you do not need to wait for the long build inside the VM.
+These binaries are built automatically from the official Codex repository tags for Linux `amd64` and Linux `arm64`, so you do not need to wait for the long build inside the VM.
 
 All three agents, `codex`, `codex-glibc`, and `codex-glibc-prebuilt`, use separate runtime binaries and can coexist.
 
@@ -191,7 +191,7 @@ For `codex-glibc-prebuilt`, you can override the release source with environment
 
 - `AGSEKIT_CODEX_GLIBC_PREBUILT_REPO` — GitHub repository in `owner/name` format. Default: `MihanEntalpo/agent-safety-kit`.
 - `AGSEKIT_CODEX_GLIBC_PREBUILT_TAG` — exact release tag to install. If unset, `agsekit` picks the latest matching `codex-glibc-rust-v<major>.<minor>.<patch>` release.
-- `AGSEKIT_CODEX_GLIBC_PREBUILT_ASSET` — asset name. Default: `codex-glibc-linux-amd64.gz`.
+- `AGSEKIT_CODEX_GLIBC_PREBUILT_ASSET` — asset name. By default, `agsekit` selects `codex-glibc-linux-amd64.gz` for `x86_64` VMs and `codex-glibc-linux-arm64.gz` for `aarch64`/`arm64` VMs.
 
 ### Running agents
 

@@ -6,6 +6,7 @@ import pytest
 
 from agsekit_cli.prebuilt import (
     PrebuiltReleaseError,
+    codex_glibc_prebuilt_asset_for_arch,
     resolve_codex_glibc_prebuilt_release,
 )
 
@@ -68,3 +69,31 @@ def test_resolve_codex_glibc_prebuilt_release_validates_explicit_tag_asset(monke
 def test_resolve_codex_glibc_prebuilt_release_rejects_bad_tag() -> None:
     with pytest.raises(PrebuiltReleaseError, match="must match"):
         resolve_codex_glibc_prebuilt_release(repo="example/repo", tag="rust-v0.114.0")
+
+
+def test_resolve_codex_glibc_prebuilt_release_selects_arch_specific_asset(monkeypatch: pytest.MonkeyPatch) -> None:
+    payload = [
+        {
+            "tag_name": "codex-glibc-rust-v0.114.0",
+            "draft": False,
+            "assets": [{"name": "codex-glibc-linux-amd64.gz"}],
+        },
+        {
+            "tag_name": "codex-glibc-rust-v0.115.0",
+            "draft": False,
+            "assets": [{"name": "codex-glibc-linux-arm64.gz"}],
+        },
+    ]
+
+    monkeypatch.delenv("AGSEKIT_CODEX_GLIBC_PREBUILT_ASSET", raising=False)
+    monkeypatch.setattr("agsekit_cli.prebuilt._fetch_json", lambda url: payload)
+
+    release = resolve_codex_glibc_prebuilt_release(repo="example/repo", arch="arm64")
+
+    assert release.tag == "codex-glibc-rust-v0.115.0"
+    assert release.asset_name == "codex-glibc-linux-arm64.gz"
+
+
+def test_codex_glibc_prebuilt_asset_for_arch_rejects_unknown_arch() -> None:
+    with pytest.raises(PrebuiltReleaseError, match="Unsupported codex-glibc prebuilt architecture"):
+        codex_glibc_prebuilt_asset_for_arch("ppc64le")

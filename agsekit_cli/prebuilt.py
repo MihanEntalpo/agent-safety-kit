@@ -16,6 +16,12 @@ DEFAULT_PREBUILT_REPO = "MihanEntalpo/agent-safety-kit"
 DEFAULT_CODEX_GLIBC_PREBUILT_ASSET = "codex-glibc-linux-amd64.gz"
 CODEX_GLIBC_PREBUILT_RELEASE_PREFIX = "codex-glibc-rust-v"
 CODEX_GLIBC_PREBUILT_RELEASE_RE = re.compile(r"^codex-glibc-rust-v(\d+)\.(\d+)\.(\d+)$")
+CODEX_GLIBC_ASSETS_BY_ARCH = {
+    "x86_64": "codex-glibc-linux-amd64.gz",
+    "amd64": "codex-glibc-linux-amd64.gz",
+    "aarch64": "codex-glibc-linux-arm64.gz",
+    "arm64": "codex-glibc-linux-arm64.gz",
+}
 
 
 class PrebuiltReleaseError(RuntimeError):
@@ -158,12 +164,31 @@ def _resolve_prebuilt_release(
     return PrebuiltRelease(repo=resolved_repo, tag=latest_tag, asset_name=resolved_asset)
 
 
+def codex_glibc_prebuilt_asset_for_arch(arch: str) -> str:
+    normalized_arch = arch.strip().lower()
+    if not normalized_arch:
+        raise PrebuiltReleaseError("Architecture for codex-glibc prebuilt resolution is empty")
+
+    asset_name = CODEX_GLIBC_ASSETS_BY_ARCH.get(normalized_arch)
+    if asset_name is None:
+        supported = ", ".join(sorted(CODEX_GLIBC_ASSETS_BY_ARCH))
+        raise PrebuiltReleaseError(
+            f"Unsupported codex-glibc prebuilt architecture {arch!r}; supported values: {supported}"
+        )
+    return asset_name
+
+
 def resolve_codex_glibc_prebuilt_release(
     *,
     repo: Optional[str] = None,
     tag: Optional[str] = None,
     asset_name: Optional[str] = None,
+    arch: Optional[str] = None,
 ) -> PrebuiltRelease:
+    resolved_asset_name = asset_name
+    if not resolved_asset_name and not os.getenv("AGSEKIT_CODEX_GLIBC_PREBUILT_ASSET") and arch:
+        resolved_asset_name = codex_glibc_prebuilt_asset_for_arch(arch)
+
     return _resolve_prebuilt_release(
         repo_env="AGSEKIT_CODEX_GLIBC_PREBUILT_REPO",
         tag_env="AGSEKIT_CODEX_GLIBC_PREBUILT_TAG",
@@ -174,17 +199,21 @@ def resolve_codex_glibc_prebuilt_release(
         release_kind="codex-glibc",
         repo=repo,
         tag=tag,
-        asset_name=asset_name,
+        asset_name=resolved_asset_name,
     )
 
 
 def _build_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(description="Resolve agsekit prebuilt asset metadata")
     subparsers = parser.add_subparsers(dest="command", required=True)
-    subparsers.add_parser(
+    codex_parser = subparsers.add_parser(
         "resolve-codex-glibc-prebuilt",
         help="Print JSON metadata for the codex-glibc prebuilt release",
     )
+    codex_parser.add_argument("--repo")
+    codex_parser.add_argument("--tag")
+    codex_parser.add_argument("--asset-name")
+    codex_parser.add_argument("--arch")
     return parser
 
 
@@ -194,7 +223,12 @@ def main(argv: Optional[list[str]] = None) -> int:
 
     if args.command == "resolve-codex-glibc-prebuilt":
         try:
-            release = resolve_codex_glibc_prebuilt_release()
+            release = resolve_codex_glibc_prebuilt_release(
+                repo=args.repo,
+                tag=args.tag,
+                asset_name=args.asset_name,
+                arch=args.arch,
+            )
         except PrebuiltReleaseError as exc:
             print(str(exc), file=sys.stderr)
             return 1

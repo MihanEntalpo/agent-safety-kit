@@ -13,16 +13,6 @@
         ansible_connection: theko2fi.multipass.multipass
         ansible_python_interpreter: /usr/bin/python3
 
-    - name: Resolve codex-glibc prebuilt release
-      ansible.builtin.command: >-
-        {{ ansible_playbook_python }} -m agsekit_cli.prebuilt resolve-codex-glibc-prebuilt
-      register: codex_glibc_prebuilt_release
-      changed_when: false
-
-    - name: Cache codex-glibc prebuilt release metadata
-      ansible.builtin.set_fact:
-        codex_glibc_prebuilt_meta: "{{ codex_glibc_prebuilt_release.stdout | from_json }}"
-
 - name: Install codex-glibc prebuilt binary
   hosts: "{{ vm_name }}"
   gather_facts: true
@@ -43,6 +33,32 @@
           - curl
           - gzip
       become: true
+
+    - name: Determine codex-glibc prebuilt architecture
+      ansible.builtin.set_fact:
+        codex_prebuilt_arch: >-
+          {{ "arm64" if ansible_architecture in ["aarch64", "arm64"] else "amd64" }}
+
+    - name: Resolve codex-glibc prebuilt release metadata for VM architecture
+      ansible.builtin.command:
+        argv:
+          - "{{ ansible_playbook_python }}"
+          - -m
+          - agsekit_cli.prebuilt
+          - resolve-codex-glibc-prebuilt
+          - --arch
+          - "{{ codex_prebuilt_arch }}"
+      delegate_to: localhost
+      register: codex_glibc_prebuilt_release
+      changed_when: false
+
+    - name: Cache codex-glibc prebuilt release metadata
+      ansible.builtin.set_fact:
+        codex_glibc_prebuilt_meta: "{{ codex_glibc_prebuilt_release.stdout | from_json }}"
+
+    - name: Set codex-glibc prebuilt download URL
+      ansible.builtin.set_fact:
+        codex_prebuilt_url: "{{ codex_glibc_prebuilt_meta.download_url }}"
 
     - name: Check for codex-glibc-prebuilt binary (system)
       ansible.builtin.stat:
