@@ -15,6 +15,98 @@ from ..progress import ProgressManager
 from ..vm_prepare import ensure_host_ssh_keypair, prepare_vm
 
 
+def run_create_vms(
+    config_path: Optional[str],
+    *,
+    debug: bool,
+    progress: Optional[ProgressManager] = None,
+) -> None:
+    resolved_path = resolve_config_path(Path(config_path) if config_path else None)
+    try:
+        config = load_config(resolved_path)
+        vms = load_vms_config(config)
+    except ConfigError as exc:
+        raise click.ClickException(str(exc))
+
+    with debug_scope(debug):
+        if not progress:
+            click.echo(tr("create_vm.creating_all", config_path=resolved_path))
+        try:
+            messages, mismatch_messages, statuses = create_all_vms_from_config(str(resolved_path))
+        except ConfigError as exc:
+            raise click.ClickException(str(exc))
+        except MultipassError as exc:
+            raise click.ClickException(str(exc))
+
+        if debug:
+            for message in messages:
+                click.echo(message)
+
+        if not progress:
+            click.echo(tr("prepare.ensure_keypair"))
+        _private_key, public_key = ensure_host_ssh_keypair(verbose=debug)
+
+        if progress is None:
+            with ProgressManager(debug=debug) as owned_progress:
+                _run_create_vms_with_progress(
+                    vms,
+                    statuses,
+                    mismatch_messages,
+                    public_key,
+                    debug=debug,
+                    progress=owned_progress,
+                    show_overall_task=True,
+                )
+            return
+
+        _run_create_vms_with_progress(
+            vms,
+            statuses,
+            mismatch_messages,
+            public_key,
+            debug=debug,
+            progress=progress,
+            show_overall_task=False,
+        )
+
+
+def _run_create_vms_with_progress(
+    vms,
+    statuses,
+    mismatch_messages,
+    public_key,
+    *,
+    debug: bool,
+    progress: ProgressManager,
+    show_overall_task: bool,
+) -> None:
+    overall_task = progress.add_task(tr("progress.create_vms_title"), total=len(vms)) if show_overall_task else None
+    for vm in vms.values():
+        vm_task = None
+        try:
+            if overall_task is not None:
+                progress.update(overall_task, description=tr("progress.create_vms_vm_stage", vm_name=vm.name))
+            vm_task = progress.add_task(tr("progress.vm_title", vm_name=vm.name), total=6)
+            vm_status = statuses.get(vm.name)
+            if vm_status == "created":
+                progress.update(vm_task, description=tr("progress.vm_step_create"))
+            else:
+                progress.update(vm_task, description=tr("progress.vm_step_exists"))
+            progress.advance(vm_task)
+            prepare_vm(vm.name, public_key, vm.install, progress=progress, step_task_id=vm_task, debug=debug)
+            if overall_task is not None:
+                progress.advance(overall_task)
+        except MultipassError as exc:
+            raise click.ClickException(str(exc))
+        finally:
+            if vm_task is not None:
+                progress.remove_task(vm_task)
+    if overall_task is not None:
+        progress.remove_task(overall_task)
+    for mismatch in mismatch_messages:
+        progress.print(mismatch)
+
+
 @click.command(name="create-vm", help=tr("create_vm.command_help"))
 @non_interactive_option
 @click.argument("vm_name", required=False)
@@ -98,43 +190,4 @@ def create_vms_command(config_path: Optional[str], debug: bool, non_interactive:
     # not used parameter, explicitly removing it so IDEs/linters do not complain
     del non_interactive
 
-    resolved_path = resolve_config_path(Path(config_path) if config_path else None)
-    try:
-        config = load_config(resolved_path)
-        vms = load_vms_config(config)
-    except ConfigError as exc:
-        raise click.ClickException(str(exc))
-
-    with debug_scope(debug):
-        click.echo(tr("create_vm.creating_all", config_path=resolved_path))
-        try:
-            messages, mismatch_messages, statuses = create_all_vms_from_config(str(resolved_path))
-        except ConfigError as exc:
-            raise click.ClickException(str(exc))
-        except MultipassError as exc:
-            raise click.ClickException(str(exc))
-
-        if debug:
-            for message in messages:
-                click.echo(message)
-
-        click.echo(tr("prepare.ensure_keypair"))
-        _private_key, public_key = ensure_host_ssh_keypair(verbose=debug)
-        with ProgressManager(debug=debug) as progress:
-            overall_task = progress.add_task(tr("progress.create_vms_title"), total=len(vms))
-            for vm in vms.values():
-                try:
-                    progress.update(overall_task, description=tr("progress.create_vms_vm_stage", vm_name=vm.name))
-                    vm_task = progress.add_task(tr("progress.vm_title", vm_name=vm.name), total=6)
-                    vm_status = statuses.get(vm.name)
-                    if vm_status == "created":
-                        progress.update(vm_task, description=tr("progress.vm_step_create"))
-                    else:
-                        progress.update(vm_task, description=tr("progress.vm_step_exists"))
-                    progress.advance(vm_task)
-                    prepare_vm(vm.name, public_key, vm.install, progress=progress, step_task_id=vm_task, debug=debug)
-                    progress.advance(overall_task)
-                except MultipassError as exc:
-                    raise click.ClickException(str(exc))
-            for mismatch in mismatch_messages:
-                progress.print(mismatch)
+    run_create_vms(config_path, debug=debug)

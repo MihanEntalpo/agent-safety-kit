@@ -67,43 +67,30 @@ All three agents, `codex`, `codex-glibc`, and `codex-glibc-prebuilt`, use separa
    pip install .
    ```
 
-3. Create a YAML configuration (the CLI checks `--config`, then `CONFIG_PATH`, then `~/.config/agsekit/config.yaml`):
+3. Create the configuration file `~/.config/agsekit/config.yaml` (you can change the path with `--config` or the `CONFIG_PATH` environment variable).
+   The recommended way is to run the interactive wizard, which walks you through the questions about VMs, mounts, and agents and writes a complete config for you:
+   ```bash
+   agsekit config-gen
+   ```
+   Alternatively, copy the example config and edit it manually:
    ```bash
    agsekit config-example
-   # edit vms/mounts/cloud-init to your needs
-   ```
-   When working from a cloned repository, you can also copy the file directly:
-   ```bash
-   mkdir -p ~/.config/agsekit
-   cp config-example.yaml ~/.config/agsekit/config.yaml
-   ```
-   You can also run `agsekit config-gen` to answer a few questions and save the config (defaults to `~/.config/agsekit/config.yaml`; use `--overwrite` to replace an existing file).
-
-4. Install required system dependencies (in particular, Multipass; requires sudo and supports Debian-based systems via `apt` and Arch Linux via `pacman` + an AUR helper such as `yay`/`aura`). The command also creates the host SSH keypair used for VM access:
-   ```bash
-   agsekit prepare
+   nano ~/.config/agsekit/config.yaml
    ```
 
-5. Create the virtual machines defined in YAML (this also installs VM packages via ansible and syncs SSH keys into each VM):
+4. Bring the environment up in one go: install host dependencies, create and prepare all VMs, and install all configured agents into their configured VM targets:
    ```bash
-   agsekit create-vms
+   agsekit up
    ```
 
-   To launch just one VM, use `agsekit create-vm <name>`. If the config contains only one VM, you can omit `<name>` and it will be used automatically. If a VM already exists, the command compares the desired resources with the current ones and reports any differences. Changing resources of an existing VM is not supported yet.
-
-6. Mount your folders (assuming mounts are already configured in the YAML file):
+5. Add the current project directory as a mount entry (the command chooses sensible defaults and can mount it immediately in interactive mode):
    ```bash
-   agsekit mount --all
+   agsekit addmount /home/user/project
    ```
 
-7. Install all configured agents into their configured VM targets:
+6. Launch an agent inside its VM (this example runs `qwen` in the folder where `/home/user/project` is mounted, with backups enabled by default):
    ```bash
-   agsekit install-agents --all-agents
-   ```
-
-8. Launch an agent inside its VM (example runs `qwen` in the folder where `/host/path/project` is mounted, with backups enabled by default):
-   ```bash
-   agsekit run qwen /host/path/project --vm agent-ubuntu
+   agsekit run qwen /home/user/project --vm agent-ubuntu
    ```
    On the very first run with backups enabled, the CLI creates an initial snapshot with progress output before launching the agent, so wait for it to complete.
 
@@ -114,6 +101,7 @@ All three agents, `codex`, `codex-glibc`, and `codex-glibc-prebuilt`, use separa
 Most commands that interact with Multipass support `--debug`; in this mode the CLI prints the executed command, exit code, and captured `stdout`/`stderr`.
 
 * `agsekit prepare [--debug]` — installs required system dependencies (including Multipass; requires sudo and supports Debian-based systems via `apt` and Arch Linux via `pacman` + an AUR helper such as `yay`/`aura`) and creates the SSH keypair used to access VMs.
+* `agsekit up [--config <path>] [--debug] [--prepare/--no-prepare] [--create-vms/--no-create-vms] [--install-agents/--no-install-agents]` — runs `prepare`, `create-vms`, and `install-agents` as one non-interactive flow. By default, all three stages run. The command creates every VM from the config and installs every configured agent into its configured VM targets (`agents.<name>.vm` + `agents.<name>.vms`); if an agent has no VM restrictions, it is installed into all configured VMs. At least one stage must remain enabled.
 * `agsekit config-gen [--config <path>] [--overwrite]` — interactive wizard that asks about VMs, mounts, and agents, then writes a YAML config to the chosen path (defaults to `~/.config/agsekit/config.yaml`). Without `--overwrite`, the command warns if the file already exists.
 * `agsekit config-example [<path>]` — copies `config-example.yaml` to the target path (defaults to `~/.config/agsekit/config.yaml`). If the default config already exists, the command skips copying.
 * `agsekit pip-upgrade` — upgrades agsekit using `pip install agsekit --upgrade` inside the same Python environment that runs the CLI. If agsekit is not installed in that environment via pip, the command reports that it cannot be upgraded there.

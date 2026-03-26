@@ -19,6 +19,7 @@ from .commands.mounts import mount_command, umount_command
 from .commands.prepare import prepare_command
 from .commands.run import run_command
 from .commands.shell import shell_command
+from .commands.up import up_command
 from .commands.systemd import systemd_group
 from .commands.ssh import ssh_command
 from .commands.status import status_command
@@ -55,6 +56,7 @@ COMMANDS_REQUIRING_CONFIG = {
     "restart-vm",
     "start-vm",
     "stop-vm",
+    "up",
     "umount",
 }
 
@@ -91,6 +93,7 @@ def main() -> None:
     set_language()
     for command in (
         prepare_command,
+        up_command,
         create_vm_command,
         create_vms_command,
         backup_once_command,

@@ -10,26 +10,29 @@ import click
 from ..ansible_utils import AnsibleCollectionError, ensure_multipass_collection
 from ..debug import debug_scope
 from ..i18n import tr
+from ..progress import ProgressManager
 from ..vm_prepare import ensure_host_ssh_keypair
 from . import debug_option, non_interactive_option
 
 
-def _install_multipass() -> None:
+def _install_multipass(*, quiet: bool = False) -> None:
     if shutil.which("multipass") is not None:
-        click.echo(tr("prepare.multipass_already_installed"))
+        if not quiet:
+            click.echo(tr("prepare.multipass_already_installed"))
         return
 
-    click.echo(tr("prepare.installing_dependencies"))
+    if not quiet:
+        click.echo(tr("prepare.installing_dependencies"))
 
     if shutil.which("pacman") is not None:
-        _install_multipass_arch()
+        _install_multipass_arch(quiet=quiet)
     elif shutil.which("apt-get") is not None:
-        _install_multipass_debian()
+        _install_multipass_debian(quiet=quiet)
     else:
         raise click.ClickException(tr("prepare.apt_missing"))
 
 
-def _install_multipass_debian() -> None:
+def _install_multipass_debian(*, quiet: bool = False) -> None:
     """Install Multipass on Debian-based systems via snap."""
     env = {**os.environ, "DEBIAN_FRONTEND": "noninteractive"}
 
@@ -44,12 +47,14 @@ def _install_multipass_debian() -> None:
         raise click.ClickException(tr("prepare.snap_missing"))
 
     subprocess.run(["sudo", "snap", "install", "multipass", "--classic"], check=True)
-    click.echo(tr("prepare.multipass_installed"))
+    if not quiet:
+        click.echo(tr("prepare.multipass_installed"))
 
 
-def _install_multipass_arch() -> None:
+def _install_multipass_arch(*, quiet: bool = False) -> None:
     """Install Multipass on Arch Linux via an AUR helper."""
-    click.echo(tr("prepare.installing_multipass_arch"))
+    if not quiet:
+        click.echo(tr("prepare.installing_multipass_arch"))
 
     if shutil.which("yay") is not None:
         aur_helper = "yay"
@@ -62,7 +67,8 @@ def _install_multipass_arch() -> None:
         [aur_helper, "-S", "--noconfirm", "multipass", "libvirt", "dnsmasq", "qemu-base"],
         check=True,
     )
-    click.echo(tr("prepare.multipass_installed_arch"))
+    if not quiet:
+        click.echo(tr("prepare.multipass_installed_arch"))
 
 
 def _install_ansible_collection() -> None:
@@ -70,6 +76,33 @@ def _install_ansible_collection() -> None:
         ensure_multipass_collection()
     except AnsibleCollectionError as exc:
         raise click.ClickException(str(exc))
+
+
+def run_prepare(*, debug: bool, progress: Optional[ProgressManager] = None) -> None:
+    task_id = None
+
+    def _update(description: str) -> None:
+        if progress and task_id is not None:
+            progress.update(task_id, description=description)
+
+    def _advance() -> None:
+        if progress and task_id is not None:
+            progress.advance(task_id)
+
+    with debug_scope(debug):
+        _update(tr("progress.up_prepare_multipass"))
+        _install_multipass(quiet=progress is not None)
+        _advance()
+
+        _update(tr("progress.up_prepare_ansible"))
+        _install_ansible_collection()
+        _advance()
+
+        _update(tr("progress.up_prepare_ssh"))
+        if not progress:
+            click.echo(tr("prepare.ensure_keypair"))
+        ensure_host_ssh_keypair(verbose=debug)
+        _advance()
 
 
 @click.command(name="prepare", help=tr("prepare.command_help"))
@@ -89,8 +122,4 @@ def prepare_command(non_interactive: bool, config_path: Optional[str], debug: bo
     del non_interactive
     del config_path
 
-    with debug_scope(debug):
-        _install_multipass()
-        _install_ansible_collection()
-        click.echo(tr("prepare.ensure_keypair"))
-        ensure_host_ssh_keypair()
+    run_prepare(debug=debug)

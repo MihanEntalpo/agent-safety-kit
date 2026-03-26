@@ -1,5 +1,6 @@
 import sys
 from pathlib import Path
+from typing import Optional
 
 import yaml
 from click.testing import CliRunner
@@ -11,7 +12,7 @@ if str(ROOT) not in sys.path:
 import agsekit_cli.commands.addmount as addmount_commands
 
 
-def _write_config(path: Path, *, agents: list[str], vms: list[str] | None = None) -> None:
+def _write_config(path: Path, *, agents: list[str], vms: Optional[list[str]] = None) -> None:
     vm_names = vms or ["agent"]
     vms_yaml = "\n".join([f"  {name}:\n    cpu: 1\n    ram: 1G\n    disk: 5G" for name in vm_names])
     agents_yaml = "\n".join([f"  {name}:\n    type: {name}" for name in agents])

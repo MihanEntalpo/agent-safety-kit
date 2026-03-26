@@ -86,6 +86,8 @@ def test_codex_glibc_prebuilt_installer_tasks_run_via_proxychains_prefix():
 
     assert "ansible_architecture" in arch_task["ansible.builtin.set_fact"]["codex_prebuilt_arch"]
     assert resolve_task["delegate_to"] == "localhost"
+    assert resolve_task["connection"] == "local"
+    assert resolve_task["vars"]["ansible_python_interpreter"] == "{{ ansible_playbook_python }}"
     assert resolve_task["ansible.builtin.command"]["argv"][-2:] == ["--arch", "{{ codex_prebuilt_arch }}"]
     assert download_task["ansible.builtin.command"].startswith("{{ proxychains_prefix }}curl ")
     assert "environment" not in download_task

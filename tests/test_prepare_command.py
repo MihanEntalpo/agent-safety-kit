@@ -1,6 +1,7 @@
 import json
 import sys
 from pathlib import Path
+from typing import Optional
 
 from click.testing import CliRunner
 import pytest
@@ -53,15 +54,47 @@ def test_prepare_repairs_mismatched_public_key(monkeypatch, tmp_path):
 def test_prepare_command_installs_dependencies_and_keys(monkeypatch):
     calls: list[str] = []
 
-    monkeypatch.setattr(prepare_module, "_install_multipass", lambda: calls.append("install"))
+    monkeypatch.setattr(prepare_module, "_install_multipass", lambda **kwargs: calls.append("install"))
     monkeypatch.setattr(prepare_module, "_install_ansible_collection", lambda: calls.append("ansible"))
-    monkeypatch.setattr(prepare_module, "ensure_host_ssh_keypair", lambda: calls.append("keys"))
+    monkeypatch.setattr(prepare_module, "ensure_host_ssh_keypair", lambda *args, **kwargs: calls.append("keys"))
 
     runner = CliRunner()
     result = runner.invoke(prepare_command, [])
 
     assert result.exit_code == 0
     assert calls == ["install", "ansible", "keys"]
+
+
+def test_run_prepare_suppresses_multipass_echo_when_progress_enabled(monkeypatch, capsys):
+    calls: list[bool] = []
+
+    monkeypatch.setattr(prepare_module.shutil, "which", lambda binary: "/usr/bin/multipass" if binary == "multipass" else None)
+    monkeypatch.setattr(prepare_module, "_install_ansible_collection", lambda: None)
+    monkeypatch.setattr(prepare_module, "ensure_host_ssh_keypair", lambda *args, **kwargs: None)
+
+    class DummyProgress:
+        def __bool__(self):
+            return True
+
+        def update(self, *args, **kwargs):
+            del args, kwargs
+
+        def advance(self, *args, **kwargs):
+            del args, kwargs
+
+    original = prepare_module._install_multipass
+
+    def wrapped_install_multipass(*, quiet: bool = False):
+        calls.append(quiet)
+        return original(quiet=quiet)
+
+    monkeypatch.setattr(prepare_module, "_install_multipass", wrapped_install_multipass)
+
+    prepare_module.run_prepare(debug=False, progress=DummyProgress())
+
+    captured = capsys.readouterr()
+    assert calls == [True]
+    assert "Multipass already installed" not in captured.out
 
 
 def test_install_multipass_prefers_arch_over_debian(monkeypatch):
@@ -77,8 +110,8 @@ def test_install_multipass_prefers_arch_over_debian(monkeypatch):
         return None
 
     monkeypatch.setattr(prepare_module.shutil, "which", fake_which)
-    monkeypatch.setattr(prepare_module, "_install_multipass_arch", lambda: calls.append("arch"))
-    monkeypatch.setattr(prepare_module, "_install_multipass_debian", lambda: calls.append("debian"))
+    monkeypatch.setattr(prepare_module, "_install_multipass_arch", lambda **kwargs: calls.append("arch"))
+    monkeypatch.setattr(prepare_module, "_install_multipass_debian", lambda **kwargs: calls.append("debian"))
 
     prepare_module._install_multipass()
 
@@ -98,8 +131,8 @@ def test_install_multipass_uses_debian_when_pacman_absent(monkeypatch):
         return None
 
     monkeypatch.setattr(prepare_module.shutil, "which", fake_which)
-    monkeypatch.setattr(prepare_module, "_install_multipass_arch", lambda: calls.append("arch"))
-    monkeypatch.setattr(prepare_module, "_install_multipass_debian", lambda: calls.append("debian"))
+    monkeypatch.setattr(prepare_module, "_install_multipass_arch", lambda **kwargs: calls.append("arch"))
+    monkeypatch.setattr(prepare_module, "_install_multipass_debian", lambda **kwargs: calls.append("debian"))
 
     prepare_module._install_multipass()
 
@@ -190,7 +223,7 @@ def test_prepare_vm_ssh_playbook_manages_authorized_keys_and_known_hosts():
 def test_ensure_vm_ssh_access_runs_ansible_playbook(monkeypatch, tmp_path):
     public_key = tmp_path / "id_rsa.pub"
     public_key.write_text("ssh-rsa AAAAB3Nza test@example\n", encoding="utf-8")
-    calls: list[tuple[list[str], Path, str | None]] = []
+    calls: list[tuple[list[str], Path, Optional[str]]] = []
 
     class Result:
         returncode = 0

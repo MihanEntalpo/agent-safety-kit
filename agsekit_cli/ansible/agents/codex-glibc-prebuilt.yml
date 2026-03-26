@@ -49,6 +49,9 @@
           - --arch
           - "{{ codex_prebuilt_arch }}"
       delegate_to: localhost
+      connection: local
+      vars:
+        ansible_python_interpreter: "{{ ansible_playbook_python }}"
       register: codex_glibc_prebuilt_release
       changed_when: false
 

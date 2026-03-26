@@ -1,6 +1,7 @@
 import sys
 import json
 from pathlib import Path
+from typing import Optional
 
 from click.testing import CliRunner
 
@@ -13,7 +14,7 @@ from agsekit_cli.config import MountConfig
 from agsekit_cli.commands.stop import stop_vm_command
 
 
-def _write_config(config_path: Path, vm_names: list[str], mounts: list[dict[str, str]] | None = None) -> None:
+def _write_config(config_path: Path, vm_names: list[str], mounts: Optional[list[dict[str, str]]] = None) -> None:
     entries = "\n".join(f"  {name}:\n    cpu: 1\n    ram: 1G\n    disk: 5G" for name in vm_names)
     mounts_block = ""
     if mounts:

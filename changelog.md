@@ -1,5 +1,12 @@
 # Agent-Safety-Kit versions history
 
+## 1.5.0 - added agsekit up command
+
+* Added the `up` command to run `prepare`, `create-vms`, and `install-agents` as one non-interactive workflow with shared overall and nested progress
+* Added a dedicated `up` error message for a missing default config file, with guidance to create one via `config-gen` or `config-example`, while keeping the standard missing-file error for explicit config paths
+* Fixed `codex-glibc-prebuilt` installation to resolve release metadata on the control host with a local Ansible connection instead of SSH to `localhost`
+* Fixed `codex-glibc-prebuilt` installation to run the delegated local release resolver with `ansible_playbook_python` instead of a broken auto-discovered pyenv shim
+
 ## 1.4.2 - codex-glibc-prebuilt fixes, http proxy  
 
 * Changed prebuilt release publishing to attach `*-info.txt` build metadata files instead of placeholder README assets

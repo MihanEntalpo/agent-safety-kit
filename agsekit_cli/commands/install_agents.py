@@ -153,28 +153,8 @@ def _select_vm_interactively(vms_config: dict[str, VmConfig]) -> Tuple[bool, Opt
     return False, str(selected)
 
 
-@click.command(name="install-agents", help=tr("install_agents.command_help"))
-@non_interactive_option
-@click.argument("agent_name", required=False)
-@click.argument("vm", required=False)
-@click.option("--all-vms", is_flag=True, help=tr("install_agents.option_all_vms"))
-@click.option("--all-agents", is_flag=True, help=tr("install_agents.option_all_agents"))
-@click.option(
-    "config_path",
-    "--config",
-    type=click.Path(dir_okay=False, exists=False, path_type=str),
-    envvar="CONFIG_PATH",
-    default=None,
-    help=tr("config.option_path"),
-)
-@click.option(
-    "--proxychains",
-    default=None,
-    show_default=False,
-    help=tr("install_agents.option_proxychains"),
-)
-@debug_option
-def install_agents_command(
+def run_install_agents(
+    *,
     agent_name: Optional[str],
     vm: Optional[str],
     all_vms: bool,
@@ -182,13 +162,12 @@ def install_agents_command(
     config_path: Optional[str],
     proxychains: Optional[str],
     debug: bool,
-    non_interactive: bool,
+    interactive: bool,
+    progress: Optional[ProgressManager] = None,
 ) -> None:
-    """Install configured agents into Multipass VMs."""
-    interactive = is_interactive_terminal() and not non_interactive
-
     with debug_scope(debug):
-        click.echo(tr("install_agents.preparing"))
+        if not progress:
+            click.echo(tr("install_agents.preparing"))
 
         if all_agents and agent_name:
             raise click.ClickException(tr("install_agents.agent_conflict"))
@@ -245,48 +224,127 @@ def install_agents_command(
                             raise click.ClickException(tr("install_agents.vm_missing", vm_name=target_vm_name))
                         targets.append((agent.name, vms_config[target_vm_name]))
 
-        with ProgressManager(debug=debug) as progress:
-            overall_task = progress.add_task(tr("progress.install_agents_title"), total=len(targets))
-            for target_agent_name, target_vm in targets:
-                agent = find_agent(agents_config, target_agent_name)
-                playbook_path = _playbook_for(agent)
-                if debug:
-                    click.echo(
-                        tr(
-                            "install_agents.installing",
-                            agent_name=agent.name,
-                            agent_type=agent.type,
-                            vm_name=target_vm.name,
-                            script=playbook_path.name,
-                        )
-                    )
-                try:
-                    proxychains_override = proxychains
-                    if proxychains_override is None and agent.proxychains_defined:
-                        proxychains_override = agent.proxychains if agent.proxychains is not None else ""
-                    install_label = tr(
-                        "progress.install_agent_target",
-                        agent_name=agent.name,
-                        agent_type=agent.type,
+        if progress is None:
+            with ProgressManager(debug=debug) as owned_progress:
+                _run_install_targets(
+                    targets=targets,
+                    agents_config=agents_config,
+                    proxychains=proxychains,
+                    debug=debug,
+                    progress=owned_progress,
+                    show_overall_task=True,
+                )
+            return
+
+        _run_install_targets(
+            targets=targets,
+            agents_config=agents_config,
+            proxychains=proxychains,
+            debug=debug,
+            progress=progress,
+            show_overall_task=False,
+        )
+
+
+def _run_install_targets(
+    *,
+    targets: List[Tuple[str, VmConfig]],
+    agents_config: dict[str, AgentConfig],
+    proxychains: Optional[str],
+    debug: bool,
+    progress: ProgressManager,
+    show_overall_task: bool,
+) -> None:
+    overall_task = progress.add_task(tr("progress.install_agents_title"), total=len(targets)) if show_overall_task else None
+    for target_agent_name, target_vm in targets:
+        agent = find_agent(agents_config, target_agent_name)
+        playbook_path = _playbook_for(agent)
+        if debug:
+            click.echo(
+                tr(
+                    "install_agents.installing",
+                    agent_name=agent.name,
+                    agent_type=agent.type,
+                    vm_name=target_vm.name,
+                    script=playbook_path.name,
+                )
+            )
+        try:
+            proxychains_override = proxychains
+            if proxychains_override is None and agent.proxychains_defined:
+                proxychains_override = agent.proxychains if agent.proxychains is not None else ""
+            install_label = tr(
+                "progress.install_agent_target",
+                agent_name=agent.name,
+                agent_type=agent.type,
+                vm_name=target_vm.name,
+            )
+            if overall_task is not None:
+                progress.update(overall_task, description=install_label)
+            _run_install_playbook(
+                target_vm,
+                playbook_path,
+                proxychains=proxychains_override,
+                progress=progress,
+                label=install_label,
+            )
+        except (MultipassError, ConfigError) as exc:
+            raise click.ClickException(str(exc))
+        if debug:
+            click.echo(
+                tr(
+                    "install_agents.installed",
+                    agent_name=agent.name,
+                    agent_type=agent.type,
                         vm_name=target_vm.name,
                     )
-                    progress.update(overall_task, description=install_label)
-                    _run_install_playbook(
-                        target_vm,
-                        playbook_path,
-                        proxychains=proxychains_override,
-                        progress=progress,
-                        label=install_label,
-                    )
-                except (MultipassError, ConfigError) as exc:
-                    raise click.ClickException(str(exc))
-                if debug:
-                    click.echo(
-                        tr(
-                            "install_agents.installed",
-                            agent_name=agent.name,
-                            agent_type=agent.type,
-                            vm_name=target_vm.name,
-                        )
-                    )
-                progress.advance(overall_task)
+                )
+        if overall_task is not None:
+            progress.advance(overall_task)
+    if overall_task is not None:
+        progress.remove_task(overall_task)
+
+
+@click.command(name="install-agents", help=tr("install_agents.command_help"))
+@non_interactive_option
+@click.argument("agent_name", required=False)
+@click.argument("vm", required=False)
+@click.option("--all-vms", is_flag=True, help=tr("install_agents.option_all_vms"))
+@click.option("--all-agents", is_flag=True, help=tr("install_agents.option_all_agents"))
+@click.option(
+    "config_path",
+    "--config",
+    type=click.Path(dir_okay=False, exists=False, path_type=str),
+    envvar="CONFIG_PATH",
+    default=None,
+    help=tr("config.option_path"),
+)
+@click.option(
+    "--proxychains",
+    default=None,
+    show_default=False,
+    help=tr("install_agents.option_proxychains"),
+)
+@debug_option
+def install_agents_command(
+    agent_name: Optional[str],
+    vm: Optional[str],
+    all_vms: bool,
+    all_agents: bool,
+    config_path: Optional[str],
+    proxychains: Optional[str],
+    debug: bool,
+    non_interactive: bool,
+) -> None:
+    """Install configured agents into Multipass VMs."""
+    interactive = is_interactive_terminal() and not non_interactive
+    run_install_agents(
+        agent_name=agent_name,
+        vm=vm,
+        all_vms=all_vms,
+        all_agents=all_agents,
+        config_path=config_path,
+        proxychains=proxychains,
+        debug=debug,
+        interactive=interactive,
+    )

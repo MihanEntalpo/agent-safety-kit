@@ -347,6 +347,9 @@ def test_install_agents_debug_uses_dummy_progress_manager(monkeypatch, tmp_path)
         def advance(self, task_id, amount=1):
             del task_id, amount
 
+        def remove_task(self, task_id):
+            del task_id
+
     def fake_run_install_playbook(vm, playbook_path: Path, proxychains=None, **kwargs) -> None:
         calls.append((vm.name, playbook_path.name, proxychains, kwargs.get("progress"), kwargs.get("label")))
 

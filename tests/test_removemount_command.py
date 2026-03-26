@@ -1,5 +1,6 @@
 import sys
 from pathlib import Path
+from typing import Optional
 
 from click.testing import CliRunner
 
@@ -10,7 +11,7 @@ if str(ROOT) not in sys.path:
 import agsekit_cli.commands.removemount as removemount_commands
 
 
-def _write_config(path: Path, mounts: list[str], vms: list[str] | None = None) -> None:
+def _write_config(path: Path, mounts: list[str], vms: Optional[list[str]] = None) -> None:
     vms = vms or ["agent"]
     vms_yaml = "\n".join([f"  {name}:\n    cpu: 1\n    ram: 1G\n    disk: 5G" for name in vms])
     mounts_yaml = "\n".join(mounts)

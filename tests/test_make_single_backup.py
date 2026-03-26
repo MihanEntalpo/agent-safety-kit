@@ -3,6 +3,7 @@ import shutil
 import subprocess
 import time
 from pathlib import Path
+from typing import Optional
 
 
 SCRIPT_PATH = Path(__file__).resolve().parent.parent / "agsekit"
@@ -242,7 +243,7 @@ def test_partial_directory_removed_after_restart(tmp_path: Path) -> None:
 
     process = subprocess.Popen(command)
 
-    partial_dir: Path | None = None
+    partial_dir: Optional[Path] = None
     deadline = time.time() + 5
     while time.time() < deadline:
         partial_candidates = [p for p in dest.iterdir() if p.is_dir() and p.name.endswith("-partial")]
@@ -397,4 +398,3 @@ def test_errors_reported_to_stderr_and_nonzero_exit(tmp_path: Path) -> None:
 
     assert result.returncode != 0
     assert "Source directory does not exist" in (result.stderr or "")
-
