@@ -1,5 +1,12 @@
 # Agent-Safety-Kit versions history
 
+## 1.5.1 - added down command, polishing agsekit up command
+
+* Added a final success message after `agsekit up` completes successfully
+* Added the `down` command to stop all configured VMs, with a safety confirmation when configured agents are still running
+* Updated `up` to register and start the user systemd `agsekit-portforward` service automatically, and `down` to stop that service before shutting VMs down
+* Updated `systemd install`/`up` to relink and restart an existing user `agsekit-portforward` service when it still points to another agsekit installation
+
 ## 1.5.0 - added agsekit up command
 
 * Added the `up` command to run `prepare`, `create-vms`, and `install-agents` as one non-interactive workflow with shared overall and nested progress

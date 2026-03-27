@@ -30,6 +30,11 @@ def test_up_runs_all_stages_by_default(monkeypatch, tmp_path):
         "run_install_agents",
         lambda **kwargs: calls.append(("install-agents", kwargs.get("all_agents"), kwargs.get("interactive"))),
     )
+    monkeypatch.setattr(
+        up_module,
+        "install_portforward_service",
+        lambda config_path, announce=False: calls.append(("systemd", Path(config_path), announce)),
+    )
 
     runner = CliRunner()
     result = _invoke_command(runner, up_command, ["--config", str(config_path)])
@@ -39,7 +44,9 @@ def test_up_runs_all_stages_by_default(monkeypatch, tmp_path):
         ("prepare", False),
         ("create-vms", str(config_path)),
         ("install-agents", True, False),
+        ("systemd", config_path, False),
     ]
+    assert "Setup completed successfully" in result.output
 
 
 def test_up_respects_disabled_stages(monkeypatch, tmp_path):
@@ -50,6 +57,7 @@ def test_up_respects_disabled_stages(monkeypatch, tmp_path):
     monkeypatch.setattr(up_module, "run_prepare", lambda **kwargs: calls.append("prepare"))
     monkeypatch.setattr(up_module, "run_create_vms", lambda *args, **kwargs: calls.append("create-vms"))
     monkeypatch.setattr(up_module, "run_install_agents", lambda **kwargs: calls.append("install-agents"))
+    monkeypatch.setattr(up_module, "install_portforward_service", lambda *args, **kwargs: calls.append("systemd"))
 
     runner = CliRunner()
     result = _invoke_command(
@@ -59,7 +67,7 @@ def test_up_respects_disabled_stages(monkeypatch, tmp_path):
     )
 
     assert result.exit_code == 0
-    assert calls == ["install-agents"]
+    assert calls == ["install-agents", "systemd"]
 
 
 def test_up_requires_at_least_one_stage():
@@ -72,6 +80,19 @@ def test_up_requires_at_least_one_stage():
 
     assert result.exit_code != 0
     assert "Nothing to do" in result.output
+
+
+def test_up_prepare_only_does_not_require_config_or_install_systemd(monkeypatch):
+    calls: list[str] = []
+
+    monkeypatch.setattr(up_module, "run_prepare", lambda **kwargs: calls.append("prepare"))
+    monkeypatch.setattr(up_module, "install_portforward_service", lambda *args, **kwargs: calls.append("systemd"))
+
+    runner = CliRunner()
+    result = _invoke_command(runner, up_command, ["--create-vms", "--no-create-vms", "--install-agents", "--no-install-agents"])
+
+    assert result.exit_code == 0
+    assert calls == ["prepare"]
 
 
 def test_up_reports_helpful_error_when_default_config_missing(monkeypatch, tmp_path):
@@ -103,6 +124,7 @@ def test_up_passes_debug_and_shared_progress(monkeypatch, tmp_path):
     prepare_calls: list[dict[str, object]] = []
     create_calls: list[dict[str, object]] = []
     install_calls: list[dict[str, object]] = []
+    systemd_calls: list[dict[str, object]] = []
     config_path = tmp_path / "cfg.yml"
     config_path.write_text("vms: {}\n", encoding="utf-8")
 
@@ -137,6 +159,11 @@ def test_up_passes_debug_and_shared_progress(monkeypatch, tmp_path):
     monkeypatch.setattr(up_module, "run_prepare", lambda **kwargs: prepare_calls.append(kwargs))
     monkeypatch.setattr(up_module, "run_create_vms", lambda *args, **kwargs: create_calls.append({"config_path": args[0], **kwargs}))
     monkeypatch.setattr(up_module, "run_install_agents", lambda **kwargs: install_calls.append(kwargs))
+    monkeypatch.setattr(
+        up_module,
+        "install_portforward_service",
+        lambda config_path, announce=False: systemd_calls.append({"config_path": config_path, "announce": announce}),
+    )
 
     runner = CliRunner()
     result = _invoke_command(runner, up_command, ["--config", str(config_path), "--debug"])
@@ -154,3 +181,4 @@ def test_up_passes_debug_and_shared_progress(monkeypatch, tmp_path):
     assert install_calls[0]["debug"] is True
     assert install_calls[0]["progress"] is not None
     assert hasattr(install_calls[0]["progress"], "add_task")
+    assert systemd_calls == [{"config_path": config_path, "announce": True}]

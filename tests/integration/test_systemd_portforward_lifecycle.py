@@ -6,13 +6,14 @@ from pathlib import Path
 
 import pytest
 
+from agsekit_cli.commands.systemd import _resolve_agsekit_bin
 from tests.integration.utils import (
     REPO_ROOT,
+    clean_env,
     random_vm_name,
     require_host_tools,
     run_cmd,
     run_cli,
-    skip_if_systemd_user_unavailable,
     start_cli,
     wait_for,
     write_config,
@@ -141,17 +142,52 @@ def test_portforward_rules_start_forwarders(portforward_config) -> None:
         _stop_vm_process(vm_name, http_pid)
 
 
-def test_systemd_install_and_uninstall(portforward_config) -> None:
-    skip_if_systemd_user_unavailable()
+def test_systemd_install_relinks_existing_service_and_uninstall_removes_it(
+    portforward_config,
+    preserve_portforward_user_service,
+) -> None:
     config_path, _vm_name, _host_local_port, _vm_remote_port, _vm_socks_port = portforward_config
-    env_path = Path.home() / ".config" / "agsekit" / "systemd.env"
-    unit_link = Path.home() / ".config" / "systemd" / "user" / "agsekit-portforward.service"
+    env_path = preserve_portforward_user_service["env_path"]
+    unit_link = preserve_portforward_user_service["unit_link"]
+    stale_root = config_path.parent / "stale-install"
+    stale_unit = stale_root / "systemd" / "agsekit-portforward.service"
+    stale_unit.parent.mkdir(parents=True, exist_ok=True)
+    stale_unit.write_text("[Unit]\nDescription=stale\n", encoding="utf-8")
+    unit_link.parent.mkdir(parents=True, exist_ok=True)
+    if unit_link.exists() or unit_link.is_symlink():
+        unit_link.unlink()
+    unit_link.symlink_to(stale_unit)
+    env_path.parent.mkdir(parents=True, exist_ok=True)
+    env_path.write_text(
+        "AGSEKIT_BIN=/tmp/old-agsekit\nAGSEKIT_CONFIG=/tmp/old-config.yaml\nAGSEKIT_PROJECT_DIR=/tmp/old-project\n",
+        encoding="utf-8",
+    )
+    run_cmd(["systemctl", "--user", "daemon-reload"], check=False, env=clean_env())
 
     run_cli(["systemd", "install", "--config", str(config_path), "--non-interactive"], check=True)
     assert env_path.exists()
     env_contents = env_path.read_text(encoding="utf-8")
+    assert f"AGSEKIT_BIN={_resolve_agsekit_bin().resolve()}" in env_contents
     assert f"AGSEKIT_CONFIG={config_path.resolve()}" in env_contents
+    assert f"AGSEKIT_PROJECT_DIR={REPO_ROOT.resolve()}" in env_contents
     assert unit_link.exists()
+    assert unit_link.resolve() == (REPO_ROOT / "systemd" / "agsekit-portforward.service").resolve()
+    active_result = run_cmd(
+        ["systemctl", "--user", "is-active", "agsekit-portforward"],
+        check=False,
+        env=clean_env(),
+    )
+    if active_result.returncode != 0:
+        wait_for(
+            lambda: run_cmd(
+                ["systemctl", "--user", "is-active", "agsekit-portforward"],
+                check=False,
+                env=clean_env(),
+            ).returncode
+            == 0,
+            timeout=60.0,
+            message="systemd service did not become active after install",
+        )
 
     run_cli(["systemd", "uninstall", "--non-interactive"], check=True)
     assert not unit_link.exists()

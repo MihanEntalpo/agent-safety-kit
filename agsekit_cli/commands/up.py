@@ -13,6 +13,7 @@ from . import debug_option, non_interactive_option
 from .create_vm import run_create_vms
 from .install_agents import run_install_agents
 from .prepare import run_prepare
+from .systemd import install_portforward_service
 
 
 @click.command(name="up", help=tr("up.command_help"))
@@ -85,6 +86,14 @@ def up_command(
                 True,
             )
         )
+    if config_required:
+        stages.append(
+            (
+                tr("progress.up_stage_systemd"),
+                lambda progress: install_portforward_service(resolved_config_path, announce=debug),
+                False,
+            )
+        )
 
     with ProgressManager(debug=debug) as progress:
         overall_task = progress.add_task(tr("progress.up_title"), total=len(stages))
@@ -96,3 +105,5 @@ def up_command(
             else:
                 stage_runner(progress)
             progress.advance(overall_task)
+
+    click.echo(tr("up.success"))

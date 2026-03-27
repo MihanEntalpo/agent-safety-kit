@@ -458,6 +458,11 @@ def build_destroy_vm(session: InteractiveSession) -> List[str]:
     return args
 
 
+def build_down(session: InteractiveSession) -> List[str]:
+    session.load_vms()
+    return ["down", *session.config_option()]
+
+
 def _command_builders() -> Dict[str, CommandBuilder]:
     return {
         "backup-once": build_backup_once,
@@ -484,6 +489,7 @@ def _command_builders() -> Dict[str, CommandBuilder]:
         "stop-vm": build_stop_vm,
         "restart-vm": build_restart_vm,
         "destroy-vm": build_destroy_vm,
+        "down": build_down,
         "run": build_run,
         "install-agents": build_install_agents,
         "umount": build_umount,
@@ -504,7 +510,7 @@ def _select_command(cli: click.Group, preselected: Optional[str]) -> click.Comma
         ),
         (
             tr("interactive.section_virtual_machines"),
-            ["create-vms", "create-vm", "stop-vm", "start-vm", "restart-vm", "destroy-vm"],
+            ["create-vms", "create-vm", "stop-vm", "start-vm", "restart-vm", "destroy-vm", "down"],
         ),
         (tr("interactive.section_mounts"), ["mount", "umount", "addmount", "removemount"]),
         (

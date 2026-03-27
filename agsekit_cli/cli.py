@@ -32,6 +32,7 @@ from .commands.start_vm import start_vm_command
 from .commands.stop import stop_vm_command
 from .commands.destroy_vm import destroy_vm_command
 from .commands.doctor import doctor_command
+from .commands.down import down_command
 from .commands.version import version_command
 from .config import resolve_config_path
 from .i18n import set_language, tr
@@ -49,6 +50,7 @@ COMMANDS_REQUIRING_CONFIG = {
     "mount",
     "destroy-vm",
     "doctor",
+    "down",
     "run",
     "shell",
     "ssh",
@@ -120,6 +122,7 @@ def main() -> None:
         version_command,
         status_command,
         doctor_command,
+        down_command,
         systemd_group,
         destroy_vm_command,
     ):
