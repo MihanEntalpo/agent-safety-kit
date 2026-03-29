@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import shlex
 import sys
+from dataclasses import dataclass
 from pathlib import Path
 from typing import Callable, Dict, List, Optional, Sequence, Union
 
@@ -21,6 +22,13 @@ from .i18n import tr
 from .mounts import MountConfig
 
 CommandBuilder = Callable[["InteractiveSession"], List[str]]
+
+
+@dataclass(frozen=True)
+class InteractiveCommandEntry:
+    key: str
+    label: str
+    help_text: str
 
 
 def is_interactive_terminal() -> bool:
@@ -386,8 +394,17 @@ def build_portforward(session: InteractiveSession) -> List[str]:
     return ["portforward", *session.config_option()]
 
 
-def build_systemd(_: InteractiveSession) -> List[str]:
-    return ["systemd", "install"]
+def build_systemd_install(session: InteractiveSession) -> List[str]:
+    session._prompt_config_path()
+    return ["systemd", "install", *session.config_option()]
+
+
+def build_systemd_uninstall(_: InteractiveSession) -> List[str]:
+    return ["systemd", "uninstall"]
+
+
+def build_systemd_status(_: InteractiveSession) -> List[str]:
+    return ["systemd", "status"]
 
 
 def build_start_vm(session: InteractiveSession) -> List[str]:
@@ -484,7 +501,9 @@ def _command_builders() -> Dict[str, CommandBuilder]:
         "shell": build_shell,
         "ssh": build_ssh,
         "portforward": build_portforward,
-        "systemd": build_systemd,
+        "systemd-install": build_systemd_install,
+        "systemd-uninstall": build_systemd_uninstall,
+        "systemd-status": build_systemd_status,
         "start-vm": build_start_vm,
         "stop-vm": build_stop_vm,
         "restart-vm": build_restart_vm,
@@ -496,17 +515,42 @@ def _command_builders() -> Dict[str, CommandBuilder]:
     }
 
 
-def _select_command(cli: click.Group, preselected: Optional[str]) -> click.Command:
+def _resolve_interactive_entries(cli: click.Group) -> Dict[str, InteractiveCommandEntry]:
     commands: Dict[str, click.Command] = cli.commands
-    if preselected:
-        preselected_command = commands.get(preselected)
-        if preselected_command:
-            return preselected_command
+    entries: Dict[str, InteractiveCommandEntry] = {}
+    for name, command in commands.items():
+        entries[name] = InteractiveCommandEntry(
+            key=name,
+            label=command.name,
+            help_text=command.help or command.short_help or "",
+        )
+    entries["systemd-install"] = InteractiveCommandEntry(
+        key="systemd-install",
+        label=tr("interactive.systemd_install_label"),
+        help_text=tr("systemd.install_help"),
+    )
+    entries["systemd-uninstall"] = InteractiveCommandEntry(
+        key="systemd-uninstall",
+        label=tr("interactive.systemd_uninstall_label"),
+        help_text=tr("systemd.uninstall_help"),
+    )
+    entries["systemd-status"] = InteractiveCommandEntry(
+        key="systemd-status",
+        label=tr("interactive.systemd_status_label"),
+        help_text=tr("systemd.status_help"),
+    )
+    return entries
+
+
+def _select_command(cli: click.Group, builders: Dict[str, CommandBuilder], preselected: Optional[str]) -> str:
+    entries = _resolve_interactive_entries(cli)
+    if preselected and preselected in builders:
+        return preselected
 
     sections = [
         (
             tr("interactive.section_init_config"),
-            ["prepare", "up", "config-example", "config-gen", "pip-upgrade", "status"],
+            ["up", "prepare", "config-example", "config-gen", "pip-upgrade", "status"],
         ),
         (
             tr("interactive.section_virtual_machines"),
@@ -517,7 +561,7 @@ def _select_command(cli: click.Group, preselected: Optional[str]) -> click.Comma
             tr("interactive.section_agents_shell"),
             ["install-agents", "run", "shell", "ssh", "portforward"],
         ),
-        (tr("interactive.section_daemon_control"), ["systemd"]),
+        (tr("interactive.section_daemon_control"), ["systemd-install", "systemd-uninstall", "systemd-status"]),
         (
             tr("interactive.section_manual_backup"),
             ["backup-once", "backup-repeated", "backup-repeated-mount", "backup-repeated-all", "backup-clean"],
@@ -528,12 +572,11 @@ def _select_command(cli: click.Group, preselected: Optional[str]) -> click.Comma
     for title, names in sections:
         choices.append(questionary.Separator(title))
         for name in names:
-            command = commands.get(name)
-            if command:
-                choices.append(
-                    questionary.Choice(f"{command.name:<22} {command.help or command.short_help or ''}", value=command)
-                )
-    selected: click.Command = _select_from_list(tr("interactive.command_select"), choices)
+            entry = entries.get(name)
+            if entry and name in builders:
+                choices.append(questionary.Choice(f"{entry.label:<22} {entry.help_text}", value=entry.key))
+    selected = _select_from_list(tr("interactive.command_select"), choices)
+    assert isinstance(selected, str)
     return selected
 
 
@@ -553,10 +596,10 @@ def run_interactive(
 ) -> None:
     builders = _command_builders()
     session = InteractiveSession(default_config_path)
-    command = _select_command(cli, preselected_command)
-    builder = builders.get(command.name)
+    command_name = _select_command(cli, builders, preselected_command)
+    builder = builders.get(command_name)
     if builder is None:
-        raise click.ClickException(tr("interactive.command_not_available", command=command.name))
+        raise click.ClickException(tr("interactive.command_not_available", command=command_name))
 
     args = builder(session)
     _confirm_and_run(cli, args)

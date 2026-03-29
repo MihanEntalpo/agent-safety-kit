@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "agsekit"
-version = "1.5.1"
+version = "1.5.2"
 description = "Agent Safety Kit command-line utilities"
 authors = [
   { name = "Mihanentalpo", email = "mihanentalpo@yandex.ru" },
@@ -39,6 +39,7 @@ agsekit_cli = [
   "ansible/bundles/*.yml",
   "vm_installers/*.sh",
   "run_with_proxychains.sh",
+  "systemd/*.service",
   "locales/*.json",
 ]
 

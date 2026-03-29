@@ -1,5 +1,10 @@
 # Agent-Safety-Kit versions history
 
+## 1.5.2 - fixed systemd portforward
+
+* Made system portforward actually work
+* Added systemd status command
+
 ## 1.5.1 - added down command, polishing agsekit up command
 
 * Added a final success message after `agsekit up` completes successfully

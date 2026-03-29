@@ -4,7 +4,7 @@ import shlex
 import shutil
 import subprocess
 from pathlib import Path
-from typing import List, Optional
+from typing import Dict, List, Optional
 
 import click
 
@@ -13,9 +13,12 @@ from ..i18n import tr
 from . import non_interactive_option
 
 ENV_FILENAME = "systemd.env"
-UNIT_RELATIVE_PATH = Path("systemd") / "agsekit-portforward.service"
 SERVICE_NAME = "agsekit-portforward"
+UNIT_FILENAME = f"{SERVICE_NAME}.service"
+UNIT_RELATIVE_PATH = Path("systemd") / UNIT_FILENAME
 LINKED_UNIT_PATH = Path.home() / ".config" / "systemd" / "user" / f"{SERVICE_NAME}.service"
+PACKAGED_UNIT_PATH = Path(__file__).resolve().parents[1] / "systemd" / UNIT_FILENAME
+REPO_UNIT_PATH = Path(__file__).resolve().parents[2] / UNIT_RELATIVE_PATH
 
 
 def _resolve_agsekit_bin() -> Path:
@@ -45,6 +48,32 @@ def _run_systemctl(command: List[str], *, announce: bool = True) -> None:
         click.echo(result.stdout.rstrip())
     if announce and result.stderr:
         click.echo(result.stderr.rstrip(), err=True)
+
+
+def _query_systemctl(command: List[str]) -> subprocess.CompletedProcess[str]:
+    return subprocess.run(command, capture_output=True, text=True)
+
+
+def _resolve_unit_path(*, project_dir: Optional[Path] = None) -> Path:
+    candidates: list[Path] = []
+    seen: set[Path] = set()
+    for candidate in (
+        PACKAGED_UNIT_PATH,
+        REPO_UNIT_PATH,
+        ((project_dir.resolve() if project_dir else None) / UNIT_RELATIVE_PATH) if project_dir else None,
+    ):
+        if candidate is None:
+            continue
+        if candidate in seen:
+            continue
+        seen.add(candidate)
+        candidates.append(candidate)
+
+    for candidate in candidates:
+        if candidate.exists():
+            return candidate
+
+    raise click.ClickException(tr("systemd.unit_missing", path=candidates[0]))
 
 
 def write_systemd_env(config_path: Optional[Path], *, project_dir: Optional[Path] = None, announce: bool = True) -> Path:
@@ -98,10 +127,7 @@ def install_portforward_service(
     resolved_project_dir = (project_dir or Path.cwd()).resolve()
     write_systemd_env(config_path, project_dir=resolved_project_dir, announce=announce)
 
-    unit_path = resolved_project_dir / UNIT_RELATIVE_PATH
-    if not unit_path.exists():
-        raise click.ClickException(tr("systemd.unit_missing", path=unit_path))
-
+    unit_path = _resolve_unit_path(project_dir=resolved_project_dir)
     _ensure_current_unit_link(unit_path, announce=announce)
     _run_systemctl(["systemctl", "--user", "daemon-reload"], announce=announce)
     _run_systemctl(["systemctl", "--user", "restart", SERVICE_NAME], announce=announce)
@@ -117,11 +143,7 @@ def stop_portforward_service(*, announce: bool = True) -> bool:
 
 
 def uninstall_portforward_service(*, project_dir: Optional[Path] = None, announce: bool = True) -> None:
-    resolved_project_dir = (project_dir or Path.cwd()).resolve()
-    unit_path = resolved_project_dir / UNIT_RELATIVE_PATH
-    if not unit_path.exists():
-        raise click.ClickException(tr("systemd.unit_missing", path=unit_path))
-
+    _resolve_unit_path(project_dir=(project_dir or Path.cwd()).resolve())
     stop_portforward_service(announce=announce)
     _run_systemctl(["systemctl", "--user", "disable", SERVICE_NAME], announce=announce)
     try:
@@ -130,6 +152,30 @@ def uninstall_portforward_service(*, project_dir: Optional[Path] = None, announc
     except OSError as exc:
         raise click.ClickException(str(exc))
     _run_systemctl(["systemctl", "--user", "daemon-reload"], announce=announce)
+
+
+def _format_systemctl_state(result: subprocess.CompletedProcess[str]) -> str:
+    for value in (result.stdout.strip(), result.stderr.strip()):
+        if value:
+            return value
+    return tr("systemd.status_unknown")
+
+
+def get_portforward_service_status() -> Dict[str, str]:
+    linked_target = tr("systemd.status_not_linked")
+    if LINKED_UNIT_PATH.exists() or LINKED_UNIT_PATH.is_symlink():
+        linked_target = str(LINKED_UNIT_PATH.resolve(strict=False))
+
+    enabled_result = _query_systemctl(["systemctl", "--user", "is-enabled", SERVICE_NAME])
+    active_result = _query_systemctl(["systemctl", "--user", "is-active", SERVICE_NAME])
+
+    return {
+        "service": f"{SERVICE_NAME}.service",
+        "unit_path": str(_resolve_unit_path()),
+        "linked_unit": linked_target,
+        "enabled": _format_systemctl_state(enabled_result),
+        "active": _format_systemctl_state(active_result),
+    }
 
 
 @click.group(name="systemd", help=tr("systemd.group_help"))
@@ -167,3 +213,17 @@ def systemd_uninstall_command(non_interactive: bool) -> None:
     del non_interactive
 
     uninstall_portforward_service(project_dir=Path.cwd(), announce=True)
+
+
+@systemd_group.command(name="status", help=tr("systemd.status_help"))
+@non_interactive_option
+def systemd_status_command(non_interactive: bool) -> None:
+    """Показывает состояние user-юнита для portforward."""
+    del non_interactive
+
+    status = get_portforward_service_status()
+    click.echo(tr("systemd.status_service", service=status["service"]))
+    click.echo(tr("systemd.status_unit_path", path=status["unit_path"]))
+    click.echo(tr("systemd.status_linked_unit", path=status["linked_unit"]))
+    click.echo(tr("systemd.status_enabled", state=status["enabled"]))
+    click.echo(tr("systemd.status_active", state=status["active"]))

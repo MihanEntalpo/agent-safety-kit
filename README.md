@@ -124,8 +124,9 @@ Most commands that interact with Multipass support `--debug`; in this mode the C
 * `agsekit down [--config <path>] [-f|--force] [--debug]` — stops every VM from the configuration. Before shutting VMs down, the command checks configured agent processes the same way as `status`: if any are still running, it prints which agents are active in which VMs and working directories, then asks for confirmation. Before powering VMs off, the command also stops the user systemd service for `agsekit portforward` if it is registered. Use `--force` to skip the prompt and power off all configured VMs immediately.
 * `agsekit destroy-vm <vm_name> [--config <path>] [-y] [--debug]` — deletes the specified VM from Multipass. Without `-y`, the CLI asks for interactive confirmation.
 * `agsekit destroy-vm --all [--config <path>] [-y] [--debug]` — deletes every VM from the configuration, with the same confirmation requirement.
-* `agsekit systemd install [--config <path>]` — writes `~/.config/agsekit/systemd.env` with absolute paths to `agsekit`, the config, and the current project directory, then registers and starts the user unit from `systemd/agsekit-portforward.service` via `systemctl --user` (link, daemon-reload, restart, enable). If the user service already points to another `agsekit` installation, the command relinks and restarts it so it uses the current one.
-* `agsekit systemd uninstall` — stops and disables the user unit, then removes the linked `systemd/agsekit-portforward.service` from systemd via `systemctl --user`.
+* `agsekit systemd install [--config <path>]` — writes `~/.config/agsekit/systemd.env` with absolute paths to `agsekit`, the config, and the current project directory, then registers and starts the bundled user unit for `portforward` via `systemctl --user` (link, daemon-reload, restart, enable). If the user service already points to another `agsekit` installation, the command relinks and restarts it so it uses the current one.
+* `agsekit systemd uninstall` — stops and disables the user unit, then removes the linked `agsekit-portforward.service` from user systemd.
+* `agsekit systemd status` — shows the current user-systemd state of `agsekit-portforward`: the bundled unit path, the linked user unit path, and the `is-enabled` / `is-active` states reported by `systemctl --user`.
 
 ### Mount management
 

@@ -122,8 +122,9 @@
 * `agsekit down [--config <path>] [-f|--force] [--debug]` — выключает все ВМ из конфигурации. Перед выключением команда проверяет запущенные процессы настроенных агентов так же, как это делает `status`: если агенты ещё работают, CLI показывает, какие агенты активны в каких ВМ и из каких рабочих директорий, а затем запрашивает подтверждение. Перед остановкой ВМ команда также останавливает user systemd service для `agsekit portforward`, если он зарегистрирован. Флаг `--force` пропускает запрос и сразу выключает все настроенные ВМ.
 * `agsekit destroy-vm <vm_name> [--config <path>] [-y] [--debug]` — удаляет указанную ВМ из Multipass. Без `-y` команда запрашивает интерактивное подтверждение.
 * `agsekit destroy-vm --all [--config <path>] [-y] [--debug]` — удаляет все ВМ из конфигурации с таким же подтверждением.
-* `agsekit systemd install [--config <path>]` — записывает `~/.config/agsekit/systemd.env` с абсолютными путями к `agsekit`, конфигу и текущему каталогу проекта, затем регистрирует и запускает user-юнит из `systemd/agsekit-portforward.service` через `systemctl --user` (link, daemon-reload, restart, enable). Если user service уже указывает на другую инсталляцию `agsekit`, команда перелинкует и перезапустит его так, чтобы он использовал текущую.
-* `agsekit systemd uninstall` — останавливает и отключает user-юнит, затем удаляет ссылку на `systemd/agsekit-portforward.service` из systemd через `systemctl --user`.
+* `agsekit systemd install [--config <path>]` — записывает `~/.config/agsekit/systemd.env` с абсолютными путями к `agsekit`, конфигу и текущему каталогу проекта, затем регистрирует и запускает bundled user-юнит для `portforward` через `systemctl --user` (link, daemon-reload, restart, enable). Если user service уже указывает на другую инсталляцию `agsekit`, команда перелинкует и перезапустит его так, чтобы он использовал текущую.
+* `agsekit systemd uninstall` — останавливает и отключает user-юнит, затем удаляет ссылку на `agsekit-portforward.service` из user systemd.
+* `agsekit systemd status` — показывает текущее состояние `agsekit-portforward` в user-systemd: путь к bundled unit, путь к подключённому user unit и состояния `is-enabled` / `is-active`, которые возвращает `systemctl --user`.
 
 ### Управление монтированием
 

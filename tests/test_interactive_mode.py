@@ -242,3 +242,82 @@ def test_build_run_skips_vm_argument_when_auto_selected(monkeypatch, tmp_path):
     args = interactive.build_run(DummySession())
 
     assert args == ["run", "qwen", str(tmp_path), "--config", "config.yaml"]
+
+
+def test_build_systemd_entries(monkeypatch):
+    prompts = ["custom-config.yaml"]
+
+    class DummySession:
+        def __init__(self):
+            self.config_path = Path("default-config.yaml")
+
+        def _prompt_config_path(self):
+            self.config_path = Path(prompts.pop(0))
+            return self.config_path
+
+        def config_option(self):
+            return ["--config", str(self.config_path)]
+
+    session = DummySession()
+
+    assert interactive.build_systemd_install(session) == ["systemd", "install", "--config", "custom-config.yaml"]
+    assert interactive.build_systemd_uninstall(session) == ["systemd", "uninstall"]
+    assert interactive.build_systemd_status(session) == ["systemd", "status"]
+
+
+def test_select_command_places_up_before_prepare_and_lists_systemd_actions(monkeypatch):
+    dummy_cli = click.Group()
+
+    @dummy_cli.command(name="prepare", help="prepare help")
+    def prepare_command():
+        pass
+
+    @dummy_cli.command(name="up", help="up help")
+    def up_command():
+        pass
+
+    @dummy_cli.command(name="config-example", help="config-example help")
+    def config_example_command():
+        pass
+
+    @dummy_cli.command(name="config-gen", help="config-gen help")
+    def config_gen_command():
+        pass
+
+    @dummy_cli.command(name="pip-upgrade", help="pip-upgrade help")
+    def pip_upgrade_command():
+        pass
+
+    @dummy_cli.command(name="status", help="status help")
+    def status_command():
+        pass
+
+    captured: Dict[str, Any] = {}
+
+    class Prompt:
+        def ask(self):
+            return "up"
+
+    class FakeQuestionary:
+        Choice = interactive.questionary.Choice
+        Separator = interactive.questionary.Separator
+
+        @staticmethod
+        def select(_message, *, choices, use_shortcuts=True):
+            del use_shortcuts
+            captured["titles"] = [choice.title for choice in choices if hasattr(choice, "title")]
+            return Prompt()
+
+    monkeypatch.setattr(interactive, "questionary", FakeQuestionary)
+
+    builders = interactive._command_builders()
+    selected = interactive._select_command(dummy_cli, builders, None)
+
+    assert selected == "up"
+    titles = captured["titles"]
+    up_index = next(index for index, title in enumerate(titles) if title.strip().startswith("up "))
+    prepare_index = next(index for index, title in enumerate(titles) if title.strip().startswith("prepare "))
+    assert up_index < prepare_index
+    assert any("systemd install" in title for title in titles)
+    assert any("systemd uninstall" in title for title in titles)
+    assert any("systemd status" in title for title in titles)

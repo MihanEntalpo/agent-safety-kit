@@ -221,10 +221,13 @@
 - `pip-upgrade`
 - `version`
 - `list-bundles`
+- `systemd install`
 - `systemd uninstall`
+- `systemd status`
 
 Важно:
 - `systemd install` технически может быть вызван без существующего файла конфига (путь резолвится), но practically предназначен для сценария, когда конфиг уже есть, потому что service запускает `portforward`.
+- `systemd status` не читает YAML-конфиг и показывает только состояние user systemd unit `agsekit-portforward`.
 
 ### 7.2 Команды, которые работают через конфиг
 Практически все остальные команды читают и валидируют конфиг: VM lifecycle, mounts, agent install/run, backup по mount, порт-форвардинг.
@@ -237,7 +240,7 @@
 - virtual machines
 - mounts
 - agents/shell
-- daemon control
+- daemon control (`systemd install`, `systemd uninstall`, `systemd status`)
 - manual backup
 
 Поведение fallback:
@@ -604,13 +607,16 @@
 - поднимает и мониторит SSH-туннели по `port-forwarding` правилам из конфига.
 - при ошибке туннеля сообщает, что `remote`-проброс на порты ниже 1024 внутри VM может быть причиной (из-за ограничения sshd).
 
-#### `agsekit systemd install/uninstall`
+#### `agsekit systemd install/uninstall/status`
 - `install`:
   - генерирует `~/.config/agsekit/systemd.env`;
   - регистрирует и включает user unit для `portforward` (юнит не зависит от `WorkingDirectory`, используется абсолютный путь конфига);
-  - если link на unit уже существует, но указывает на другую инсталляцию/checkout `agsekit`, перелинковывает его на текущий `systemd/agsekit-portforward.service` и делает `restart`, чтобы подхватить новый `ExecStart` и env.
+  - использует bundled unit из самой установки `agsekit`, а не ищет `systemd/agsekit-portforward.service` в текущем рабочем каталоге;
+  - если link на unit уже существует, но указывает на другую инсталляцию/checkout `agsekit`, перелинковывает его на текущий bundled unit и делает `restart`, чтобы подхватить новый `ExecStart` и env.
 - `uninstall`:
   - останавливает/отключает/unlink unit.
+- `status`:
+  - показывает имя сервиса, путь к bundled unit, текущую user-systemd ссылку на unit, а также состояния `is-enabled` и `is-active`.
 - `up` использует ту же внутреннюю логику `install` автоматически после VM/agent-этапов, когда работает с конфигом.
 - `down` использует ту же внутреннюю логику остановки unit, но не делает `disable`/`unlink`.
 
@@ -731,7 +737,6 @@ Dependency resolution выполняется кодом до запуска play
 ## 13. Ограничения и текущие особенности
 
 - Нельзя in-place менять `cpu/ram/disk` у уже созданной VM (только детект mismatch).
-- `systemd install/uninstall` ожидает unit-файл `systemd/agsekit-portforward.service` в текущем рабочем каталоге.
 - `shell` не включает автоматически порт-форвардинг; для постоянных туннелей используется `portforward`/`systemd`.
 - Источником истины для текущего поведения являются код и тесты.
 
