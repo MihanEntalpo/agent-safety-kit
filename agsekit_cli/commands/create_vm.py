@@ -7,7 +7,7 @@ import click
 
 from . import debug_option, non_interactive_option
 
-from ..config import ConfigError, load_config, load_vms_config, resolve_config_path
+from ..config import ConfigError, load_config, load_global_config, load_vms_config, resolve_config_path
 from ..debug import debug_scope
 from ..i18n import tr
 from ..vm import MultipassError, create_all_vms_from_config, create_vm_from_config
@@ -24,6 +24,7 @@ def run_create_vms(
     resolved_path = resolve_config_path(Path(config_path) if config_path else None)
     try:
         config = load_config(resolved_path)
+        global_config = load_global_config(config)
         vms = load_vms_config(config)
     except ConfigError as exc:
         raise click.ClickException(str(exc))
@@ -44,7 +45,10 @@ def run_create_vms(
 
         if not progress:
             click.echo(tr("prepare.ensure_keypair"))
-        _private_key, public_key = ensure_host_ssh_keypair(verbose=debug)
+        _private_key, public_key = ensure_host_ssh_keypair(
+            ssh_dir=global_config.ssh_keys_folder,
+            verbose=debug,
+        )
 
         if progress is None:
             with ProgressManager(debug=debug) as owned_progress:
@@ -128,6 +132,7 @@ def create_vm_command(vm_name: Optional[str], config_path: Optional[str], debug:
 
     try:
         config = load_config(resolved_path)
+        global_config = load_global_config(config)
         vms = load_vms_config(config)
     except ConfigError as exc:
         raise click.ClickException(str(exc))
@@ -157,7 +162,10 @@ def create_vm_command(vm_name: Optional[str], config_path: Optional[str], debug:
 
         click.echo(message)
         click.echo(tr("prepare.ensure_keypair"))
-        _private_key, public_key = ensure_host_ssh_keypair(verbose=debug)
+        _private_key, public_key = ensure_host_ssh_keypair(
+            ssh_dir=global_config.ssh_keys_folder,
+            verbose=debug,
+        )
         bundles = vms[target_vm].install
         try:
             with ProgressManager(debug=debug) as progress:

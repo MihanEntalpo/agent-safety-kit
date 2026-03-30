@@ -9,6 +9,7 @@ if str(ROOT) not in sys.path:
     sys.path.insert(0, str(ROOT))
 
 from agsekit_cli.commands.config_gen import config_gen_command
+from agsekit_cli.config import DEFAULT_PORTFORWARD_CONFIG_CHECK_INTERVAL_SEC
 
 
 def test_config_gen_creates_config_file(tmp_path):
@@ -18,6 +19,9 @@ def test_config_gen_creates_config_file(tmp_path):
     runner = CliRunner()
     user_input = "\n".join(
         [
+            "",  # global ssh_keys_folder
+            "",  # global systemd_env_folder
+            "",  # global portforward interval
             "",  # Имя ВМ (по умолчанию agent-ubuntu)
             "",  # vCPU
             "",  # RAM
@@ -48,6 +52,11 @@ def test_config_gen_creates_config_file(tmp_path):
 
     assert result.exit_code == 0
     config = yaml.safe_load(config_path.read_text(encoding="utf-8"))
+    assert config["global"] == {
+        "ssh_keys_folder": None,
+        "systemd_env_folder": None,
+        "portforward_config_check_interval_sec": DEFAULT_PORTFORWARD_CONFIG_CHECK_INTERVAL_SEC,
+    }
     vm = config["vms"]["agent-ubuntu"]
     assert vm["cpu"] == 2
     assert vm["ram"] == "4G"
@@ -73,6 +82,9 @@ def test_config_gen_refuses_to_overwrite(tmp_path, monkeypatch):
     runner = CliRunner()
     user_input = "\n".join(
         [
+            "",  # global ssh_keys_folder
+            "",  # global systemd_env_folder
+            "",  # global portforward interval
             "",  # Имя ВМ
             "",  # vCPU
             "",  # RAM
@@ -105,6 +117,9 @@ def test_config_gen_writes_agent_proxychains(tmp_path):
     runner = CliRunner()
     user_input = "\n".join(
         [
+            "",  # global ssh_keys_folder
+            "",  # global systemd_env_folder
+            "",  # global portforward interval
             "",  # VM name
             "",  # vCPU
             "",  # RAM
@@ -151,6 +166,9 @@ def test_config_gen_writes_explicit_empty_agent_proxychains(tmp_path):
     runner = CliRunner()
     user_input = "\n".join(
         [
+            "",  # global ssh_keys_folder
+            "",  # global systemd_env_folder
+            "",  # global portforward interval
             "",  # VM name
             "",  # vCPU
             "",  # RAM
@@ -197,6 +215,9 @@ def test_config_gen_writes_vm_allowed_agents(tmp_path):
     runner = CliRunner()
     user_input = "\n".join(
         [
+            "",  # global ssh_keys_folder
+            "",  # global systemd_env_folder
+            "",  # global portforward interval
             "",  # VM name
             "",  # vCPU
             "",  # RAM
@@ -228,3 +249,43 @@ def test_config_gen_writes_vm_allowed_agents(tmp_path):
     assert result.exit_code == 0
     config = yaml.safe_load(config_path.read_text(encoding="utf-8"))
     assert config["vms"]["agent-ubuntu"]["allowed_agents"] == ["qwen", "codex"]
+
+
+def test_config_gen_prompts_and_writes_custom_global_settings(tmp_path):
+    config_path = tmp_path / "config.yaml"
+    ssh_dir = tmp_path / "custom-ssh"
+    env_dir = tmp_path / "custom-env"
+
+    runner = CliRunner()
+    user_input = "\n".join(
+        [
+            str(ssh_dir),  # global ssh_keys_folder
+            str(env_dir),  # global systemd_env_folder
+            "21",  # global portforward interval
+            "",  # VM name
+            "",  # vCPU
+            "",  # RAM
+            "",  # disk
+            "",  # vm proxychains
+            "",  # vm allowed_agents
+            "",  # cloud-init
+            "n",  # add one more VM
+            "n",  # add mount
+            "n",  # add agent
+            "",  # destination
+        ]
+    ) + "\n"
+
+    result = runner.invoke(
+        config_gen_command,
+        ["--config", str(config_path), "--overwrite"],
+        input=user_input,
+    )
+
+    assert result.exit_code == 0
+    config = yaml.safe_load(config_path.read_text(encoding="utf-8"))
+    assert config["global"] == {
+        "ssh_keys_folder": str(ssh_dir),
+        "systemd_env_folder": str(env_dir),
+        "portforward_config_check_interval_sec": 21,
+    }

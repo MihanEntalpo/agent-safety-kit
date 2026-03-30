@@ -144,3 +144,28 @@ def test_create_vm_debug_uses_dummy_progress_manager(monkeypatch, tmp_path):
     assert prepare_kwargs[0]["debug"] is True
     assert isinstance(prepare_kwargs[0]["progress"], DummyProgressManager)
     assert prepare_kwargs[0]["step_task_id"] == 0
+
+
+def test_create_vm_uses_ssh_keys_folder_from_main_config(monkeypatch, tmp_path):
+    config_path = tmp_path / "config.yaml"
+    ssh_dir = tmp_path / "custom-ssh"
+    config_path.write_text(
+        f"global:\n  ssh_keys_folder: {ssh_dir}\nvms:\n  agent:\n    cpu: 1\n    ram: 1G\n    disk: 5G\n",
+        encoding="utf-8",
+    )
+    ensure_kwargs = {}
+
+    monkeypatch.setattr(create_vm_module, "create_vm_from_config", lambda path, vm_name: f"created {vm_name}")
+    monkeypatch.setattr(
+        create_vm_module,
+        "ensure_host_ssh_keypair",
+        lambda *args, **kwargs: ensure_kwargs.update(kwargs) or (Path("id_rsa"), Path("id_rsa.pub")),
+    )
+    monkeypatch.setattr(create_vm_module, "prepare_vm", lambda *args, **kwargs: None)
+
+    runner = CliRunner()
+    result = _invoke_command(runner, create_vm_command, ["--config", str(config_path)])
+
+    assert result.exit_code == 0
+    assert ensure_kwargs["ssh_dir"] == ssh_dir.resolve()
+    assert ensure_kwargs["verbose"] is False

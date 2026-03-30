@@ -3,6 +3,7 @@ from __future__ import annotations
 import os
 import shutil
 import subprocess
+from pathlib import Path
 from typing import Optional
 
 import click
@@ -13,6 +14,7 @@ from ..i18n import tr
 from ..progress import ProgressManager
 from ..vm_prepare import ensure_host_ssh_keypair
 from . import debug_option, non_interactive_option
+from ..config import load_global_config_from_path
 
 
 def _install_multipass(*, quiet: bool = False) -> None:
@@ -78,7 +80,7 @@ def _install_ansible_collection() -> None:
         raise click.ClickException(str(exc))
 
 
-def run_prepare(*, debug: bool, progress: Optional[ProgressManager] = None) -> None:
+def run_prepare(*, debug: bool, config_path: Optional[str] = None, progress: Optional[ProgressManager] = None) -> None:
     task_id = None
 
     def _update(description: str) -> None:
@@ -88,6 +90,11 @@ def run_prepare(*, debug: bool, progress: Optional[ProgressManager] = None) -> N
     def _advance() -> None:
         if progress and task_id is not None:
             progress.advance(task_id)
+
+    global_config = load_global_config_from_path(
+        Path(config_path) if config_path else None,
+        allow_missing=True,
+    )
 
     with debug_scope(debug):
         _update(tr("progress.up_prepare_multipass"))
@@ -101,7 +108,7 @@ def run_prepare(*, debug: bool, progress: Optional[ProgressManager] = None) -> N
         _update(tr("progress.up_prepare_ssh"))
         if not progress:
             click.echo(tr("prepare.ensure_keypair"))
-        ensure_host_ssh_keypair(verbose=debug)
+        ensure_host_ssh_keypair(ssh_dir=global_config.ssh_keys_folder, verbose=debug)
         _advance()
 
 
@@ -120,6 +127,4 @@ def prepare_command(non_interactive: bool, config_path: Optional[str], debug: bo
     """Install Multipass dependencies on supported hosts and prepare VMs."""
     # not used parameter, explicitly removing it so IDEs/linters do not complain
     del non_interactive
-    del config_path
-
-    run_prepare(debug=debug)
+    run_prepare(debug=debug, config_path=config_path)

@@ -8,7 +8,11 @@ import yaml
 from yaml import YAMLError
 
 from . import non_interactive_option
-from ..config import ALLOWED_AGENT_TYPES, resolve_config_path
+from ..config import (
+    ALLOWED_AGENT_TYPES,
+    DEFAULT_PORTFORWARD_CONFIG_CHECK_INTERVAL_SEC,
+    resolve_config_path,
+)
 from ..i18n import tr
 
 
@@ -25,6 +29,30 @@ def _parse_allowed_agents(raw_value: str) -> List[str]:
     if not items or any(not item for item in items):
         raise ValueError
     return items
+
+
+def _prompt_optional_path(message: str) -> Optional[str]:
+    value = click.prompt(
+        message,
+        default="",
+        show_default=False,
+    ).strip()
+    if not value:
+        return None
+    return str(Path(value).expanduser())
+
+
+def _prompt_global() -> Dict[str, object]:
+    click.echo(tr("config_gen.global_intro"))
+
+    return {
+        "ssh_keys_folder": _prompt_optional_path(tr("config_gen.global_ssh_keys_folder")),
+        "systemd_env_folder": _prompt_optional_path(tr("config_gen.global_systemd_env_folder")),
+        "portforward_config_check_interval_sec": _prompt_positive_int(
+            tr("config_gen.global_portforward_interval"),
+            default=DEFAULT_PORTFORWARD_CONFIG_CHECK_INTERVAL_SEC,
+        ),
+    }
 
 
 def _prompt_cloud_init() -> Dict[str, object]:
@@ -216,6 +244,7 @@ def config_gen_command(config_path: Optional[str], overwrite: bool, non_interact
     resolved_default_path = resolve_config_path(Path(config_path) if config_path else None)
     click.echo(tr("config_gen.start"))
 
+    global_config = _prompt_global()
     vms = _prompt_vms()
     mounts = _prompt_mounts(list(vms.keys()))
     agents = _prompt_agents(list(vms.keys()))
@@ -228,7 +257,10 @@ def config_gen_command(config_path: Optional[str], overwrite: bool, non_interact
 
     destination.parent.mkdir(parents=True, exist_ok=True)
 
-    config_data: Dict[str, object] = {"vms": vms}
+    config_data: Dict[str, object] = {
+        "global": global_config,
+        "vms": vms,
+    }
     if mounts:
         config_data["mounts"] = mounts
     if agents:

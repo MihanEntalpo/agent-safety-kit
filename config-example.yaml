@@ -1,12 +1,16 @@
-vms: # параметры виртуальных машин (можно иметь несколько)
-  agent-ubuntu: # имя виртуальной машины
-    cpu: 2      # количество vCPU
-    ram: 4G     # объём оперативной памяти
-    disk: 20G   # размер диска
-    allowed_agents: qwen, codex, opencode, claude, cline # опционально: также можно список [qwen, codex]; если не указано, для VM разрешены все агенты
-    proxychains: "" # укажите адрес прокси (scheme://host:port) — agsekit сам создаст временный proxychains.conf и обернёт команды Multipass
-    cloud-init: {} # здесь можно разместить стандартный конфиг cloud-init, но он не обязателен
-    port-forwarding: # проброс портов через multipass shell при запуске агента и установке
+global: # global agsekit settings
+  ssh_keys_folder: null # if set, overrides the folder with SSH keys used to connect to VMs; default: ~/.config/agsekit/ssh
+  systemd_env_folder: null # if set, overrides the folder where agsekit writes systemd.env; default: ~/.config/agsekit
+  portforward_config_check_interval_sec: 10 # how often portforward reloads the config and reconciles tunnels
+vms: # virtual machine settings (you can define multiple VMs)
+  agent-ubuntu: # virtual machine name
+    cpu: 2      # number of vCPUs
+    ram: 4G     # amount of RAM
+    disk: 20G   # disk size
+    allowed_agents: qwen, codex, opencode, claude, cline # optional: also accepts a list like [qwen, codex]; if omitted, all agents are allowed for this VM
+    proxychains: "" # set a proxy URL (scheme://host:port); agsekit will generate a temporary proxychains.conf and wrap Multipass commands
+    cloud-init: {} # optional standard cloud-init config
+    port-forwarding: # port forwarding applied when running agents and related commands
       - type: remote
         host-addr: 127.0.0.1:80
         vm-addr: 127.0.0.1:8080
@@ -15,30 +19,30 @@ vms: # параметры виртуальных машин (можно имет
         vm-addr: 127.0.0.1:5432
       - type: socks5
         vm-addr: 127.0.0.1:8088
-    install: # комплекты ПО, которые будут установлены в ВМ при create-vm/create-vms
-      - python        # pyenv + последняя стабильная версия Python
-      - nodejs:20     # nvm + Node.js версии 20
+    install: # software bundles installed into the VM during create-vm/create-vms
+      - python        # pyenv + latest stable Python
+      - nodejs:20     # nvm + Node.js version 20
       - rust          # rustup + toolchain
 mounts:
-  - source: /host/path/project            # путь к исходной папке на хосте
-    target: /home/ubuntu/project          # точка монтирования внутри ВМ; если не указана, будет /home/ubuntu/<имя_папки_source>
-    backup: /host/backups/project         # каталог для бэкапов; если не указан, будет backups-<имя_папки> рядом с source
-    allowed_agents: qwen, codex           # опционально: также можно список [qwen, codex]; пробелы после запятой игнорируются
-    interval: 5                           # интервал бэкапа в минутах; по умолчанию 5
-    max_backups: 100                      # сколько снапшотов хранить; по умолчанию 100
-    backup_clean_method: thin             # метод очистки (tail или thin); по умолчанию thin
-    vm: agent-ubuntu # имя VM, если не указан - берётся первая VM из конфигурации
+  - source: /host/path/project            # source folder path on the host
+    target: /home/ubuntu/project          # mount point inside the VM; if omitted, /home/ubuntu/<source_folder_name> is used
+    backup: /host/backups/project         # backup directory; if omitted, backups-<folder_name> next to source is used
+    allowed_agents: qwen, codex           # optional: also accepts a list like [qwen, codex]; spaces after commas are ignored
+    interval: 5                           # backup interval in minutes; default: 5
+    max_backups: 100                      # number of snapshots to keep; default: 100
+    backup_clean_method: thin             # cleanup method (tail or thin); default: thin
+    vm: agent-ubuntu # VM name; if omitted, the first VM from the config is used
 agents:
-  qwen: # имя агента, можно добавить столько, сколько нужно
-    type: qwen # тип агента: qwen, codex, opencode, codex-glibc, codex-glibc-prebuilt (используется бинарник codex-glibc-prebuilt), claude или cline
-    proxychains: "" # опционально: proxy URL агента (scheme://host:port); если поле есть, перекрывает proxychains VM даже при пустой строке
-    env: # произвольные переменные окружения, которые будут переданы агенту
+  qwen: # agent name; add as many as you need
+    type: qwen # agent type: qwen, codex, opencode, codex-glibc, codex-glibc-prebuilt (uses the codex-glibc-prebuilt binary), claude, or cline
+    proxychains: "" # optional agent proxy URL (scheme://host:port); if this field is present, it overrides the VM proxychains setting even when empty
+    env: # arbitrary environment variables passed to the agent
       OPENAI_API_KEY: "my_local_key"
       OPENAI_BASE_URL: "https://127.0.0.1:11556/v1"
       OPENAI_MODEL: "Qwen/Qwen3-Coder-30B-A3B-Instruct-FP8"
-    default-args: # аргументы, которые будут переданы агенту при запуске, если пользователь не указал их сам
+    default-args: # arguments passed to the agent unless the user overrides them explicitly
       - "--openai-api-key=my_local_key"
       - "--openai-base-url=https://127.0.0.1:11556/v1"
-    vm: agent-ubuntu # опционально: одна ВМ для агента
-    vms: agent-ubuntu # опционально: несколько ВМ (также можно [agent-ubuntu, another-vm]); объединяется с vm
-    # если vm и vms пустые/не заданы, агент считается привязанным ко всем ВМ из секции vms
+    vm: agent-ubuntu # optional: one VM for this agent
+    vms: agent-ubuntu # optional: multiple VMs (also accepts [agent-ubuntu, another-vm]); merged with vm
+    # if vm and vms are empty or omitted, the agent is treated as assigned to all VMs from the vms section

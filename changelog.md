@@ -1,5 +1,17 @@
 # Agent-Safety-Kit versions history
 
+## 1.5.3 - global config and adaptive portforward
+
+* Added a top-level `global` config section with shared settings for the whole CLI: SSH keys folder override, systemd env folder override, and portforward config reload interval
+* Updated `config-gen` to prompt for all `global` settings first and include them in generated configs
+* Updated `prepare`, `create-vm`, `create-vms`, and `ssh` to use the configurable SSH key directory from `global.ssh_keys_folder`
+* Updated `systemd install`/`up` to write `systemd.env` into `global.systemd_env_folder` while keeping compatibility via the default `~/.config/agsekit/systemd.env` path
+* Extended `agsekit portforward` to reload the config periodically and reconcile SSH tunnels when VMs or forwarded ports are added, changed, or removed
+* Improved `portforward` empty-rules behavior: it now stays running and watches the config for future forwarding rules
+* Added dedicated `systemd install`, `systemd uninstall`, and `systemd status` actions to the interactive menu and moved `up` before `prepare`
+* Added the `agsekit systemd status` command with extended user-systemd state and recent log output
+* Fixed the bundled systemd unit so environment variables from `systemd.env` are expanded correctly in `ExecStart`
+
 ## 1.5.2 - fixed systemd portforward
 
 * Made system portforward actually work

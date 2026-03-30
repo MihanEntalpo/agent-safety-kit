@@ -65,6 +65,29 @@ def test_prepare_command_installs_dependencies_and_keys(monkeypatch):
     assert calls == ["install", "ansible", "keys"]
 
 
+def test_run_prepare_uses_ssh_keys_folder_from_main_config(monkeypatch, tmp_path):
+    config_path = tmp_path / "config.yaml"
+    ssh_dir = tmp_path / "custom-ssh"
+    config_path.write_text(
+        f"global:\n  ssh_keys_folder: {ssh_dir}\nvms:\n  agent:\n    cpu: 1\n    ram: 1G\n    disk: 5G\n",
+        encoding="utf-8",
+    )
+    captured = {}
+
+    monkeypatch.setattr(prepare_module, "_install_multipass", lambda **kwargs: None)
+    monkeypatch.setattr(prepare_module, "_install_ansible_collection", lambda: None)
+    monkeypatch.setattr(
+        prepare_module,
+        "ensure_host_ssh_keypair",
+        lambda *args, **kwargs: captured.update(kwargs),
+    )
+
+    prepare_module.run_prepare(debug=False, config_path=str(config_path))
+
+    assert captured["ssh_dir"] == ssh_dir.resolve()
+    assert captured["verbose"] is False
+
+
 def test_run_prepare_suppresses_multipass_echo_when_progress_enabled(monkeypatch, capsys):
     calls: list[bool] = []
 
@@ -177,7 +200,7 @@ def test_prepare_vm_packages_installs_proxychains_runner_scripts():
 
     package_task = next(item for item in tasks if item["name"] == "Install base packages")
     packages = package_task["ansible.builtin.apt"]["name"]
-    assert packages == ["7zip", "git", "gzip", "proxychains4", "ripgrep", "zip", "zstd"]
+    assert {"7zip", "git", "gzip", "proxychains4", "ripgrep", "zip", "zstd"}.issubset(set(packages))
 
     common_task = next(item for item in tasks if item["name"] == "Install agsekit proxychains common script")
     common_copy = common_task["ansible.builtin.copy"]

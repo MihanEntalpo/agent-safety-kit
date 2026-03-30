@@ -105,6 +105,7 @@
   - проверка Multipass;
   - сравнение существующих VM и проверка ресурсов хоста;
   - запуск VM;
+  - optional `multipass launch --timeout` через env `AGSEKIT_MULTIPASS_LAUNCH_TIMEOUT_SECONDS` (если переменная не задана, extra timeout не добавляется);
   - port-forward аргументы;
   - резолв proxychains override и пути раннера.
 - `agsekit_cli/vm_prepare.py`
@@ -139,11 +140,23 @@
 3. `~/.config/agsekit/config.yaml`
 
 ### 6.2 Верхнеуровневые секции
+- `global` — глобальные настройки agsekit;
 - `vms` — описание виртуальных машин;
 - `mounts` — описание монтируемых директорий и backup-политики;
 - `agents` — описание агентных профилей запуска.
 
-### 6.3 Секция `vms`
+### 6.3 Секция `global`
+Поля:
+- `ssh_keys_folder` (optional, default `~/.config/agsekit/ssh`) — каталог с SSH-ключами хоста, используемыми для доступа к VM.
+  - используется в `prepare`, `create-vm`, `create-vms` и `ssh`;
+  - при значении `null` или отсутствии поля берётся путь по умолчанию.
+- `systemd_env_folder` (optional, default `~/.config/agsekit`) — каталог, куда записывается `systemd.env` для user-level systemd сервиса `agsekit-portforward`.
+  - используется в `systemd install` и `up`;
+  - текущий systemd unit по-прежнему читает `~/.config/agsekit/systemd.env`, поэтому при кастомном каталоге CLI создаёт compatibility symlink из стандартного пути на фактический env-файл.
+- `portforward_config_check_interval_sec` (optional, default `10`, >0) — интервал перечитывания YAML-конфига командой `portforward`.
+  - применяется и при ручном запуске `agsekit portforward`, и в systemd-демоне, потому что сервис запускает ту же CLI-команду.
+
+### 6.4 Секция `vms`
 Каждая VM:
 - `cpu` (обязателен) — число vCPU (положительное целое).
 - `ram` (обязателен) — объём RAM (строка/число, например `4G`, `4096M`).
@@ -161,7 +174,7 @@
   - если поле задано, `run` в этой VM разрешён только для перечисленных агентов в случаях, когда mount-ограничение не задано;
   - если поле отсутствует, для VM ограничение не применяется (разрешены все агенты, если не ограничены mount-ом).
 
-### 6.4 Секция `mounts`
+### 6.5 Секция `mounts`
 Поля mount entry:
 - `source` (обязателен) — адрес монтируемой папки в хостовой файловой системе.
 - `target` (optional, default `/home/ubuntu/<basename(source)>`) — адрес монтирования внутри VM.
@@ -182,7 +195,7 @@
 - `allowed_agents` валидируется как список непустых строк (из YAML-списка или строки `a, b, c`); каждое имя `strip`-ится и должно существовать в `agents`.
 - та же валидация `allowed_agents` применяется и для `vms.<vm>.allowed_agents`.
 
-### 6.5 Секция `agents`
+### 6.6 Секция `agents`
 Поля:
 - `type` (обязателен) — тип агента: `qwen`, `codex`, `opencode`, `codex-glibc`, `codex-glibc-prebuilt`, `claude`, `cline`.
   - runtime-бинарники: `qwen -> qwen`, `codex -> codex`, `opencode -> opencode`, `codex-glibc -> codex-glibc`, `codex-glibc-prebuilt -> codex-glibc-prebuilt`, `claude -> claude`, `cline -> cline`.
@@ -223,11 +236,16 @@
 - `list-bundles`
 - `systemd install`
 - `systemd uninstall`
+- `systemd start`
+- `systemd stop`
+- `systemd restart`
 - `systemd status`
 
 Важно:
+- `prepare` может работать без YAML-конфига, но если конфиг есть и в нём задан `global.ssh_keys_folder`, команда использует этот путь для host SSH keypair;
 - `systemd install` технически может быть вызван без существующего файла конфига (путь резолвится), но practically предназначен для сценария, когда конфиг уже есть, потому что service запускает `portforward`.
-- `systemd status` не читает YAML-конфиг и показывает только состояние user systemd unit `agsekit-portforward`.
+- `systemd start`, `systemd stop` и `systemd restart` не читают YAML-конфиг и управляют уже зарегистрированным user systemd unit `agsekit-portforward`.
+- `systemd status` не читает YAML-конфиг и показывает расширенное состояние user systemd unit `agsekit-portforward`, включая последние записи журнала, если служба установлена.
 
 ### 7.2 Команды, которые работают через конфиг
 Практически все остальные команды читают и валидируют конфиг: VM lifecycle, mounts, agent install/run, backup по mount, порт-форвардинг.
@@ -240,7 +258,7 @@
 - virtual machines
 - mounts
 - agents/shell
-- daemon control (`systemd install`, `systemd uninstall`, `systemd status`)
+- daemon control (`systemd install`, `systemd uninstall`, `systemd start`, `systemd stop`, `systemd restart`, `systemd status`)
 - manual backup
 
 Поведение fallback:
@@ -290,7 +308,7 @@
 6. В обычном режиме показывает общий `rich` progress по выбранным этапам и вложенный прогресс текущего внутреннего шага (`prepare`, `create-vms`, `install-agents`) под ним.
 7. При `--debug` отключает Rich progress и оставляет только обычный подробный вывод внутренних команд и внешних процессов.
 8. Если сценарий использует конфиг (включены `create-vms` и/или `install-agents`), после основных этапов дополнительно:
-   - генерирует `~/.config/agsekit/systemd.env`;
+   - генерирует `systemd.env` в каталоге из `global.systemd_env_folder` (по умолчанию `~/.config/agsekit/systemd.env`);
    - регистрирует user systemd unit для `agsekit portforward`;
    - запускает и включает этот unit.
 9. При успешном завершении печатает итоговое сообщение об успешной установке.
@@ -311,7 +329,11 @@
 - создать конфиг через мастер, без ручного редактирования YAML на старте.
 
 Что делает:
-- интерактивно собирает `vms`, `mounts`, `agents`;
+- интерактивно сначала собирает `global`;
+  - `global.ssh_keys_folder`;
+  - `global.systemd_env_folder`;
+  - `global.portforward_config_check_interval_sec`;
+- затем собирает `vms`, `mounts`, `agents`;
 - для каждой VM запрашивает optional `allowed_agents` строкой через запятую;
 - для агента запрашивает `type`, default `vm`, `env` и optional `proxychains`;
   - если для agent `proxychains` введено буквально `""`, в YAML сохраняется явная пустая строка (`proxychains: ""`);
@@ -605,18 +627,34 @@
 
 #### `agsekit portforward [--debug]`
 - поднимает и мониторит SSH-туннели по `port-forwarding` правилам из конфига.
+- раз в 10 секунд перечитывает конфиг-файл и пытается пересобрать effective-конфигурацию проброса портов;
+- если во время такого reread конфиг удалён, недоступен или не проходит валидацию/парсинг, пишет warning и сохраняет работу на последнем успешно загруженном наборе туннелей;
+- если reread снова начинает проходить успешно после ошибки чтения, пишет краткое recovery-сообщение и продолжает работать с новым валидным состоянием;
+- сравнивает новый успешно загруженный набор `port-forwarding` с последним успешно применённым и при изменениях выполняет reconcile tunnel-процессов без перезапуска всей команды;
+- сценарии reconcile, которые обязана покрывать реализация:
+  - если появилась новая ВМ с `port-forwarding`, запускает новый SSH-туннель для неё;
+  - если ВМ исчезла из конфига или у неё больше нет правил `port-forwarding`, останавливает её SSH-туннель и перестаёт его поддерживать;
+  - если у существующей ВМ изменился набор правил проброса, останавливает её старый SSH-туннель и поднимает новый с актуальным набором `-L` / `-R` / `-D`;
+  - если у ВМ раньше не было ни одного правила, а потом появились, поднимает SSH-туннель для этой ВМ;
+  - если у ВМ были правила, но после изменения конфига не осталось ни одного, останавливает SSH-туннель для этой ВМ;
+- если в текущем валидном конфиге правил `port-forwarding` нет вообще, команда не завершается, а остаётся в режиме ожидания изменений конфига.
 - при ошибке туннеля сообщает, что `remote`-проброс на порты ниже 1024 внутри VM может быть причиной (из-за ограничения sshd).
 
 #### `agsekit systemd install/uninstall/status`
 - `install`:
-  - генерирует `~/.config/agsekit/systemd.env`;
+  - генерирует `systemd.env` в каталоге из `global.systemd_env_folder` (по умолчанию `~/.config/agsekit/systemd.env`);
   - регистрирует и включает user unit для `portforward` (юнит не зависит от `WorkingDirectory`, используется абсолютный путь конфига);
-  - использует bundled unit из самой установки `agsekit`, а не ищет `systemd/agsekit-portforward.service` в текущем рабочем каталоге;
+  - использует единственный bundled unit из самой установки `agsekit` (`agsekit_cli/systemd/agsekit-portforward.service`);
+  - bundled unit запускает `agsekit portforward` через `/bin/bash -lc`, чтобы переменные из `EnvironmentFile` (`AGSEKIT_BIN`, `AGSEKIT_CONFIG`) корректно подставлялись и в путь к исполняемому файлу, и в аргументы;
+  - если `global.systemd_env_folder` отличается от стандартного каталога, CLI создаёт compatibility symlink из `~/.config/agsekit/systemd.env` на фактический env-файл;
   - если link на unit уже существует, но указывает на другую инсталляцию/checkout `agsekit`, перелинковывает его на текущий bundled unit и делает `restart`, чтобы подхватить новый `ExecStart` и env.
+  - поддерживает `--debug`: в обычном режиме печатает только короткие пользовательские сообщения о начале и успешном завершении установки, а подробные `systemctl`/env-сообщения показывает только в debug-режиме.
 - `uninstall`:
-  - останавливает/отключает/unlink unit.
+  - останавливает/отключает/unlink unit;
+  - без `--debug` печатает только короткие сообщения о начале и успешном завершении удаления;
+  - поддерживает `--debug` для подробного вывода `systemctl`.
 - `status`:
-  - показывает имя сервиса, путь к bundled unit, текущую user-systemd ссылку на unit, а также состояния `is-enabled` и `is-active`.
+  - показывает имя сервиса, путь к bundled unit, текущую user-systemd ссылку на unit, признак установки, состояния `is-enabled` / `is-active`, `LoadState` / `SubState`, `MainPID`, `Result`, временные метки последней активности и хвост последних записей `journalctl --user -u agsekit-portforward`, если служба установлена.
 - `up` использует ту же внутреннюю логику `install` автоматически после VM/agent-этапов, когда работает с конфигом.
 - `down` использует ту же внутреннюю логику остановки unit, но не делает `disable`/`unlink`.
 
@@ -723,8 +761,9 @@ Dependency resolution выполняется кодом до запуска play
 
 На хосте:
 - `~/.config/agsekit/config.yaml`
-- `~/.config/agsekit/ssh/id_rsa` и `id_rsa.pub`
-- `~/.config/agsekit/systemd.env`
+- SSH keypair в каталоге из `global.ssh_keys_folder` (по умолчанию `~/.config/agsekit/ssh/id_rsa` и `id_rsa.pub`)
+- `systemd.env` в каталоге из `global.systemd_env_folder` (по умолчанию `~/.config/agsekit/systemd.env`)
+- compatibility symlink `~/.config/agsekit/systemd.env`, если `global.systemd_env_folder` переопределён
 - backup snapshots `.../<timestamp>`
 - временные backup dirs `*-partial` / `*-inprogress`
 - `backup.log` для фоновых backup-процессов

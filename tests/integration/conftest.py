@@ -1,15 +1,22 @@
 from __future__ import annotations
 
+import os
 from pathlib import Path
 
 import pytest
 
+from agsekit_cli.vm import MULTIPASS_LAUNCH_TIMEOUT_ENV_VAR
 from tests.integration.utils import clean_env, run_cmd, skip_if_systemd_user_unavailable
 
 
 SERVICE_NAME = "agsekit-portforward"
 ENV_PATH = Path.home() / ".config" / "agsekit" / "systemd.env"
 UNIT_LINK_PATH = Path.home() / ".config" / "systemd" / "user" / f"{SERVICE_NAME}.service"
+
+
+# Host integration tests are allowed to wait longer for `multipass launch`
+# than the normal CLI runtime, but the timeout remains overrideable.
+os.environ.setdefault(MULTIPASS_LAUNCH_TIMEOUT_ENV_VAR, "600")
 
 
 def _service_state(command: str) -> bool:

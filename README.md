@@ -68,7 +68,7 @@ All three agents, `codex`, `codex-glibc`, and `codex-glibc-prebuilt`, use separa
    ```
 
 3. Create the configuration file `~/.config/agsekit/config.yaml` (you can change the path with `--config` or the `CONFIG_PATH` environment variable).
-   The recommended way is to run the interactive wizard, which walks you through the questions about VMs, mounts, and agents and writes a complete config for you:
+   The recommended way is to run the interactive wizard, which walks you through the questions about global settings, VMs, mounts, and agents and writes a complete config for you:
    ```bash
    agsekit config-gen
    ```
@@ -100,9 +100,9 @@ All three agents, `codex`, `codex-glibc`, and `codex-glibc-prebuilt`, use separa
 
 Most commands that interact with Multipass support `--debug`; in this mode the CLI prints the executed command, exit code, and captured `stdout`/`stderr`.
 
-* `agsekit prepare [--debug]` — installs required system dependencies (including Multipass; requires sudo and supports Debian-based systems via `apt` and Arch Linux via `pacman` + an AUR helper such as `yay`/`aura`) and creates the SSH keypair used to access VMs.
-* `agsekit up [--config <path>] [--debug] [--prepare/--no-prepare] [--create-vms/--no-create-vms] [--install-agents/--no-install-agents]` — runs `prepare`, `create-vms`, and `install-agents` as one non-interactive flow. By default, all three stages run. The command creates every VM from the config and installs every configured agent into its configured VM targets (`agents.<name>.vm` + `agents.<name>.vms`); if an agent has no VM restrictions, it is installed into all configured VMs. When a config is involved, `up` also writes `~/.config/agsekit/systemd.env`, registers the user systemd unit for `agsekit portforward`, and starts it. At least one stage must remain enabled.
-* `agsekit config-gen [--config <path>] [--overwrite]` — interactive wizard that asks about VMs, mounts, and agents, then writes a YAML config to the chosen path (defaults to `~/.config/agsekit/config.yaml`). Without `--overwrite`, the command warns if the file already exists.
+* `agsekit prepare [--config <path>] [--debug]` — installs required system dependencies (including Multipass; requires sudo and supports Debian-based systems via `apt` and Arch Linux via `pacman` + an AUR helper such as `yay`/`aura`) and creates the SSH keypair used to access VMs. By default the keypair is stored in `~/.config/agsekit/ssh`, and you can override that path via `global.ssh_keys_folder`.
+* `agsekit up [--config <path>] [--debug] [--prepare/--no-prepare] [--create-vms/--no-create-vms] [--install-agents/--no-install-agents]` — runs `prepare`, `create-vms`, and `install-agents` as one non-interactive flow. By default, all three stages run. The command creates every VM from the config and installs every configured agent into its configured VM targets (`agents.<name>.vm` + `agents.<name>.vms`); if an agent has no VM restrictions, it is installed into all configured VMs. When a config is involved, `up` also writes `systemd.env` (by default to `~/.config/agsekit/systemd.env`, overrideable via `global.systemd_env_folder`), registers the user systemd unit for `agsekit portforward`, and starts it. At least one stage must remain enabled.
+* `agsekit config-gen [--config <path>] [--overwrite]` — interactive wizard that first asks about `global.ssh_keys_folder`, `global.systemd_env_folder`, and `global.portforward_config_check_interval_sec`, then about VMs, mounts, and agents, and writes a YAML config to the chosen path (defaults to `~/.config/agsekit/config.yaml`). Without `--overwrite`, the command warns if the file already exists.
 * `agsekit config-example [<path>]` — copies `config-example.yaml` to the target path (defaults to `~/.config/agsekit/config.yaml`). If the default config already exists, the command skips copying.
 * `agsekit pip-upgrade` — upgrades agsekit using `pip install agsekit --upgrade` inside the same Python environment that runs the CLI. If agsekit is not installed in that environment via pip, the command reports that it cannot be upgraded there.
 * `agsekit version` — prints the installed package version along with the project version from `pyproject.toml` when available.
@@ -113,8 +113,8 @@ Most commands that interact with Multipass support `--debug`; in this mode the C
 * `agsekit shell [<vm_name>] [--config <path>] [--debug]` — opens an interactive `multipass shell` session inside the chosen VM, applying any configured port forwarding. If only
   one VM is defined in the config, the CLI connects there even without `vm_name`. When multiple VMs exist and the command runs in
   a TTY, the CLI prompts you to pick one; in non-interactive mode, an explicit `vm_name` is required.
-* `agsekit ssh <vm_name> [--config <path>] [--debug] [<ssh_args...>]` — connects to the VM over SSH using `~/.config/agsekit/ssh/id_rsa` and forwards any extra arguments directly to the `ssh` command (for example, `-L`, `-R`, `-N`).
-* `agsekit portforward [--config <path>] [--debug]` — starts a dedicated `agsekit ssh` tunnel for each VM that defines `port-forwarding` rules, monitoring the child processes and restarting them if they exit. Stop with Ctrl+C to gracefully terminate the tunnels.
+* `agsekit ssh <vm_name> [--config <path>] [--debug] [<ssh_args...>]` — connects to the VM over SSH using `~/.config/agsekit/ssh/id_rsa` by default (overrideable via `global.ssh_keys_folder`) and forwards any extra arguments directly to the `ssh` command (for example, `-L`, `-R`, `-N`).
+* `agsekit portforward [--config <path>] [--debug]` — starts a dedicated `agsekit ssh` tunnel for each VM that defines `port-forwarding` rules, monitors the child processes and restarts them if they exit, and automatically tracks configuration changes to reconnect tunnels when the port-forwarding setup changes. The config reload interval defaults to 10 seconds and can be changed via `global.portforward_config_check_interval_sec`. Stop with Ctrl+C to gracefully terminate the tunnels.
 * `agsekit start-vm <vm_name> [--config <path>] [--debug]` — starts the specified VM from the configuration. If only one VM is configured, the name can be omitted.
 * `agsekit start-vm --all-vms [--config <path>] [--debug]` — starts every VM declared in the config file.
 * `agsekit restart-vm <vm_name> [--config <path>] [--debug]` — restarts the specified VM from the configuration by running the same stop/start sequence as `stop-vm` followed by `start-vm`. If only one VM is configured, the name can be omitted.
@@ -124,9 +124,12 @@ Most commands that interact with Multipass support `--debug`; in this mode the C
 * `agsekit down [--config <path>] [-f|--force] [--debug]` — stops every VM from the configuration. Before shutting VMs down, the command checks configured agent processes the same way as `status`: if any are still running, it prints which agents are active in which VMs and working directories, then asks for confirmation. Before powering VMs off, the command also stops the user systemd service for `agsekit portforward` if it is registered. Use `--force` to skip the prompt and power off all configured VMs immediately.
 * `agsekit destroy-vm <vm_name> [--config <path>] [-y] [--debug]` — deletes the specified VM from Multipass. Without `-y`, the CLI asks for interactive confirmation.
 * `agsekit destroy-vm --all [--config <path>] [-y] [--debug]` — deletes every VM from the configuration, with the same confirmation requirement.
-* `agsekit systemd install [--config <path>]` — writes `~/.config/agsekit/systemd.env` with absolute paths to `agsekit`, the config, and the current project directory, then registers and starts the bundled user unit for `portforward` via `systemctl --user` (link, daemon-reload, restart, enable). If the user service already points to another `agsekit` installation, the command relinks and restarts it so it uses the current one.
-* `agsekit systemd uninstall` — stops and disables the user unit, then removes the linked `agsekit-portforward.service` from user systemd.
-* `agsekit systemd status` — shows the current user-systemd state of `agsekit-portforward`: the bundled unit path, the linked user unit path, and the `is-enabled` / `is-active` states reported by `systemctl --user`.
+* `agsekit systemd install [--config <path>] [--debug]` — writes `systemd.env` with absolute paths to `agsekit`, the config, and the current project directory, then registers and starts the bundled user unit for `portforward` via `systemctl --user` (link, daemon-reload, restart, enable). By default the env file is stored as `~/.config/agsekit/systemd.env`; you can override the target directory via `global.systemd_env_folder`. If the user service already points to another `agsekit` installation, the command relinks and restarts it so it uses the current one. Without `--debug`, the command prints only short start/success messages.
+* `agsekit systemd uninstall [--debug]` — stops and disables the user unit, then removes the linked `agsekit-portforward.service` from user systemd. Without `--debug`, the command prints only short start/success messages.
+* `agsekit systemd start [--debug]` — starts the registered user systemd unit for `agsekit portforward`. Without `--debug`, the command prints only short start/success messages.
+* `agsekit systemd stop [--debug]` — stops the registered user systemd unit for `agsekit portforward`. Without `--debug`, the command prints only short start/success messages.
+* `agsekit systemd restart [--debug]` — restarts the registered user systemd unit for `agsekit portforward`. Without `--debug`, the command prints only short start/success messages.
+* `agsekit systemd status [--debug]` — shows an extended user-systemd status for `agsekit-portforward`: the bundled unit path, the linked user unit path, installation state, `is-enabled` / `is-active`, load/sub-state, PID/result/timestamps, and a short tail of recent `journalctl --user` logs when the service is installed.
 
 ### Mount management
 
@@ -206,9 +209,13 @@ AGSEKIT_LANG=ru agsekit --help
 
 ## YAML configuration
 
-The configuration file (looked up via `--config`, `CONFIG_PATH`, or `~/.config/agsekit/config.yaml`) describes VM parameters, mounted directories, and any `cloud-init` settings. A base example lives in `config-example.yaml`:
+The configuration file (looked up via `--config`, `CONFIG_PATH`, or `~/.config/agsekit/config.yaml`) describes global agsekit settings, VM parameters, mounted directories, and any `cloud-init` settings. A base example lives in `config-example.yaml`:
 
 ```yaml
+global: # global agsekit settings
+  ssh_keys_folder: null # optional override for the SSH key directory used to access VMs; defaults to ~/.config/agsekit/ssh
+  systemd_env_folder: null # optional override for the directory where agsekit writes systemd.env; defaults to ~/.config/agsekit
+  portforward_config_check_interval_sec: 10 # how often portforward reloads the config and reconciles tunnels
 vms: # VM parameters for Multipass (you can define multiple)
   agent-ubuntu: # VM name
     cpu: 2      # number of vCPUs

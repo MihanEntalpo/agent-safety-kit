@@ -262,6 +262,9 @@ def test_build_systemd_entries(monkeypatch):
 
     assert interactive.build_systemd_install(session) == ["systemd", "install", "--config", "custom-config.yaml"]
     assert interactive.build_systemd_uninstall(session) == ["systemd", "uninstall"]
+    assert interactive.build_systemd_start(session) == ["systemd", "start"]
+    assert interactive.build_systemd_stop(session) == ["systemd", "stop"]
+    assert interactive.build_systemd_restart(session) == ["systemd", "restart"]
     assert interactive.build_systemd_status(session) == ["systemd", "status"]
 
 
@@ -320,4 +323,7 @@ def test_select_command_places_up_before_prepare_and_lists_systemd_actions(monke
     assert up_index < prepare_index
     assert any("systemd install" in title for title in titles)
     assert any("systemd uninstall" in title for title in titles)
+    assert any("systemd start" in title for title in titles)
+    assert any("systemd stop" in title for title in titles)
+    assert any("systemd restart" in title for title in titles)
     assert any("systemd status" in title for title in titles)

@@ -403,6 +403,18 @@ def build_systemd_uninstall(_: InteractiveSession) -> List[str]:
     return ["systemd", "uninstall"]
 
 
+def build_systemd_start(_: InteractiveSession) -> List[str]:
+    return ["systemd", "start"]
+
+
+def build_systemd_stop(_: InteractiveSession) -> List[str]:
+    return ["systemd", "stop"]
+
+
+def build_systemd_restart(_: InteractiveSession) -> List[str]:
+    return ["systemd", "restart"]
+
+
 def build_systemd_status(_: InteractiveSession) -> List[str]:
     return ["systemd", "status"]
 
@@ -503,6 +515,9 @@ def _command_builders() -> Dict[str, CommandBuilder]:
         "portforward": build_portforward,
         "systemd-install": build_systemd_install,
         "systemd-uninstall": build_systemd_uninstall,
+        "systemd-start": build_systemd_start,
+        "systemd-stop": build_systemd_stop,
+        "systemd-restart": build_systemd_restart,
         "systemd-status": build_systemd_status,
         "start-vm": build_start_vm,
         "stop-vm": build_stop_vm,
@@ -534,6 +549,21 @@ def _resolve_interactive_entries(cli: click.Group) -> Dict[str, InteractiveComma
         label=tr("interactive.systemd_uninstall_label"),
         help_text=tr("systemd.uninstall_help"),
     )
+    entries["systemd-start"] = InteractiveCommandEntry(
+        key="systemd-start",
+        label=tr("interactive.systemd_start_label"),
+        help_text=tr("systemd.start_help"),
+    )
+    entries["systemd-stop"] = InteractiveCommandEntry(
+        key="systemd-stop",
+        label=tr("interactive.systemd_stop_label"),
+        help_text=tr("systemd.stop_help"),
+    )
+    entries["systemd-restart"] = InteractiveCommandEntry(
+        key="systemd-restart",
+        label=tr("interactive.systemd_restart_label"),
+        help_text=tr("systemd.restart_help"),
+    )
     entries["systemd-status"] = InteractiveCommandEntry(
         key="systemd-status",
         label=tr("interactive.systemd_status_label"),
@@ -561,7 +591,10 @@ def _select_command(cli: click.Group, builders: Dict[str, CommandBuilder], prese
             tr("interactive.section_agents_shell"),
             ["install-agents", "run", "shell", "ssh", "portforward"],
         ),
-        (tr("interactive.section_daemon_control"), ["systemd-install", "systemd-uninstall", "systemd-status"]),
+        (
+            tr("interactive.section_daemon_control"),
+            ["systemd-install", "systemd-uninstall", "systemd-start", "systemd-stop", "systemd-restart", "systemd-status"],
+        ),
         (
             tr("interactive.section_manual_backup"),
             ["backup-once", "backup-repeated", "backup-repeated-mount", "backup-repeated-all", "backup-clean"],

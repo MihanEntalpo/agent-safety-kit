@@ -26,6 +26,9 @@ def test_config_example_and_gen(tmp_path: Path) -> None:
     generated_path = tmp_path / "config-gen.yaml"
     input_script = "\n".join(
         [
+            "",  # global ssh_keys_folder default
+            "",  # global systemd_env_folder default
+            "",  # global portforward interval default
             "",  # vm name default
             "",  # cpu default
             "",  # ram default

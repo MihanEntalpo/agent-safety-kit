@@ -96,7 +96,9 @@ def test_up_and_down_manage_vm_and_portforward_service(tmp_path, preserve_portfo
         assert f"AGSEKIT_CONFIG={config_path.resolve()}" in env_contents
         assert f"AGSEKIT_PROJECT_DIR={Path.cwd().resolve()}" in env_contents
         assert unit_link.exists()
-        assert unit_link.resolve() == (Path.cwd().resolve() / "systemd" / "agsekit-portforward.service").resolve()
+        assert unit_link.resolve() == (
+            Path.cwd().resolve() / "agsekit_cli" / "systemd" / "agsekit-portforward.service"
+        ).resolve()
 
         down_result = run_cli(
             ["down", "--config", str(config_path), "--force", "--non-interactive"],

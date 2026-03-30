@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import json
+import signal
 import shutil
 import subprocess
 from pathlib import Path
@@ -8,15 +9,15 @@ from typing import Optional, Sequence
 
 import click
 
-from ..config import ConfigError, load_config, load_vms_config, resolve_config_path
+from ..config import ConfigError, load_config, load_global_config, load_vms_config, resolve_config_path
 from ..debug import debug_log_command, debug_log_result, debug_scope
 from ..i18n import tr
 from ..vm import MultipassError, ensure_multipass_available
 from . import debug_option, non_interactive_option
 
 
-def _resolve_ssh_key() -> Path:
-    key_path = Path.home() / ".config" / "agsekit" / "ssh" / "id_rsa"
+def _resolve_ssh_key(ssh_keys_folder: Path) -> Path:
+    key_path = ssh_keys_folder / "id_rsa"
     if not key_path.exists():
         raise click.ClickException(
             tr("ssh.key_missing", path=key_path)
@@ -56,6 +57,29 @@ def _fetch_vm_ip(vm_name: str, *, debug: bool = False) -> str:
     return ip_value
 
 
+def _run_ssh_process(command: list[str], *, debug: bool = False) -> int:
+    process = subprocess.Popen(command)
+    previous_handlers = {}
+
+    def _forward_signal(signum: int, frame: object) -> None:
+        del frame
+        if process.poll() is None:
+            process.send_signal(signum)
+
+    for signum in (signal.SIGINT, signal.SIGTERM):
+        previous_handlers[signum] = signal.getsignal(signum)
+        signal.signal(signum, _forward_signal)
+
+    try:
+        return_code = process.wait()
+    finally:
+        for signum, previous_handler in previous_handlers.items():
+            signal.signal(signum, previous_handler)
+
+    debug_log_result(subprocess.CompletedProcess(command, return_code), enabled=debug)
+    return return_code
+
+
 @click.command(name="ssh", context_settings={"ignore_unknown_options": True}, help=tr("ssh.command_help"))
 @non_interactive_option
 @click.argument("vm_name", required=True)
@@ -86,6 +110,7 @@ def ssh_command(
     resolved_path = resolve_config_path(Path(config_path) if config_path else None)
     try:
         config = load_config(resolved_path)
+        global_config = load_global_config(config)
         vms = load_vms_config(config)
     except ConfigError as exc:
         raise click.ClickException(str(exc))
@@ -99,7 +124,7 @@ def ssh_command(
         except MultipassError as exc:
             raise click.ClickException(str(exc))
 
-        key_path = _resolve_ssh_key()
+        key_path = _resolve_ssh_key(global_config.ssh_keys_folder)
         try:
             ip_address = _fetch_vm_ip(vm_name, debug=debug)
         except MultipassError as exc:
@@ -122,7 +147,6 @@ def ssh_command(
         else:
             command = ["ssh", "-i", str(key_path), *ssh_args_list, f"ubuntu@{ip_address}"]
         debug_log_command(command, enabled=debug)
-        result = subprocess.run(command, check=False)
-        debug_log_result(result, enabled=debug)
-        if result.returncode != 0:
-            raise SystemExit(result.returncode)
+        return_code = _run_ssh_process(command, debug=debug)
+        if return_code != 0:
+            raise SystemExit(return_code)

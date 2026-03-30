@@ -54,8 +54,8 @@ def _derive_public_key(private_key: Path) -> str:
     return result.stdout.strip()
 
 
-def ensure_host_ssh_keypair(*, verbose: bool = True) -> Tuple[Path, Path]:
-    ssh_dir = Path.home() / ".config" / "agsekit" / "ssh"
+def ensure_host_ssh_keypair(*, ssh_dir: Optional[Path] = None, verbose: bool = True) -> Tuple[Path, Path]:
+    ssh_dir = (ssh_dir or (Path.home() / ".config" / "agsekit" / "ssh")).expanduser().resolve()
     private_key = ssh_dir / "id_rsa"
     public_key = ssh_dir / "id_rsa.pub"
     ssh_dir.mkdir(parents=True, exist_ok=True)

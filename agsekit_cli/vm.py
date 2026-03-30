@@ -38,6 +38,7 @@ SIZE_MAP: Dict[str, int] = {
 }
 
 RESOURCE_SIZE_RELATIVE_TOLERANCE = 0.10
+MULTIPASS_LAUNCH_TIMEOUT_ENV_VAR = "AGSEKIT_MULTIPASS_LAUNCH_TIMEOUT_SECONDS"
 
 
 class MultipassError(RuntimeError):
@@ -351,7 +352,36 @@ def _dump_cloud_init(data: Dict[str, object]) -> Optional[Path]:
         temp.close()
 
 
-def _build_launch_command(vm_config: VmConfig, cloud_init_path: Optional[Path]) -> List[str]:
+def resolve_multipass_launch_timeout_seconds() -> Optional[int]:
+    raw_value = os.environ.get(MULTIPASS_LAUNCH_TIMEOUT_ENV_VAR)
+    if raw_value is None:
+        return None
+
+    value = raw_value.strip()
+    if not value:
+        return None
+
+    try:
+        timeout_seconds = int(value)
+    except ValueError as exc:
+        raise MultipassError(
+            tr("vm.launch_timeout_invalid", env_var=MULTIPASS_LAUNCH_TIMEOUT_ENV_VAR, value=raw_value)
+        ) from exc
+
+    if timeout_seconds <= 0:
+        raise MultipassError(
+            tr("vm.launch_timeout_invalid", env_var=MULTIPASS_LAUNCH_TIMEOUT_ENV_VAR, value=raw_value)
+        )
+
+    return timeout_seconds
+
+
+def _build_launch_command(
+    vm_config: VmConfig,
+    cloud_init_path: Optional[Path],
+    *,
+    launch_timeout_seconds: Optional[int] = None,
+) -> List[str]:
     command = [
         "multipass",
         "launch",
@@ -364,6 +394,9 @@ def _build_launch_command(vm_config: VmConfig, cloud_init_path: Optional[Path]) 
         "--disk",
         vm_config.disk,
     ]
+
+    if launch_timeout_seconds is not None:
+        command.extend(["--timeout", str(launch_timeout_seconds)])
 
     if cloud_init_path:
         command.extend(["--cloud-init", str(cloud_init_path)])
@@ -404,7 +437,12 @@ def _launch_with_retries(launch_cmd: List[str], max_attempts: int = 3) -> subpro
     return last_result
 
 
-def do_launch(vm_config: VmConfig, existing_info: str) -> str:
+def do_launch(
+    vm_config: VmConfig,
+    existing_info: str,
+    *,
+    launch_timeout_seconds: Optional[int] = None,
+) -> str:
     comparison_result = compare_vm(
         existing_info,
         vm_config.name,
@@ -424,7 +462,16 @@ def do_launch(vm_config: VmConfig, existing_info: str) -> str:
 
     cloud_init_path = _dump_cloud_init(vm_config.cloud_init)
     try:
-        launch_cmd = _build_launch_command(vm_config, cloud_init_path)
+        effective_launch_timeout = (
+            resolve_multipass_launch_timeout_seconds()
+            if launch_timeout_seconds is None
+            else launch_timeout_seconds
+        )
+        launch_cmd = _build_launch_command(
+            vm_config,
+            cloud_init_path,
+            launch_timeout_seconds=effective_launch_timeout,
+        )
         launch_result = _launch_with_retries(launch_cmd)
     finally:
         if cloud_init_path:
@@ -468,7 +515,12 @@ def _load_vms(path: Optional[str] = None) -> Dict[str, VmConfig]:
     return load_vms_config(config)
 
 
-def create_vm_from_config(path: Optional[str], vm_name: str) -> tuple[str, Optional[str]]:
+def create_vm_from_config(
+    path: Optional[str],
+    vm_name: str,
+    *,
+    launch_timeout_seconds: Optional[int] = None,
+) -> tuple[str, Optional[str]]:
     vms = _load_vms(path)
     if vm_name not in vms:
         raise ConfigError(tr("vm.missing_in_config", vm_name=vm_name))
@@ -493,10 +545,18 @@ def create_vm_from_config(path: Optional[str], vm_name: str) -> tuple[str, Optio
 
     ensure_resources_available(existing_info, [target_vm])
 
-    return do_launch(target_vm, existing_info), None
+    return do_launch(
+        target_vm,
+        existing_info,
+        launch_timeout_seconds=launch_timeout_seconds,
+    ), None
 
 
-def create_all_vms_from_config(path: Optional[str]) -> tuple[List[str], List[str], Dict[str, str]]:
+def create_all_vms_from_config(
+    path: Optional[str],
+    *,
+    launch_timeout_seconds: Optional[int] = None,
+) -> tuple[List[str], List[str], Dict[str, str]]:
     vms = _load_vms(path)
 
     ensure_multipass_available()
@@ -523,7 +583,13 @@ def create_all_vms_from_config(path: Optional[str]) -> tuple[List[str], List[str
 
     messages: List[str] = []
     for vm in planned:
-        messages.append(do_launch(vm, existing_info))
+        messages.append(
+            do_launch(
+                vm,
+                existing_info,
+                launch_timeout_seconds=launch_timeout_seconds,
+            )
+        )
         existing_info = fetch_existing_info()
     for name, status in statuses.items():
         if status == "match":

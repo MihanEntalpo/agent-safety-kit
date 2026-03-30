@@ -68,7 +68,7 @@
    ```
 
 3. Создайте конфигурационный файл ~/.config/agsekit/config.yaml (путь можно изменить аргументом --config или переменной окружения CONFIG_PATH)
-   Рекомендуемый способ — запустить интерактивный мастер, который проведёт по вопросам о ВМ, монтированиях и агентах и сам создаст полноценный конфиг:
+   Рекомендуемый способ — запустить интерактивный мастер, который проведёт по вопросам о глобальных настройках, ВМ, монтированиях и агентах и сам создаст полноценный конфиг:
    ```bash
    agsekit config-gen
    ```
@@ -100,9 +100,9 @@
 
 Большинство команд, взаимодействующих с Multipass, поддерживают `--debug`; в этом режиме CLI выводит запускаемую команду, код завершения и захваченные `stdout`/`stderr`.
 
-* `agsekit prepare [--debug]` — устанавливает системные зависимости (включая Multipass; требует sudo, поддерживает Debian-based системы через `apt` и Arch Linux через `pacman` + AUR helper `yay`/`aura`) и создаёт SSH-ключи для доступа к ВМ.
-* `agsekit up [--config <path>] [--debug] [--prepare/--no-prepare] [--create-vms/--no-create-vms] [--install-agents/--no-install-agents]` — запускает `prepare`, `create-vms` и `install-agents` как один неинтерактивный сценарий. По умолчанию выполняются все три этапа. Команда создаёт все ВМ из конфига и устанавливает всех настроенных агентов в их целевые ВМ (`agents.<name>.vm` + `agents.<name>.vms`); если у агента нет ограничений по ВМ, он ставится во все ВМ из секции `vms`. Когда в сценарии используется конфиг, `up` дополнительно записывает `~/.config/agsekit/systemd.env`, регистрирует user systemd unit для `agsekit portforward` и запускает его. Должен остаться включённым хотя бы один этап.
-* `agsekit config-gen [--config <path>] [--overwrite]` — интерактивный мастер, который задаёт вопросы про ВМ, монтирования и агентов и записывает YAML-конфиг в выбранный путь (по умолчанию `~/.config/agsekit/config.yaml`). Без флага `--overwrite` команда предупредит о существующем файле.
+* `agsekit prepare [--config <path>] [--debug]` — устанавливает системные зависимости (включая Multipass; требует sudo, поддерживает Debian-based системы через `apt` и Arch Linux через `pacman` + AUR helper `yay`/`aura`) и создаёт SSH-ключи для доступа к ВМ. По умолчанию ключи лежат в `~/.config/agsekit/ssh`, путь можно переопределить через `global.ssh_keys_folder`.
+* `agsekit up [--config <path>] [--debug] [--prepare/--no-prepare] [--create-vms/--no-create-vms] [--install-agents/--no-install-agents]` — запускает `prepare`, `create-vms` и `install-agents` как один неинтерактивный сценарий. По умолчанию выполняются все три этапа. Команда создаёт все ВМ из конфига и устанавливает всех настроенных агентов в их целевые ВМ (`agents.<name>.vm` + `agents.<name>.vms`); если у агента нет ограничений по ВМ, он ставится во все ВМ из секции `vms`. Когда в сценарии используется конфиг, `up` дополнительно записывает `systemd.env` (по умолчанию в `~/.config/agsekit/systemd.env`, путь можно переопределить через `global.systemd_env_folder`), регистрирует user systemd unit для `agsekit portforward` и запускает его. Должен остаться включённым хотя бы один этап.
+* `agsekit config-gen [--config <path>] [--overwrite]` — интерактивный мастер, который сначала задаёт вопросы про `global.ssh_keys_folder`, `global.systemd_env_folder` и `global.portforward_config_check_interval_sec`, затем про ВМ, монтирования и агентов и записывает YAML-конфиг в выбранный путь (по умолчанию `~/.config/agsekit/config.yaml`). Без флага `--overwrite` команда предупредит о существующем файле.
 * `agsekit config-example [<path>]` — копирует `config-example.yaml` в указанный путь (по умолчанию `~/.config/agsekit/config.yaml`). Если конфиг уже существует, копирование по умолчанию пропускается.
 * `agsekit pip-upgrade` — обновляет agsekit через `pip install agsekit --upgrade` в том же Python-окружении, где запущена CLI. Если agsekit не установлен в этом окружении через pip, команда сообщает, что обновление невозможно.
 * `agsekit version` — выводит установленную версию пакета и версию проекта из `pyproject.toml`, если файл доступен.
@@ -111,8 +111,8 @@
 * `agsekit create-vms [--debug]` — создаёт все ВМ, указанные в YAML-конфигурации, и подготавливает их (устанавливает пакеты через ansible и синхронизирует SSH-ключи).
 * `agsekit create-vm <name> [--debug]` — запускает только одну ВМ и подготавливает её (устанавливает пакеты через ansible и синхронизирует SSH-ключи). Если в конфиге указана единственная ВМ, имя можно не передавать — она выберется автоматически. Если ВМ уже существует, команда сравнит желаемые ресурсы с текущими и сообщит об отличиях. Изменять ресурсы уже созданной ВМ пока нельзя.
 * `agsekit shell [<vm_name>] [--config <path>] [--debug]` — открывает интерактивную сессию `multipass shell` внутри выбранной ВМ и применяет настроенный проброс портов. Если в конфиге только одна ВМ, CLI подключится к ней даже без `vm_name`. Когда ВМ несколько и команда выполняется в TTY, CLI предложит выбрать нужную; в неинтерактивном режиме имя ВМ обязательно.
-* `agsekit ssh <vm_name> [--config <path>] [--debug] [<ssh_args...>]` — подключается к ВМ по SSH с ключом `~/.config/agsekit/ssh/id_rsa` и передаёт любые дополнительные аргументы напрямую в `ssh` (например `-L`, `-R`, `-N`).
-* `agsekit portforward [--config <path>] [--debug]` — запускает отдельный `agsekit ssh`-туннель для каждой ВМ с правилами `port-forwarding`, следит за процессами и перезапускает их при завершении. Остановку выполняйте через Ctrl+C для корректного завершения туннелей.
+* `agsekit ssh <vm_name> [--config <path>] [--debug] [<ssh_args...>]` — подключается к ВМ по SSH с ключом `~/.config/agsekit/ssh/id_rsa` по умолчанию (путь можно переопределить через `global.ssh_keys_folder`) и передаёт любые дополнительные аргументы напрямую в `ssh` (например `-L`, `-R`, `-N`).
+* `agsekit portforward [--config <path>] [--debug]` — запускает отдельный `agsekit ssh`-туннель для каждой ВМ с правилами `port-forwarding`, следит за процессами и перезапускает их при завершении, а также автоматически отслеживает изменения конфигурации и переподключает туннели при изменении настроек проброса портов. Интервал перечитывания конфига по умолчанию 10 секунд и настраивается через `global.portforward_config_check_interval_sec`. Остановку выполняйте через Ctrl+C для корректного завершения туннелей.
 * `agsekit start-vm <vm_name> [--config <path>] [--debug]` — запускает выбранную ВМ из конфигурации. Если в конфиге только одна ВМ, имя можно опустить.
 * `agsekit start-vm --all-vms [--config <path>] [--debug]` — запускает все ВМ, описанные в конфиге.
 * `agsekit restart-vm <vm_name> [--config <path>] [--debug]` — перезапускает выбранную ВМ из конфигурации, выполняя ту же последовательность, что и `stop-vm`, а затем `start-vm`. Если в конфиге только одна ВМ, имя можно опустить.
@@ -122,9 +122,12 @@
 * `agsekit down [--config <path>] [-f|--force] [--debug]` — выключает все ВМ из конфигурации. Перед выключением команда проверяет запущенные процессы настроенных агентов так же, как это делает `status`: если агенты ещё работают, CLI показывает, какие агенты активны в каких ВМ и из каких рабочих директорий, а затем запрашивает подтверждение. Перед остановкой ВМ команда также останавливает user systemd service для `agsekit portforward`, если он зарегистрирован. Флаг `--force` пропускает запрос и сразу выключает все настроенные ВМ.
 * `agsekit destroy-vm <vm_name> [--config <path>] [-y] [--debug]` — удаляет указанную ВМ из Multipass. Без `-y` команда запрашивает интерактивное подтверждение.
 * `agsekit destroy-vm --all [--config <path>] [-y] [--debug]` — удаляет все ВМ из конфигурации с таким же подтверждением.
-* `agsekit systemd install [--config <path>]` — записывает `~/.config/agsekit/systemd.env` с абсолютными путями к `agsekit`, конфигу и текущему каталогу проекта, затем регистрирует и запускает bundled user-юнит для `portforward` через `systemctl --user` (link, daemon-reload, restart, enable). Если user service уже указывает на другую инсталляцию `agsekit`, команда перелинкует и перезапустит его так, чтобы он использовал текущую.
-* `agsekit systemd uninstall` — останавливает и отключает user-юнит, затем удаляет ссылку на `agsekit-portforward.service` из user systemd.
-* `agsekit systemd status` — показывает текущее состояние `agsekit-portforward` в user-systemd: путь к bundled unit, путь к подключённому user unit и состояния `is-enabled` / `is-active`, которые возвращает `systemctl --user`.
+* `agsekit systemd install [--config <path>] [--debug]` — записывает `systemd.env` с абсолютными путями к `agsekit`, конфигу и текущему каталогу проекта, затем регистрирует и запускает bundled user-юнит для `portforward` через `systemctl --user` (link, daemon-reload, restart, enable). По умолчанию env-файл лежит в `~/.config/agsekit/systemd.env`; каталог можно переопределить через `global.systemd_env_folder`. Если user service уже указывает на другую инсталляцию `agsekit`, команда перелинкует и перезапустит его так, чтобы он использовал текущую. Без `--debug` команда печатает только короткие сообщения о начале и успешном завершении установки.
+* `agsekit systemd uninstall [--debug]` — останавливает и отключает user-юнит, затем удаляет ссылку на `agsekit-portforward.service` из user systemd. Без `--debug` команда печатает только короткие сообщения о начале и успешном завершении удаления.
+* `agsekit systemd start [--debug]` — запускает зарегистрированный user systemd unit для `agsekit portforward`. Без `--debug` команда печатает только короткие сообщения о начале и успешном завершении запуска.
+* `agsekit systemd stop [--debug]` — останавливает зарегистрированный user systemd unit для `agsekit portforward`. Без `--debug` команда печатает только короткие сообщения о начале и успешном завершении остановки.
+* `agsekit systemd restart [--debug]` — перезапускает зарегистрированный user systemd unit для `agsekit portforward`. Без `--debug` команда печатает только короткие сообщения о начале и успешном завершении перезапуска.
+* `agsekit systemd status [--debug]` — показывает расширенное состояние `agsekit-portforward` в user-systemd: путь к bundled unit, путь к подключённому user unit, признак установки, состояния `is-enabled` / `is-active`, load/sub-state, PID/result/временные метки и короткий хвост последних логов `journalctl --user`, если служба установлена.
 
 ### Управление монтированием
 
@@ -195,9 +198,13 @@ Playbook установки лежат в `agsekit_cli/ansible/agents/`: `codex`
 
 ## Конфигурация YAML
 
-Файл конфигурации (ищется в `--config`, `CONFIG_PATH` или `~/.config/agsekit/config.yaml`) описывает параметры ВМ, монтируемые директории и любые настройки `cloud-init`. Базовый пример есть в `config-example.yaml`:
+Файл конфигурации (ищется в `--config`, `CONFIG_PATH` или `~/.config/agsekit/config.yaml`) описывает глобальные настройки agsekit, параметры ВМ, монтируемые директории и любые настройки `cloud-init`. Базовый пример есть в `config-example.yaml`:
 
 ```yaml
+global: # глобальные настройки agsekit
+  ssh_keys_folder: null # опционально: переопределяет каталог SSH-ключей для доступа к ВМ; по умолчанию ~/.config/agsekit/ssh
+  systemd_env_folder: null # опционально: переопределяет каталог, куда agsekit пишет systemd.env; по умолчанию ~/.config/agsekit
+  portforward_config_check_interval_sec: 10 # как часто portforward перечитывает конфиг и пересобирает туннели
 vms: # параметры виртуальных машин (можно иметь несколько)
   agent-ubuntu: # имя виртуальной машины
     cpu: 2      # количество vCPU

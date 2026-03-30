@@ -14,6 +14,10 @@ from .vm_bundles import normalize_install_bundles
 
 CONFIG_ENV_VAR = "CONFIG_PATH"
 DEFAULT_CONFIG_PATH = Path.home() / ".config" / "agsekit" / "config.yaml"
+DEFAULT_AGSEKIT_DIR = DEFAULT_CONFIG_PATH.parent
+DEFAULT_SSH_KEYS_DIR = DEFAULT_AGSEKIT_DIR / "ssh"
+DEFAULT_SYSTEMD_ENV_DIR = DEFAULT_AGSEKIT_DIR
+DEFAULT_PORTFORWARD_CONFIG_CHECK_INTERVAL_SEC = 10
 ALLOWED_AGENT_TYPES = {
     "qwen": "qwen",
     "codex": "codex",
@@ -74,6 +78,13 @@ class AgentConfig:
     vm_names: Optional[List[str]] = None
     proxychains: Optional[str] = None
     proxychains_defined: bool = False
+
+
+@dataclass(frozen=True)
+class GlobalConfig:
+    ssh_keys_folder: Path = DEFAULT_SSH_KEYS_DIR
+    systemd_env_folder: Path = DEFAULT_SYSTEMD_ENV_DIR
+    portforward_config_check_interval_sec: int = DEFAULT_PORTFORWARD_CONFIG_CHECK_INTERVAL_SEC
 
 
 class ConfigError(RuntimeError):
@@ -202,6 +213,61 @@ def load_config(path: Optional[Path] = None) -> Dict[str, Any]:
         )
 
     return LoadedConfig(data, path=config_path)
+
+
+def default_global_config() -> GlobalConfig:
+    return GlobalConfig()
+
+
+def load_global_config(config: Dict[str, Any]) -> GlobalConfig:
+    raw_global = config.get("global")
+    if raw_global is None:
+        return default_global_config()
+
+    if not isinstance(raw_global, dict):
+        _raise_with_context(
+            ConfigError(tr("config.global_not_mapping")),
+            config=config,
+            location="global",
+            block_kind=tr("config.block_global"),
+        )
+
+    ssh_keys_folder_raw = raw_global.get("ssh_keys_folder")
+    systemd_env_folder_raw = raw_global.get("systemd_env_folder")
+    portforward_interval_raw = raw_global.get("portforward_config_check_interval_sec")
+
+    ssh_keys_folder = (
+        DEFAULT_SSH_KEYS_DIR
+        if ssh_keys_folder_raw is None
+        else _ensure_path(ssh_keys_folder_raw, "global.ssh_keys_folder")
+    )
+    systemd_env_folder = (
+        DEFAULT_SYSTEMD_ENV_DIR
+        if systemd_env_folder_raw is None
+        else _ensure_path(systemd_env_folder_raw, "global.systemd_env_folder")
+    )
+    portforward_config_check_interval_sec = (
+        DEFAULT_PORTFORWARD_CONFIG_CHECK_INTERVAL_SEC
+        if portforward_interval_raw is None
+        else _require_positive_int(
+            portforward_interval_raw,
+            "global.portforward_config_check_interval_sec",
+        )
+    )
+
+    return GlobalConfig(
+        ssh_keys_folder=ssh_keys_folder,
+        systemd_env_folder=systemd_env_folder,
+        portforward_config_check_interval_sec=portforward_config_check_interval_sec,
+    )
+
+
+def load_global_config_from_path(path: Optional[Path] = None, *, allow_missing: bool = False) -> GlobalConfig:
+    resolved_path = resolve_config_path(path)
+    if allow_missing and not resolved_path.exists():
+        return default_global_config()
+    config = load_config(resolved_path)
+    return load_global_config(config)
 
 
 def _require_positive_int(value: Any, field_name: str) -> int:
