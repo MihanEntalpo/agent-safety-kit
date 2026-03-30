@@ -1,5 +1,6 @@
 import os
 import shutil
+import shlex
 import subprocess
 import sys
 import time
@@ -10,6 +11,8 @@ from typing import Callable, Optional
 import pytest
 import yaml
 
+from tests.integration.progress import integration_progress_enabled, progress_line
+
 
 REPO_ROOT = Path(__file__).resolve().parents[2]
 INJECTED_ENV_VARS = (
@@ -19,6 +22,10 @@ INJECTED_ENV_VARS = (
     "PROXYCHAINS_CONF_FILE",
     "PROXYCHAINS_QUIET_MODE",
 )
+
+
+def _format_command(command: list[str]) -> str:
+    return shlex.join(command)
 
 
 def clean_env(overrides: Optional[dict[str, str]] = None) -> dict[str, str]:
@@ -38,14 +45,43 @@ def run_cmd(
     env: Optional[dict[str, str]] = None,
     capture_output: bool = True,
 ) -> subprocess.CompletedProcess[str]:
-    return subprocess.run(
+    return run_process(
         command,
         check=check,
-        text=True,
-        capture_output=capture_output,
         cwd=cwd,
         env=env,
+        capture_output=capture_output,
     )
+
+
+def run_process(
+    command: list[str],
+    *,
+    check: bool = True,
+    cwd: Optional[Path] = None,
+    env: Optional[dict[str, str]] = None,
+    capture_output: bool = True,
+    input_text: Optional[str] = None,
+) -> subprocess.CompletedProcess[str]:
+    started_at = time.monotonic()
+    progress_line(f"[IT] RUN  {_format_command(command)}")
+    try:
+        result = subprocess.run(
+            command,
+            check=check,
+            text=True,
+            capture_output=capture_output,
+            cwd=cwd,
+            env=env,
+            input=input_text,
+        )
+    except subprocess.CalledProcessError as exc:
+        duration = time.monotonic() - started_at
+        progress_line(f"[IT] FAIL {_format_command(command)} exit={exc.returncode} ({duration:.1f}s)")
+        raise
+    duration = time.monotonic() - started_at
+    progress_line(f"[IT] DONE {_format_command(command)} exit={result.returncode} ({duration:.1f}s)")
+    return result
 
 
 def run_cli(
@@ -68,6 +104,7 @@ def start_cli(
 ) -> subprocess.Popen[str]:
     env = clean_env({"AGSEKIT_LANG": "en", **(env_overrides or {})})
     command = [sys.executable, str(REPO_ROOT / "agsekit"), *args]
+    progress_line(f"[IT] START {_format_command(command)}")
     return subprocess.Popen(
         command,
         cwd=cwd or REPO_ROOT,
@@ -85,10 +122,16 @@ def wait_for(
     interval: float = 0.2,
 ) -> None:
     deadline = time.time() + timeout
+    started_at = time.monotonic()
+    progress_line(f"[IT] WAIT {message} timeout={timeout:.1f}s")
     while time.time() < deadline:
         if predicate():
+            duration = time.monotonic() - started_at
+            progress_line(f"[IT] OK   {message} ({duration:.1f}s)")
             return
         time.sleep(interval)
+    duration = time.monotonic() - started_at
+    progress_line(f"[IT] TIMEOUT {message} ({duration:.1f}s)")
     raise AssertionError(message)
 
 

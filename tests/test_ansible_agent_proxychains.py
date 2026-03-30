@@ -73,8 +73,8 @@ def test_opencode_installer_tasks_run_via_proxychains_prefix():
     assert "opencode --version" in verify_task["ansible.builtin.command"]
 
 
-def test_codeforge_installer_tasks_run_via_proxychains_prefix():
-    playbook = _load_yaml(Path("agsekit_cli/ansible/agents/codeforge.yml"))
+def test_forgecode_installer_tasks_run_via_proxychains_prefix():
+    playbook = _load_yaml(Path("agsekit_cli/ansible/agents/forgecode.yml"))
     tasks = playbook[1]["tasks"]
 
     download_task = next(item for item in tasks if item["name"] == "Download CodeForge installer")
@@ -83,13 +83,32 @@ def test_codeforge_installer_tasks_run_via_proxychains_prefix():
     verify_task = next(item for item in tasks if item["name"] == "Verify CodeForge CLI after installation")
 
     assert download_task["ansible.builtin.command"].startswith("{{ proxychains_prefix }}curl ")
-    assert run_task["ansible.builtin.command"] == "{{ proxychains_prefix }}bash /tmp/codeforge-install.sh"
+    assert run_task["ansible.builtin.command"] == "{{ proxychains_prefix }}bash /tmp/forgecode-install.sh"
     assert "environment" not in download_task
     assert "environment" not in run_task
     assert publish_task["ansible.builtin.shell"].strip().startswith("set -euo pipefail")
     assert "$HOME/.local/bin/forge" in publish_task["ansible.builtin.shell"]
     assert "/usr/local/bin/forge" in publish_task["ansible.builtin.shell"]
     assert verify_task["ansible.builtin.command"] == "forge --version"
+
+
+def test_aider_installer_tasks_run_via_proxychains_prefix():
+    playbook = _load_yaml(Path("agsekit_cli/ansible/agents/aider.yml"))
+    tasks = playbook[1]["tasks"]
+
+    download_task = next(item for item in tasks if item["name"] == "Download aider installer")
+    run_task = next(item for item in tasks if item["name"] == "Run aider installer")
+    publish_task = next(item for item in tasks if item["name"] == "Publish aider binary into VM PATH")
+    verify_task = next(item for item in tasks if item["name"] == "Verify aider CLI after installation")
+
+    assert download_task["ansible.builtin.command"].startswith("{{ proxychains_prefix }}curl ")
+    assert run_task["ansible.builtin.command"] == "{{ proxychains_prefix }}bash /tmp/aider-install.sh"
+    assert "environment" not in download_task
+    assert "environment" not in run_task
+    assert publish_task["ansible.builtin.shell"].strip().startswith("set -euo pipefail")
+    assert "$HOME/.local/bin/aider" in publish_task["ansible.builtin.shell"]
+    assert "/usr/local/bin/aider" in publish_task["ansible.builtin.shell"]
+    assert verify_task["ansible.builtin.command"] == "aider --version"
 
 
 def test_codex_glibc_prebuilt_installer_tasks_run_via_proxychains_prefix():

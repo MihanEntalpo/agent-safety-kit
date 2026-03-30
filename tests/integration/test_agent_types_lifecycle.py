@@ -143,7 +143,7 @@ echo dummy-agent-ok >/dev/null
     )
 
 
-def _install_dummy_codeforge_binary(vm_name: str) -> None:
+def _install_dummy_forgecode_binary(vm_name: str) -> None:
     script = """#!/usr/bin/env bash
 set -euo pipefail
 printf 'FORGE_TRACKER=%s\\n' "${FORGE_TRACKER:-}"
@@ -251,16 +251,16 @@ def test_run_supported_agent_types(
     assert run_generic.returncode == 0, f"stdout={run_generic.stdout}\nstderr={run_generic.stderr}"
 
 
-def test_codeforge_disables_tracker_env(run_test_vm: str, tmp_path: Path) -> None:
-    config_path = tmp_path / "config-codeforge.yaml"
-    _write_config(config_path, run_test_vm, "codeforge-main", "codeforge")
+def test_forgecode_disables_tracker_env(run_test_vm: str, tmp_path: Path) -> None:
+    config_path = tmp_path / "config-forgecode.yaml"
+    _write_config(config_path, run_test_vm, "forgecode-main", "forgecode")
 
-    _install_dummy_codeforge_binary(run_test_vm)
+    _install_dummy_forgecode_binary(run_test_vm)
 
     result = _run_cli(
         [
             "run",
-            "codeforge-main",
+            "forgecode-main",
             "--config",
             str(config_path),
             "--disable-backups",

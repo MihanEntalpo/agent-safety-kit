@@ -3,8 +3,8 @@ from typing import Dict
 from .base import BaseAgent
 
 
-class CodeforgeAgent(BaseAgent):
-    type_name = "codeforge"
+class ForgecodeAgent(BaseAgent):
+    type_name = "forgecode"
     runtime_binary = "forge"
 
     def build_env(self) -> Dict[str, str]:

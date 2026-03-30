@@ -33,8 +33,9 @@ Everyone says "you should have backups" and "everything must live in git", but c
 
 Currently confirmed working agent types are:
 
+- aider
 - qwen
-- codeforge
+- forgecode
 - codex
 - opencode
 - claude
@@ -181,7 +182,7 @@ Backups use `rsync` with incremental links (`--link-dest`) to the previous copy:
 * `agsekit install-agents <agent_name> [<vm>|--all-vms] [--config <path>] [--proxychains <value>] [--debug]` — runs the prepared installation playbook for the chosen agent type inside the specified VM, or (without `<vm>`) in the VM targets configured for that agent (`agents.<name>.vm` + `agents.<name>.vms`). If both `vm` and `vms` are empty, the agent target is all configured VMs. If the config defines only one agent, you can skip `<agent_name>` and it will be picked automatically. Use `--proxychains <scheme://host:port>` to override the VM proxy for this installation or `--proxychains ""` to ignore it once.
 * `agsekit install-agents --all-agents [--all-vms] [--config <path>] [--proxychains <value>] [--debug]` — installs every configured agent either into their configured VM targets or into every VM when `--all-vms` is set.
 
-The installation playbooks live in `agsekit_cli/ansible/agents/`: `codex`, `qwen`, `opencode`, and `cline` install npm CLIs, `codeforge` follows the official Forge installer flow and installs the `forge` binary, `codex-glibc` builds the Rust sources with the glibc target and installs the binary as `codex-glibc`, `codex-glibc-prebuilt` downloads a published `codex-glibc` build from this repository's GitHub Releases and installs it as `codex-glibc-prebuilt`, and `claude` follows the official installer flow. Runtime binaries are `codex`, `qwen`, `forge`, `opencode`, `cline`, `claude`, `codex-glibc`, and `codex-glibc-prebuilt`. Other agent types are not supported yet.
+The installation playbooks live in `agsekit_cli/ansible/agents/`: `aider`, `forgecode`, and `claude` follow their official installer flows, `codex`, `qwen`, `opencode`, and `cline` install npm CLIs, `codex-glibc` builds the Rust sources with the glibc target and installs the binary as `codex-glibc`, and `codex-glibc-prebuilt` downloads a published `codex-glibc` build from this repository's GitHub Releases and installs it as `codex-glibc-prebuilt`. Runtime binaries are `aider`, `codex`, `qwen`, `forge`, `opencode`, `cline`, `claude`, `codex-glibc`, and `codex-glibc-prebuilt`. Other agent types are not supported yet.
 
 For `codex-glibc-prebuilt`, you can override the release source with environment variables on the host where `agsekit install-agents` runs:
 
@@ -191,7 +192,7 @@ For `codex-glibc-prebuilt`, you can override the release source with environment
 
 ### Running agents
 
-* `agsekit run <agent_name> [<source_dir>|--vm <vm_name>] [--config <path>] [--proxychains <value>] [--disable-backups] [--skip-default-args] [--debug] -- <agent_args...>` — starts an interactive agent command inside Multipass. Environment variables from the config are passed to the process. For `codeforge`, `agsekit` also forces `FORGE_TRACKER=false` on every run to disable Forge telemetry. If `source_dir` from the mounts list is provided, the agent starts inside the mounted target path in the matching VM. If `source_dir` is omitted, `agsekit` first tries to resolve the current directory as a mount path and uses it when matched; otherwise it launches in the home directory of the first VM from the agent target list (`agents.<name>.vm` + `agents.<name>.vms`), or the first VM in config when both are empty. When a matching mount exists and is currently mounted in Multipass, the CLI also compares the selected host folder with the corresponding path inside the VM and prints a warning if the host folder is non-empty but the VM side is empty. Unless `--disable-backups` is set, background repeated backups for the selected mount are started for the duration of the run. When no backups exist yet, the CLI first creates an initial snapshot with progress output before launching the agent and then starts the repeated loop with the initial run skipped. Arguments from `agents.<name>.default-args` are added unless `--skip-default-args` is set; if the user already passed an option with the same name (for example `--openai-api-key`), the default value is skipped. Agent restrictions are resolved in order: `mounts[].allowed_agents` (if set for the selected mount), otherwise `vms.<vm>.allowed_agents`; if neither is set, any configured agent may run. With `--debug`, the CLI prints executed commands, exit codes, and captured `stdout`/`stderr` to simplify troubleshooting. Use `--proxychains <scheme://host:port>` to override the VM setting for one run; pass an empty string to disable it temporarily.
+* `agsekit run <agent_name> [<source_dir>|--vm <vm_name>] [--config <path>] [--proxychains <value>] [--disable-backups] [--skip-default-args] [--debug] -- <agent_args...>` — starts an interactive agent command inside Multipass. Environment variables from the config are passed to the process. For `forgecode`, `agsekit` also forces `FORGE_TRACKER=false` on every run to disable Forge telemetry. If `source_dir` from the mounts list is provided, the agent starts inside the mounted target path in the matching VM. If `source_dir` is omitted, `agsekit` first tries to resolve the current directory as a mount path and uses it when matched; otherwise it launches in the home directory of the first VM from the agent target list (`agents.<name>.vm` + `agents.<name>.vms`), or the first VM in config when both are empty. When a matching mount exists and is currently mounted in Multipass, the CLI also compares the selected host folder with the corresponding path inside the VM and prints a warning if the host folder is non-empty but the VM side is empty. Unless `--disable-backups` is set, background repeated backups for the selected mount are started for the duration of the run. When no backups exist yet, the CLI first creates an initial snapshot with progress output before launching the agent and then starts the repeated loop with the initial run skipped. Arguments from `agents.<name>.default-args` are added unless `--skip-default-args` is set; if the user already passed an option with the same name (for example `--openai-api-key`), the default value is skipped. Agent restrictions are resolved in order: `mounts[].allowed_agents` (if set for the selected mount), otherwise `vms.<vm>.allowed_agents`; if neither is set, any configured agent may run. With `--debug`, the CLI prints executed commands, exit codes, and captured `stdout`/`stderr` to simplify troubleshooting. Use `--proxychains <scheme://host:port>` to override the VM setting for one run; pass an empty string to disable it temporarily.
 
 ### Interactive mode
 
@@ -222,7 +223,7 @@ vms: # VM parameters for Multipass (you can define multiple)
     cpu: 2      # number of vCPUs
     ram: 4G     # RAM size (supports 2G, 4096M, etc.)
     disk: 20G   # disk size
-    allowed_agents: qwen, codeforge, codex, opencode, claude, cline # optional: also supports [qwen, codex]; if omitted, all agents are allowed for this VM
+    allowed_agents: aider, qwen, forgecode, codex, opencode, claude, cline # optional: also supports [qwen, codex]; if omitted, all agents are allowed for this VM
     proxychains: "" # optional proxy URL (scheme://host:port); agsekit writes a temporary proxychains.conf and wraps Multipass commands automatically
     cloud-init: {} # place your standard cloud-init config here if needed
     port-forwarding: # Port forwarding config
@@ -249,7 +250,7 @@ mounts:
     vm: agent-ubuntu # VM name; defaults to the first VM in the configuration
 agents:
   qwen: # agent name; add as many as you need
-    type: qwen # agent type: qwen, codeforge (installs and runs the `forge` binary and forces FORGE_TRACKER=false), codex, opencode, codex-glibc (installs the `codex-glibc` binary), codex-glibc-prebuilt (installs and uses the `codex-glibc-prebuilt` binary), claude (runs the `claude` binary), or cline (runs the `cline` binary)
+    type: qwen # agent type: aider (installs and runs the `aider` binary), qwen, forgecode (installs and runs the `forge` binary and forces FORGE_TRACKER=false), codex, opencode, codex-glibc (installs the `codex-glibc` binary), codex-glibc-prebuilt (installs and uses the `codex-glibc-prebuilt` binary), claude (runs the `claude` binary), or cline (runs the `cline` binary)
     env: # arbitrary environment variables passed to the agent process
       OPENAI_API_KEY: "my_local_key"
       OPENAI_BASE_URL: "https://127.0.0.1:11556/v1"
@@ -262,8 +263,10 @@ agents:
     # if both vm and vms are empty or omitted, this agent is treated as configured for all VMs
   codex:
     type: codex 
-  codeforge:
-    type: codeforge
+  aider:
+    type: aider
+  forgecode:
+    type: forgecode
   opencode:
     type: opencode
   claude:

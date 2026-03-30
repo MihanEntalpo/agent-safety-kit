@@ -1,5 +1,5 @@
 ---
-- name: Install codeforge
+- name: Install forgecode
   hosts: localhost
   connection: local
   gather_facts: false
@@ -20,19 +20,19 @@
 
     - name: Check for CodeForge CLI
       ansible.builtin.command: forge --version
-      register: codeforge_check
+      register: forgecode_check
       changed_when: false
       failed_when: false
 
     - name: Download CodeForge installer
-      ansible.builtin.command: "{{ proxychains_prefix }}curl -fsSL https://forgecode.dev/cli -o /tmp/codeforge-install.sh"
-      when: codeforge_check.rc != 0
+      ansible.builtin.command: "{{ proxychains_prefix }}curl -fsSL https://forgecode.dev/cli -o /tmp/forgecode-install.sh"
+      when: forgecode_check.rc != 0
 
     - name: Run CodeForge installer
-      ansible.builtin.command: "{{ proxychains_prefix }}bash /tmp/codeforge-install.sh"
-      register: codeforge_install
-      changed_when: codeforge_install.rc == 0
-      when: codeforge_check.rc != 0
+      ansible.builtin.command: "{{ proxychains_prefix }}bash /tmp/forgecode-install.sh"
+      register: forgecode_install
+      changed_when: forgecode_install.rc == 0
+      when: forgecode_check.rc != 0
 
     - name: Publish Forge binary into VM PATH
       ansible.builtin.shell: |
@@ -54,17 +54,17 @@
         echo installed
       args:
         executable: /bin/bash
-      register: codeforge_path_publish
-      changed_when: "'installed' in codeforge_path_publish.stdout"
-      when: codeforge_check.rc != 0
+      register: forgecode_path_publish
+      changed_when: "'installed' in forgecode_path_publish.stdout"
+      when: forgecode_check.rc != 0
 
     - name: Verify CodeForge CLI after installation
       ansible.builtin.command: forge --version
       changed_when: false
-      when: codeforge_check.rc != 0
+      when: forgecode_check.rc != 0
 
     - name: Remove CodeForge installer
       ansible.builtin.file:
-        path: /tmp/codeforge-install.sh
+        path: /tmp/forgecode-install.sh
         state: absent
-      when: codeforge_check.rc != 0
+      when: forgecode_check.rc != 0

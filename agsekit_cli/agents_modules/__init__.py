@@ -2,19 +2,21 @@ from __future__ import annotations
 
 from typing import Dict, Tuple, Type
 
+from .aider import AiderAgent
 from .base import BaseAgent, NVM_LOAD_SNIPPET
 from .claude import ClaudeAgent
 from .cline import ClineAgent
-from .codeforge import CodeforgeAgent
 from .codex import CodexAgent
 from .codex_glibc import CodexGlibcAgent
 from .codex_glibc_prebuilt import CodexGlibcPrebuiltAgent
+from .forgecode import ForgecodeAgent
 from .opencode import OpencodeAgent
 from .qwen import QwenAgent
 
 AGENT_CLASSES: Tuple[Type[BaseAgent], ...] = (
+    AiderAgent,
     QwenAgent,
-    CodeforgeAgent,
+    ForgecodeAgent,
     CodexAgent,
     OpencodeAgent,
     CodexGlibcAgent,

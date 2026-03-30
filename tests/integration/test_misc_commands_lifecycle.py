@@ -11,6 +11,7 @@ from tests.integration.utils import (
     random_vm_name,
     require_host_tools,
     run_cli,
+    run_process,
     write_config,
 )
 
@@ -42,7 +43,7 @@ def test_config_example_and_gen(tmp_path: Path) -> None:
             str(generated_path),  # destination
         ]
     )
-    result = subprocess.run(
+    result = run_process(
         [
             sys.executable,
             str(REPO_ROOT / "agsekit"),
@@ -51,11 +52,9 @@ def test_config_example_and_gen(tmp_path: Path) -> None:
             str(generated_path),
             "--non-interactive",
         ],
-        input=input_script,
-        text=True,
-        capture_output=True,
         cwd=tmp_path,
         check=True,
+        input_text=input_script,
     )
     assert generated_path.exists(), result.stderr
 

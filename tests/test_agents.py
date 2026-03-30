@@ -154,10 +154,10 @@ def test_agent_command_sequence_skips_overridden_inline_space_args():
     assert command == ["qwen", "--mode", "fast", "--region", "us-east-1"]
 
 
-def test_build_agent_env_for_codeforge_forces_tracker_false():
+def test_build_agent_env_for_forgecode_forces_tracker_false():
     agent = AgentConfig(
-        name="codeforge-main",
-        type="codeforge",
+        name="forgecode-main",
+        type="forgecode",
         env={"TOKEN": "abc", "FORGE_TRACKER": "true"},
         vm_name=None,
     )

@@ -54,12 +54,16 @@ def agent_env(tmp_path_factory):
             }
         ],
         "agents": {
+            "aider-local": {
+                "type": "aider",
+                "vm": vm_name,
+            },
             "qwen-local": {
                 "type": "qwen",
                 "vm": vm_name,
             },
-            "codeforge-local": {
-                "type": "codeforge",
+            "forgecode-local": {
+                "type": "forgecode",
                 "vm": vm_name,
             },
             "codex-local": {
@@ -104,11 +108,24 @@ def test_install_agents_installs_binary(agent_env) -> None:
     )
 
 
-def test_install_agents_installs_codeforge_binary(agent_env) -> None:
+def test_install_agents_installs_aider_binary(agent_env) -> None:
     config_path = agent_env["config_path"]
     vm_name = agent_env["vm_name"]
     run_cli(
-        ["install-agents", "codeforge-local", vm_name, "--config", str(config_path), "--non-interactive"],
+        ["install-agents", "aider-local", vm_name, "--config", str(config_path), "--non-interactive"],
+        check=True,
+    )
+    run_cmd(
+        ["multipass", "exec", vm_name, "--", "bash", "-lc", "command -v aider >/dev/null"],
+        check=True,
+    )
+
+
+def test_install_agents_installs_forgecode_binary(agent_env) -> None:
+    config_path = agent_env["config_path"]
+    vm_name = agent_env["vm_name"]
+    run_cli(
+        ["install-agents", "forgecode-local", vm_name, "--config", str(config_path), "--non-interactive"],
         check=True,
     )
     run_cmd(

@@ -11,20 +11,21 @@ from agsekit_cli.config import AgentConfig
 
 def test_supported_agent_types_match_runtime_mapping():
     assert tuple(AGENT_RUNTIME_BINARIES.keys()) == SUPPORTED_AGENT_TYPES
+    assert AGENT_RUNTIME_BINARIES["aider"] == "aider"
 
 
 def test_build_agent_module_returns_specific_agent_class():
-    agent = AgentConfig(name="main", type="codeforge", env={}, vm_name=None)
+    agent = AgentConfig(name="main", type="forgecode", env={}, vm_name=None)
 
     module = build_agent_module(agent)
 
-    assert module.__class__.__name__ == "CodeforgeAgent"
+    assert module.__class__.__name__ == "ForgecodeAgent"
 
 
-def test_codeforge_agent_forces_tracker_in_env():
+def test_forgecode_agent_forces_tracker_in_env():
     agent = AgentConfig(
         name="main",
-        type="codeforge",
+        type="forgecode",
         env={"TOKEN": "abc", "FORGE_TRACKER": "true"},
         vm_name=None,
     )
@@ -51,6 +52,7 @@ def test_node_agent_class_builds_shell_command_with_nvm():
 
 
 def test_non_node_agent_class_does_not_require_nvm():
+    assert get_agent_class("aider").needs_nvm() is False
     assert get_agent_class("claude").needs_nvm() is False
-    assert get_agent_class("codeforge").needs_nvm() is False
+    assert get_agent_class("forgecode").needs_nvm() is False
     assert get_agent_class("codex").needs_nvm() is True

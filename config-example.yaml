@@ -7,7 +7,7 @@ vms: # virtual machine settings (you can define multiple VMs)
     cpu: 2      # number of vCPUs
     ram: 4G     # amount of RAM
     disk: 20G   # disk size
-    allowed_agents: qwen, codeforge, codex, opencode, claude, cline # optional: also accepts a list like [qwen, codex]; if omitted, all agents are allowed for this VM
+    allowed_agents: aider, qwen, forgecode, codex, opencode, claude, cline # optional: also accepts a list like [qwen, codex]; if omitted, all agents are allowed for this VM
     proxychains: "" # set a proxy URL (scheme://host:port); agsekit will generate a temporary proxychains.conf and wrap Multipass commands
     cloud-init: {} # optional standard cloud-init config
     port-forwarding: # port forwarding applied when running agents and related commands
@@ -34,7 +34,7 @@ mounts:
     vm: agent-ubuntu # VM name; if omitted, the first VM from the config is used
 agents:
   qwen: # agent name; add as many as you need
-    type: qwen # agent type: qwen, codeforge (uses the forge binary and forces FORGE_TRACKER=false), codex, opencode, codex-glibc, codex-glibc-prebuilt (uses the codex-glibc-prebuilt binary), claude, or cline
+    type: qwen # agent type: aider, qwen, forgecode (uses the forge binary and forces FORGE_TRACKER=false), codex, opencode, codex-glibc, codex-glibc-prebuilt (uses the codex-glibc-prebuilt binary), claude, or cline
     proxychains: "" # optional agent proxy URL (scheme://host:port); if this field is present, it overrides the VM proxychains setting even when empty
     env: # arbitrary environment variables passed to the agent
       OPENAI_API_KEY: "my_local_key"
@@ -46,5 +46,7 @@ agents:
     vm: agent-ubuntu # optional: one VM for this agent
     vms: agent-ubuntu # optional: multiple VMs (also accepts [agent-ubuntu, another-vm]); merged with vm
     # if vm and vms are empty or omitted, the agent is treated as assigned to all VMs from the vms section
-  codeforge:
-    type: codeforge
+  aider:
+    type: aider
+  forgecode:
+    type: forgecode

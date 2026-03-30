@@ -1,5 +1,12 @@
 # Agent-Safety-Kit versions history
 
+## 1.5.5 - forgecode rename
+
+* Renamed the supported agent type from `codeforge` to `forgecode` in configuration, examples, runtime mapping, installer selection, and CLI documentation
+* Changed the expected config value for Forge-based agents: configs should now use `type: forgecode`
+* Kept Forge runtime behavior unchanged under the new name: `forgecode` still launches the `forge` binary and always forces `FORGE_TRACKER=false`
+* Added `aider` agent type
+
 ## 1.5.4 - codeforge agent support
 
 * Added `codeforge` as a first-class agent type in configuration, runtime mapping, and `install-agents`

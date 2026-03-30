@@ -8,7 +8,7 @@
 
 ## 1. Продукт: зачем он нужен
 
-`Agent Safety Kit` — это CLI-инструмент для безопасной работы с консольными AI-агентами (`qwen`, `codeforge`, `codex`, `opencode`, `claude`, `cline`, `codex-glibc`, `codex-glibc-prebuilt`) через изоляцию в Multipass VM и регулярные инкрементальные бэкапы на хосте.
+`Agent Safety Kit` — это CLI-инструмент для безопасной работы с консольными AI-агентами (`aider`, `qwen`, `forgecode`, `codex`, `opencode`, `claude`, `cline`, `codex-glibc`, `codex-glibc-prebuilt`) через изоляцию в Multipass VM и регулярные инкрементальные бэкапы на хосте.
 
 Ключевая пользовательская проблема:
 - агент может повредить проект (удалить файлы, сломать рабочую копию, внести нежелательные изменения);
@@ -126,7 +126,7 @@
   - merge `default-args` и user args;
   - запуск фонового backup-процесса.
 - `agsekit_cli/agents_modules/*`
-  - базовый `BaseAgent` и отдельные классы по типам агентов (`QwenAgent`, `CodeforgeAgent`, `CodexAgent`, ...);
+  - базовый `BaseAgent` и отдельные классы по типам агентов (`AiderAgent`, `QwenAgent`, `ForgecodeAgent`, `CodexAgent`, ...);
   - единый registry поддерживаемых agent types;
   - agent-specific логика `needs_nvm`, `build_shell_command`, `build_env` и другие runtime-особенности.
 - `agsekit_cli/commands/*`
@@ -200,10 +200,11 @@
 
 ### 6.6 Секция `agents`
 Поля:
-- `type` (обязателен) — тип агента: `qwen`, `codeforge`, `codex`, `opencode`, `codex-glibc`, `codex-glibc-prebuilt`, `claude`, `cline`.
+- `type` (обязателен) — тип агента: `aider`, `qwen`, `forgecode`, `codex`, `opencode`, `codex-glibc`, `codex-glibc-prebuilt`, `claude`, `cline`.
   - поддерживаемые типы и runtime-бинарники задаются registry классов в `agsekit_cli/agents_modules/`.
-  - runtime-бинарники сейчас такие: `qwen -> qwen`, `codeforge -> forge`, `codex -> codex`, `opencode -> opencode`, `codex-glibc -> codex-glibc`, `codex-glibc-prebuilt -> codex-glibc-prebuilt`, `claude -> claude`, `cline -> cline`.
-  - `codeforge` — установка через официальный Forge installer; при `run` CLI всегда дополнительно задаёт `FORGE_TRACKER=false`, чтобы отключить телеметрию.
+  - runtime-бинарники сейчас такие: `aider -> aider`, `qwen -> qwen`, `forgecode -> forge`, `codex -> codex`, `opencode -> opencode`, `codex-glibc -> codex-glibc`, `codex-glibc-prebuilt -> codex-glibc-prebuilt`, `claude -> claude`, `cline -> cline`.
+  - `aider` — установка через официальный aider installer; runtime-бинарник `aider`.
+  - `forgecode` — установка через официальный Forge installer; при `run` CLI всегда дополнительно задаёт `FORGE_TRACKER=false`, чтобы отключить телеметрию.
   - `codex-glibc` — установка/сборка codex из исходников с установкой бинарника `codex-glibc`.
   - `codex-glibc-prebuilt` — установка заранее собранного `codex-glibc` (glibc-compatible) из GitHub Releases проекта; по умолчанию берётся свежий тег вида `codex-glibc-rust-v<major>.<minor>.<patch>`, источник можно переопределить через `AGSEKIT_CODEX_GLIBC_PREBUILT_REPO`, `AGSEKIT_CODEX_GLIBC_PREBUILT_TAG`, `AGSEKIT_CODEX_GLIBC_PREBUILT_ASSET`; если имя ассета не задано явно, оно определяется по архитектуре VM (`codex-glibc-linux-amd64.gz` для `x86_64`, `codex-glibc-linux-arm64.gz` для `aarch64`/`arm64`); бинарник устанавливается отдельно под именем `codex-glibc-prebuilt` и может сосуществовать с `codex-glibc`.
 - `env` (optional) — mapping переменных окружения, передаваемых агенту при запуске.
@@ -610,7 +611,7 @@
 5. строит runtime-адаптер агента через registry `agsekit_cli/agents_modules/`;
 6. собирает env агента через `agent.build_env()`;
    - базово берёт `agents.<name>.env`;
-   - agent-specific правила (например `codeforge -> FORGE_TRACKER=false`) задаются в соответствующем классе агента;
+   - agent-specific правила (например `forgecode -> FORGE_TRACKER=false`) задаются в соответствующем классе агента;
 7. проверяет effective `allowed_agents`;
 8. если mount-контекст найден и этот mount реально зарегистрирован в Multipass:
    - сравнивает выбранную host-папку (`source_dir` или `cwd`) с соответствующей директорией внутри VM;
@@ -749,9 +750,10 @@ Dependency resolution выполняется кодом до запуска play
 - `pyenv` и `python` bundles определяют наличие pyenv по маркеру `~/.pyenv/bin/pyenv` (а не по `command -v pyenv`), чтобы повторные прогоны не зависели от shell PATH.
 
 ### 10.3 Agent installers
+- `aider.yml`: установка через официальный aider install script с последующей проверкой бинарника `aider`; сетевые шаги выполняются через `proxychains_prefix`.
 - `codex.yml`: установка `bubblewrap`, Node через nvm + `@openai/codex`.
 - `qwen.yml`: установка Node через nvm + `@qwen-code/qwen-code`.
-- `codeforge.yml`: установка через официальный Forge install script с последующей проверкой бинарника `forge`; сетевые шаги выполняются через `proxychains_prefix`.
+- `forgecode.yml`: установка через официальный Forge install script с последующей проверкой бинарника `forge`; сетевые шаги выполняются через `proxychains_prefix`.
 - `opencode.yml`: установка Node через nvm + `opencode-ai`.
 - `cline.yml`: установка Node через nvm + `cline`.
 - `claude.yml`: установка через официальный install script; сетевые шаги выполняются через `proxychains_prefix`; если нативный post-install падает, применяется fallback-установка `claude` из уже скачанного бинарника в `~/.claude/downloads`.
