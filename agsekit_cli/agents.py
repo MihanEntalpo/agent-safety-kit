@@ -4,21 +4,14 @@ import os
 import shlex
 import subprocess
 from pathlib import Path
-from typing import Dict, Iterable, List, Optional, Sequence, Set, Tuple
+from typing import Dict, Iterable, List, Optional, Sequence, Set, Tuple, Union
 
-from .config import AgentConfig, ConfigError, VmConfig, agent_runtime_binary, load_agents_config, load_config, load_mounts_config, load_vms_config, resolve_config_path
+from .agents_modules import build_agent_module, get_agent_class, get_agent_class_for_runtime_binary
+from .config import AgentConfig, ConfigError, VmConfig, load_agents_config, load_config, load_mounts_config, load_vms_config, resolve_config_path
 from .debug import debug_log_command, debug_log_result
 from .i18n import tr
 from .mounts import MountConfig, normalize_path
 from .vm import MultipassError, PROXYCHAINS_RUNNER_PATH, ensure_multipass_available, resolve_proxychains
-
-
-NVM_LOAD_SNIPPET = (
-    "export NVM_DIR=${NVM_DIR:-$HOME/.nvm}; "
-    "if [ -s \"$NVM_DIR/nvm.sh\" ]; then . \"$NVM_DIR/nvm.sh\"; "
-    "elif [ -s \"$NVM_DIR/bash_completion\" ]; then . \"$NVM_DIR/bash_completion\"; fi"
-)
-NODE_AGENT_BINARIES = {"codex", "qwen", "qwen-code", "cline", "opencode"}
 
 
 def load_agents_from_file(config_path: Optional[Union[str, Path]]) -> Dict[str, AgentConfig]:
@@ -99,30 +92,12 @@ def configured_agent_vms(agent: AgentConfig, available_vms: Iterable[str]) -> Li
 
 
 def build_agent_env(agent: AgentConfig) -> Dict[str, str]:
-    return dict(agent.env)
-
-
-def _export_statements(env_vars: Dict[str, str]) -> List[str]:
-    exports: List[str] = []
-    for key, value in env_vars.items():
-        exports.append(f"export {key}={shlex.quote(str(value))}")
-    return exports
-
-
-def _needs_nvm(binary: str) -> bool:
-    return binary in NODE_AGENT_BINARIES
+    return build_agent_module(agent).build_env()
 
 
 def build_shell_command(workdir: Path, agent_command: Sequence[str], env_vars: Dict[str, str]) -> str:
-    parts: List[str] = []
-    if _needs_nvm(agent_command[0]):
-        parts.append(NVM_LOAD_SNIPPET)
-    exports = _export_statements(env_vars)
-    if exports:
-        parts.append("; ".join(exports))
-    parts.append(f"cd {shlex.quote(str(workdir))}")
-    parts.append(f"exec {shlex.join(list(agent_command))}")
-    return " && ".join(parts)
+    agent_cls = get_agent_class_for_runtime_binary(agent_command[0])
+    return agent_cls.build_shell_command(workdir, agent_command, env_vars)
 
 
 def run_in_vm(
@@ -152,17 +127,17 @@ def run_in_vm(
 
 
 def ensure_agent_binary_available(
-    agent_command: Sequence[str], vm: VmConfig, *, proxychains: Optional[str] = None, debug: bool = False
+    agent_command: Sequence[str],
+    vm: VmConfig,
+    *,
+    proxychains: Optional[str] = None,
+    debug: bool = False
 ) -> None:
     ensure_multipass_available()
     binary = agent_command[0]
+    agent_cls = get_agent_class_for_runtime_binary(binary)
     effective_proxychains = resolve_proxychains(vm, proxychains)
-    parts = []
-    if _needs_nvm(binary):
-        parts.append(NVM_LOAD_SNIPPET)
-    parts.append("export PATH=\"/usr/local/bin:$HOME/.local/bin:$PATH\"")
-    parts.append(f"command -v {shlex.quote(binary)} >/dev/null 2>&1")
-    check_command = " && ".join(parts)
+    check_command = agent_cls.build_binary_check_command()
     if effective_proxychains:
         wrapped_command = (
             f"bash {shlex.quote(PROXYCHAINS_RUNNER_PATH)} --proxy {shlex.quote(effective_proxychains)} -- "
@@ -277,7 +252,7 @@ def _merge_default_args(default_args: Sequence[str], user_args: Sequence[str]) -
 def agent_command_sequence(
     agent: AgentConfig, extra_args: Sequence[str], *, skip_default_args: bool = False
 ) -> List[str]:
-    runtime_binary = agent_runtime_binary(agent.type)
+    runtime_binary = get_agent_class(agent.type).runtime_binary
     if skip_default_args:
         return [runtime_binary, *extra_args]
     merged_args = _merge_default_args(agent.default_args, extra_args)

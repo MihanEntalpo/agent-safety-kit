@@ -11,6 +11,7 @@ from typing import Dict, Iterable, List, Optional, Sequence, Tuple
 import click
 
 from . import debug_option, non_interactive_option
+from ..agents_modules import get_agent_class, get_agent_class_for_runtime_binary
 from ..agents import configured_agent_vms
 from ..backup import list_backup_snapshots
 from ..config import (
@@ -28,13 +29,6 @@ from ..config import (
 from ..debug import debug_log_command, debug_log_result, debug_scope
 from ..i18n import tr
 from ..vm import RESOURCE_SIZE_RELATIVE_TOLERANCE, fetch_existing_info, to_bytes
-
-NODE_AGENT_BINARIES = {"codex", "qwen", "qwen-code", "cline", "opencode"}
-NVM_LOAD_SNIPPET = (
-    "export NVM_DIR=${NVM_DIR:-$HOME/.nvm}; "
-    "if [ -s \"$NVM_DIR/nvm.sh\" ]; then . \"$NVM_DIR/nvm.sh\"; "
-    "elif [ -s \"$NVM_DIR/bash_completion\" ]; then . \"$NVM_DIR/bash_completion\"; fi"
-)
 
 
 def _human_size(value: Optional[int]) -> str:
@@ -324,16 +318,9 @@ def _render_table(headers: Sequence[str], rows: Sequence[Sequence[str]]) -> None
         click.echo(" | ".join(_pad(row[i], widths[i]) for i in range(len(headers))))
 
 
-def _needs_nvm(binary: str) -> bool:
-    return binary in NODE_AGENT_BINARIES
-
-
 def _check_agent_binary_installed(vm_name: str, binary: str) -> Optional[bool]:
-    parts: List[str] = ['export PATH="/usr/local/bin:$HOME/.local/bin:$PATH"']
-    if _needs_nvm(binary):
-        parts.insert(0, NVM_LOAD_SNIPPET)
-    parts.append(f"command -v {shlex.quote(binary)} >/dev/null 2>&1")
-    command = " && ".join(parts)
+    agent_cls = get_agent_class_for_runtime_binary(binary)
+    command = agent_cls.build_binary_check_command()
 
     run_command = ["multipass", "exec", vm_name, "--", "bash", "-lc", command]
     debug_log_command(run_command)
@@ -577,7 +564,7 @@ def status_command(config_path: Optional[str], debug: bool, non_interactive: boo
             else:
                 vm_running = state.lower() == "running"
                 for agent in vm_agents:
-                    runtime_binary = agent_runtime_binary(agent.type)
+                    runtime_binary = get_agent_class(agent.type).runtime_binary
                     install_state: str
                     if not vm_running:
                         install_state = click.style(tr("status.agent_unknown"), fg="bright_black")
@@ -598,7 +585,8 @@ def status_command(config_path: Optional[str], debug: bool, non_interactive: boo
 
             binary_to_names: Dict[str, List[str]] = {}
             for agent in vm_agents:
-                binary_to_names.setdefault(agent_runtime_binary(agent.type), []).append(agent.name)
+                runtime_binary = get_agent_class(agent.type).runtime_binary
+                binary_to_names.setdefault(runtime_binary, []).append(agent.name)
 
             running_processes = _collect_running_agent_processes(vm_name, list(binary_to_names.keys()))
             if running_processes is None:

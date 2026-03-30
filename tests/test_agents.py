@@ -154,6 +154,22 @@ def test_agent_command_sequence_skips_overridden_inline_space_args():
     assert command == ["qwen", "--mode", "fast", "--region", "us-east-1"]
 
 
+def test_build_agent_env_for_codeforge_forces_tracker_false():
+    agent = AgentConfig(
+        name="codeforge-main",
+        type="codeforge",
+        env={"TOKEN": "abc", "FORGE_TRACKER": "true"},
+        vm_name=None,
+    )
+
+    env = agents.build_agent_env(agent)
+
+    assert env == {
+        "TOKEN": "abc",
+        "FORGE_TRACKER": "false",
+    }
+
+
 @pytest.mark.parametrize(("agent_type", "runtime_binary"), sorted(AGENT_RUNTIME_BINARIES.items()))
 def test_agent_command_sequence_uses_runtime_binary(agent_type: str, runtime_binary: str):
     agent = AgentConfig(

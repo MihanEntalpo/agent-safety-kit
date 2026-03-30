@@ -1,0 +1,70 @@
+---
+- name: Install codeforge
+  hosts: localhost
+  connection: local
+  gather_facts: false
+  tasks:
+    - name: Register Multipass VM
+      ansible.builtin.add_host:
+        name: "{{ vm_name }}"
+        ansible_host: "{{ vm_name }}"
+        ansible_connection: theko2fi.multipass.multipass
+        ansible_python_interpreter: /usr/bin/python3
+
+- name: Install CodeForge CLI
+  hosts: "{{ vm_name }}"
+  gather_facts: false
+  tasks:
+    - name: Configure proxychains
+      ansible.builtin.include_tasks: "{{ playbook_dir }}/proxychains.yml"
+
+    - name: Check for CodeForge CLI
+      ansible.builtin.command: forge --version
+      register: codeforge_check
+      changed_when: false
+      failed_when: false
+
+    - name: Download CodeForge installer
+      ansible.builtin.command: "{{ proxychains_prefix }}curl -fsSL https://forgecode.dev/cli -o /tmp/codeforge-install.sh"
+      when: codeforge_check.rc != 0
+
+    - name: Run CodeForge installer
+      ansible.builtin.command: "{{ proxychains_prefix }}bash /tmp/codeforge-install.sh"
+      register: codeforge_install
+      changed_when: codeforge_install.rc == 0
+      when: codeforge_check.rc != 0
+
+    - name: Publish Forge binary into VM PATH
+      ansible.builtin.shell: |
+        set -euo pipefail
+        if command -v forge >/dev/null 2>&1; then
+          exit 0
+        fi
+
+        if [ ! -x "$HOME/.local/bin/forge" ]; then
+          echo "Forge binary not found in PATH or at $HOME/.local/bin/forge" >&2
+          exit 1
+        fi
+
+        if [ -x /usr/local/bin/forge ] && cmp -s "$HOME/.local/bin/forge" /usr/local/bin/forge; then
+          exit 0
+        fi
+
+        sudo install -m 0755 "$HOME/.local/bin/forge" /usr/local/bin/forge
+        echo installed
+      args:
+        executable: /bin/bash
+      register: codeforge_path_publish
+      changed_when: "'installed' in codeforge_path_publish.stdout"
+      when: codeforge_check.rc != 0
+
+    - name: Verify CodeForge CLI after installation
+      ansible.builtin.command: forge --version
+      changed_when: false
+      when: codeforge_check.rc != 0
+
+    - name: Remove CodeForge installer
+      ansible.builtin.file:
+        path: /tmp/codeforge-install.sh
+        state: absent
+      when: codeforge_check.rc != 0

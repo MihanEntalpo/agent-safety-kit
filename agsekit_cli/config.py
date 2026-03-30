@@ -9,6 +9,7 @@ from urllib.parse import urlparse
 
 import yaml
 
+from .agents_modules import AGENT_RUNTIME_BINARIES, SUPPORTED_AGENT_TYPES, get_agent_class
 from .i18n import tr
 from .vm_bundles import normalize_install_bundles
 
@@ -18,29 +19,14 @@ DEFAULT_AGSEKIT_DIR = DEFAULT_CONFIG_PATH.parent
 DEFAULT_SSH_KEYS_DIR = DEFAULT_AGSEKIT_DIR / "ssh"
 DEFAULT_SYSTEMD_ENV_DIR = DEFAULT_AGSEKIT_DIR
 DEFAULT_PORTFORWARD_CONFIG_CHECK_INTERVAL_SEC = 10
-ALLOWED_AGENT_TYPES = {
-    "qwen": "qwen",
-    "codex": "codex",
-    "opencode": "opencode",
-    "codex-glibc": "codex-glibc",
-    "codex-glibc-prebuilt": "codex-glibc-prebuilt",
-    "claude": "claude",
-    "cline": "cline",
-}
-
-AGENT_RUNTIME_BINARIES = {
-    "qwen": "qwen",
-    "codex": "codex",
-    "opencode": "opencode",
-    "codex-glibc": "codex-glibc",
-    "codex-glibc-prebuilt": "codex-glibc-prebuilt",
-    "claude": "claude",
-    "cline": "cline",
-}
+ALLOWED_AGENT_TYPES = {agent_type: agent_type for agent_type in SUPPORTED_AGENT_TYPES}
 
 
 def agent_runtime_binary(agent_type: str) -> str:
-    return AGENT_RUNTIME_BINARIES.get(agent_type, agent_type)
+    try:
+        return get_agent_class(agent_type).runtime_binary
+    except KeyError:
+        return agent_type
 
 
 @dataclass

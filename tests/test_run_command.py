@@ -150,6 +150,37 @@ def test_run_command_starts_backup_and_agent(monkeypatch, tmp_path):
     assert calls["proxychains"] is None
 
 
+def test_run_command_for_codeforge_forces_tracker_env(monkeypatch, tmp_path):
+    source = tmp_path / "project"
+    config_path = tmp_path / "config.yaml"
+    _write_config(config_path, source, agent_type="codeforge")
+
+    calls: Dict[str, object] = {}
+
+    def fake_run_in_vm(vm_config, workdir, command, env_vars, proxychains=None, debug=False):
+        calls.update({
+            "command": command,
+            "env": env_vars,
+        })
+        return 0
+
+    monkeypatch.setattr(run_module, "_has_existing_backup", lambda *_: True)
+    monkeypatch.setattr(run_module, "run_in_vm", fake_run_in_vm)
+    monkeypatch.setattr(run_module, "start_backup_process", lambda *_, **__: None)
+    monkeypatch.setattr(run_module, "ensure_agent_binary_available", lambda *_, **__: None)
+    monkeypatch.setattr(run_module, "backup_once", lambda *_, **__: None)
+
+    runner = CliRunner()
+    result = runner.invoke(run_command, ["qwen", str(source), "--config", str(config_path)])
+
+    assert result.exit_code == 0
+    assert calls["command"] == ["forge"]
+    assert calls["env"] == {
+        "TOKEN": "abc",
+        "FORGE_TRACKER": "false",
+    }
+
+
 def test_run_command_reports_missing_source_dir(monkeypatch, tmp_path):
     monkeypatch.setenv("AGSEKIT_LANG", "en")
     source = tmp_path / "missing"

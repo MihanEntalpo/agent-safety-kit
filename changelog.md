@@ -1,5 +1,13 @@
 # Agent-Safety-Kit versions history
 
+## 1.5.4 - codeforge agent support
+
+* Added `codeforge` as a first-class agent type in configuration, runtime mapping, and `install-agents`
+* Added a dedicated CodeForge installer playbook that installs the official Forge CLI and verifies the `forge` binary
+* Changed `agsekit run` for `codeforge` agents to force `FORGE_TRACKER=false` on every launch, disabling Forge telemetry inside the VM
+* Refactored agent-specific behavior into `agsekit_cli/agents_modules` with a shared `BaseAgent` and per-agent classes for runtime binary resolution, env building, shell command generation, and installer playbook selection
+* Added unit and host integration coverage for `codeforge`, including a runtime check that `FORGE_TRACKER=false` is present during execution
+
 ## 1.5.3 - global config and adaptive portforward
 
 * Added a top-level `global` config section with shared settings for the whole CLI: SSH keys folder override, systemd env folder override, and portforward config reload interval

@@ -9,6 +9,7 @@ import click
 import questionary
 
 from ..agents import configured_agent_vms, find_agent
+from ..agents_modules import get_agent_class
 from ..ansible_utils import (
     AnsibleCollectionError,
     ansible_playbook_command,
@@ -31,7 +32,7 @@ _ALL_VMS_VALUE = "__all_vms__"
 
 
 def _playbook_for(agent: AgentConfig) -> Path:
-    candidate = PLAYBOOKS_DIR / f"{agent.type}.yml"
+    candidate = PLAYBOOKS_DIR / get_agent_class(agent.type).playbook_name()
     if not candidate.exists():
         raise ConfigError(tr("install_agents.script_missing", agent_type=agent.type, path=candidate))
     return candidate

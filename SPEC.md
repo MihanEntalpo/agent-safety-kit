@@ -8,7 +8,7 @@
 
 ## 1. Продукт: зачем он нужен
 
-`Agent Safety Kit` — это CLI-инструмент для безопасной работы с консольными AI-агентами (`qwen`, `codex`, `opencode`, `claude`, `cline`, `codex-glibc`, `codex-glibc-prebuilt`) через изоляцию в Multipass VM и регулярные инкрементальные бэкапы на хосте.
+`Agent Safety Kit` — это CLI-инструмент для безопасной работы с консольными AI-агентами (`qwen`, `codeforge`, `codex`, `opencode`, `claude`, `cline`, `codex-glibc`, `codex-glibc-prebuilt`) через изоляцию в Multipass VM и регулярные инкрементальные бэкапы на хосте.
 
 Ключевая пользовательская проблема:
 - агент может повредить проект (удалить файлы, сломать рабочую копию, внести нежелательные изменения);
@@ -122,10 +122,13 @@
   - `.inodes` manifest.
 - `agsekit_cli/agents.py`
   - выбор mount/VM;
-  - сбор shell-команды запуска;
+  - orchestration поверх agent modules;
   - merge `default-args` и user args;
-  - проверка наличия бинарника агента;
   - запуск фонового backup-процесса.
+- `agsekit_cli/agents_modules/*`
+  - базовый `BaseAgent` и отдельные классы по типам агентов (`QwenAgent`, `CodeforgeAgent`, `CodexAgent`, ...);
+  - единый registry поддерживаемых agent types;
+  - agent-specific логика `needs_nvm`, `build_shell_command`, `build_env` и другие runtime-особенности.
 - `agsekit_cli/commands/*`
   - user-facing команды Click.
 - `agsekit_cli/ansible/*`
@@ -197,8 +200,10 @@
 
 ### 6.6 Секция `agents`
 Поля:
-- `type` (обязателен) — тип агента: `qwen`, `codex`, `opencode`, `codex-glibc`, `codex-glibc-prebuilt`, `claude`, `cline`.
-  - runtime-бинарники: `qwen -> qwen`, `codex -> codex`, `opencode -> opencode`, `codex-glibc -> codex-glibc`, `codex-glibc-prebuilt -> codex-glibc-prebuilt`, `claude -> claude`, `cline -> cline`.
+- `type` (обязателен) — тип агента: `qwen`, `codeforge`, `codex`, `opencode`, `codex-glibc`, `codex-glibc-prebuilt`, `claude`, `cline`.
+  - поддерживаемые типы и runtime-бинарники задаются registry классов в `agsekit_cli/agents_modules/`.
+  - runtime-бинарники сейчас такие: `qwen -> qwen`, `codeforge -> forge`, `codex -> codex`, `opencode -> opencode`, `codex-glibc -> codex-glibc`, `codex-glibc-prebuilt -> codex-glibc-prebuilt`, `claude -> claude`, `cline -> cline`.
+  - `codeforge` — установка через официальный Forge installer; при `run` CLI всегда дополнительно задаёт `FORGE_TRACKER=false`, чтобы отключить телеметрию.
   - `codex-glibc` — установка/сборка codex из исходников с установкой бинарника `codex-glibc`.
   - `codex-glibc-prebuilt` — установка заранее собранного `codex-glibc` (glibc-compatible) из GitHub Releases проекта; по умолчанию берётся свежий тег вида `codex-glibc-rust-v<major>.<minor>.<patch>`, источник можно переопределить через `AGSEKIT_CODEX_GLIBC_PREBUILT_REPO`, `AGSEKIT_CODEX_GLIBC_PREBUILT_TAG`, `AGSEKIT_CODEX_GLIBC_PREBUILT_ASSET`; если имя ассета не задано явно, оно определяется по архитектуре VM (`codex-glibc-linux-amd64.gz` для `x86_64`, `codex-glibc-linux-arm64.gz` для `aarch64`/`arm64`); бинарник устанавливается отдельно под именем `codex-glibc-prebuilt` и может сосуществовать с `codex-glibc`.
 - `env` (optional) — mapping переменных окружения, передаваемых агенту при запуске.
@@ -602,17 +607,21 @@
    - сначала `mount.allowed_agents` (если задано для выбранного mount);
    - иначе `vm.allowed_agents` выбранной VM (если задано);
    - иначе ограничений нет;
-5. проверяет effective `allowed_agents`;
-6. если mount-контекст найден и этот mount реально зарегистрирован в Multipass:
+5. строит runtime-адаптер агента через registry `agsekit_cli/agents_modules/`;
+6. собирает env агента через `agent.build_env()`;
+   - базово берёт `agents.<name>.env`;
+   - agent-specific правила (например `codeforge -> FORGE_TRACKER=false`) задаются в соответствующем классе агента;
+7. проверяет effective `allowed_agents`;
+8. если mount-контекст найден и этот mount реально зарегистрирован в Multipass:
    - сравнивает выбранную host-папку (`source_dir` или `cwd`) с соответствующей директорией внутри VM;
    - если host-папка не пустая, а VM-папка пустая/отсутствует, выводит warning с советом запустить `agsekit doctor`;
    - после warning в интерактивном режиме запрашивает подтверждение `Всё равно запустить агента? [y/N]` / `Start the agent anyway? [y/N]`;
    - ответ по умолчанию — `No`; при отказе запуск прерывается до старта агента;
-7. проверяет наличие бинарника агента в VM;
-8. (если backups enabled) делает initial backup при необходимости;
-9. запускает фоновый `backup-repeated` и пишет лог в `backup.log` (если initial backup уже сделан, сообщения о занятом backup-lock подавляются);
-10. запускает агента через `multipass exec ... bash -lc`;
-11. по завершении агента останавливает backup-процесс.
+9. проверяет наличие бинарника агента в VM;
+10. (если backups enabled) делает initial backup при необходимости;
+11. запускает фоновый `backup-repeated` и пишет лог в `backup.log` (если initial backup уже сделан, сообщения о занятом backup-lock подавляются);
+12. запускает агента через `multipass exec ... bash -lc`;
+13. по завершении агента останавливает backup-процесс.
 
 Инвариант CLI:
 - запуск агентов унифицирован и выполняется только через `run <agent_name>` независимо от типа агента.
@@ -742,6 +751,7 @@ Dependency resolution выполняется кодом до запуска play
 ### 10.3 Agent installers
 - `codex.yml`: установка `bubblewrap`, Node через nvm + `@openai/codex`.
 - `qwen.yml`: установка Node через nvm + `@qwen-code/qwen-code`.
+- `codeforge.yml`: установка через официальный Forge install script с последующей проверкой бинарника `forge`; сетевые шаги выполняются через `proxychains_prefix`.
 - `opencode.yml`: установка Node через nvm + `opencode-ai`.
 - `cline.yml`: установка Node через nvm + `cline`.
 - `claude.yml`: установка через официальный install script; сетевые шаги выполняются через `proxychains_prefix`; если нативный post-install падает, применяется fallback-установка `claude` из уже скачанного бинарника в `~/.claude/downloads`.

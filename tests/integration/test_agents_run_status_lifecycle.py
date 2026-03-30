@@ -58,6 +58,10 @@ def agent_env(tmp_path_factory):
                 "type": "qwen",
                 "vm": vm_name,
             },
+            "codeforge-local": {
+                "type": "codeforge",
+                "vm": vm_name,
+            },
             "codex-local": {
                 "type": "codex",
                 "vm": vm_name,
@@ -96,6 +100,19 @@ def test_install_agents_installs_binary(agent_env) -> None:
     )
     run_cmd(
         ["multipass", "exec", vm_name, "--", "bash", "-lc", "command -v qwen >/dev/null"],
+        check=True,
+    )
+
+
+def test_install_agents_installs_codeforge_binary(agent_env) -> None:
+    config_path = agent_env["config_path"]
+    vm_name = agent_env["vm_name"]
+    run_cli(
+        ["install-agents", "codeforge-local", vm_name, "--config", str(config_path), "--non-interactive"],
+        check=True,
+    )
+    run_cmd(
+        ["multipass", "exec", vm_name, "--", "bash", "-lc", "command -v forge >/dev/null"],
         check=True,
     )
 
