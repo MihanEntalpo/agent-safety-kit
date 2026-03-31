@@ -162,6 +162,31 @@ def test_install_multipass_uses_debian_when_pacman_absent(monkeypatch):
     assert calls == ["debian"]
 
 
+def test_install_multipass_uses_homebrew_on_macos(monkeypatch):
+    calls: list[str] = []
+
+    def fake_which(binary: str):
+        if binary == "multipass":
+            return None
+        if binary == "pacman":
+            return None
+        if binary == "apt-get":
+            return None
+        if binary == "brew":
+            return "/opt/homebrew/bin/brew"
+        return None
+
+    monkeypatch.setattr(prepare_module.platform, "system", lambda: "Darwin")
+    monkeypatch.setattr(prepare_module.shutil, "which", fake_which)
+    monkeypatch.setattr(prepare_module, "_install_multipass_arch", lambda **kwargs: calls.append("arch"))
+    monkeypatch.setattr(prepare_module, "_install_multipass_debian", lambda **kwargs: calls.append("debian"))
+    monkeypatch.setattr(prepare_module, "_install_multipass_brew", lambda **kwargs: calls.append("brew"))
+
+    prepare_module._install_multipass()
+
+    assert calls == ["brew"]
+
+
 def test_install_multipass_arch_requires_aur_helper(monkeypatch):
     monkeypatch.setattr(prepare_module.shutil, "which", lambda _binary: None)
 
@@ -169,6 +194,20 @@ def test_install_multipass_arch_requires_aur_helper(monkeypatch):
         prepare_module._install_multipass_arch()
 
     assert "AUR helper" in str(exc_info.value)
+
+
+def test_install_multipass_brew_uses_brew_install(monkeypatch):
+    commands: list[list[str]] = []
+
+    def fake_run(command, check):
+        commands.append(command)
+        assert check is True
+
+    monkeypatch.setattr(prepare_module.subprocess, "run", fake_run)
+
+    prepare_module._install_multipass_brew()
+
+    assert commands == [["brew", "install", "multipass"]]
 
 
 def test_install_multipass_arch_uses_yay(monkeypatch):

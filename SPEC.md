@@ -298,7 +298,8 @@
 2. Если `multipass` отсутствует:
    - на Debian-based (`apt-get`) ставит системные зависимости и Multipass через `snap`;
    - на Arch Linux (`pacman`) ставит Multipass через AUR helper (`yay` или `aura`) вместе с `libvirt`, `dnsmasq`, `qemu-base`;
-   - если нет ни `apt-get`, ни `pacman`, завершает `prepare` ошибкой о неподдерживаемом дистрибутиве.
+   - на macOS (`Darwin` + `brew`) ставит Multipass через `brew install multipass`;
+   - если нет ни `apt-get`, ни `pacman`, ни поддерживаемого `brew` на macOS, завершает `prepare` ошибкой о неподдерживаемом host package manager.
 3. Проверяет/ставит Ansible collection `theko2fi.multipass`.
 4. Создаёт SSH-ключи хоста в `~/.config/agsekit/ssh/` (используются для `ssh`/подготовки VM).
 5. Поддерживает `--debug`: включает подробный вывод внешних команд подготовки, включая `ansible-galaxy`.

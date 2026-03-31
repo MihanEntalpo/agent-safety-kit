@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import os
+import platform
 import shutil
 import subprocess
 from pathlib import Path
@@ -30,6 +31,8 @@ def _install_multipass(*, quiet: bool = False) -> None:
         _install_multipass_arch(quiet=quiet)
     elif shutil.which("apt-get") is not None:
         _install_multipass_debian(quiet=quiet)
+    elif platform.system() == "Darwin" and shutil.which("brew") is not None:
+        _install_multipass_brew(quiet=quiet)
     else:
         raise click.ClickException(tr("prepare.apt_missing"))
 
@@ -71,6 +74,16 @@ def _install_multipass_arch(*, quiet: bool = False) -> None:
     )
     if not quiet:
         click.echo(tr("prepare.multipass_installed_arch"))
+
+
+def _install_multipass_brew(*, quiet: bool = False) -> None:
+    """Install Multipass on macOS via Homebrew."""
+    if not quiet:
+        click.echo(tr("prepare.installing_multipass_brew"))
+
+    subprocess.run(["brew", "install", "multipass"], check=True)
+    if not quiet:
+        click.echo(tr("prepare.multipass_installed_brew"))
 
 
 def _install_ansible_collection() -> None:

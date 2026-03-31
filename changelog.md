@@ -1,5 +1,9 @@
 # Agent-Safety-Kit versions history
 
+## 1.5.7 - MacOs with Homebrew support
+
+* Added macOS host support for `agsekit prepare`: when Multipass is missing on macOS, the CLI now installs it via `brew install multipass`
+
 ## 1.5.6 - HTTP proxy support for agent runs, improved error logs, fixed claude installation
 
 * Added `http_proxy` support at VM and agent levels, with override rules independent from `proxychains`

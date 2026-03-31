@@ -61,6 +61,7 @@
    pip install agsekit
    ```
    Так команда `agsekit` станет доступна внутри виртуального окружения.
+   Автоматическая установка Multipass на хосте через `agsekit prepare` сейчас поддерживает Debian-based Linux через `apt`, Arch Linux через `pacman` + AUR helper и macOS через Homebrew.
 
 2. Либо можно склонировать репозиторий и установить из исходников:
    ```bash
@@ -102,7 +103,7 @@
 
 Большинство команд, взаимодействующих с Multipass, поддерживают `--debug`; в этом режиме CLI выводит запускаемую команду, код завершения и захваченные `stdout`/`stderr`.
 
-* `agsekit prepare [--config <path>] [--debug]` — устанавливает системные зависимости (включая Multipass; требует sudo, поддерживает Debian-based системы через `apt` и Arch Linux через `pacman` + AUR helper `yay`/`aura`) и создаёт SSH-ключи для доступа к ВМ. По умолчанию ключи лежат в `~/.config/agsekit/ssh`, путь можно переопределить через `global.ssh_keys_folder`.
+* `agsekit prepare [--config <path>] [--debug]` — устанавливает системные зависимости (включая Multipass; на Linux требует sudo, поддерживает Debian-based системы через `apt`, Arch Linux через `pacman` + AUR helper `yay`/`aura`, а macOS через `brew install multipass`) и создаёт SSH-ключи для доступа к ВМ. По умолчанию ключи лежат в `~/.config/agsekit/ssh`, путь можно переопределить через `global.ssh_keys_folder`.
 * `agsekit up [--config <path>] [--debug] [--prepare/--no-prepare] [--create-vms/--no-create-vms] [--install-agents/--no-install-agents]` — запускает `prepare`, `create-vms` и `install-agents` как один неинтерактивный сценарий. По умолчанию выполняются все три этапа. Команда создаёт все ВМ из конфига и устанавливает всех настроенных агентов в их целевые ВМ (`agents.<name>.vm` + `agents.<name>.vms`); если у агента нет ограничений по ВМ, он ставится во все ВМ из секции `vms`. Когда в сценарии используется конфиг, `up` дополнительно записывает `systemd.env` (по умолчанию в `~/.config/agsekit/systemd.env`, путь можно переопределить через `global.systemd_env_folder`), регистрирует user systemd unit для `agsekit portforward` и запускает его. Должен остаться включённым хотя бы один этап.
 * `agsekit config-gen [--config <path>] [--overwrite]` — интерактивный мастер, который сначала задаёт вопросы про `global.ssh_keys_folder`, `global.systemd_env_folder`, `global.portforward_config_check_interval_sec` и `global.http_proxy_port_pool`, затем про ВМ, монтирования и агентов и записывает YAML-конфиг в выбранный путь (по умолчанию `~/.config/agsekit/config.yaml`). Без флага `--overwrite` команда предупредит о существующем файле.
 * `agsekit config-example [<path>]` — копирует `config-example.yaml` в указанный путь (по умолчанию `~/.config/agsekit/config.yaml`). Если конфиг уже существует, копирование по умолчанию пропускается.

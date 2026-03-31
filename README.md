@@ -61,6 +61,7 @@ All three agents, `codex`, `codex-glibc`, and `codex-glibc-prebuilt`, use separa
    pip install agsekit
    ```
    This makes the `agsekit` command available inside the virtual environment.
+   Host-side automatic Multipass installation in `agsekit prepare` currently supports Debian-based Linux via `apt`, Arch Linux via `pacman` + an AUR helper, and macOS via Homebrew.
 
 2. Alternatively, clone the repository and install from sources:
    ```bash
@@ -102,7 +103,7 @@ All three agents, `codex`, `codex-glibc`, and `codex-glibc-prebuilt`, use separa
 
 Most commands that interact with Multipass support `--debug`; in this mode the CLI prints the executed command, exit code, and captured `stdout`/`stderr`.
 
-* `agsekit prepare [--config <path>] [--debug]` — installs required system dependencies (including Multipass; requires sudo and supports Debian-based systems via `apt` and Arch Linux via `pacman` + an AUR helper such as `yay`/`aura`) and creates the SSH keypair used to access VMs. By default the keypair is stored in `~/.config/agsekit/ssh`, and you can override that path via `global.ssh_keys_folder`.
+* `agsekit prepare [--config <path>] [--debug]` — installs required system dependencies (including Multipass; requires sudo on Linux, supports Debian-based systems via `apt`, Arch Linux via `pacman` + an AUR helper such as `yay`/`aura`, and macOS via `brew install multipass`) and creates the SSH keypair used to access VMs. By default the keypair is stored in `~/.config/agsekit/ssh`, and you can override that path via `global.ssh_keys_folder`.
 * `agsekit up [--config <path>] [--debug] [--prepare/--no-prepare] [--create-vms/--no-create-vms] [--install-agents/--no-install-agents]` — runs `prepare`, `create-vms`, and `install-agents` as one non-interactive flow. By default, all three stages run. The command creates every VM from the config and installs every configured agent into its configured VM targets (`agents.<name>.vm` + `agents.<name>.vms`); if an agent has no VM restrictions, it is installed into all configured VMs. When a config is involved, `up` also writes `systemd.env` (by default to `~/.config/agsekit/systemd.env`, overrideable via `global.systemd_env_folder`), registers the user systemd unit for `agsekit portforward`, and starts it. At least one stage must remain enabled.
 * `agsekit config-gen [--config <path>] [--overwrite]` — interactive wizard that first asks about `global.ssh_keys_folder`, `global.systemd_env_folder`, `global.portforward_config_check_interval_sec`, and `global.http_proxy_port_pool`, then about VMs, mounts, and agents and writes a YAML config to the chosen path (defaults to `~/.config/agsekit/config.yaml`). Without `--overwrite`, the command warns if the file already exists.
 * `agsekit config-example [<path>]` — copies `config-example.yaml` to the target path (defaults to `~/.config/agsekit/config.yaml`). If the default config already exists, the command skips copying.
