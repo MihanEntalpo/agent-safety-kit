@@ -10,6 +10,8 @@ from yaml import YAMLError
 from . import non_interactive_option
 from ..config import (
     ALLOWED_AGENT_TYPES,
+    DEFAULT_HTTP_PROXY_PORT_POOL_END,
+    DEFAULT_HTTP_PROXY_PORT_POOL_START,
     DEFAULT_PORTFORWARD_CONFIG_CHECK_INTERVAL_SEC,
     resolve_config_path,
 )
@@ -42,6 +44,14 @@ def _prompt_optional_path(message: str) -> Optional[str]:
     return str(Path(value).expanduser())
 
 
+def _prompt_non_empty(message: str) -> str:
+    while True:
+        value = click.prompt(message, default="", show_default=False).strip()
+        if value:
+            return value
+        click.echo(tr("config_gen.value_required"))
+
+
 def _prompt_global() -> Dict[str, object]:
     click.echo(tr("config_gen.global_intro"))
 
@@ -52,6 +62,43 @@ def _prompt_global() -> Dict[str, object]:
             tr("config_gen.global_portforward_interval"),
             default=DEFAULT_PORTFORWARD_CONFIG_CHECK_INTERVAL_SEC,
         ),
+        "http_proxy_port_pool": {
+            "start": _prompt_positive_int(
+                tr("config_gen.global_http_proxy_port_pool_start"),
+                default=DEFAULT_HTTP_PROXY_PORT_POOL_START,
+            ),
+            "end": _prompt_positive_int(
+                tr("config_gen.global_http_proxy_port_pool_end"),
+                default=DEFAULT_HTTP_PROXY_PORT_POOL_END,
+            ),
+        },
+    }
+
+
+def _prompt_http_proxy(message_prefix: str):
+    mode = click.prompt(
+        tr("config_gen.http_proxy_mode", target=message_prefix),
+        default="none",
+        type=click.Choice(["none", "upstream", "direct"], case_sensitive=False),
+    ).strip().lower()
+    if mode == "none":
+        return None
+    if mode == "direct":
+        return {
+            "url": _prompt_non_empty(tr("config_gen.http_proxy_url", target=message_prefix))
+        }
+
+    upstream = _prompt_non_empty(tr("config_gen.http_proxy_upstream", target=message_prefix))
+    listen = click.prompt(
+        tr("config_gen.http_proxy_listen", target=message_prefix),
+        default="",
+        show_default=False,
+    ).strip()
+    if not listen:
+        return upstream
+    return {
+        "upstream": upstream,
+        "listen": listen,
     }
 
 
@@ -95,6 +142,7 @@ def _prompt_vms() -> Dict[str, Dict[str, object]]:
             default="",
             show_default=False,
         ).strip()
+        http_proxy = _prompt_http_proxy(tr("config.block_vm"))
         allowed_agents: Optional[List[str]] = None
         while True:
             allowed_agents_raw = click.prompt(
@@ -114,6 +162,8 @@ def _prompt_vms() -> Dict[str, Dict[str, object]]:
         vm_entry: Dict[str, object] = {"cpu": cpu, "ram": ram, "disk": disk, "cloud-init": cloud_init}
         if proxychains:
             vm_entry["proxychains"] = proxychains
+        if http_proxy is not None:
+            vm_entry["http_proxy"] = http_proxy
         if allowed_agents is not None:
             vm_entry["allowed_agents"] = allowed_agents
         vms[name] = vm_entry
@@ -197,6 +247,7 @@ def _prompt_agents(vm_names: List[str]) -> Dict[str, Dict[str, object]]:
             default="",
             show_default=False,
         ).strip()
+        http_proxy = _prompt_http_proxy(tr("config.block_agent"))
 
         env_vars: Dict[str, str] = {}
         while click.confirm(tr("config_gen.agent_env_add"), default=False):
@@ -216,6 +267,8 @@ def _prompt_agents(vm_names: List[str]) -> Dict[str, Dict[str, object]]:
             agent_entry["proxychains"] = ""
         elif proxychains:
             agent_entry["proxychains"] = proxychains
+        if http_proxy is not None:
+            agent_entry["http_proxy"] = http_proxy
         agents[name] = agent_entry
 
     return agents

@@ -120,6 +120,77 @@ def test_load_vms_config_rejects_invalid_proxychains_format():
         load_vms_config(config)
 
 
+def test_load_vms_config_accepts_http_proxy_upstream_string():
+    config = {
+        "vms": {
+            "agent": {
+                "cpu": 2,
+                "ram": "2G",
+                "disk": "10G",
+                "http_proxy": "SOCKS5://Example.com:8080",
+            }
+        }
+    }
+
+    vms = load_vms_config(config)
+    assert vms["agent"].http_proxy is not None
+    assert vms["agent"].http_proxy.upstream == "socks5://example.com:8080"
+    assert vms["agent"].http_proxy.listen is None
+
+
+def test_load_vms_config_accepts_http_proxy_url_mode():
+    config = {
+        "vms": {
+            "agent": {
+                "cpu": 2,
+                "ram": "2G",
+                "disk": "10G",
+                "http_proxy": {"url": "HTTP://Example.com:18881"},
+            }
+        }
+    }
+
+    vms = load_vms_config(config)
+    assert vms["agent"].http_proxy is not None
+    assert vms["agent"].http_proxy.url == "http://example.com:18881"
+
+
+def test_load_vms_config_accepts_http_proxy_with_listen():
+    config = {
+        "vms": {
+            "agent": {
+                "cpu": 2,
+                "ram": "2G",
+                "disk": "10G",
+                "http_proxy": {"listen": "8585", "upstream": "socks5://127.0.0.1:8181"},
+            }
+        }
+    }
+
+    vms = load_vms_config(config)
+    assert vms["agent"].http_proxy is not None
+    assert vms["agent"].http_proxy.listen == "127.0.0.1:8585"
+
+
+def test_load_vms_config_rejects_http_proxy_url_and_upstream():
+    config = {
+        "vms": {
+            "agent": {
+                "cpu": 2,
+                "ram": "2G",
+                "disk": "10G",
+                "http_proxy": {
+                    "url": "http://127.0.0.1:18881",
+                    "upstream": "socks5://127.0.0.1:8181",
+                },
+            }
+        }
+    }
+
+    with pytest.raises(ConfigError):
+        load_vms_config(config)
+
+
 def test_load_vms_config_accepts_allowed_agents():
     config = {
         "vms": {

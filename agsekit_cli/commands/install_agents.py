@@ -15,6 +15,7 @@ from ..ansible_utils import (
     ansible_playbook_command,
     count_playbook_tasks,
     ensure_multipass_collection,
+    emit_hidden_output_tail,
     run_ansible_playbook,
 )
 from ..config import AgentConfig, ConfigError, VmConfig, load_agents_config, load_config, load_vms_config, resolve_config_path
@@ -46,7 +47,11 @@ def _log_failed_command(
     command: List[str],
     result: subprocess.CompletedProcess[str],
     description: str,
+    *,
+    progress: Optional[ProgressManager] = None,
 ) -> None:
+    if progress and hasattr(progress, "halt"):
+        progress.halt()
     click.echo(tr("install_agents.command_failed", description=description, code=result.returncode), err=True)
     click.echo(tr("install_agents.command_label", command=_format_command(command)), err=True)
     stdout = result.stdout.strip() if result.stdout else ""
@@ -55,6 +60,7 @@ def _log_failed_command(
         click.echo(tr("install_agents.stdout_label", output=stdout), err=True)
     if stderr:
         click.echo(tr("install_agents.stderr_label", output=stderr), err=True)
+    emit_hidden_output_tail(result, err=True)
 
 
 def _run_install_playbook(
@@ -104,7 +110,12 @@ def _run_install_playbook(
             playbook_path=playbook_path,
         )
     if result.returncode != 0:
-        _log_failed_command(install_command, result, tr("install_agents.installer_execution_label"))
+        _log_failed_command(
+            install_command,
+            result,
+            tr("install_agents.installer_execution_label"),
+            progress=progress,
+        )
         raise MultipassError(tr("install_agents.install_failed", vm_name=vm.name, code=result.returncode))
 
 
@@ -152,6 +163,14 @@ def _select_vm_interactively(vms_config: dict[str, VmConfig]) -> Tuple[bool, Opt
     if selected == _DEFAULT_VM_VALUE:
         return False, None
     return False, str(selected)
+
+
+def _emit_install_success(targets: List[Tuple[str, VmConfig]]) -> None:
+    if len(targets) == 1:
+        agent_name, target_vm = targets[0]
+        click.echo(tr("install_agents.ready", agent_name=agent_name, vm_name=target_vm.name))
+        return
+    click.echo(tr("install_agents.success", count=len(targets)))
 
 
 def run_install_agents(
@@ -235,6 +254,7 @@ def run_install_agents(
                     progress=owned_progress,
                     show_overall_task=True,
                 )
+            _emit_install_success(targets)
             return
 
         _run_install_targets(

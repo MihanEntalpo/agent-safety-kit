@@ -200,7 +200,7 @@ def test_prepare_vm_packages_installs_proxychains_runner_scripts():
 
     package_task = next(item for item in tasks if item["name"] == "Install base packages")
     packages = package_task["ansible.builtin.apt"]["name"]
-    assert {"7zip", "git", "gzip", "proxychains4", "ripgrep", "zip", "zstd"}.issubset(set(packages))
+    assert {"7zip", "git", "gzip", "privoxy", "proxychains4", "ripgrep", "zip", "zstd"}.issubset(set(packages))
 
     common_task = next(item for item in tasks if item["name"] == "Install agsekit proxychains common script")
     common_copy = common_task["ansible.builtin.copy"]
@@ -213,6 +213,12 @@ def test_prepare_vm_packages_installs_proxychains_runner_scripts():
     assert runner_copy["src"] == "{{ playbook_dir }}/../run_with_proxychains.sh"
     assert runner_copy["dest"] == "/usr/bin/agsekit-run_with_proxychains.sh"
     assert runner_copy["mode"] == "0755"
+
+    http_runner_task = next(item for item in tasks if item["name"] == "Install agsekit HTTP proxy runner script")
+    http_runner_copy = http_runner_task["ansible.builtin.copy"]
+    assert http_runner_copy["src"] == "{{ playbook_dir }}/../run_with_http_proxy.sh"
+    assert http_runner_copy["dest"] == "/usr/bin/agsekit-run_with_http_proxy.sh"
+    assert http_runner_copy["mode"] == "0755"
 
 
 def test_prepare_vm_ssh_playbook_manages_authorized_keys_and_known_hosts():

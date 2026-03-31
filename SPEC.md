@@ -107,10 +107,10 @@
   - запуск VM;
   - optional `multipass launch --timeout` через env `AGSEKIT_MULTIPASS_LAUNCH_TIMEOUT_SECONDS` (если переменная не задана, extra timeout не добавляется);
   - port-forward аргументы;
-  - резолв proxychains override и пути раннера.
+  - резолв proxychains override и пути раннеров.
 - `agsekit_cli/vm_prepare.py`
   - host SSH keypair;
-  - подготовка VM (authorized_keys и known_hosts через Ansible playbook, base packages, proxychains runner scripts, bundles).
+  - подготовка VM (authorized_keys и known_hosts через Ansible playbook, base packages, proxychains/http-proxy runner scripts, bundles).
 - `agsekit_cli/mounts.py`
   - mount/umount wrappers;
   - поиск mount по пути (longest-prefix).
@@ -158,6 +158,8 @@
   - текущий systemd unit по-прежнему читает `~/.config/agsekit/systemd.env`, поэтому при кастомном каталоге CLI создаёт compatibility symlink из стандартного пути на фактический env-файл.
 - `portforward_config_check_interval_sec` (optional, default `10`, >0) — интервал перечитывания YAML-конфига командой `portforward`.
   - применяется и при ручном запуске `agsekit portforward`, и в systemd-демоне, потому что сервис запускает ту же CLI-команду.
+- `http_proxy_port_pool.start` / `http_proxy_port_pool.end` (optional, defaults `48000..49000`) — диапазон auto-port для временного локального HTTP proxy helper внутри VM.
+  - используется только в `run`, когда effective `http_proxy` задан в upstream-режиме и `listen` явно не указан.
 
 ### 6.4 Секция `vms`
 Каждая VM:
@@ -168,6 +170,14 @@
 - `proxychains` (optional) — URL прокси `scheme://host:port`.
   - допустимые схемы: `http`, `https`, `socks4`, `socks5`;
   - user/pass/path/query/fragment не допускаются.
+- `http_proxy` (optional) — настройка HTTP proxy для `run`.
+  - поддерживаются формы:
+    - shorthand string `scheme://host:port` => upstream-режим через временный `privoxy`;
+    - mapping `{ upstream: scheme://host:port, listen?: host:port|port }`;
+    - mapping `{ url: http://host:port }` для прямого режима без `privoxy`.
+  - bare `listen` port нормализуется в `127.0.0.1:<port>`.
+  - `url` и `upstream` взаимоисключающие.
+  - `listen` допустим только вместе с `upstream`.
 - `port-forwarding` (optional) — список правил проброса портов.
   - `type=local`: открыть порт на хосте и пробросить в VM (`ssh -L host:vm`).
   - `type=remote`: открыть порт в VM и пробросить на хост (`ssh -R vm:host`).
@@ -219,6 +229,8 @@
 - `proxychains` (optional) — proxy URL `scheme://host:port` для этого агента.
   - используется в `run` и `install-agents`;
   - если поле присутствует, оно перекрывает `vms.<vm>.proxychains` даже при пустой строке (т.е. может принудительно отключить proxychains для агента).
+- `http_proxy` (optional) — HTTP proxy для `run`; формат такой же, как у `vms.<vm>.http_proxy`.
+  - если поле присутствует, оно перекрывает `vms.<vm>.http_proxy`, включая явное отключение пустой строкой.
 
 Поведение валидации:
 - ошибки валидации конфига возвращаются с контекстом: путь к config-файлу, путь в YAML (например `agents.cline`) и имя блока (например Agent `cline`);
@@ -313,11 +325,12 @@
    - при явном `--config` или `$CONFIG_PATH` возвращает обычную ошибку `Config file not found: ...`.
 6. В обычном режиме показывает общий `rich` progress по выбранным этапам и вложенный прогресс текущего внутреннего шага (`prepare`, `create-vms`, `install-agents`) под ним.
 7. При `--debug` отключает Rich progress и оставляет только обычный подробный вывод внутренних команд и внешних процессов.
-8. Если сценарий использует конфиг (включены `create-vms` и/или `install-agents`), после основных этапов дополнительно:
+8. Если вложенный Ansible playbook падает в обычном режиме, CLI сначала останавливает Rich progress, печатает пустую строку-разделитель, а затем выводит хвост последних скрытых строк Ansible (до 10 строк), чтобы ошибка не терялась за progress-рендерингом.
+9. Если сценарий использует конфиг (включены `create-vms` и/или `install-agents`), после основных этапов дополнительно:
    - генерирует `systemd.env` в каталоге из `global.systemd_env_folder` (по умолчанию `~/.config/agsekit/systemd.env`);
    - регистрирует user systemd unit для `agsekit portforward`;
    - запускает и включает этот unit.
-9. При успешном завершении печатает итоговое сообщение об успешной установке.
+10. При успешном завершении печатает итоговое сообщение об успешной установке.
 
 ### 8.2 Создание конфигов
 
@@ -339,9 +352,10 @@
   - `global.ssh_keys_folder`;
   - `global.systemd_env_folder`;
   - `global.portforward_config_check_interval_sec`;
+  - `global.http_proxy_port_pool.start/end`;
 - затем собирает `vms`, `mounts`, `agents`;
-- для каждой VM запрашивает optional `allowed_agents` строкой через запятую;
-- для агента запрашивает `type`, default `vm`, `env` и optional `proxychains`;
+- для каждой VM запрашивает optional `allowed_agents`, optional `proxychains` и optional `http_proxy`;
+- для агента запрашивает `type`, default `vm`, `env`, optional `proxychains` и optional `http_proxy`;
   - если для agent `proxychains` введено буквально `""`, в YAML сохраняется явная пустая строка (`proxychains: ""`);
 - спрашивает путь сохранения;
 - без `--overwrite` не перезаписывает существующий файл.
@@ -576,12 +590,16 @@
 - определяет playbook по `agents.<name>.type`;
 - запускает Ansible installer через общий runner;
   - по умолчанию runner включает компактный progress-вывод (`X/Y task-name` + progress bar) через custom callback plugin;
+  - при ошибке runner допечатывает хвост последних скрытых строк Ansible (до 10 строк);
   - при `--debug` progress callback отключается и используется стандартный вывод ansible;
 - без `--debug` показывает progress-bar'ы установки агентов через `rich`, включая шаги Ansible;
 - при `--debug` Rich progress тоже отключается, чтобы вывод установки оставался обычным потоковым логом;
 - поддерживает proxy override на один запуск (`--proxychains`).
 - при запуске без аргументов в интерактивном TTY запрашивает выбор агента и цели установки;
 - при запуске без аргументов в non-interactive режиме требует явный выбор агента (ошибка `agent_required`).
+- при успешном standalone-запуске печатает явное итоговое сообщение:
+  - для одного target: что агент готов к работе в выбранной ВМ;
+  - для нескольких target: общее сообщение об успешной установке.
 
 Инвариант CLI:
 - установка агентов унифицирована и выполняется только через `install-agents` независимо от типа агента.
@@ -703,6 +721,17 @@
 - команда запускается через `proxychains4`;
 - в Ansible agent installers сетевые шаги выполняются через `proxychains_prefix` (без отдельного прокидывания proxy env-переменных).
 
+### 9.4.1 HTTP proxy режим для `run`
+- effective `http_proxy` определяется как `agents.<name>.http_proxy -> vm.http_proxy -> none`;
+- direct-режим (`http_proxy.url`) не поднимает `privoxy`;
+  - агенту добавляются `HTTP_PROXY` и `http_proxy`;
+- upstream-режим (`http_proxy` string или `http_proxy.upstream`) запускает временный VM-local `privoxy` через `/usr/bin/agsekit-run_with_http_proxy.sh`;
+  - helper выбирает `listen` из `global.http_proxy_port_pool`, если он не задан явно;
+  - helper создаёт временный конфиг `privoxy`, ждёт readiness, запускает агент и затем очищает temp-файлы и процесс;
+- если effective `http_proxy` задан, runtime `proxychains` одновременно использовать нельзя;
+  - в такой ситуации `run` завершается ошибкой;
+  - чтобы агент использовал `http_proxy` при VM-level `proxychains`, агент должен явно отключить `proxychains: ""`.
+
 ### 9.5 Ограничение запуска по allowed_agents (mount + VM)
 - effective policy вычисляется как `mount.allowed_agents -> vm.allowed_agents -> unrestricted`;
 - mount-level policy приоритетнее vm-level policy;
@@ -721,18 +750,21 @@
   - печатает текущую задачу в формате `N/Total TaskName`;
   - печатает progress bar;
   - при ошибке печатает короткую строку `FAILED ...`;
+- при запуске playbook'ов через Rich-прогресс (`progress_handler`) helper буферизует последние скрытые строки обычного вывода, строку `FAILED ...` и детали ошибки, чтобы при падении показать хвост лога (до 10 строк) уже после остановки progress-рендеринга;
 - в `--debug` callback отключается, и ansible выводится в стандартном режиме.
 
 ### 10.1 Базовая подготовка VM (`vm_packages.yml`)
 - `7zip`
 - `git`
 - `gzip`
+- `privoxy`
 - `proxychains4`
 - `ripgrep`
 - `zip`
 - `zstd`
 - `/usr/bin/proxychains_common.sh`
 - `/usr/bin/agsekit-run_with_proxychains.sh`
+- `/usr/bin/agsekit-run_with_http_proxy.sh`
 
 ### 10.2 Install bundles (`vms.<vm>.install`)
 Поддерживаемые bundles:
@@ -756,7 +788,7 @@ Dependency resolution выполняется кодом до запуска play
 - `forgecode.yml`: установка через официальный Forge install script с последующей проверкой бинарника `forge`; сетевые шаги выполняются через `proxychains_prefix`.
 - `opencode.yml`: установка Node через nvm + `opencode-ai`.
 - `cline.yml`: установка Node через nvm + `cline`.
-- `claude.yml`: установка через официальный install script; сетевые шаги выполняются через `proxychains_prefix`; если нативный post-install падает, применяется fallback-установка `claude` из уже скачанного бинарника в `~/.claude/downloads`.
+- `claude.yml`: установка через официальный install script; сетевые шаги выполняются через `proxychains_prefix`; если нативный post-install падает, применяется fallback-установка `claude` прямой загрузкой последнего release-бинарника по официальным `latest` + `manifest.json` с проверкой `sha256`, причём release-base динамически определяется через redirect c `https://claude.ai/install.sh`, без захардкоженного bucket URL.
 - `codex-glibc.yml`: установка `bubblewrap`, сборка из исходников `openai/codex`, управление swap при нехватке памяти, установка бинарника `codex-glibc`, post-build проверка.
 - `codex-glibc-prebuilt.yml`: установка `bubblewrap`, разрешение подходящего GitHub Release проекта с выбором ассета по архитектуре целевой VM (`amd64`/`arm64`) и установка опубликованного `codex-glibc` бинарника под именем `codex-glibc-prebuilt` без сборки в VM.
 
@@ -783,6 +815,7 @@ Dependency resolution выполняется кодом до запуска play
 
 Внутри VM:
 - системные proxychains helper scripts в `/usr/bin`
+- системный HTTP proxy helper script в `/usr/bin`
 - установленный agent/toolchain stack по выбранным playbooks
 
 ## 13. Ограничения и текущие особенности

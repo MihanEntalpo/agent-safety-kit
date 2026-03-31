@@ -1,5 +1,19 @@
 # Agent-Safety-Kit versions history
 
+## 1.5.6 - HTTP proxy support for agent runs, improved error logs, fixed claude installation
+
+* Added `http_proxy` support at VM and agent levels, with override rules independent from `proxychains`
+* Added direct HTTP proxy mode via `http_proxy.url`, which injects `HTTP_PROXY`/`http_proxy` into the agent runtime without starting additional processes
+* Added upstream HTTP proxy mode via `http_proxy.upstream` with optional `listen`; `agsekit run` now starts a temporary `privoxy` inside the VM for the duration of the agent session
+* Added `global.http_proxy_port_pool` to control automatic port selection for temporary HTTP proxy listeners
+* Updated VM preparation to install `privoxy` and the bundled HTTP proxy runner script required by `agsekit run`
+* Updated `config-gen` and the example config to support HTTP proxy settings
+* Added runtime validation that rejects agent launch when effective `http_proxy` and effective `proxychains` are both enabled at the same time
+* Improved `install-agents`/VM-preparation error reporting in Rich progress mode: on Ansible failure the CLI now stops the progress bars cleanly, inserts a blank separator line, and prints the last hidden Ansible lines to preserve useful diagnostics
+* Expanded buffered Ansible failure details to include the failed command, the `FAILED ...` summary line, return code, duration, and non-empty stderr/stdout fragments when available
+* Fixed `claude` installation fallback: when the official bootstrap script does not finish installation, `agsekit` now resolves the current Claude release base dynamically from the official `https://claude.ai/install.sh` redirect and then downloads the latest release using `latest` + `manifest.json` with SHA-256 verification instead of relying on the installer cache in `~/.claude/downloads`
+* Added an explicit success message after standalone `agsekit install-agents`: a single target now reports that the agent is ready to use in the VM, while multi-target runs print a compact success summary
+
 ## 1.5.5 - forgecode rename
 
 * Renamed the supported agent type from `codeforge` to `forgecode` in configuration, examples, runtime mapping, installer selection, and CLI documentation

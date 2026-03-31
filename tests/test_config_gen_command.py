@@ -22,11 +22,14 @@ def test_config_gen_creates_config_file(tmp_path):
             "",  # global ssh_keys_folder
             "",  # global systemd_env_folder
             "",  # global portforward interval
+            "",  # global http proxy port pool start
+            "",  # global http proxy port pool end
             "",  # Имя ВМ (по умолчанию agent-ubuntu)
             "",  # vCPU
             "",  # RAM
             "",  # disk
             "",  # proxychains
+            "",  # vm http_proxy mode
             "",  # vm allowed_agents
             "",  # cloud-init
             "n",  # добавить ещё ВМ
@@ -56,6 +59,7 @@ def test_config_gen_creates_config_file(tmp_path):
         "ssh_keys_folder": None,
         "systemd_env_folder": None,
         "portforward_config_check_interval_sec": DEFAULT_PORTFORWARD_CONFIG_CHECK_INTERVAL_SEC,
+        "http_proxy_port_pool": {"start": 48000, "end": 49000},
     }
     vm = config["vms"]["agent-ubuntu"]
     assert vm["cpu"] == 2
@@ -85,11 +89,14 @@ def test_config_gen_refuses_to_overwrite(tmp_path, monkeypatch):
             "",  # global ssh_keys_folder
             "",  # global systemd_env_folder
             "",  # global portforward interval
+            "",  # global http proxy port pool start
+            "",  # global http proxy port pool end
             "",  # Имя ВМ
             "",  # vCPU
             "",  # RAM
             "",  # disk
             "",  # proxychains
+            "",  # vm http_proxy mode
             "",  # vm allowed_agents
             "",  # cloud-init
             "n",  # добавить ещё ВМ
@@ -120,11 +127,14 @@ def test_config_gen_writes_agent_proxychains(tmp_path):
             "",  # global ssh_keys_folder
             "",  # global systemd_env_folder
             "",  # global portforward interval
+            "",  # global http proxy port pool start
+            "",  # global http proxy port pool end
             "",  # VM name
             "",  # vCPU
             "",  # RAM
             "",  # disk
             "",  # vm proxychains
+            "",  # vm http_proxy mode
             "",  # vm allowed_agents
             "",  # cloud-init
             "n",  # add one more VM
@@ -142,6 +152,7 @@ def test_config_gen_writes_agent_proxychains(tmp_path):
             "qwen",  # agent type
             "",  # agent vm
             "http://10.0.0.5:3128",  # agent proxychains
+            "none",  # agent http_proxy mode
             "n",  # add env var
             "n",  # add one more agent
             "",  # destination
@@ -169,11 +180,14 @@ def test_config_gen_writes_explicit_empty_agent_proxychains(tmp_path):
             "",  # global ssh_keys_folder
             "",  # global systemd_env_folder
             "",  # global portforward interval
+            "",  # global http proxy port pool start
+            "",  # global http proxy port pool end
             "",  # VM name
             "",  # vCPU
             "",  # RAM
             "",  # disk
             "",  # vm proxychains
+            "",  # vm http_proxy mode
             "",  # vm allowed_agents
             "",  # cloud-init
             "n",  # add one more VM
@@ -191,6 +205,7 @@ def test_config_gen_writes_explicit_empty_agent_proxychains(tmp_path):
             "qwen",  # agent type
             "",  # agent vm
             "\"\"",  # agent proxychains: explicit empty string
+            "none",  # agent http_proxy mode
             "n",  # add env var
             "n",  # add one more agent
             "",  # destination
@@ -218,11 +233,14 @@ def test_config_gen_writes_vm_allowed_agents(tmp_path):
             "",  # global ssh_keys_folder
             "",  # global systemd_env_folder
             "",  # global portforward interval
+            "",  # global http proxy port pool start
+            "",  # global http proxy port pool end
             "",  # VM name
             "",  # vCPU
             "",  # RAM
             "",  # disk
             "",  # vm proxychains
+            "",  # vm http_proxy mode
             "qwen, codex",  # vm allowed_agents
             "",  # cloud-init
             "n",  # add one more VM
@@ -262,11 +280,14 @@ def test_config_gen_prompts_and_writes_custom_global_settings(tmp_path):
             str(ssh_dir),  # global ssh_keys_folder
             str(env_dir),  # global systemd_env_folder
             "21",  # global portforward interval
+            "48100",  # global http proxy port pool start
+            "48200",  # global http proxy port pool end
             "",  # VM name
             "",  # vCPU
             "",  # RAM
             "",  # disk
             "",  # vm proxychains
+            "",  # vm http_proxy mode
             "",  # vm allowed_agents
             "",  # cloud-init
             "n",  # add one more VM
@@ -288,4 +309,5 @@ def test_config_gen_prompts_and_writes_custom_global_settings(tmp_path):
         "ssh_keys_folder": str(ssh_dir),
         "systemd_env_folder": str(env_dir),
         "portforward_config_check_interval_sec": 21,
+        "http_proxy_port_pool": {"start": 48100, "end": 48200},
     }

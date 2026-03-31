@@ -2,7 +2,7 @@ from __future__ import annotations
 
 import os
 import sys
-from typing import Any, Optional
+from typing import Any, Iterable, Optional
 
 from ansible.plugins.callback import CallbackBase
 
@@ -63,9 +63,50 @@ class CallbackModule(CallbackBase):
             return f"FAILED {task_name} ({host_name}): {message.strip()}"
         return f"FAILED {task_name} ({host_name})"
 
+    def _failure_details(self, result: Any) -> Iterable[str]:
+        payload = getattr(result, "_result", None)
+        if not isinstance(payload, dict):
+            return ()
+
+        details: list[str] = []
+
+        for key in ("cmd", "msg", "stdout", "stderr", "module_stdout", "module_stderr", "exception"):
+            value = payload.get(key)
+            if not isinstance(value, str):
+                continue
+            for line in value.splitlines():
+                stripped = line.strip()
+                if stripped:
+                    details.append(f"{key}: {stripped}")
+
+        rc = payload.get("rc")
+        if rc is not None:
+            details.append(f"rc: {rc}")
+
+        delta = payload.get("delta")
+        if isinstance(delta, str) and delta.strip():
+            details.append(f"delta: {delta.strip()}")
+
+        for key in ("stdout_lines", "stderr_lines"):
+            value = payload.get(key)
+            if not isinstance(value, list):
+                continue
+            for line in value:
+                if not isinstance(line, str):
+                    continue
+                stripped = line.strip()
+                if stripped:
+                    details.append(f"{key}: {stripped}")
+
+        return details
+
     def v2_runner_on_failed(self, result: Any, ignore_errors: bool = False) -> None:
         del ignore_errors
         self._emit(f"AGSEKIT_FAILED {self._failure_line(result)}")
+        for line in self._failure_details(result):
+            self._emit(f"AGSEKIT_DETAIL {line}")
 
     def v2_runner_on_unreachable(self, result: Any) -> None:
         self._emit(f"AGSEKIT_FAILED {self._failure_line(result)}")
+        for line in self._failure_details(result):
+            self._emit(f"AGSEKIT_DETAIL {line}")

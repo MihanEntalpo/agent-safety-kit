@@ -33,14 +33,25 @@ def test_claude_installer_tasks_run_via_proxychains_prefix():
 
     download_task = next(item for item in tasks if item["name"] == "Download Claude Code installer")
     run_task = next(item for item in tasks if item["name"] == "Run Claude Code installer")
-    fallback_task = next(item for item in tasks if item["name"] == "Fallback install Claude binary from downloaded cache")
+    fallback_task = next(item for item in tasks if item["name"] == "Fallback install Claude binary from latest release")
     verify_task = next(item for item in tasks if item["name"] == "Verify Claude CLI after installation")
 
     assert download_task["ansible.builtin.command"].startswith("{{ proxychains_prefix }}curl ")
     assert run_task["ansible.builtin.command"] == "{{ proxychains_prefix }}bash /tmp/claude-install.sh"
+    assert 'install_entrypoint="https://claude.ai/install.sh"' in fallback_task["ansible.builtin.shell"]
+    assert "{{ proxychains_prefix }}curl -fsSLI -o /dev/null -w '%{url_effective}' \"$install_entrypoint\"" in fallback_task["ansible.builtin.shell"]
+    assert 'release_base="${bootstrap_url%/bootstrap.sh}"' in fallback_task["ansible.builtin.shell"]
+    assert "{{ proxychains_prefix }}curl -fsSL \"$release_base/latest\"" in fallback_task["ansible.builtin.shell"]
+    assert "\"$release_base/$version/manifest.json\"" in fallback_task["ansible.builtin.shell"]
+    assert "\"$release_base/$version/$platform/claude\"" in fallback_task["ansible.builtin.shell"]
+    assert "python3 - \"$manifest_path\" \"$platform\"" in fallback_task["ansible.builtin.shell"]
+    assert "sha256sum \"$binary_path\"" in fallback_task["ansible.builtin.shell"]
+    assert "sudo install -m 0755 \"$binary_path\" /usr/local/bin/claude" in fallback_task["ansible.builtin.shell"]
     assert "environment" not in download_task
     assert "environment" not in run_task
     assert run_task["failed_when"] is False
+    assert fallback_task["register"] == "claude_fallback_install"
+    assert fallback_task["changed_when"] == "'installed' in claude_fallback_install.stdout"
     assert "claude_install.rc != 0" in fallback_task["when"]
     assert verify_task["ansible.builtin.command"] == "claude --version"
 

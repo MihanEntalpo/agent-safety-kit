@@ -35,17 +35,75 @@
       failed_when: false
       when: claude_check.rc != 0
 
-    - name: Fallback install Claude binary from downloaded cache
+    - name: Fallback install Claude binary from latest release
       ansible.builtin.shell: |
         set -euo pipefail
-        binary_path="$(ls -1t "$HOME/.claude/downloads"/claude-* 2>/dev/null | head -n 1)"
-        if [ -z "$binary_path" ]; then
-          echo "Downloaded Claude binary not found in $HOME/.claude/downloads" >&2
+
+        install_entrypoint="https://claude.ai/install.sh"
+        manifest_path="/tmp/claude-manifest.json"
+        binary_path="/tmp/claude"
+        trap 'rm -f "$manifest_path" "$binary_path"' EXIT
+
+        case "$(uname -m)" in
+          x86_64|amd64) arch="x64" ;;
+          arm64|aarch64) arch="arm64" ;;
+          *)
+            echo "Unsupported architecture: $(uname -m)" >&2
+            exit 1
+            ;;
+        esac
+
+        if [ -f /lib/libc.musl-x86_64.so.1 ] || [ -f /lib/libc.musl-aarch64.so.1 ] || ldd /bin/ls 2>&1 | grep -q musl; then
+          platform="linux-${arch}-musl"
+        else
+          platform="linux-${arch}"
+        fi
+
+        bootstrap_url="$({{ proxychains_prefix }}curl -fsSLI -o /dev/null -w '%{url_effective}' "$install_entrypoint")"
+        release_base="${bootstrap_url%/bootstrap.sh}"
+        if [ -z "$bootstrap_url" ] || [ "$release_base" = "$bootstrap_url" ]; then
+          echo "Unable to resolve Claude release base from $install_entrypoint" >&2
           exit 1
         fi
+
+        version="$({{ proxychains_prefix }}curl -fsSL "$release_base/latest")"
+        {{ proxychains_prefix }}curl -fsSL "$release_base/$version/manifest.json" -o "$manifest_path"
+
+        checksum="$(python3 - "$manifest_path" "$platform" <<'PY'
+        import json
+        import sys
+
+        manifest_path, platform_name = sys.argv[1], sys.argv[2]
+        with open(manifest_path, "r", encoding="utf-8") as handle:
+            manifest = json.load(handle)
+
+        platforms = manifest.get("platforms", {})
+        entry = platforms.get(platform_name, {})
+        checksum = entry.get("checksum", "")
+        if isinstance(checksum, str):
+            print(checksum)
+        PY
+        )"
+
+        if [ -z "$checksum" ]; then
+          echo "Checksum for platform $platform not found in Claude manifest" >&2
+          exit 1
+        fi
+
+        {{ proxychains_prefix }}curl -fsSL "$release_base/$version/$platform/claude" -o "$binary_path"
+        actual_checksum="$(sha256sum "$binary_path" | cut -d' ' -f1)"
+        if [ "$actual_checksum" != "$checksum" ]; then
+          echo "Checksum verification failed for Claude binary" >&2
+          exit 1
+        fi
+
+        chmod 0755 "$binary_path"
         sudo install -m 0755 "$binary_path" /usr/local/bin/claude
+        echo installed
       args:
         executable: /bin/bash
+      register: claude_fallback_install
+      changed_when: "'installed' in claude_fallback_install.stdout"
       when:
         - claude_check.rc != 0
         - claude_install.rc != 0

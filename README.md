@@ -104,7 +104,7 @@ Most commands that interact with Multipass support `--debug`; in this mode the C
 
 * `agsekit prepare [--config <path>] [--debug]` — installs required system dependencies (including Multipass; requires sudo and supports Debian-based systems via `apt` and Arch Linux via `pacman` + an AUR helper such as `yay`/`aura`) and creates the SSH keypair used to access VMs. By default the keypair is stored in `~/.config/agsekit/ssh`, and you can override that path via `global.ssh_keys_folder`.
 * `agsekit up [--config <path>] [--debug] [--prepare/--no-prepare] [--create-vms/--no-create-vms] [--install-agents/--no-install-agents]` — runs `prepare`, `create-vms`, and `install-agents` as one non-interactive flow. By default, all three stages run. The command creates every VM from the config and installs every configured agent into its configured VM targets (`agents.<name>.vm` + `agents.<name>.vms`); if an agent has no VM restrictions, it is installed into all configured VMs. When a config is involved, `up` also writes `systemd.env` (by default to `~/.config/agsekit/systemd.env`, overrideable via `global.systemd_env_folder`), registers the user systemd unit for `agsekit portforward`, and starts it. At least one stage must remain enabled.
-* `agsekit config-gen [--config <path>] [--overwrite]` — interactive wizard that first asks about `global.ssh_keys_folder`, `global.systemd_env_folder`, and `global.portforward_config_check_interval_sec`, then about VMs, mounts, and agents, and writes a YAML config to the chosen path (defaults to `~/.config/agsekit/config.yaml`). Without `--overwrite`, the command warns if the file already exists.
+* `agsekit config-gen [--config <path>] [--overwrite]` — interactive wizard that first asks about `global.ssh_keys_folder`, `global.systemd_env_folder`, `global.portforward_config_check_interval_sec`, and `global.http_proxy_port_pool`, then about VMs, mounts, and agents and writes a YAML config to the chosen path (defaults to `~/.config/agsekit/config.yaml`). Without `--overwrite`, the command warns if the file already exists.
 * `agsekit config-example [<path>]` — copies `config-example.yaml` to the target path (defaults to `~/.config/agsekit/config.yaml`). If the default config already exists, the command skips copying.
 * `agsekit pip-upgrade` — upgrades agsekit using `pip install agsekit --upgrade` inside the same Python environment that runs the CLI. If agsekit is not installed in that environment via pip, the command reports that it cannot be upgraded there.
 * `agsekit version` — prints the installed package version along with the project version from `pyproject.toml` when available.
@@ -192,7 +192,41 @@ For `codex-glibc-prebuilt`, you can override the release source with environment
 
 ### Running agents
 
-* `agsekit run <agent_name> [<source_dir>|--vm <vm_name>] [--config <path>] [--proxychains <value>] [--disable-backups] [--skip-default-args] [--debug] -- <agent_args...>` — starts an interactive agent command inside Multipass. Environment variables from the config are passed to the process. For `forgecode`, `agsekit` also forces `FORGE_TRACKER=false` on every run to disable Forge telemetry. If `source_dir` from the mounts list is provided, the agent starts inside the mounted target path in the matching VM. If `source_dir` is omitted, `agsekit` first tries to resolve the current directory as a mount path and uses it when matched; otherwise it launches in the home directory of the first VM from the agent target list (`agents.<name>.vm` + `agents.<name>.vms`), or the first VM in config when both are empty. When a matching mount exists and is currently mounted in Multipass, the CLI also compares the selected host folder with the corresponding path inside the VM and prints a warning if the host folder is non-empty but the VM side is empty. Unless `--disable-backups` is set, background repeated backups for the selected mount are started for the duration of the run. When no backups exist yet, the CLI first creates an initial snapshot with progress output before launching the agent and then starts the repeated loop with the initial run skipped. Arguments from `agents.<name>.default-args` are added unless `--skip-default-args` is set; if the user already passed an option with the same name (for example `--openai-api-key`), the default value is skipped. Agent restrictions are resolved in order: `mounts[].allowed_agents` (if set for the selected mount), otherwise `vms.<vm>.allowed_agents`; if neither is set, any configured agent may run. With `--debug`, the CLI prints executed commands, exit codes, and captured `stdout`/`stderr` to simplify troubleshooting. Use `--proxychains <scheme://host:port>` to override the VM setting for one run; pass an empty string to disable it temporarily.
+* `agsekit run <agent_name> [<source_dir>|--vm <vm_name>] [--config <path>] [--proxychains <value>] [--disable-backups] [--skip-default-args] [--debug] -- <agent_args...>` — starts an interactive agent command inside Multipass. Environment variables from the config are passed to the process. For `forgecode`, `agsekit` also forces `FORGE_TRACKER=false` on every run to disable Forge telemetry. If `source_dir` from the mounts list is provided, the agent starts inside the mounted target path in the matching VM. If `source_dir` is omitted, `agsekit` first tries to resolve the current directory as a mount path and uses it when matched; otherwise it launches in the home directory of the first VM from the agent target list (`agents.<name>.vm` + `agents.<name>.vms`), or the first VM in config when both are empty. When a matching mount exists and is currently mounted in Multipass, the CLI also compares the selected host folder with the corresponding path inside the VM and prints a warning if the host folder is non-empty but the VM side is empty. Unless `--disable-backups` is set, background repeated backups for the selected mount are started for the duration of the run. When no backups exist yet, the CLI first creates an initial snapshot with progress output before launching the agent and then starts the repeated loop with the initial run skipped. Arguments from `agents.<name>.default-args` are added unless `--skip-default-args` is set; if the user already passed an option with the same name (for example `--openai-api-key`), the default value is skipped. Agent restrictions are resolved in order: `mounts[].allowed_agents` (if set for the selected mount), otherwise `vms.<vm>.allowed_agents`; if neither is set, any configured agent may run. `http_proxy` can be configured either on the VM or on the agent: direct mode sets `HTTP_PROXY`/`http_proxy` for the agent, and upstream mode starts a temporary VM-local `privoxy` instance for this run only. If `http_proxy` is enabled for the effective run target, runtime `proxychains` wrapping must be disabled. With `--debug`, the CLI prints executed commands, exit codes, and captured `stdout`/`stderr` to simplify troubleshooting. Use `--proxychains <scheme://host:port>` to override the VM setting for one run; pass an empty string to disable it temporarily.
+
+#### HTTP proxy modes
+
+`http_proxy` is resolved the same way as other per-agent runtime settings: an agent-level value overrides the VM-level one. There are two supported modes:
+
+* Direct mode: pass a ready HTTP proxy URL and `agsekit` only injects `HTTP_PROXY` and `http_proxy` into the agent process.
+* Upstream mode: pass an upstream proxy URL and `agsekit run` starts a temporary `privoxy` inside the VM, then points the agent to that local HTTP proxy.
+
+Examples:
+
+```yaml
+vms:
+  agent-ubuntu:
+    http_proxy:
+      url: http://127.0.0.1:18881
+```
+
+```yaml
+vms:
+  agent-ubuntu:
+    http_proxy: socks5://127.0.0.1:8181
+```
+
+```yaml
+agents:
+  qwen:
+    type: qwen
+    vm: agent-ubuntu
+    http_proxy:
+      upstream: socks5://127.0.0.1:8181
+      listen: 127.0.0.1:8585
+```
+
+When `listen` is omitted, `agsekit` automatically picks a free port from `global.http_proxy_port_pool`. Effective `http_proxy` and effective `proxychains` are mutually exclusive for `agsekit run`: if both are configured, the CLI aborts with an error instead of guessing which transport should win.
 
 ### Interactive mode
 
@@ -218,6 +252,9 @@ global: # global agsekit settings
   ssh_keys_folder: null # optional override for the SSH key directory used to access VMs; defaults to ~/.config/agsekit/ssh
   systemd_env_folder: null # optional override for the directory where agsekit writes systemd.env; defaults to ~/.config/agsekit
   portforward_config_check_interval_sec: 10 # how often portforward reloads the config and reconciles tunnels
+  http_proxy_port_pool: # optional auto-port range for VM-local HTTP proxy helper
+    start: 48000
+    end: 49000
 vms: # VM parameters for Multipass (you can define multiple)
   agent-ubuntu: # VM name
     cpu: 2      # number of vCPUs
@@ -225,6 +262,7 @@ vms: # VM parameters for Multipass (you can define multiple)
     disk: 20G   # disk size
     allowed_agents: aider, qwen, forgecode, codex, opencode, claude, cline # optional: also supports [qwen, codex]; if omitted, all agents are allowed for this VM
     proxychains: "" # optional proxy URL (scheme://host:port); agsekit writes a temporary proxychains.conf and wraps Multipass commands automatically
+    http_proxy: "" # optional shorthand upstream for VM-local privoxy (for example socks5://127.0.0.1:8181)
     cloud-init: {} # place your standard cloud-init config here if needed
     port-forwarding: # Port forwarding config
       - type: remote # Open port inside VM and pass connections to Host machine's port
@@ -251,6 +289,9 @@ mounts:
 agents:
   qwen: # agent name; add as many as you need
     type: qwen # agent type: aider (installs and runs the `aider` binary), qwen, forgecode (installs and runs the `forge` binary and forces FORGE_TRACKER=false), codex, opencode, codex-glibc (installs the `codex-glibc` binary), codex-glibc-prebuilt (installs and uses the `codex-glibc-prebuilt` binary), claude (runs the `claude` binary), or cline (runs the `cline` binary)
+    http_proxy:
+      upstream: socks5://127.0.0.1:8181
+      listen: 127.0.0.1:8585
     env: # arbitrary environment variables passed to the agent process
       OPENAI_API_KEY: "my_local_key"
       OPENAI_BASE_URL: "https://127.0.0.1:11556/v1"

@@ -15,6 +15,7 @@ from .ansible_utils import (
     ansible_playbook_command,
     count_playbook_tasks,
     ensure_multipass_collection,
+    emit_hidden_output_tail,
     run_ansible_playbook,
 )
 from .debug import debug_log_command, debug_log_result
@@ -117,6 +118,15 @@ def _run_ansible_with_progress(
         progress.remove_task(task_id)
 
 
+def _report_hidden_output_tail(
+    result: subprocess.CompletedProcess[str],
+    progress: Optional[ProgressManager],
+) -> None:
+    if progress and hasattr(progress, "halt"):
+        progress.halt()
+    emit_hidden_output_tail(result, err=True)
+
+
 def _ensure_vm_packages(
     vm_name: str,
     progress: Optional[ProgressManager] = None,
@@ -148,6 +158,7 @@ def _ensure_vm_packages(
             playbook_path=playbook,
         )
     if result.returncode != 0:
+        _report_hidden_output_tail(result, progress)
         raise MultipassError(tr("prepare.install_failed", vm_name=vm_name))
     if progress and step_task_id is not None:
         progress.advance(step_task_id)
@@ -196,6 +207,7 @@ def _ensure_vm_ssh_access(
             playbook_path=playbook,
         )
     if result.returncode != 0:
+        _report_hidden_output_tail(result, progress)
         raise MultipassError(tr("prepare.ssh_sync_failed", vm_name=vm_name))
     if progress and step_task_id is not None:
         progress.advance(step_task_id)
@@ -252,6 +264,7 @@ def _install_vm_bundles(
                 playbook_path=playbook,
             )
         if install_result.returncode != 0:
+            _report_hidden_output_tail(install_result, progress)
             raise MultipassError(tr("prepare.install_bundle_failed", vm_name=vm_name, bundle=bundle.raw))
         if progress and bundle_task_id is not None:
             progress.advance(bundle_task_id)

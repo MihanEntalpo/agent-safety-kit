@@ -9,9 +9,12 @@ import pytest
 
 from agsekit_cli.ansible_utils import (
     AnsibleCollectionError,
+    AnsiblePlaybookResult,
     ansible_playbook_command,
     count_playbook_tasks,
+    emit_hidden_output_tail,
     ensure_multipass_collection,
+    get_hidden_output_tail,
     run_ansible_playbook,
 )
 
@@ -150,9 +153,78 @@ def test_run_ansible_playbook_disables_progress_callback_in_debug(monkeypatch, t
     assert calls["env"] is None
 
 
+def test_run_ansible_playbook_collects_hidden_output_tail(monkeypatch, tmp_path):
+    playbook = tmp_path / "playbook.yml"
+    playbook.write_text("[]\n", encoding="utf-8")
+    progress_updates = []
+
+    class DummyProcess:
+        def __init__(self) -> None:
+            self.stdout = iter(
+                [
+                    "AGSEKIT_PROGRESS 1 3 Install Node.js\n",
+                    "hidden ordinary line\n",
+                    "AGSEKIT_FAILED FAILED Install Node.js (agent-vm): boom\n",
+                    "AGSEKIT_DETAIL cmd: /bin/false\n",
+                    "AGSEKIT_DETAIL rc: 139\n",
+                    "AGSEKIT_DETAIL stderr: Segmentation fault\n",
+                ]
+            )
+
+        def wait(self) -> int:
+            return 2
+
+    monkeypatch.delenv("AGSEKIT_DEBUG", raising=False)
+    monkeypatch.setattr("agsekit_cli.ansible_utils.subprocess.Popen", lambda *args, **kwargs: DummyProcess())
+    monkeypatch.setattr("agsekit_cli.ansible_utils.debug_log_command", lambda *_args, **_kwargs: None)
+    monkeypatch.setattr("agsekit_cli.ansible_utils.debug_log_result", lambda *_args, **_kwargs: None)
+
+    result = run_ansible_playbook(
+        ["ansible-playbook", str(playbook)],
+        playbook_path=playbook,
+        progress_handler=lambda current, total, task_name: progress_updates.append((current, total, task_name)),
+    )
+
+    assert result.returncode == 2
+    assert result.stdout == "hidden ordinary line\n"
+    assert progress_updates == [(1, 3, "Install Node.js")]
+    assert get_hidden_output_tail(result) == (
+        "hidden ordinary line",
+        "FAILED Install Node.js (agent-vm): boom",
+        "cmd: /bin/false",
+        "rc: 139",
+        "stderr: Segmentation fault",
+    )
+
+
+def test_emit_hidden_output_tail_prints_last_lines(capsys):
+    result = AnsiblePlaybookResult(
+        ["ansible-playbook"],
+        2,
+        hidden_output_tail=["line 1", "line 2", "line 3"],
+    )
+
+    emit_hidden_output_tail(result, err=True, max_lines=2)
+
+    captured = capsys.readouterr()
+    assert "Last hidden Ansible lines:" in captured.err
+    assert "line 2" in captured.err
+    assert "line 3" in captured.err
+    assert "line 1" not in captured.err
+
+
 def _load_progress_callback_module():
     module_path = Path("agsekit_cli/ansible/callback_plugins/agsekit_progress.py")
     spec = importlib.util.spec_from_file_location("agsekit_progress_callback", module_path)
+    assert spec is not None and spec.loader is not None
+    module = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(module)
+    return module
+
+
+def _load_rich_callback_module():
+    module_path = Path("agsekit_cli/ansible/callback_plugins/agsekit_rich.py")
+    spec = importlib.util.spec_from_file_location("agsekit_rich_callback", module_path)
     assert spec is not None and spec.loader is not None
     module = importlib.util.module_from_spec(spec)
     spec.loader.exec_module(module)
@@ -218,6 +290,44 @@ def test_progress_callback_prints_failure_details(monkeypatch):
     callback.v2_runner_on_failed(DummyResult(), ignore_errors=False)
 
     assert dummy_display.messages[-1] == "FAILED Install Node.js (agent-vm): boom"
+
+
+def test_rich_callback_emits_failure_detail_control_lines(monkeypatch):
+    module = _load_rich_callback_module()
+    emitted = []
+
+    class DummyTask:
+        def get_name(self):
+            return "Install Node.js"
+
+    class DummyHost:
+        def get_name(self):
+            return "agent-vm"
+
+    class DummyResult:
+        _task = DummyTask()
+        _host = DummyHost()
+        _result = {
+            "msg": "boom",
+            "cmd": "/bin/false",
+            "rc": 139,
+            "delta": "0:00:00.01",
+            "stderr": "Segmentation fault",
+            "stdout_lines": ["line one", "line two"],
+        }
+
+    callback = module.CallbackModule()
+    monkeypatch.setattr(callback, "_emit", emitted.append)
+
+    callback.v2_runner_on_failed(DummyResult(), ignore_errors=False)
+
+    assert emitted[0] == "AGSEKIT_FAILED FAILED Install Node.js (agent-vm): boom"
+    assert "AGSEKIT_DETAIL cmd: /bin/false" in emitted
+    assert "AGSEKIT_DETAIL rc: 139" in emitted
+    assert "AGSEKIT_DETAIL delta: 0:00:00.01" in emitted
+    assert "AGSEKIT_DETAIL stderr: Segmentation fault" in emitted
+    assert "AGSEKIT_DETAIL stdout_lines: line one" in emitted
+    assert "AGSEKIT_DETAIL stdout_lines: line two" in emitted
 
 
 def test_progress_callback_overwrites_previous_lines_in_tty(monkeypatch):

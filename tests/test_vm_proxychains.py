@@ -14,6 +14,10 @@ def test_proxychains_runner_path_is_global_script() -> None:
     assert vm_module.PROXYCHAINS_RUNNER_PATH == "/usr/bin/agsekit-run_with_proxychains.sh"
 
 
+def test_http_proxy_runner_path_is_global_script() -> None:
+    assert vm_module.HTTP_PROXY_RUNNER_PATH == "/usr/bin/agsekit-run_with_http_proxy.sh"
+
+
 def test_resolve_proxychains_uses_vm_value_by_default() -> None:
     vm = _vm(proxychains="socks5://127.0.0.1:1080")
     assert vm_module.resolve_proxychains(vm, None) == "socks5://127.0.0.1:1080"

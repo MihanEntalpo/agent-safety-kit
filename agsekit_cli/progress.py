@@ -72,6 +72,12 @@ class ProgressManager:
         if self._progress is not None:
             self._progress.remove_task(task_id)
 
+    def halt(self) -> None:
+        if self._progress is not None:
+            self._progress.stop()
+            self.console.print()
+            self._progress = None
+
     @contextmanager
     def suspend(self) -> Iterable[None]:
         if self._progress is None:
@@ -147,6 +153,9 @@ class SingleTaskProgressProxy:
 
     def print(self, message: str) -> None:
         self._progress.print(message)
+
+    def halt(self) -> None:
+        self._progress.halt()
 
     @contextmanager
     def suspend(self) -> Iterable[None]:

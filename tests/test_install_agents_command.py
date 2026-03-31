@@ -13,7 +13,9 @@ if str(ROOT) not in sys.path:
     sys.path.insert(0, str(ROOT))
 
 import agsekit_cli.commands.install_agents as install_agents_module
+from agsekit_cli.ansible_utils import AnsiblePlaybookResult
 from agsekit_cli.commands.install_agents import install_agents_command
+from agsekit_cli.i18n import tr
 
 
 def _write_config(
@@ -354,6 +356,86 @@ def test_install_agents_empty_vm_and_vms_installs_into_all_vms(monkeypatch, tmp_
     assert calls == [("vm1", "qwen.yml", None), ("vm2", "qwen.yml", None)]
 
 
+def test_install_agents_prints_ready_message_for_single_target(monkeypatch, tmp_path):
+    config_path = tmp_path / "config.yaml"
+    _write_config(config_path, [("claude", "claude")], vm_names=["agent-ubuntu"])
+
+    class DummyProgressManager:
+        def __init__(self, *, debug: bool = False):
+            del debug
+
+        def __bool__(self):
+            return True
+
+        def __enter__(self):
+            return self
+
+        def __exit__(self, exc_type, exc, traceback):
+            return None
+
+        def add_task(self, description, total):
+            del description, total
+            return 0
+
+        def update(self, task_id, *, description=None, completed=None):
+            del task_id, description, completed
+
+        def advance(self, task_id, amount=1):
+            del task_id, amount
+
+        def remove_task(self, task_id):
+            del task_id
+
+    monkeypatch.setattr(install_agents_module, "ProgressManager", DummyProgressManager)
+    monkeypatch.setattr(install_agents_module, "_run_install_playbook", lambda *args, **kwargs: None)
+
+    runner = CliRunner()
+    result = _invoke_command(runner, install_agents_command, ["claude", "agent-ubuntu", "--config", str(config_path)])
+
+    assert result.exit_code == 0
+    assert tr("install_agents.ready", agent_name="claude", vm_name="agent-ubuntu") in result.output
+
+
+def test_install_agents_prints_summary_for_multiple_targets(monkeypatch, tmp_path):
+    config_path = tmp_path / "config.yaml"
+    _write_config(config_path, [("qwen", "qwen"), ("codex", "codex")], vm_names=["vm1", "vm2"])
+
+    class DummyProgressManager:
+        def __init__(self, *, debug: bool = False):
+            del debug
+
+        def __bool__(self):
+            return True
+
+        def __enter__(self):
+            return self
+
+        def __exit__(self, exc_type, exc, traceback):
+            return None
+
+        def add_task(self, description, total):
+            del description, total
+            return 0
+
+        def update(self, task_id, *, description=None, completed=None):
+            del task_id, description, completed
+
+        def advance(self, task_id, amount=1):
+            del task_id, amount
+
+        def remove_task(self, task_id):
+            del task_id
+
+    monkeypatch.setattr(install_agents_module, "ProgressManager", DummyProgressManager)
+    monkeypatch.setattr(install_agents_module, "_run_install_playbook", lambda *args, **kwargs: None)
+
+    runner = CliRunner()
+    result = _invoke_command(runner, install_agents_command, ["--all-agents", "--all-vms", "--config", str(config_path)])
+
+    assert result.exit_code == 0
+    assert tr("install_agents.success", count=4) in result.output
+
+
 def test_install_agents_debug_uses_dummy_progress_manager(monkeypatch, tmp_path):
     config_path = tmp_path / "config.yaml"
     _write_config(config_path, [("qwen", "qwen")])
@@ -404,3 +486,43 @@ def test_install_agents_debug_uses_dummy_progress_manager(monkeypatch, tmp_path)
     assert calls[0][2] is None
     assert isinstance(calls[0][3], DummyProgressManager)
     assert calls[0][4] is not None
+
+
+def test_log_failed_command_prints_hidden_ansible_tail(capsys):
+    result = AnsiblePlaybookResult(
+        ["ansible-playbook"],
+        2,
+        hidden_output_tail=["rc: 139", "stderr: Segmentation fault"],
+    )
+
+    install_agents_module._log_failed_command(["ansible-playbook"], result, "Installer")
+
+    captured = capsys.readouterr()
+    assert "Last hidden Ansible lines:" in captured.err
+    assert "rc: 139" in captured.err
+    assert "stderr: Segmentation fault" in captured.err
+
+
+def test_log_failed_command_halts_progress_before_printing(capsys):
+    halted = []
+
+    class DummyProgress:
+        def halt(self):
+            halted.append(True)
+
+    result = AnsiblePlaybookResult(
+        ["ansible-playbook"],
+        2,
+        hidden_output_tail=["cmd: /bin/false"],
+    )
+
+    install_agents_module._log_failed_command(
+        ["ansible-playbook"],
+        result,
+        "Installer",
+        progress=DummyProgress(),
+    )
+
+    captured = capsys.readouterr()
+    assert halted == [True]
+    assert "cmd: /bin/false" in captured.err

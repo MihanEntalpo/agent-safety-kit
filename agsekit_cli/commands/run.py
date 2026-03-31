@@ -15,14 +15,25 @@ from ..agents import (
     ensure_agent_binary_available,
     ensure_vm_exists,
     find_agent,
+    resolve_http_proxy,
     resolve_vm,
     run_in_vm,
     select_mount_for_source,
     start_backup_process,
 )
-from ..config import ConfigError, load_agents_config, load_config, load_mounts_config, load_vms_config, resolve_config_path
+from ..config import (
+    ConfigError,
+    HttpProxyConfig,
+    load_agents_config,
+    load_config,
+    load_global_config,
+    load_mounts_config,
+    load_vms_config,
+    resolve_config_path,
+)
 from ..i18n import tr
 from ..vm import MultipassError
+from ..vm import resolve_proxychains as resolve_effective_proxychains
 from ..mounts import (
     MountAlreadyMountedError,
     MountConfig,
@@ -134,6 +145,13 @@ def _ensure_mount_registered_for_run(
     return True
 
 
+def _apply_direct_http_proxy_env(env_vars: dict, http_proxy: HttpProxyConfig) -> None:
+    if http_proxy.url is None:
+        raise ConfigError(tr("run.http_proxy_invalid_runtime"))
+    env_vars["HTTP_PROXY"] = http_proxy.url
+    env_vars["http_proxy"] = http_proxy.url
+
+
 @click.command(name="run", context_settings={"ignore_unknown_options": True}, help=tr("run.command_help"))
 @non_interactive_option
 @click.argument("agent_name")
@@ -175,6 +193,7 @@ def run_command(
     resolved_path = resolve_config_path(Path(config_path) if config_path else None)
     try:
         config = load_config(resolved_path)
+        global_config = load_global_config(config)
         agents_config = load_agents_config(config)
         mounts = load_mounts_config(config)
         vms = load_vms_config(config)
@@ -218,6 +237,8 @@ def run_command(
     vm_to_use = resolve_vm(agent, mount_entry, vm_name, config)
     ensure_vm_exists(vm_to_use, vms)
     vm_config = vms[vm_to_use]
+    effective_http_proxy = resolve_http_proxy(agent, vm_config)
+    effective_proxychains = resolve_effective_proxychains(vm_config, proxychains_override)
 
     effective_allowed_agents = vm_config.allowed_agents
     restricted_by_mount = False
@@ -246,6 +267,8 @@ def run_command(
         )
 
     env_vars = build_agent_env(agent)
+    if effective_http_proxy is not None and effective_http_proxy.is_direct():
+        _apply_direct_http_proxy_env(env_vars, effective_http_proxy)
     if mount_entry:
         relative = mount_relative_path or Path(".")
         workdir = mount_entry.target if relative == Path(".") else mount_entry.target / relative
@@ -255,6 +278,9 @@ def run_command(
     agent_command = agent_command_sequence(agent, agent_args, skip_default_args=skip_default_args)
 
     with debug_scope(debug):
+        if effective_http_proxy is not None and effective_proxychains is not None:
+            raise click.ClickException(tr("run.http_proxy_proxychains_conflict"))
+
         try:
             should_continue = _ensure_mount_registered_for_run(
                 mount_entry,
@@ -282,7 +308,12 @@ def run_command(
             pass
 
         try:
-            ensure_agent_binary_available(agent_command, vm_config, proxychains=proxychains_override, debug=debug)
+            ensure_agent_binary_available(
+                agent_command,
+                vm_config,
+                proxychains=None if effective_http_proxy is not None else proxychains_override,
+                debug=debug,
+            )
         except MultipassError as exc:
             raise click.ClickException(str(exc))
 
@@ -320,13 +351,20 @@ def run_command(
         exit_code = 0
 
         try:
+            run_in_vm_kwargs = {
+                "proxychains": None if effective_http_proxy is not None else proxychains_override,
+                "debug": debug,
+            }
+            if effective_http_proxy is not None and not effective_http_proxy.is_direct():
+                run_in_vm_kwargs["http_proxy"] = effective_http_proxy
+                run_in_vm_kwargs["http_proxy_port_pool"] = global_config.http_proxy_port_pool
+
             exit_code = run_in_vm(
                 vm_config,
                 workdir,
                 agent_command,
                 env_vars,
-                proxychains=proxychains_override,
-                debug=debug,
+                **run_in_vm_kwargs,
             )
         except (ConfigError, MultipassError) as exc:
             raise click.ClickException(str(exc))

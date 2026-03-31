@@ -3,8 +3,9 @@ from __future__ import annotations
 import os
 import subprocess
 import sys
+from collections import deque
 from pathlib import Path
-from typing import Any, Callable, Iterable, Optional, Sequence
+from typing import Any, Callable, Deque, Iterable, Optional, Sequence
 
 import click
 import yaml
@@ -20,6 +21,58 @@ class AnsibleCollectionError(RuntimeError):
 _ANSIBLE_PROGRESS_CALLBACK = "agsekit_progress"
 _ANSIBLE_PROGRESS_TOTAL_ENV = "AGSEKIT_ANSIBLE_TOTAL_TASKS"
 _ANSIBLE_PROGRESS_HEADER_ENV = "AGSEKIT_ANSIBLE_HEADER"
+_ANSIBLE_HIDDEN_OUTPUT_TAIL_LINES = 10
+
+
+class AnsiblePlaybookResult(subprocess.CompletedProcess[str]):
+    def __init__(
+        self,
+        args: Sequence[str],
+        returncode: int,
+        *,
+        stdout: Optional[str] = None,
+        stderr: Optional[str] = None,
+        hidden_output_tail: Optional[Sequence[str]] = None,
+    ) -> None:
+        super().__init__(args=args, returncode=returncode, stdout=stdout, stderr=stderr)
+        self.hidden_output_tail = tuple(hidden_output_tail or ())
+
+
+def get_hidden_output_tail(
+    result: subprocess.CompletedProcess[str],
+    *,
+    max_lines: int = _ANSIBLE_HIDDEN_OUTPUT_TAIL_LINES,
+) -> tuple[str, ...]:
+    raw_lines = getattr(result, "hidden_output_tail", ())
+    if not isinstance(raw_lines, (list, tuple)):
+        return ()
+    normalized = [str(line).rstrip() for line in raw_lines if str(line).strip()]
+    if max_lines <= 0:
+        return tuple(normalized)
+    return tuple(normalized[-max_lines:])
+
+
+def emit_hidden_output_tail(
+    result: subprocess.CompletedProcess[str],
+    *,
+    err: bool = False,
+    max_lines: int = _ANSIBLE_HIDDEN_OUTPUT_TAIL_LINES,
+    print_fn: Optional[Callable[[str], None]] = None,
+) -> None:
+    hidden_output_tail = get_hidden_output_tail(result, max_lines=max_lines)
+    if not hidden_output_tail:
+        return
+    message = tr("ansible.hidden_output_tail_label", output="\n".join(hidden_output_tail))
+    if print_fn is not None:
+        print_fn(message)
+        return
+    click.echo(message, err=err)
+
+
+def _append_output_tail_line(tail: Deque[str], line: str) -> None:
+    stripped = line.rstrip()
+    if stripped:
+        tail.append(stripped)
 
 
 def _ansible_galaxy_command() -> list[str]:
@@ -157,7 +210,7 @@ def run_ansible_playbook(
     progress_header: Optional[str] = None,
     progress_handler: Optional[Callable[[int, int, str], None]] = None,
     progress_output: Optional[Callable[[str], None]] = None,
-) -> subprocess.CompletedProcess[str]:
+) -> AnsiblePlaybookResult:
     command_list = [str(part) for part in command]
     debug_log_command(command_list)
 
@@ -190,6 +243,7 @@ def run_ansible_playbook(
             bufsize=1,
         )
         output_lines: list[str] = []
+        hidden_output_tail: Deque[str] = deque(maxlen=_ANSIBLE_HIDDEN_OUTPUT_TAIL_LINES)
         if process.stdout is not None:
             for line in process.stdout:
                 stripped = line.strip()
@@ -205,24 +259,37 @@ def run_ansible_playbook(
                     continue
                 if stripped.startswith("AGSEKIT_FAILED "):
                     message = stripped.replace("AGSEKIT_FAILED ", "", 1)
-                    if progress_output:
-                        progress_output(message)
-                    else:
-                        click.echo(message)
+                    _append_output_tail_line(hidden_output_tail, message)
+                    continue
+                if stripped.startswith("AGSEKIT_DETAIL "):
+                    _append_output_tail_line(hidden_output_tail, stripped.replace("AGSEKIT_DETAIL ", "", 1))
                     continue
                 output_lines.append(line)
+                _append_output_tail_line(hidden_output_tail, line)
         return_code = process.wait()
         stdout_value = "".join(output_lines)
-        result = subprocess.CompletedProcess(command_list, return_code, stdout=stdout_value, stderr=None)
+        result = AnsiblePlaybookResult(
+            command_list,
+            return_code,
+            stdout=stdout_value,
+            stderr=None,
+            hidden_output_tail=tuple(hidden_output_tail),
+        )
         debug_log_result(result)
         return result
 
-    result = subprocess.run(
+    raw_result = subprocess.run(
         command_list,
         check=False,
         capture_output=False,
         text=True,
         env=env,
+    )
+    result = AnsiblePlaybookResult(
+        command_list,
+        raw_result.returncode,
+        stdout=raw_result.stdout,
+        stderr=raw_result.stderr,
     )
     debug_log_result(result)
     return result

@@ -2,6 +2,9 @@ global: # global agsekit settings
   ssh_keys_folder: null # if set, overrides the folder with SSH keys used to connect to VMs; default: ~/.config/agsekit/ssh
   systemd_env_folder: null # if set, overrides the folder where agsekit writes systemd.env; default: ~/.config/agsekit
   portforward_config_check_interval_sec: 10 # how often portforward reloads the config and reconciles tunnels
+  http_proxy_port_pool: # automatic listen port range for VM-local HTTP proxy helper
+    start: 48000
+    end: 49000
 vms: # virtual machine settings (you can define multiple VMs)
   agent-ubuntu: # virtual machine name
     cpu: 2      # number of vCPUs
@@ -9,6 +12,7 @@ vms: # virtual machine settings (you can define multiple VMs)
     disk: 20G   # disk size
     allowed_agents: aider, qwen, forgecode, codex, opencode, claude, cline # optional: also accepts a list like [qwen, codex]; if omitted, all agents are allowed for this VM
     proxychains: "" # set a proxy URL (scheme://host:port); agsekit will generate a temporary proxychains.conf and wrap Multipass commands
+    http_proxy: "" # optional shorthand for VM-local privoxy upstream (for example socks5://127.0.0.1:8181); for direct mode use a mapping with url:
     cloud-init: {} # optional standard cloud-init config
     port-forwarding: # port forwarding applied when running agents and related commands
       - type: remote
@@ -36,6 +40,9 @@ agents:
   qwen: # agent name; add as many as you need
     type: qwen # agent type: aider, qwen, forgecode (uses the forge binary and forces FORGE_TRACKER=false), codex, opencode, codex-glibc, codex-glibc-prebuilt (uses the codex-glibc-prebuilt binary), claude, or cline
     proxychains: "" # optional agent proxy URL (scheme://host:port); if this field is present, it overrides the VM proxychains setting even when empty
+    http_proxy: # optional HTTP proxy for agsekit run; overrides VM-level http_proxy
+      upstream: socks5://127.0.0.1:8181
+      listen: 127.0.0.1:8585
     env: # arbitrary environment variables passed to the agent
       OPENAI_API_KEY: "my_local_key"
       OPENAI_BASE_URL: "https://127.0.0.1:11556/v1"

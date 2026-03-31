@@ -19,6 +19,8 @@ DEFAULT_AGSEKIT_DIR = DEFAULT_CONFIG_PATH.parent
 DEFAULT_SSH_KEYS_DIR = DEFAULT_AGSEKIT_DIR / "ssh"
 DEFAULT_SYSTEMD_ENV_DIR = DEFAULT_AGSEKIT_DIR
 DEFAULT_PORTFORWARD_CONFIG_CHECK_INTERVAL_SEC = 10
+DEFAULT_HTTP_PROXY_PORT_POOL_START = 48000
+DEFAULT_HTTP_PROXY_PORT_POOL_END = 49000
 ALLOWED_AGENT_TYPES = {agent_type: agent_type for agent_type in SUPPORTED_AGENT_TYPES}
 
 
@@ -50,6 +52,7 @@ class VmConfig:
     cloud_init: Dict[str, Any]
     port_forwarding: List["PortForwardingRule"]
     proxychains: Optional[str] = None
+    http_proxy: Optional["HttpProxyConfig"] = None
     allowed_agents: Optional[List[str]] = None
     install: List[str] = field(default_factory=list)
 
@@ -64,6 +67,27 @@ class AgentConfig:
     vm_names: Optional[List[str]] = None
     proxychains: Optional[str] = None
     proxychains_defined: bool = False
+    http_proxy: Optional["HttpProxyConfig"] = None
+    http_proxy_defined: bool = False
+
+
+@dataclass(frozen=True)
+class HttpProxyConfig:
+    url: Optional[str] = None
+    upstream: Optional[str] = None
+    listen: Optional[str] = None
+
+    def is_direct(self) -> bool:
+        return self.url is not None
+
+    def is_upstream(self) -> bool:
+        return self.upstream is not None
+
+
+@dataclass(frozen=True)
+class HttpProxyPortPoolConfig:
+    start: int = DEFAULT_HTTP_PROXY_PORT_POOL_START
+    end: int = DEFAULT_HTTP_PROXY_PORT_POOL_END
 
 
 @dataclass(frozen=True)
@@ -71,6 +95,7 @@ class GlobalConfig:
     ssh_keys_folder: Path = DEFAULT_SSH_KEYS_DIR
     systemd_env_folder: Path = DEFAULT_SYSTEMD_ENV_DIR
     portforward_config_check_interval_sec: int = DEFAULT_PORTFORWARD_CONFIG_CHECK_INTERVAL_SEC
+    http_proxy_port_pool: HttpProxyPortPoolConfig = HttpProxyPortPoolConfig()
 
 
 class ConfigError(RuntimeError):
@@ -221,6 +246,7 @@ def load_global_config(config: Dict[str, Any]) -> GlobalConfig:
     ssh_keys_folder_raw = raw_global.get("ssh_keys_folder")
     systemd_env_folder_raw = raw_global.get("systemd_env_folder")
     portforward_interval_raw = raw_global.get("portforward_config_check_interval_sec")
+    http_proxy_port_pool_raw = raw_global.get("http_proxy_port_pool")
 
     ssh_keys_folder = (
         DEFAULT_SSH_KEYS_DIR
@@ -240,11 +266,16 @@ def load_global_config(config: Dict[str, Any]) -> GlobalConfig:
             "global.portforward_config_check_interval_sec",
         )
     )
+    http_proxy_port_pool = _normalize_http_proxy_port_pool(
+        http_proxy_port_pool_raw,
+        "global.http_proxy_port_pool",
+    )
 
     return GlobalConfig(
         ssh_keys_folder=ssh_keys_folder,
         systemd_env_folder=systemd_env_folder,
         portforward_config_check_interval_sec=portforward_config_check_interval_sec,
+        http_proxy_port_pool=http_proxy_port_pool,
     )
 
 
@@ -344,6 +375,15 @@ def _normalize_port_forwarding(raw_entry: Any, vm_name: str) -> List[PortForward
 
 
 def _normalize_proxychains(value: Any, field_name: str) -> Optional[str]:
+    return _normalize_proxy_url(value, field_name)
+
+
+def _normalize_proxy_url(
+    value: Any,
+    field_name: str,
+    *,
+    allowed_schemes: Optional[set] = None,
+) -> Optional[str]:
     if value is None:
         return None
     if not isinstance(value, str):
@@ -361,17 +401,112 @@ def _normalize_proxychains(value: Any, field_name: str) -> Optional[str]:
         raise ConfigError(tr("config.proxychains_forbidden_parts", field_name=field_name))
 
     scheme = parsed.scheme.lower()
-    allowed_schemes = {"http", "https", "socks4", "socks5"}
-    if scheme not in allowed_schemes:
+    effective_allowed_schemes = allowed_schemes or {"http", "https", "socks4", "socks5"}
+    if scheme not in effective_allowed_schemes:
         raise ConfigError(
             tr(
                 "config.proxychains_invalid_scheme",
                 field_name=field_name,
-                schemes=", ".join(sorted(allowed_schemes)),
+                schemes=", ".join(sorted(effective_allowed_schemes)),
             )
         )
 
     return f"{scheme}://{parsed.hostname}:{parsed.port}"
+
+
+def _normalize_http_proxy_listen(value: Any, field_name: str) -> str:
+    if value is None:
+        raise ConfigError(tr("config.http_proxy_listen_missing", field_name=field_name))
+    if isinstance(value, int):
+        port = value
+        if port <= 0 or port > 65535:
+            raise ConfigError(tr("config.field_port_invalid", field_name=field_name))
+        return "127.0.0.1:{port}".format(port=port)
+    if not isinstance(value, str):
+        raise ConfigError(tr("config.http_proxy_listen_invalid", field_name=field_name))
+
+    cleaned = value.strip()
+    if not cleaned:
+        raise ConfigError(tr("config.http_proxy_listen_invalid", field_name=field_name))
+
+    if cleaned.isdigit():
+        port = int(cleaned)
+        if port <= 0 or port > 65535:
+            raise ConfigError(tr("config.field_port_invalid", field_name=field_name))
+        return "127.0.0.1:{port}".format(port=port)
+
+    return _normalize_address(cleaned, field_name)
+
+
+def _normalize_http_proxy(
+    value: Any,
+    field_name: str,
+) -> Optional[HttpProxyConfig]:
+    if value is None:
+        return None
+
+    if isinstance(value, str):
+        cleaned = value.strip()
+        if not cleaned:
+            return None
+        return HttpProxyConfig(
+            upstream=_normalize_proxy_url(cleaned, field_name),
+        )
+
+    if not isinstance(value, dict):
+        raise ConfigError(tr("config.http_proxy_not_mapping_or_string", field_name=field_name))
+
+    url_raw = value.get("url")
+    upstream_raw = value.get("upstream")
+    listen_raw = value.get("listen")
+
+    if url_raw is not None and upstream_raw is not None:
+        raise ConfigError(tr("config.http_proxy_url_and_upstream", field_name=field_name))
+    if url_raw is not None and listen_raw is not None:
+        raise ConfigError(tr("config.http_proxy_url_and_listen", field_name=field_name))
+    if url_raw is None and upstream_raw is None:
+        raise ConfigError(tr("config.http_proxy_missing_target", field_name=field_name))
+
+    if url_raw is not None:
+        url = _normalize_proxy_url(
+            url_raw,
+            "{field_name}.url".format(field_name=field_name),
+            allowed_schemes={"http", "https"},
+        )
+        if url is None:
+            return None
+        return HttpProxyConfig(url=url)
+
+    upstream = _normalize_proxy_url(upstream_raw, "{field_name}.upstream".format(field_name=field_name))
+    if upstream is None:
+        return None
+    listen = (
+        None
+        if listen_raw is None
+        else _normalize_http_proxy_listen(listen_raw, "{field_name}.listen".format(field_name=field_name))
+    )
+    return HttpProxyConfig(
+        upstream=upstream,
+        listen=listen,
+    )
+
+
+def _normalize_http_proxy_port_pool(value: Any, field_name: str) -> HttpProxyPortPoolConfig:
+    if value is None:
+        return HttpProxyPortPoolConfig()
+    if not isinstance(value, dict):
+        raise ConfigError(tr("config.http_proxy_port_pool_not_mapping", field_name=field_name))
+
+    if "start" not in value or "end" not in value:
+        raise ConfigError(tr("config.http_proxy_port_pool_missing_bounds", field_name=field_name))
+
+    start = _require_positive_int(value.get("start"), "{field_name}.start".format(field_name=field_name))
+    end = _require_positive_int(value.get("end"), "{field_name}.end".format(field_name=field_name))
+    if start > end:
+        raise ConfigError(tr("config.http_proxy_port_pool_invalid_range", field_name=field_name))
+    if end > 65535:
+        raise ConfigError(tr("config.http_proxy_port_pool_port_invalid", field_name=field_name))
+    return HttpProxyPortPoolConfig(start=start, end=end)
 
 
 def load_vms_config(config: Dict[str, Any]) -> Dict[str, VmConfig]:
@@ -412,6 +547,7 @@ def load_vms_config(config: Dict[str, Any]) -> Dict[str, VmConfig]:
                 cloud_init=raw_entry.get("cloud-init") or {},
                 port_forwarding=_normalize_port_forwarding(raw_entry.get("port-forwarding"), vm_name),
                 proxychains=_normalize_proxychains(raw_entry.get("proxychains"), f"vms.{vm_name}.proxychains"),
+                http_proxy=_normalize_http_proxy(raw_entry.get("http_proxy"), "vms.{vm_name}.http_proxy".format(vm_name=vm_name)),
                 allowed_agents=allowed_agents,
                 install=install_bundles,
             )
@@ -622,6 +758,12 @@ def load_agents_config(config: Dict[str, Any]) -> Dict[str, AgentConfig]:
                 if proxychains_defined
                 else None
             )
+            http_proxy_defined = "http_proxy" in raw_entry
+            http_proxy = (
+                _normalize_http_proxy(raw_entry.get("http_proxy"), "agents.{agent_name}.http_proxy".format(agent_name=agent_name))
+                if http_proxy_defined
+                else None
+            )
 
             agents[agent_name] = AgentConfig(
                 name=str(agent_name),
@@ -632,6 +774,8 @@ def load_agents_config(config: Dict[str, Any]) -> Dict[str, AgentConfig]:
                 vm_names=vm_names,
                 proxychains=proxychains,
                 proxychains_defined=proxychains_defined,
+                http_proxy=http_proxy,
+                http_proxy_defined=http_proxy_defined,
             )
         except ConfigError as exc:
             _raise_with_context(

@@ -30,9 +30,13 @@ def _write_config(
     *,
     agent_type: str = "qwen",
     vm_proxychains: Optional[str] = None,
+    vm_http_proxy=None,
     vm_allowed_agents: Optional[list[str]] = None,
     agent_proxychains: Optional[str] = None,
     agent_proxychains_set: bool = False,
+    agent_http_proxy=None,
+    agent_http_proxy_set: bool = False,
+    global_http_proxy_port_pool: Optional[dict] = None,
     mount_allowed_agents: Optional[list[str]] = None,
     include_codex_agent: bool = False,
     create_source: bool = True,
@@ -40,6 +44,11 @@ def _write_config(
     if create_source:
         source.mkdir(parents=True, exist_ok=True)
     proxychains_line = f"    proxychains: {json.dumps(vm_proxychains)}\n" if vm_proxychains is not None else ""
+    vm_http_proxy_line = f"    http_proxy: {json.dumps(vm_http_proxy)}\n" if isinstance(vm_http_proxy, str) else ""
+    if isinstance(vm_http_proxy, dict):
+        vm_http_proxy_line = "    http_proxy:\n"
+        for key, value in vm_http_proxy.items():
+            vm_http_proxy_line += f"      {key}: {json.dumps(value)}\n"
     vm_allowed_agents_line = (
         f"    allowed_agents: {json.dumps(vm_allowed_agents)}\n"
         if vm_allowed_agents is not None
@@ -49,6 +58,16 @@ def _write_config(
     if agent_proxychains_set:
         value = "" if agent_proxychains is None else agent_proxychains
         agent_proxychains_line = f"    proxychains: {json.dumps(value)}\n"
+    agent_http_proxy_line = ""
+    if agent_http_proxy_set:
+        if isinstance(agent_http_proxy, str):
+            agent_http_proxy_line = f"    http_proxy: {json.dumps(agent_http_proxy)}\n"
+        elif isinstance(agent_http_proxy, dict):
+            agent_http_proxy_line = "    http_proxy:\n"
+            for key, value in agent_http_proxy.items():
+                agent_http_proxy_line += f"      {key}: {json.dumps(value)}\n"
+        else:
+            agent_http_proxy_line = "    http_proxy: \"\"\n"
     allowed_agents_line = (
         f"    allowed_agents: {json.dumps(mount_allowed_agents)}\n"
         if mount_allowed_agents is not None
@@ -62,14 +81,22 @@ def _write_config(
     vm: agent
     env: {}
 """
+    global_block = ""
+    if global_http_proxy_port_pool is not None:
+        global_block = (
+            "global:\n"
+            "  http_proxy_port_pool:\n"
+            f"    start: {global_http_proxy_port_pool['start']}\n"
+            f"    end: {global_http_proxy_port_pool['end']}\n"
+        )
     config_path.write_text(
         f"""
-vms:
+{global_block}vms:
   agent:
     cpu: 1
     ram: 1G
     disk: 5G
-{proxychains_line if proxychains_line else ''}{vm_allowed_agents_line if vm_allowed_agents_line else ''}mounts:
+{proxychains_line if proxychains_line else ''}{vm_http_proxy_line if vm_http_proxy_line else ''}{vm_allowed_agents_line if vm_allowed_agents_line else ''}mounts:
   - source: {source}
     target: /home/ubuntu/project
     vm: agent
@@ -78,7 +105,7 @@ vms:
 agents:
   qwen:
     type: {agent_type}
-{agent_proxychains_line if agent_proxychains_line else ''}    vm: agent
+{agent_proxychains_line if agent_proxychains_line else ''}{agent_http_proxy_line if agent_http_proxy_line else ''}    vm: agent
     env:
       TOKEN: abc
 {codex_agent_block if codex_agent_block else ''}
@@ -949,6 +976,116 @@ def test_run_command_agent_empty_proxychains_disables_vm_proxy(monkeypatch, tmp_
     assert result.exit_code == 0
     assert calls["proxychains"] == ""
     assert checks["proxychains"] == ""
+
+
+def test_run_command_sets_direct_http_proxy_env(monkeypatch, tmp_path):
+    source = tmp_path / "project"
+    config_path = tmp_path / "config.yaml"
+    _write_config(
+        config_path,
+        source,
+        vm_http_proxy={"url": "http://127.0.0.1:18881"},
+    )
+
+    calls: Dict[str, object] = {}
+
+    def fake_run_in_vm(vm_config, workdir, command, env_vars, proxychains=None, debug=False):
+        calls["env"] = env_vars
+        calls["proxychains"] = proxychains
+        return 0
+
+    def fake_ensure_agent_binary_available(agent_command, vm_config, proxychains=None, debug=False):
+        calls["binary_check_proxychains"] = proxychains
+
+    monkeypatch.setattr(run_module, "_has_existing_backup", lambda *_: True)
+    monkeypatch.setattr(run_module, "run_in_vm", fake_run_in_vm)
+    monkeypatch.setattr(run_module, "ensure_agent_binary_available", fake_ensure_agent_binary_available)
+    monkeypatch.setattr(run_module, "start_backup_process", lambda *_, **__: None)
+    monkeypatch.setattr(run_module, "backup_once", lambda *_, **__: None)
+
+    runner = CliRunner()
+    result = runner.invoke(run_command, ["qwen", str(source), "--config", str(config_path)])
+
+    assert result.exit_code == 0
+    assert calls["env"]["HTTP_PROXY"] == "http://127.0.0.1:18881"
+    assert calls["env"]["http_proxy"] == "http://127.0.0.1:18881"
+    assert calls["proxychains"] is None
+    assert calls["binary_check_proxychains"] is None
+
+
+def test_run_command_wraps_upstream_http_proxy(monkeypatch, tmp_path):
+    source = tmp_path / "project"
+    config_path = tmp_path / "config.yaml"
+    _write_config(
+        config_path,
+        source,
+        agent_http_proxy={"upstream": "socks5://127.0.0.1:8181", "listen": "8585"},
+        agent_http_proxy_set=True,
+        global_http_proxy_port_pool={"start": 48100, "end": 48200},
+    )
+
+    calls: Dict[str, object] = {}
+
+    def fake_run_in_vm(
+        vm_config,
+        workdir,
+        command,
+        env_vars,
+        proxychains=None,
+        debug=False,
+        http_proxy=None,
+        http_proxy_port_pool=None,
+    ):
+        calls["http_proxy"] = http_proxy
+        calls["http_proxy_port_pool"] = http_proxy_port_pool
+        calls["proxychains"] = proxychains
+        calls["env"] = env_vars
+        return 0
+
+    def fake_ensure_agent_binary_available(agent_command, vm_config, proxychains=None, debug=False):
+        calls["binary_check_proxychains"] = proxychains
+
+    monkeypatch.setattr(run_module, "_has_existing_backup", lambda *_: True)
+    monkeypatch.setattr(run_module, "run_in_vm", fake_run_in_vm)
+    monkeypatch.setattr(run_module, "ensure_agent_binary_available", fake_ensure_agent_binary_available)
+    monkeypatch.setattr(run_module, "start_backup_process", lambda *_, **__: None)
+    monkeypatch.setattr(run_module, "backup_once", lambda *_, **__: None)
+
+    runner = CliRunner()
+    result = runner.invoke(run_command, ["qwen", str(source), "--config", str(config_path)])
+
+    assert result.exit_code == 0
+    assert calls["proxychains"] is None
+    assert calls["binary_check_proxychains"] is None
+    assert calls["http_proxy"].upstream == "socks5://127.0.0.1:8181"
+    assert calls["http_proxy"].listen == "127.0.0.1:8585"
+    assert calls["http_proxy_port_pool"].start == 48100
+    assert calls["env"]["TOKEN"] == "abc"
+    assert "HTTP_PROXY" not in calls["env"]
+
+
+def test_run_command_rejects_http_proxy_with_effective_proxychains(monkeypatch, tmp_path):
+    source = tmp_path / "project"
+    config_path = tmp_path / "config.yaml"
+    _write_config(
+        config_path,
+        source,
+        vm_proxychains="socks5://127.0.0.1:8080",
+        agent_http_proxy_set=True,
+        agent_http_proxy="socks5://127.0.0.1:8181",
+    )
+
+    monkeypatch.setattr(run_module, "_has_existing_backup", lambda *_: True)
+    monkeypatch.setattr(run_module, "ensure_agent_binary_available", lambda *_, **__: None)
+    monkeypatch.setattr(run_module, "run_in_vm", lambda *_, **__: 0)
+    monkeypatch.setattr(run_module, "start_backup_process", lambda *_, **__: None)
+    monkeypatch.setattr(run_module, "backup_once", lambda *_, **__: None)
+
+    runner = CliRunner()
+    result = runner.invoke(run_command, ["qwen", str(source), "--config", str(config_path)])
+
+    assert result.exit_code != 0
+    assert "HTTP proxy and runtime proxychains cannot be enabled at the same time" in result.output
 
 
 def test_run_command_rejects_agent_outside_mount_allowed_agents(monkeypatch, tmp_path):

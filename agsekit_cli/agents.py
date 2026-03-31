@@ -7,11 +7,28 @@ from pathlib import Path
 from typing import Dict, Iterable, List, Optional, Sequence, Set, Tuple, Union
 
 from .agents_modules import build_agent_module, get_agent_class, get_agent_class_for_runtime_binary
-from .config import AgentConfig, ConfigError, VmConfig, load_agents_config, load_config, load_mounts_config, load_vms_config, resolve_config_path
+from .config import (
+    AgentConfig,
+    ConfigError,
+    HttpProxyConfig,
+    HttpProxyPortPoolConfig,
+    VmConfig,
+    load_agents_config,
+    load_config,
+    load_mounts_config,
+    load_vms_config,
+    resolve_config_path,
+)
 from .debug import debug_log_command, debug_log_result
 from .i18n import tr
 from .mounts import MountConfig, normalize_path
-from .vm import MultipassError, PROXYCHAINS_RUNNER_PATH, ensure_multipass_available, resolve_proxychains
+from .vm import (
+    HTTP_PROXY_RUNNER_PATH,
+    MultipassError,
+    PROXYCHAINS_RUNNER_PATH,
+    ensure_multipass_available,
+    resolve_proxychains,
+)
 
 
 def load_agents_from_file(config_path: Optional[Union[str, Path]]) -> Dict[str, AgentConfig]:
@@ -95,9 +112,41 @@ def build_agent_env(agent: AgentConfig) -> Dict[str, str]:
     return build_agent_module(agent).build_env()
 
 
+def resolve_http_proxy(agent: AgentConfig, vm: VmConfig) -> Optional[HttpProxyConfig]:
+    if agent.http_proxy_defined:
+        return agent.http_proxy
+    return vm.http_proxy
+
+
 def build_shell_command(workdir: Path, agent_command: Sequence[str], env_vars: Dict[str, str]) -> str:
     agent_cls = get_agent_class_for_runtime_binary(agent_command[0])
     return agent_cls.build_shell_command(workdir, agent_command, env_vars)
+
+
+def _http_proxy_wrapped_shell_command(
+    shell_command: str,
+    http_proxy: HttpProxyConfig,
+    http_proxy_port_pool: HttpProxyPortPoolConfig,
+) -> str:
+    runner_command: List[str] = ["bash", HTTP_PROXY_RUNNER_PATH]
+    if http_proxy.url is not None:
+        runner_command.extend(["--url", http_proxy.url])
+    else:
+        if http_proxy.upstream is None:
+            raise ConfigError(tr("run.http_proxy_invalid_runtime"))
+        runner_command.extend(["--upstream", http_proxy.upstream])
+        if http_proxy.listen is not None:
+            runner_command.extend(["--listen", http_proxy.listen])
+        runner_command.extend(
+            [
+                "--pool-start",
+                str(http_proxy_port_pool.start),
+                "--pool-end",
+                str(http_proxy_port_pool.end),
+            ]
+        )
+    runner_command.extend(["--", "bash", "-lc", shell_command])
+    return shlex.join(runner_command)
 
 
 def run_in_vm(
@@ -106,11 +155,20 @@ def run_in_vm(
     agent_command: Sequence[str],
     env_vars: Dict[str, str],
     *,
+    http_proxy: Optional[HttpProxyConfig] = None,
+    http_proxy_port_pool: Optional[HttpProxyPortPoolConfig] = None,
     proxychains: Optional[str] = None,
     debug: bool = False,
 ) -> int:
     ensure_multipass_available()
     shell_command = build_shell_command(workdir, agent_command, env_vars)
+    if http_proxy is not None:
+        effective_pool = http_proxy_port_pool or HttpProxyPortPoolConfig()
+        shell_command = _http_proxy_wrapped_shell_command(
+            shell_command,
+            http_proxy,
+            effective_pool,
+        )
     effective_proxychains = resolve_proxychains(vm, proxychains)
     if effective_proxychains:
         wrapped_command = (

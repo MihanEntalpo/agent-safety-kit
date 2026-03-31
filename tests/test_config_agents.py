@@ -30,6 +30,8 @@ def test_load_agents_config_defaults(tmp_path):
     assert agent.vm_names is None
     assert agent.proxychains is None
     assert agent.proxychains_defined is False
+    assert agent.http_proxy is None
+    assert agent.http_proxy_defined is False
 
 
 def test_load_agents_config_accepts_single_vm():
@@ -178,6 +180,47 @@ def test_load_agents_config_keeps_empty_proxychains_as_override():
 
     assert agent.proxychains is None
     assert agent.proxychains_defined is True
+
+
+def test_load_agents_config_accepts_http_proxy_override():
+    config = {
+        "vms": {"agent": {"cpu": 1, "ram": "1G", "disk": "5G"}},
+        "agents": {
+            "qwen": {
+                "type": "qwen",
+                "http_proxy": {
+                    "listen": "8585",
+                    "upstream": "SOCKS5://Example.com:8080",
+                },
+            }
+        },
+    }
+
+    agents = load_agents_config(config)
+    agent = agents["qwen"]
+
+    assert agent.http_proxy_defined is True
+    assert agent.http_proxy is not None
+    assert agent.http_proxy.listen == "127.0.0.1:8585"
+    assert agent.http_proxy.upstream == "socks5://example.com:8080"
+
+
+def test_load_agents_config_keeps_empty_http_proxy_as_override():
+    config = {
+        "vms": {"agent": {"cpu": 1, "ram": "1G", "disk": "5G"}},
+        "agents": {
+            "qwen": {
+                "type": "qwen",
+                "http_proxy": "   ",
+            }
+        },
+    }
+
+    agents = load_agents_config(config)
+    agent = agents["qwen"]
+
+    assert agent.http_proxy is None
+    assert agent.http_proxy_defined is True
 
 
 def test_load_agents_config_validates_type():
