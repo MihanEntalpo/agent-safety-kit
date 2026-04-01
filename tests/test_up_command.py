@@ -3,15 +3,37 @@ from pathlib import Path
 from typing import cast
 
 import click
+import pytest
 from click.testing import CliRunner
 
 ROOT = Path(__file__).resolve().parent.parent
 if str(ROOT) not in sys.path:
     sys.path.insert(0, str(ROOT))
 
+import agsekit_cli.cli as cli_module
 import agsekit_cli.commands.up as up_module
 import agsekit_cli.config as config_module
 from agsekit_cli.commands.up import up_command
+
+
+DIRECT_MISSING_CONFIG_COMMANDS = [
+    "backup-repeated-all",
+    "backup-repeated-mount",
+    "create-vm",
+    "create-vms",
+    "destroy-vm",
+    "doctor",
+    "down",
+    "install-agents",
+    "mount",
+    "portforward",
+    "restart-vm",
+    "shell",
+    "start-vm",
+    "stop-vm",
+    "umount",
+    "up",
+]
 
 
 def _invoke_command(runner: CliRunner, command: click.Command, args: list[str]):
@@ -106,6 +128,7 @@ def test_up_reports_helpful_error_when_default_config_missing(monkeypatch, tmp_p
     assert result.exit_code != 0
     assert "config-gen" in result.output
     assert "config-example" in result.output
+    assert "--config" in result.output
     assert str(missing_default) in result.output
 
 
@@ -182,3 +205,57 @@ def test_up_passes_debug_and_shared_progress(monkeypatch, tmp_path):
     assert install_calls[0]["progress"] is not None
     assert hasattr(install_calls[0]["progress"], "add_task")
     assert systemd_calls == [{"config_path": config_path, "announce": True}]
+
+
+@pytest.mark.parametrize("command_name", DIRECT_MISSING_CONFIG_COMMANDS)
+def test_cli_main_keeps_direct_missing_config_commands_out_of_interactive_mode(
+    monkeypatch,
+    tmp_path,
+    capsys,
+    command_name: str,
+):
+    missing_default = tmp_path / "missing-config.yaml"
+    interactive_calls: list[object] = []
+
+    monkeypatch.setattr(config_module, "DEFAULT_CONFIG_PATH", missing_default)
+    monkeypatch.setattr(up_module, "DEFAULT_CONFIG_PATH", missing_default)
+    monkeypatch.setattr(cli_module, "is_interactive_terminal", lambda: True)
+    monkeypatch.setattr(
+        cli_module,
+        "run_interactive",
+        lambda *args, **kwargs: interactive_calls.append((args, kwargs)),
+    )
+    monkeypatch.setattr(sys, "argv", ["agsekit", command_name])
+    monkeypatch.delenv(config_module.CONFIG_ENV_VAR, raising=False)
+
+    with pytest.raises(SystemExit) as exc_info:
+        cli_module.main()
+
+    captured = capsys.readouterr()
+    assert exc_info.value.code != 0
+    assert interactive_calls == []
+    assert str(missing_default) in captured.err
+    if command_name == "up":
+        assert "config-gen" in captured.err
+        assert "config-example" in captured.err
+        assert "--config" in captured.err
+
+
+def test_cli_main_keeps_run_missing_config_in_interactive_mode(monkeypatch, tmp_path):
+    missing_default = tmp_path / "missing-config.yaml"
+    interactive_calls: list[object] = []
+
+    monkeypatch.setattr(config_module, "DEFAULT_CONFIG_PATH", missing_default)
+    monkeypatch.setattr(up_module, "DEFAULT_CONFIG_PATH", missing_default)
+    monkeypatch.setattr(cli_module, "is_interactive_terminal", lambda: True)
+    monkeypatch.setattr(
+        cli_module,
+        "run_interactive",
+        lambda *args, **kwargs: interactive_calls.append((args, kwargs)),
+    )
+    monkeypatch.setattr(sys, "argv", ["agsekit", "run"])
+    monkeypatch.delenv(config_module.CONFIG_ENV_VAR, raising=False)
+
+    cli_module.main()
+
+    assert len(interactive_calls) == 1

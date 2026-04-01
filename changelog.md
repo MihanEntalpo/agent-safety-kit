@@ -1,5 +1,10 @@
 # Agent-Safety-Kit versions history
 
+## 1.5.9 - Fixed cli output on agsekit up
+
+* Fixed `agsekit up` without a config file: in interactive terminals it now reports a direct error telling the user to create a config with `config-gen`/`config-example` or pass `--config`, instead of opening the interactive config-selection flow
+* Extended the same direct missing-config behavior to other commands that do not require any additional mandatory parameters beyond the config, so they now fail immediately instead of opening the config-selection TUI
+
 ## 1.5.8 - Removed Ansible Galaxy dependency
 
 * Removed the external `ansible-galaxy` dependency on `theko2fi.multipass`: `agsekit` now ships its own built-in `agsekit_multipass` Ansible connection plugin based on `multipass exec` and `multipass transfer`

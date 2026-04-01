@@ -63,7 +63,7 @@ def test_main_falls_back_to_interactive_on_missing_params(monkeypatch):
     called: Dict[str, Any] = {}
 
     monkeypatch.setattr(cli_module, "is_interactive_terminal", lambda: True)
-    monkeypatch.setattr(sys, "argv", ["agsekit", "create-vm"])
+    monkeypatch.setattr(sys, "argv", ["agsekit", "backup-once"])
 
     def fake_run(cli, preselected_command=None, default_config_path=None):
         called["cli"] = cli
@@ -75,8 +75,8 @@ def test_main_falls_back_to_interactive_on_missing_params(monkeypatch):
     cli_module.main()
 
     assert called["cli"] is cli_module.cli
-    assert called["preselected"] == "create-vm"
-    assert called["default_config_path"] == config_module.DEFAULT_CONFIG_PATH
+    assert called["preselected"] == "backup-once"
+    assert called["default_config_path"] is None
 
 
 def test_main_prompts_for_config_when_missing(monkeypatch, tmp_path):

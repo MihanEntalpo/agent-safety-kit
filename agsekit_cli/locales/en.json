@@ -330,7 +330,7 @@
   "install_agents.success": "Agent installation completed successfully ({count}).",
   "install_agents.vm_missing": "VM `{vm_name}` is not defined in the configuration",
   "up.command_help": "Run prepare, create-vms, and install-agents as one non-interactive flow.",
-  "up.default_config_missing": "Config file not found at {path}. Create one first with `agsekit config-gen` or copy the example with `agsekit config-example`.",
+  "up.default_config_missing": "Config file not found at {path}. Create one with `agsekit config-gen`, copy the example with `agsekit config-example`, or pass an existing file via `--config`.",
   "up.no_stages_selected": "Nothing to do: enable at least one of --prepare, --create-vms, or --install-agents.",
   "up.option_create_vms": "Run the create-vms stage",
   "up.option_install_agents": "Run the install-agents stage",

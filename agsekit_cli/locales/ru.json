@@ -330,7 +330,7 @@
   "install_agents.success": "Установка агентов завершена успешно ({count}).",
   "install_agents.vm_missing": "ВМ `{vm_name}` отсутствует в конфигурации",
   "up.command_help": "Запустить prepare, create-vms и install-agents как один неинтерактивный сценарий.",
-  "up.default_config_missing": "Файл конфигурации не найден по пути {path}. Сначала создайте его через `agsekit config-gen` или скопируйте пример командой `agsekit config-example`.",
+  "up.default_config_missing": "Файл конфигурации не найден по пути {path}. Создайте его через `agsekit config-gen`, скопируйте пример командой `agsekit config-example` или укажите путь к существующему файлу через `--config`.",
   "up.no_stages_selected": "Нечего делать: включите хотя бы один из этапов --prepare, --create-vms или --install-agents.",
   "up.option_create_vms": "Выполнить этап create-vms",
   "up.option_install_agents": "Выполнить этап install-agents",

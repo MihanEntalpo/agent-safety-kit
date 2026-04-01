@@ -62,6 +62,25 @@ COMMANDS_REQUIRING_CONFIG = {
     "umount",
 }
 
+COMMANDS_WITH_DIRECT_MISSING_CONFIG_ERRORS = {
+    "backup-repeated-all",
+    "backup-repeated-mount",
+    "create-vm",
+    "create-vms",
+    "destroy-vm",
+    "doctor",
+    "down",
+    "install-agents",
+    "mount",
+    "portforward",
+    "restart-vm",
+    "shell",
+    "start-vm",
+    "stop-vm",
+    "umount",
+    "up",
+}
+
 
 def _has_non_interactive_flag(args: Sequence[str]) -> bool:
     return "--non-interactive" in args
@@ -146,7 +165,11 @@ def main() -> None:
                 raise SystemExit(1)
             return
 
-        if command in COMMANDS_REQUIRING_CONFIG and not resolved_config_path.exists():
+        if (
+            command in COMMANDS_REQUIRING_CONFIG
+            and command not in COMMANDS_WITH_DIRECT_MISSING_CONFIG_ERRORS
+            and not resolved_config_path.exists()
+        ):
             click.echo(
                 tr("cli.config_missing_interactive")
             )
