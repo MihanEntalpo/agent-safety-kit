@@ -9,7 +9,6 @@ from typing import Optional
 
 import click
 
-from ..ansible_utils import AnsibleCollectionError, ensure_multipass_collection
 from ..debug import debug_scope
 from ..i18n import tr
 from ..progress import ProgressManager
@@ -86,13 +85,6 @@ def _install_multipass_brew(*, quiet: bool = False) -> None:
         click.echo(tr("prepare.multipass_installed_brew"))
 
 
-def _install_ansible_collection() -> None:
-    try:
-        ensure_multipass_collection()
-    except AnsibleCollectionError as exc:
-        raise click.ClickException(str(exc))
-
-
 def run_prepare(*, debug: bool, config_path: Optional[str] = None, progress: Optional[ProgressManager] = None) -> None:
     task_id = None
 
@@ -112,10 +104,6 @@ def run_prepare(*, debug: bool, config_path: Optional[str] = None, progress: Opt
     with debug_scope(debug):
         _update(tr("progress.up_prepare_multipass"))
         _install_multipass(quiet=progress is not None)
-        _advance()
-
-        _update(tr("progress.up_prepare_ansible"))
-        _install_ansible_collection()
         _advance()
 
         _update(tr("progress.up_prepare_ssh"))

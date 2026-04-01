@@ -11,10 +11,8 @@ import questionary
 from ..agents import configured_agent_vms, find_agent
 from ..agents_modules import get_agent_class
 from ..ansible_utils import (
-    AnsibleCollectionError,
     ansible_playbook_command,
     count_playbook_tasks,
-    ensure_multipass_collection,
     emit_hidden_output_tail,
     run_ansible_playbook,
 )
@@ -72,10 +70,6 @@ def _run_install_playbook(
     label: Optional[str] = None,
 ) -> None:
     ensure_multipass_available()
-    try:
-        ensure_multipass_collection()
-    except AnsibleCollectionError as exc:
-        raise MultipassError(str(exc))
     effective_proxychains = resolve_proxychains(vm, proxychains)
     install_command = [
         *ansible_playbook_command(),

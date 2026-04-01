@@ -11,10 +11,8 @@ import click
 from rich.progress import TaskID
 
 from .ansible_utils import (
-    AnsibleCollectionError,
     ansible_playbook_command,
     count_playbook_tasks,
-    ensure_multipass_collection,
     emit_hidden_output_tail,
     run_ansible_playbook,
 )
@@ -315,10 +313,6 @@ def prepare_vm(
         progress.update(step_task_id, description=tr("progress.prepare_step_start", vm_name=vm_name))
     else:
         click.echo(tr("prepare.preparing_vm", vm_name=vm_name))
-    try:
-        ensure_multipass_collection()
-    except AnsibleCollectionError as exc:
-        raise MultipassError(str(exc))
     _run_multipass(
         ["multipass", "start", vm_name],
         tr("prepare.starting_vm", vm_name=vm_name),

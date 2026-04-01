@@ -68,7 +68,7 @@
 - минимальный порог входа для Ubuntu VM;
 - простые команды (`launch`, `exec`, `mount`, `info`);
 - достаточно для изоляции агентного процесса от хоста;
-- хорошо сочетается с Ansible через `theko2fi.multipass` connection plugin.
+- хорошо сочетается с Ansible через встроенный connection plugin `agsekit_multipass`, работающий поверх `multipass exec/transfer`.
 
 ### 4.3 Почему бэкапы на хосте, а не «снэпшоты VM»
 - целевой объект защиты — проектные файлы на хосте;
@@ -300,9 +300,10 @@
    - на Arch Linux (`pacman`) ставит Multipass через AUR helper (`yay` или `aura`) вместе с `libvirt`, `dnsmasq`, `qemu-base`;
    - на macOS (`Darwin` + `brew`) ставит Multipass через `brew install multipass`;
    - если нет ни `apt-get`, ни `pacman`, ни поддерживаемого `brew` на macOS, завершает `prepare` ошибкой о неподдерживаемом host package manager.
-3. Проверяет/ставит Ansible collection `theko2fi.multipass`.
-4. Создаёт SSH-ключи хоста в `~/.config/agsekit/ssh/` (используются для `ssh`/подготовки VM).
-5. Поддерживает `--debug`: включает подробный вывод внешних команд подготовки, включая `ansible-galaxy`.
+3. Использует встроенные ansible plugins проекта для работы с Multipass VM; внешний `ansible-galaxy collection install ...` не требуется.
+4. Встроенный `agsekit_multipass` connection plugin stage'ит локальные файлы через не-hidden staging-каталог в `HOME` перед `multipass transfer`, чтобы Ansible-копирование модулей не ломалось на hidden-путях вроде `~/.ansible/tmp` и не зависело от особенностей snap-based Multipass вокруг `/tmp`.
+5. Создаёт SSH-ключи хоста в `~/.config/agsekit/ssh/` (используются для `ssh`/подготовки VM).
+6. Поддерживает `--debug`: включает подробный вывод внешних команд подготовки.
 
 #### `agsekit up [--config <path>] [--debug] [--prepare/--no-prepare] [--create-vms/--no-create-vms] [--install-agents/--no-install-agents]`
 Зачем пользователю:
@@ -375,7 +376,7 @@
 
 ### 8.2.1 Debug-режим для внешних команд
 
-Для всех команд, которые выполняют внешние команды инфраструктуры (`multipass`, `ansible` через текущий Python-интерпретатор, `ansible-galaxy`, `ssh`), поддерживается флаг `--debug`.
+Для всех команд, которые выполняют внешние команды инфраструктуры (`multipass`, `ansible` через текущий Python-интерпретатор, `ssh`), поддерживается флаг `--debug`.
 
 Что делает `--debug`:
 - печатает запускаемую внешнюю команду;

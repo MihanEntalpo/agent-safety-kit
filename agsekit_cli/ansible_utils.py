@@ -13,11 +13,6 @@ import yaml
 from .debug import debug_log_command, debug_log_result, is_debug_enabled
 from .i18n import tr
 
-
-class AnsibleCollectionError(RuntimeError):
-    """Raised when required ansible collection cannot be installed."""
-
-
 _ANSIBLE_PROGRESS_CALLBACK = "agsekit_progress"
 _ANSIBLE_PROGRESS_TOTAL_ENV = "AGSEKIT_ANSIBLE_TOTAL_TASKS"
 _ANSIBLE_PROGRESS_HEADER_ENV = "AGSEKIT_ANSIBLE_HEADER"
@@ -75,19 +70,15 @@ def _append_output_tail_line(tail: Deque[str], line: str) -> None:
         tail.append(stripped)
 
 
-def _ansible_galaxy_command() -> list[str]:
-    return [sys.executable, "-m", "ansible.cli.galaxy"]
-
-
 def ansible_playbook_command() -> list[str]:
     return [sys.executable, "-m", "ansible.cli.playbook"]
 
 
-def _callback_plugins_dir() -> Path:
-    return Path(__file__).resolve().parent / "ansible" / "callback_plugins"
+def _ansible_plugins_dir(kind: str) -> Path:
+    return Path(__file__).resolve().parent / "ansible" / kind
 
 
-def _merge_callback_plugin_paths(existing: Optional[str], custom: Path) -> str:
+def _merge_plugin_paths(existing: Optional[str], custom: Path) -> str:
     if not existing:
         return str(custom)
     paths = [entry for entry in existing.split(os.pathsep) if entry]
@@ -217,21 +208,31 @@ def run_ansible_playbook(
     if progress_handler and is_debug_enabled():
         progress_handler = None
 
-    env = None
+    env = dict(os.environ)
+    env["ANSIBLE_CONNECTION_PLUGINS"] = _merge_plugin_paths(
+        env.get("ANSIBLE_CONNECTION_PLUGINS"),
+        _ansible_plugins_dir("connection_plugins"),
+    )
+
     if not is_debug_enabled():
-        callback_dir = _callback_plugins_dir()
-        env = dict(os.environ)
+        callback_dir = _ansible_plugins_dir("callback_plugins")
         if progress_handler:
             env["ANSIBLE_STDOUT_CALLBACK"] = "agsekit_rich"
         else:
             env["ANSIBLE_STDOUT_CALLBACK"] = _ANSIBLE_PROGRESS_CALLBACK
         env["ANSIBLE_LOAD_CALLBACK_PLUGINS"] = "1"
-        env["ANSIBLE_CALLBACK_PLUGINS"] = _merge_callback_plugin_paths(env.get("ANSIBLE_CALLBACK_PLUGINS"), callback_dir)
+        env["ANSIBLE_CALLBACK_PLUGINS"] = _merge_plugin_paths(env.get("ANSIBLE_CALLBACK_PLUGINS"), callback_dir)
         env[_ANSIBLE_PROGRESS_TOTAL_ENV] = str(count_playbook_tasks(playbook_path))
         if progress_header:
             env[_ANSIBLE_PROGRESS_HEADER_ENV] = progress_header
         else:
             env.pop(_ANSIBLE_PROGRESS_HEADER_ENV, None)
+    else:
+        env.pop("ANSIBLE_STDOUT_CALLBACK", None)
+        env.pop("ANSIBLE_LOAD_CALLBACK_PLUGINS", None)
+        env.pop("ANSIBLE_CALLBACK_PLUGINS", None)
+        env.pop(_ANSIBLE_PROGRESS_TOTAL_ENV, None)
+        env.pop(_ANSIBLE_PROGRESS_HEADER_ENV, None)
 
     if progress_handler:
         process = subprocess.Popen(
@@ -293,43 +294,3 @@ def run_ansible_playbook(
     )
     debug_log_result(result)
     return result
-
-
-def ensure_multipass_collection() -> None:
-    galaxy_command = _ansible_galaxy_command()
-    list_command = [*galaxy_command, "collection", "list", "theko2fi.multipass"]
-    debug_log_command(list_command)
-    try:
-        list_result = subprocess.run(
-            list_command,
-            check=False,
-            capture_output=True,
-            text=True,
-        )
-    except FileNotFoundError as exc:
-        raise AnsibleCollectionError(
-            tr("prepare.ansible_galaxy_missing", python=sys.executable)
-        ) from exc
-    debug_log_result(list_result)
-
-    if list_result.returncode == 0 and "theko2fi.multipass" in (list_result.stdout or ""):
-        return
-
-    click.echo(tr("prepare.installing_ansible_collection"))
-    install_command = [*galaxy_command, "collection", "install", "theko2fi.multipass"]
-    debug_log_command(install_command)
-    try:
-        install_result = subprocess.run(
-            install_command,
-            check=False,
-            capture_output=False,
-            text=True,
-        )
-    except FileNotFoundError as exc:
-        raise AnsibleCollectionError(
-            tr("prepare.ansible_galaxy_missing", python=sys.executable)
-        ) from exc
-    debug_log_result(install_result)
-
-    if install_result.returncode != 0:
-        raise AnsibleCollectionError(tr("prepare.installing_ansible_collection_failed"))

@@ -1,5 +1,10 @@
 # Agent-Safety-Kit versions history
 
+## 1.5.8 - Removed Ansible Galaxy dependency
+
+* Removed the external `ansible-galaxy` dependency on `theko2fi.multipass`: `agsekit` now ships its own built-in `agsekit_multipass` Ansible connection plugin based on `multipass exec` and `multipass transfer`
+* Fixed the built-in `agsekit_multipass` Ansible connection plugin for snap-based Multipass hosts: local uploads/downloads are now staged through a non-hidden directory inside `HOME`, so Ansible file transfer does not fail on hidden paths such as `~/.ansible/tmp` and does not rely on `/tmp` visibility inside the snap
+
 ## 1.5.7 - MacOs with Homebrew support
 
 * Added macOS host support for `agsekit prepare`: when Multipass is missing on macOS, the CLI now installs it via `brew install multipass`

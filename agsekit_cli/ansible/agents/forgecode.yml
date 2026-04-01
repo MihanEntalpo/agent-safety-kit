@@ -8,7 +8,7 @@
       ansible.builtin.add_host:
         name: "{{ vm_name }}"
         ansible_host: "{{ vm_name }}"
-        ansible_connection: theko2fi.multipass.multipass
+        ansible_connection: agsekit_multipass
         ansible_python_interpreter: /usr/bin/python3
 
 - name: Install CodeForge CLI

@@ -55,14 +55,13 @@ def test_prepare_command_installs_dependencies_and_keys(monkeypatch):
     calls: list[str] = []
 
     monkeypatch.setattr(prepare_module, "_install_multipass", lambda **kwargs: calls.append("install"))
-    monkeypatch.setattr(prepare_module, "_install_ansible_collection", lambda: calls.append("ansible"))
     monkeypatch.setattr(prepare_module, "ensure_host_ssh_keypair", lambda *args, **kwargs: calls.append("keys"))
 
     runner = CliRunner()
     result = runner.invoke(prepare_command, [])
 
     assert result.exit_code == 0
-    assert calls == ["install", "ansible", "keys"]
+    assert calls == ["install", "keys"]
 
 
 def test_run_prepare_uses_ssh_keys_folder_from_main_config(monkeypatch, tmp_path):
@@ -75,7 +74,6 @@ def test_run_prepare_uses_ssh_keys_folder_from_main_config(monkeypatch, tmp_path
     captured = {}
 
     monkeypatch.setattr(prepare_module, "_install_multipass", lambda **kwargs: None)
-    monkeypatch.setattr(prepare_module, "_install_ansible_collection", lambda: None)
     monkeypatch.setattr(
         prepare_module,
         "ensure_host_ssh_keypair",
@@ -92,7 +90,6 @@ def test_run_prepare_suppresses_multipass_echo_when_progress_enabled(monkeypatch
     calls: list[bool] = []
 
     monkeypatch.setattr(prepare_module.shutil, "which", lambda binary: "/usr/bin/multipass" if binary == "multipass" else None)
-    monkeypatch.setattr(prepare_module, "_install_ansible_collection", lambda: None)
     monkeypatch.setattr(prepare_module, "ensure_host_ssh_keypair", lambda *args, **kwargs: None)
 
     class DummyProgress:
@@ -267,7 +264,7 @@ def test_prepare_vm_ssh_playbook_manages_authorized_keys_and_known_hosts():
     register_tasks = playbook[0]["tasks"]
     register_task = next(item for item in register_tasks if item["name"] == "Register Multipass VM")
     add_host = register_task["ansible.builtin.add_host"]
-    assert add_host["ansible_connection"] == "theko2fi.multipass.multipass"
+    assert add_host["ansible_connection"] == "agsekit_multipass"
 
     vm_sync_tasks = playbook[1]["tasks"]
     key_task = next(item for item in vm_sync_tasks if item["name"] == "Ensure VM authorized_keys contains host key")

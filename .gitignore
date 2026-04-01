@@ -8,3 +8,4 @@ build/
 dist/
 .idea/
 agsekit.egg-info/
+.tmp-agent-*
