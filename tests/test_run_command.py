@@ -163,7 +163,7 @@ def test_run_command_starts_backup_and_agent(monkeypatch, tmp_path):
     monkeypatch.setattr(run_module, "ensure_agent_binary_available", lambda *_, **__: None)
 
     runner = CliRunner()
-    result = runner.invoke(run_command, ["qwen", str(source), "--config", str(config_path), "--", "--flag"])
+    result = runner.invoke(run_command, ["--config", str(config_path), "--workdir", str(source), "qwen", "--flag"])
 
     assert result.exit_code == 0
     assert calls["vm"] == "agent"
@@ -198,7 +198,7 @@ def test_run_command_for_forgecode_forces_tracker_env(monkeypatch, tmp_path):
     monkeypatch.setattr(run_module, "backup_once", lambda *_, **__: None)
 
     runner = CliRunner()
-    result = runner.invoke(run_command, ["qwen", str(source), "--config", str(config_path)])
+    result = runner.invoke(run_command, ["--config", str(config_path), "--workdir", str(source), "qwen"])
 
     assert result.exit_code == 0
     assert calls["command"] == ["forge"]
@@ -208,14 +208,14 @@ def test_run_command_for_forgecode_forces_tracker_env(monkeypatch, tmp_path):
     }
 
 
-def test_run_command_reports_missing_source_dir(monkeypatch, tmp_path):
+def test_run_command_reports_missing_workdir(monkeypatch, tmp_path):
     monkeypatch.setenv("AGSEKIT_LANG", "en")
     source = tmp_path / "missing"
     config_path = tmp_path / "config.yaml"
     _write_config(config_path, source, create_source=False)
 
     runner = CliRunner()
-    result = runner.invoke(run_command, ["qwen", str(source), "--config", str(config_path)])
+    result = runner.invoke(run_command, ["--config", str(config_path), "--workdir", str(source), "qwen"])
 
     assert result.exit_code != 0
     assert str(normalize_path(source)) in result.output
@@ -246,7 +246,7 @@ def test_run_command_does_not_set_proxy_for_agent(monkeypatch, tmp_path):
     monkeypatch.setattr(run_module, "backup_once", lambda *_, **__: None)
 
     runner = CliRunner()
-    result = runner.invoke(run_command, ["qwen", str(source), "--config", str(config_path), "--", "--flag"])
+    result = runner.invoke(run_command, ["--config", str(config_path), "--workdir", str(source), "qwen", "--flag"])
 
     assert result.exit_code == 0
     assert "ALL_PROXY" not in calls["env"]
@@ -277,7 +277,7 @@ def test_run_command_can_disable_backups(monkeypatch, tmp_path):
     runner = CliRunner()
     result = runner.invoke(
         run_command,
-        ["qwen", str(source), "--config", str(config_path), "--disable-backups"],
+        ["--config", str(config_path), "--disable-backups", "--workdir", str(source), "qwen"],
     )
 
     assert result.exit_code == 0
@@ -319,10 +319,39 @@ def test_run_command_prints_debug_commands(monkeypatch, tmp_path):
     runner = CliRunner()
     result = runner.invoke(
         run_command,
-        ["qwen", str(source), "--config", str(config_path), "--debug", "--", "--flag"],
+        ["--config", str(config_path), "--debug", "--workdir", str(source), "qwen", "--flag"],
     )
 
     assert result.exit_code == 0
+
+
+def test_run_command_treats_run_like_options_after_agent_as_agent_args(monkeypatch, tmp_path):
+    source = tmp_path / "project"
+    config_path = tmp_path / "config.yaml"
+    _write_config(config_path, source)
+
+    calls: Dict[str, object] = {}
+
+    def fake_run_in_vm(vm_config, workdir, command, env_vars, proxychains=None, debug=False):
+        calls["command"] = list(command)
+        calls["debug"] = debug
+        return 0
+
+    monkeypatch.setattr(run_module, "_has_existing_backup", lambda *_: True)
+    monkeypatch.setattr(run_module, "run_in_vm", fake_run_in_vm)
+    monkeypatch.setattr(run_module, "start_backup_process", lambda *_, **__: None)
+    monkeypatch.setattr(run_module, "ensure_agent_binary_available", lambda *_, **__: None)
+    monkeypatch.setattr(run_module, "backup_once", lambda *_, **__: None)
+
+    runner = CliRunner()
+    result = runner.invoke(
+        run_command,
+        ["--config", str(config_path), "--workdir", str(source), "qwen", "--debug", "--vm", "inner-vm"],
+    )
+
+    assert result.exit_code == 0
+    assert calls["command"] == ["qwen", "--debug", "--vm", "inner-vm"]
+    assert calls["debug"] is False
 
 
 @pytest.mark.parametrize("relative_path, expected_suffix", [(".", Path(".")), ("./subdir/inner", Path("subdir/inner"))])
@@ -360,7 +389,7 @@ def test_run_command_resolves_relative_path_inside_mount(monkeypatch, tmp_path, 
     runner = CliRunner()
     result = runner.invoke(
         run_command,
-        ["qwen", relative_path, "--config", str(config_path)],
+        ["--config", str(config_path), "--workdir", relative_path, "qwen"],
     )
 
     assert result.exit_code == 0
@@ -396,7 +425,7 @@ def test_run_command_uses_current_directory_mount_when_source_not_passed(monkeyp
     monkeypatch.setattr(run_module, "backup_once", lambda *_, **__: None)
 
     runner = CliRunner()
-    result = runner.invoke(run_command, ["qwen", "--config", str(config_path)])
+    result = runner.invoke(run_command, ["--config", str(config_path), "qwen"])
 
     assert result.exit_code == 0
     assert calls["workdir"] == Path("/home/ubuntu/project/subdir/inner")
@@ -428,7 +457,7 @@ def test_run_command_warns_when_mounted_directory_is_empty_inside_vm(monkeypatch
     runner = CliRunner()
     result = runner.invoke(
         run_command,
-        ["qwen", str(source), "--config", str(config_path)],
+        ["--config", str(config_path), "--workdir", str(source), "qwen"],
         env={"AGSEKIT_LANG": "ru"},
         input="y\n",
     )
@@ -471,7 +500,7 @@ def test_run_command_warns_and_confirms_for_current_directory(monkeypatch, tmp_p
     runner = CliRunner()
     result = runner.invoke(
         run_command,
-        ["codex", ".", "--config", str(config_path)],
+        ["--config", str(config_path), "--workdir", ".", "codex"],
         env={"AGSEKIT_LANG": "ru"},
         input="y\n",
     )
@@ -514,7 +543,7 @@ def test_run_command_aborts_when_empty_vm_directory_warning_is_rejected(monkeypa
     runner = CliRunner()
     result = runner.invoke(
         run_command,
-        ["qwen", str(source), "--config", str(config_path)],
+        ["--config", str(config_path), "--workdir", str(source), "qwen"],
         env={"AGSEKIT_LANG": "ru"},
         input="\n",
     )
@@ -544,7 +573,7 @@ def test_run_command_does_not_warn_for_unmounted_directory(monkeypatch, tmp_path
     runner = CliRunner()
     result = runner.invoke(
         run_command,
-        ["qwen", str(source), "--config", str(config_path)],
+        ["--config", str(config_path), "--workdir", str(source), "qwen"],
         env={"AGSEKIT_LANG": "ru"},
     )
 
@@ -578,7 +607,7 @@ def test_run_command_prompts_to_mount_unmounted_directory_and_continues(monkeypa
     runner = CliRunner()
     result = runner.invoke(
         run_command,
-        ["qwen", str(source), "--config", str(config_path)],
+        ["--config", str(config_path), "--workdir", str(source), "qwen"],
         env={"AGSEKIT_LANG": "ru"},
         input="y\n",
     )
@@ -616,7 +645,7 @@ def test_run_command_stops_when_mount_prompt_is_rejected(monkeypatch, tmp_path):
     runner = CliRunner()
     result = runner.invoke(
         run_command,
-        ["qwen", str(source), "--config", str(config_path)],
+        ["--config", str(config_path), "--workdir", str(source), "qwen"],
         env={"AGSEKIT_LANG": "ru"},
         input="n\n",
     )
@@ -651,7 +680,7 @@ def test_run_command_requires_mounted_directory_in_non_interactive_mode(monkeypa
     runner = CliRunner()
     result = runner.invoke(
         run_command,
-        ["qwen", str(source), "--config", str(config_path), "--non-interactive"],
+        ["--config", str(config_path), "--non-interactive", "--workdir", str(source), "qwen"],
         env={"AGSEKIT_LANG": "ru"},
     )
 
@@ -686,7 +715,7 @@ def test_run_command_auto_mounts_without_prompt_in_interactive_mode(monkeypatch,
     runner = CliRunner()
     result = runner.invoke(
         run_command,
-        ["qwen", str(source), "--config", str(config_path), "--auto-mount"],
+        ["--config", str(config_path), "--auto-mount", "--workdir", str(source), "qwen"],
         env={"AGSEKIT_LANG": "ru"},
     )
 
@@ -723,7 +752,7 @@ def test_run_command_auto_mounts_in_non_interactive_mode(monkeypatch, tmp_path):
     runner = CliRunner()
     result = runner.invoke(
         run_command,
-        ["qwen", str(source), "--config", str(config_path), "--non-interactive", "--auto-mount"],
+        ["--config", str(config_path), "--non-interactive", "--auto-mount", "--workdir", str(source), "qwen"],
         env={"AGSEKIT_LANG": "ru"},
     )
 
@@ -763,7 +792,7 @@ def test_run_command_does_not_warn_for_empty_host_directory(monkeypatch, tmp_pat
     runner = CliRunner()
     result = runner.invoke(
         run_command,
-        ["qwen", str(source), "--config", str(config_path)],
+        ["--config", str(config_path), "--workdir", str(source), "qwen"],
         env={"AGSEKIT_LANG": "ru"},
     )
 
@@ -772,7 +801,7 @@ def test_run_command_does_not_warn_for_empty_host_directory(monkeypatch, tmp_pat
     assert not vm_checks
 
 
-def test_run_command_without_source_keeps_default_workdir_when_cwd_not_in_mount(monkeypatch, tmp_path):
+def test_run_command_without_workdir_rejects_current_directory_outside_mount(monkeypatch, tmp_path):
     source = tmp_path / "project"
     source.mkdir()
     outside_dir = tmp_path / "outside"
@@ -780,30 +809,19 @@ def test_run_command_without_source_keeps_default_workdir_when_cwd_not_in_mount(
     config_path = tmp_path / "config.yaml"
     _write_config(config_path, source)
 
-    calls: Dict[str, object] = {}
-    started = {"backup": False}
-
-    def fake_run_in_vm(vm_config, workdir, command, env_vars, proxychains=None, debug=False):
-        calls["workdir"] = workdir
-        return 0
-
-    def fake_start_backup_process(*_args, **_kwargs):
-        started["backup"] = True
-        return None
-
     monkeypatch.chdir(outside_dir)
     monkeypatch.setattr(run_module, "_has_existing_backup", lambda *_: True)
-    monkeypatch.setattr(run_module, "run_in_vm", fake_run_in_vm)
-    monkeypatch.setattr(run_module, "start_backup_process", fake_start_backup_process)
+    monkeypatch.setattr(run_module, "run_in_vm", lambda *_args, **_kwargs: 0)
+    monkeypatch.setattr(run_module, "start_backup_process", lambda *_, **__: None)
     monkeypatch.setattr(run_module, "ensure_agent_binary_available", lambda *_, **__: None)
     monkeypatch.setattr(run_module, "backup_once", lambda *_, **__: None)
 
     runner = CliRunner()
-    result = runner.invoke(run_command, ["qwen", "--config", str(config_path)])
+    result = runner.invoke(run_command, ["--config", str(config_path), "qwen"])
 
-    assert result.exit_code == 0
-    assert calls["workdir"] == run_module.DEFAULT_WORKDIR
-    assert started["backup"] is False
+    assert result.exit_code != 0
+    assert str(normalize_path(outside_dir)) in result.output
+    assert "mount" in result.output.lower()
 
 
 def test_run_command_passes_proxychains_override(monkeypatch, tmp_path):
@@ -842,7 +860,7 @@ def test_run_command_passes_proxychains_override(monkeypatch, tmp_path):
     runner = CliRunner()
     result = runner.invoke(
         run_command,
-        ["qwen", str(source), "--config", str(config_path), "--proxychains", "http://10.0.0.5:3128"],
+        ["--config", str(config_path), "--proxychains", "http://10.0.0.5:3128", "--workdir", str(source), "qwen"],
     )
 
     assert result.exit_code == 0
@@ -853,7 +871,7 @@ def test_run_command_passes_proxychains_override(monkeypatch, tmp_path):
     checks.clear()
     result = runner.invoke(
         run_command,
-        ["qwen", str(source), "--config", str(config_path), "--proxychains", ""],
+        ["--config", str(config_path), "--proxychains", "", "--workdir", str(source), "qwen"],
     )
     assert result.exit_code == 0
     assert calls["proxychains"] == ""
@@ -890,7 +908,7 @@ def test_run_command_uses_agent_proxychains_override(monkeypatch, tmp_path):
     runner = CliRunner()
     result = runner.invoke(
         run_command,
-        ["qwen", str(source), "--config", str(config_path)],
+        ["--config", str(config_path), "--workdir", str(source), "qwen"],
     )
 
     assert result.exit_code == 0
@@ -930,7 +948,7 @@ def test_run_command_uses_runtime_binary(monkeypatch, tmp_path, agent_type: str,
     runner = CliRunner()
     result = runner.invoke(
         run_command,
-        ["qwen", str(source), "--config", str(config_path), "--", "--print"],
+        ["--config", str(config_path), "--workdir", str(source), "qwen", "--print"],
     )
 
     assert result.exit_code == 0
@@ -970,7 +988,7 @@ def test_run_command_agent_empty_proxychains_disables_vm_proxy(monkeypatch, tmp_
     runner = CliRunner()
     result = runner.invoke(
         run_command,
-        ["qwen", str(source), "--config", str(config_path)],
+        ["--config", str(config_path), "--workdir", str(source), "qwen"],
     )
 
     assert result.exit_code == 0
@@ -1004,7 +1022,7 @@ def test_run_command_sets_direct_http_proxy_env(monkeypatch, tmp_path):
     monkeypatch.setattr(run_module, "backup_once", lambda *_, **__: None)
 
     runner = CliRunner()
-    result = runner.invoke(run_command, ["qwen", str(source), "--config", str(config_path)])
+    result = runner.invoke(run_command, ["--config", str(config_path), "--workdir", str(source), "qwen"])
 
     assert result.exit_code == 0
     assert calls["env"]["HTTP_PROXY"] == "http://127.0.0.1:18881"
@@ -1052,7 +1070,7 @@ def test_run_command_wraps_upstream_http_proxy(monkeypatch, tmp_path):
     monkeypatch.setattr(run_module, "backup_once", lambda *_, **__: None)
 
     runner = CliRunner()
-    result = runner.invoke(run_command, ["qwen", str(source), "--config", str(config_path)])
+    result = runner.invoke(run_command, ["--config", str(config_path), "--workdir", str(source), "qwen"])
 
     assert result.exit_code == 0
     assert calls["proxychains"] is None
@@ -1082,7 +1100,7 @@ def test_run_command_rejects_http_proxy_with_effective_proxychains(monkeypatch, 
     monkeypatch.setattr(run_module, "backup_once", lambda *_, **__: None)
 
     runner = CliRunner()
-    result = runner.invoke(run_command, ["qwen", str(source), "--config", str(config_path)])
+    result = runner.invoke(run_command, ["--config", str(config_path), "--workdir", str(source), "qwen"])
 
     assert result.exit_code != 0
     assert "HTTP proxy and runtime proxychains cannot be enabled at the same time" in result.output
@@ -1106,7 +1124,7 @@ def test_run_command_rejects_agent_outside_mount_allowed_agents(monkeypatch, tmp
     monkeypatch.setattr(run_module, "backup_once", lambda *_, **__: None)
 
     runner = CliRunner()
-    result = runner.invoke(run_command, ["qwen", str(source), "--config", str(config_path)])
+    result = runner.invoke(run_command, ["--config", str(config_path), "--workdir", str(source), "qwen"])
 
     assert result.exit_code != 0
     assert "allowed_agents" in result.output
@@ -1131,7 +1149,7 @@ def test_run_command_allows_agent_from_mount_allowed_agents(monkeypatch, tmp_pat
     monkeypatch.setattr(run_module, "backup_once", lambda *_, **__: None)
 
     runner = CliRunner()
-    result = runner.invoke(run_command, ["qwen", str(source), "--config", str(config_path)])
+    result = runner.invoke(run_command, ["--config", str(config_path), "--workdir", str(source), "qwen"])
 
     assert result.exit_code == 0
     assert called["run_in_vm"] is True
@@ -1151,13 +1169,13 @@ def test_run_command_rejects_agent_in_mount_subdirectory_when_not_allowed(monkey
     monkeypatch.setattr(run_module, "backup_once", lambda *_, **__: None)
 
     runner = CliRunner()
-    result = runner.invoke(run_command, ["qwen", str(nested), "--config", str(config_path)])
+    result = runner.invoke(run_command, ["--config", str(config_path), "--workdir", str(nested), "qwen"])
 
     assert result.exit_code != 0
     assert "allowed_agents" in result.output
 
 
-def test_run_command_without_source_rejects_disallowed_agent_in_current_directory_mount(monkeypatch, tmp_path):
+def test_run_command_without_workdir_rejects_disallowed_agent_in_current_directory_mount(monkeypatch, tmp_path):
     source = tmp_path / "project"
     nested = source / "nested" / "inner"
     nested.mkdir(parents=True)
@@ -1178,7 +1196,7 @@ def test_run_command_without_source_rejects_disallowed_agent_in_current_director
     monkeypatch.setattr(run_module, "backup_once", lambda *_, **__: None)
 
     runner = CliRunner()
-    result = runner.invoke(run_command, ["qwen", "--config", str(config_path)])
+    result = runner.invoke(run_command, ["--config", str(config_path), "qwen"])
 
     assert result.exit_code != 0
     assert "allowed_agents" in result.output
@@ -1188,7 +1206,7 @@ def test_run_command_without_source_rejects_disallowed_agent_in_current_director
 def test_run_command_rejects_agent_outside_vm_allowed_agents(monkeypatch, tmp_path):
     source = tmp_path / "project"
     config_path = tmp_path / "config.yaml"
-    _write_config(config_path, source, vm_allowed_agents=["codex"])
+    _write_config(config_path, source, vm_allowed_agents=["codex"], include_codex_agent=True)
 
     called = {"run_in_vm": False}
 
@@ -1203,7 +1221,7 @@ def test_run_command_rejects_agent_outside_vm_allowed_agents(monkeypatch, tmp_pa
     monkeypatch.setattr(run_module, "backup_once", lambda *_, **__: None)
 
     runner = CliRunner()
-    result = runner.invoke(run_command, ["qwen", str(source), "--config", str(config_path)])
+    result = runner.invoke(run_command, ["--config", str(config_path), "--workdir", str(source), "qwen"])
 
     assert result.exit_code != 0
     assert "allowed_agents" in result.output
@@ -1229,7 +1247,7 @@ def test_run_command_allows_agent_from_vm_allowed_agents(monkeypatch, tmp_path):
     monkeypatch.setattr(run_module, "backup_once", lambda *_, **__: None)
 
     runner = CliRunner()
-    result = runner.invoke(run_command, ["qwen", str(source), "--config", str(config_path)])
+    result = runner.invoke(run_command, ["--config", str(config_path), "--workdir", str(source), "qwen"])
 
     assert result.exit_code == 0
     assert called["run_in_vm"] is True
@@ -1259,40 +1277,33 @@ def test_run_command_prefers_mount_allowed_agents_over_vm_allowed_agents(monkeyp
     monkeypatch.setattr(run_module, "backup_once", lambda *_, **__: None)
 
     runner = CliRunner()
-    result = runner.invoke(run_command, ["qwen", str(source), "--config", str(config_path)])
+    result = runner.invoke(run_command, ["--config", str(config_path), "--workdir", str(source), "qwen"])
 
     assert result.exit_code == 0
     assert called["run_in_vm"] is True
 
 
-def test_run_command_without_mount_uses_vm_allowed_agents(monkeypatch, tmp_path):
+def test_run_command_without_mount_rejects_current_directory_even_before_vm_allowed_agents(monkeypatch, tmp_path):
     source = tmp_path / "project"
     source.mkdir()
     outside_dir = tmp_path / "outside"
     outside_dir.mkdir()
     config_path = tmp_path / "config.yaml"
-    _write_config(config_path, source, vm_allowed_agents=["codex"])
-
-    called = {"run_in_vm": False}
-
-    def fake_run_in_vm(*_args, **_kwargs):
-        called["run_in_vm"] = True
-        return 0
+    _write_config(config_path, source, vm_allowed_agents=["codex"], include_codex_agent=True)
 
     monkeypatch.chdir(outside_dir)
     monkeypatch.setattr(run_module, "_has_existing_backup", lambda *_: True)
-    monkeypatch.setattr(run_module, "run_in_vm", fake_run_in_vm)
+    monkeypatch.setattr(run_module, "run_in_vm", lambda *_args, **_kwargs: 0)
     monkeypatch.setattr(run_module, "start_backup_process", lambda *_, **__: None)
     monkeypatch.setattr(run_module, "ensure_agent_binary_available", lambda *_, **__: None)
     monkeypatch.setattr(run_module, "backup_once", lambda *_, **__: None)
 
     runner = CliRunner()
-    result = runner.invoke(run_command, ["qwen", "--config", str(config_path)])
+    result = runner.invoke(run_command, ["--config", str(config_path), "qwen"])
 
     assert result.exit_code != 0
-    assert "allowed_agents" in result.output
-    assert "`agent`" in result.output
-    assert called["run_in_vm"] is False
+    assert str(normalize_path(outside_dir)) in result.output
+    assert "mount" in result.output.lower()
 
 
 def test_run_command_reports_context_for_agent_type_field_typo(tmp_path):
@@ -1320,7 +1331,7 @@ agents:
     )
 
     runner = CliRunner()
-    result = runner.invoke(run_command, ["cline", str(source), "--config", str(config_path)])
+    result = runner.invoke(run_command, ["--config", str(config_path), "--workdir", str(source), "cline"])
 
     assert result.exit_code != 0
     assert f"Configuration error in file `{config_path}`" in result.output
@@ -1355,7 +1366,7 @@ agents:
     )
 
     runner = CliRunner()
-    result = runner.invoke(run_command, ["cline", str(source), "--config", str(config_path)])
+    result = runner.invoke(run_command, ["--config", str(config_path), "--workdir", str(source), "cline"])
 
     assert result.exit_code != 0
     assert f"Configuration error in file `{config_path}`" in result.output

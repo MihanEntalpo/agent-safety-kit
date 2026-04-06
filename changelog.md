@@ -1,7 +1,10 @@
 # Agent-Safety-Kit versions history
 
-## Unreleased
+## 1.5.10 - Fixed MacOs problems + rebuilt agsekit run command 
 
+* Changed `agsekit run` syntax to `agsekit run [run-options...] <agent> [agent_args...]`: all CLI options now have to appear before the agent name, and everything after the agent name is forwarded to the agent unchanged
+* Removed the positional source path from `agsekit run`: it now defaults to the current directory and uses `--workdir` for explicit directory selection
+* Tightened `agsekit run` mount resolution: the effective workdir must exist and match a configured mount, and the old fallback launch outside the mount context in `/home/ubuntu` is no longer used
 * Made backup lock owner detection cross-platform: `agsekit` now uses `psutil.Process(pid).cmdline()` instead of Linux-only `/proc/<pid>/cmdline` when deciding whether to show the waiting backup PID
 * Limited `systemd` integration to Linux hosts: `agsekit up` now skips the systemd installation stage on macOS and Windows, while `agsekit systemd *` commands on unsupported platforms print a warning instead of failing on missing `systemctl`
 * Fixed macOS host preparation with Homebrew under Rich progress: `prepare`/`up` now suspend the progress renderer while `brew install multipass` runs, so interactive `sudo` prompts are visible and accept password input normally
