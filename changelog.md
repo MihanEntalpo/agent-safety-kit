@@ -1,6 +1,6 @@
 # Agent-Safety-Kit versions history
 
-## 1.5.10 - Fixed MacOs problems + rebuilt agsekit run command 
+## 1.5.10 - Fixed MacOS problems + rebuilt agsekit run command 
 
 * Changed `agsekit run` syntax to `agsekit run [run-options...] <agent> [agent_args...]`: all CLI options now have to appear before the agent name, and everything after the agent name is forwarded to the agent unchanged
 * Removed the positional source path from `agsekit run`: it now defaults to the current directory and uses `--workdir` for explicit directory selection
