@@ -8,6 +8,11 @@ from click.testing import CliRunner
 import agsekit_cli.commands.systemd as systemd_module
 
 
+@pytest.fixture(autouse=True)
+def force_linux_systemd(monkeypatch):
+    monkeypatch.setattr(systemd_module, "is_systemd_supported_platform", lambda: True)
+
+
 def test_packaged_systemd_unit_uses_shell_wrapper_for_env_expansion():
     unit_path = Path("agsekit_cli/systemd/agsekit-portforward.service")
     contents = unit_path.read_text(encoding="utf-8")
@@ -441,3 +446,22 @@ def test_systemd_service_management_commands_show_verbose_output_in_debug(monkey
     assert "Starting systemd portforward service..." not in start_result.output
     assert "Stopping systemd portforward service..." not in stop_result.output
     assert "Restarting systemd portforward service..." not in restart_result.output
+
+
+@pytest.mark.parametrize("args", [["install"], ["uninstall"], ["start"], ["stop"], ["restart"], ["status"]])
+def test_systemd_commands_warn_and_return_on_unsupported_platform(monkeypatch, args):
+    monkeypatch.setattr(systemd_module, "is_systemd_supported_platform", lambda: False)
+    monkeypatch.setattr(systemd_module, "_platform_label", lambda: "macOS")
+
+    runner = CliRunner()
+    result = runner.invoke(systemd_module.systemd_group, args)
+
+    assert result.exit_code == 0
+    assert "not implemented yet" in result.output
+    assert "macOS" in result.output
+
+
+def test_stop_portforward_service_is_noop_on_unsupported_platform(monkeypatch):
+    monkeypatch.setattr(systemd_module, "is_systemd_supported_platform", lambda: False)
+
+    assert systemd_module.stop_portforward_service(announce=False) is False

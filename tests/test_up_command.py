@@ -40,6 +40,11 @@ def _invoke_command(runner: CliRunner, command: click.Command, args: list[str]):
     return runner.invoke(cast(click.Command, command), args)
 
 
+@pytest.fixture(autouse=True)
+def force_linux_systemd(monkeypatch):
+    monkeypatch.setattr(up_module, "is_systemd_supported_platform", lambda: True)
+
+
 def test_up_runs_all_stages_by_default(monkeypatch, tmp_path):
     calls: list[tuple[str, object]] = []
     config_path = tmp_path / "config.yaml"
@@ -205,6 +210,24 @@ def test_up_passes_debug_and_shared_progress(monkeypatch, tmp_path):
     assert install_calls[0]["progress"] is not None
     assert hasattr(install_calls[0]["progress"], "add_task")
     assert systemd_calls == [{"config_path": config_path, "announce": True}]
+
+
+def test_up_skips_systemd_stage_on_unsupported_platform(monkeypatch, tmp_path):
+    calls: list[str] = []
+    config_path = tmp_path / "config.yaml"
+    config_path.write_text("vms: {}\n", encoding="utf-8")
+
+    monkeypatch.setattr(up_module, "is_systemd_supported_platform", lambda: False)
+    monkeypatch.setattr(up_module, "run_prepare", lambda **kwargs: calls.append("prepare"))
+    monkeypatch.setattr(up_module, "run_create_vms", lambda *args, **kwargs: calls.append("create-vms"))
+    monkeypatch.setattr(up_module, "run_install_agents", lambda **kwargs: calls.append("install-agents"))
+    monkeypatch.setattr(up_module, "install_portforward_service", lambda *args, **kwargs: calls.append("systemd"))
+
+    runner = CliRunner()
+    result = _invoke_command(runner, up_command, ["--config", str(config_path)])
+
+    assert result.exit_code == 0
+    assert calls == ["prepare", "create-vms", "install-agents"]
 
 
 @pytest.mark.parametrize("command_name", DIRECT_MISSING_CONFIG_COMMANDS)

@@ -630,6 +630,7 @@
   "systemd.stop_help": "Остановить user systemd unit для portforward.",
   "systemd.stopped": "Служба успешно остановлена",
   "systemd.stopping": "Останавливаем службу systemd portforward",
+  "systemd.unsupported_platform": "Управление сервисом через systemd сейчас реализовано только для Linux. На платформе {platform} это пока не поддерживается.",
   "systemd.uninstalled": "Служба успешно удалена",
   "systemd.uninstall_help": "Остановить и удалить systemd-юнит для portforward.",
   "systemd.uninstalling": "Удаляем службу systemd portforward",

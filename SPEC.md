@@ -48,7 +48,7 @@
 - монтирование директорий и запуск агентов внутри VM;
 - snapshot-like резервные копии на хосте;
 - установку базовых пакетов/агентов через Ansible;
-- управление локальным сервисом port-forwarding через user-level systemd.
+- управление локальным сервисом port-forwarding через user-level systemd на Linux-хостах.
 
 Инструмент не делает:
 - не обеспечивает криптографическую защиту данных и не заменяет полноценный секрет-менеджмент;
@@ -155,8 +155,8 @@
 - `ssh_keys_folder` (optional, default `~/.config/agsekit/ssh`) — каталог с SSH-ключами хоста, используемыми для доступа к VM.
   - используется в `prepare`, `create-vm`, `create-vms` и `ssh`;
   - при значении `null` или отсутствии поля берётся путь по умолчанию.
-- `systemd_env_folder` (optional, default `~/.config/agsekit`) — каталог, куда записывается `systemd.env` для user-level systemd сервиса `agsekit-portforward`.
-  - используется в `systemd install` и `up`;
+- `systemd_env_folder` (optional, default `~/.config/agsekit`) — каталог, куда записывается `systemd.env` для user-level systemd сервиса `agsekit-portforward` на Linux-хостах.
+  - используется в `systemd install` и `up` только на Linux;
   - текущий systemd unit по-прежнему читает `~/.config/agsekit/systemd.env`, поэтому при кастомном каталоге CLI создаёт compatibility symlink из стандартного пути на фактический env-файл.
 - `portforward_config_check_interval_sec` (optional, default `10`, >0) — интервал перечитывания YAML-конфига командой `portforward`.
   - применяется и при ручном запуске `agsekit portforward`, и в systemd-демоне, потому что сервис запускает ту же CLI-команду.
@@ -264,8 +264,9 @@
 Важно:
 - `prepare` может работать без YAML-конфига, но если конфиг есть и в нём задан `global.ssh_keys_folder`, команда использует этот путь для host SSH keypair;
 - `systemd install` технически может быть вызван без существующего файла конфига (путь резолвится), но practically предназначен для сценария, когда конфиг уже есть, потому что service запускает `portforward`.
-- `systemd start`, `systemd stop` и `systemd restart` не читают YAML-конфиг и управляют уже зарегистрированным user systemd unit `agsekit-portforward`.
-- `systemd status` не читает YAML-конфиг и показывает расширенное состояние user systemd unit `agsekit-portforward`, включая последние записи журнала, если служба установлена.
+- все команды `systemd *` функционально поддерживаются только на Linux; на macOS/Windows они не пытаются вызывать `systemctl`, а печатают предупреждение, что интеграция пока не реализована.
+- `systemd start`, `systemd stop` и `systemd restart` на Linux не читают YAML-конфиг и управляют уже зарегистрированным user systemd unit `agsekit-portforward`.
+- `systemd status` на Linux не читает YAML-конфиг и показывает расширенное состояние user systemd unit `agsekit-portforward`, включая последние записи журнала, если служба установлена.
 
 ### 7.2 Команды, которые работают через конфиг
 Практически все остальные команды читают и валидируют конфиг: VM lifecycle, mounts, agent install/run, backup по mount, порт-форвардинг.
@@ -331,10 +332,11 @@
 6. В обычном режиме показывает общий `rich` progress по выбранным этапам и вложенный прогресс текущего внутреннего шага (`prepare`, `create-vms`, `install-agents`) под ним.
 7. При `--debug` отключает Rich progress и оставляет только обычный подробный вывод внутренних команд и внешних процессов.
 8. Если вложенный Ansible playbook падает в обычном режиме, CLI сначала останавливает Rich progress, печатает пустую строку-разделитель, а затем выводит хвост последних скрытых строк Ansible (до 10 строк), чтобы ошибка не терялась за progress-рендерингом.
-9. Если сценарий использует конфиг (включены `create-vms` и/или `install-agents`), после основных этапов дополнительно:
+9. Если сценарий использует конфиг (включены `create-vms` и/или `install-agents`) и CLI работает на Linux, после основных этапов дополнительно:
    - генерирует `systemd.env` в каталоге из `global.systemd_env_folder` (по умолчанию `~/.config/agsekit/systemd.env`);
    - регистрирует user systemd unit для `agsekit portforward`;
    - запускает и включает этот unit.
+   На macOS и Windows этот этап пропускается полностью.
 10. При успешном завершении печатает итоговое сообщение об успешной установке.
 
 ### 8.2 Создание конфигов
@@ -488,7 +490,7 @@
 - `stop-vm` перед выключением размонтирует все mount-ы выбранной ВМ, которые сейчас реально зарегистрированы в Multipass;
 - `stop-vm` выключает гостевую ОС изнутри через `multipass exec <vm> -- sudo poweroff`, ждёт 30 секунд и при незавершённом shutdown выполняет `multipass stop --force <vm>`;
 - `down` всегда работает по всем ВМ из конфига: перед выключением проверяет текущие процессы настроенных агентов тем же способом, что и `status`; если агенты запущены, печатает список `VM -> agent names -> cwd` и в интерактивном режиме просит подтверждение `y/N`, а в неинтерактивном режиме требует `--force`;
-- `down` перед остановкой ВМ пытается остановить user systemd unit `agsekit-portforward`, если он зарегистрирован;
+- `down` перед остановкой ВМ на Linux пытается остановить user systemd unit `agsekit-portforward`, если он зарегистрирован; на macOS/Windows этот шаг является no-op;
 - `down --force` пропускает проверочный prompt и выключает все ВМ сразу;
 - `destroy-vm` требует подтверждение (если нет `-y`), затем `delete` + `purge`.
 
@@ -677,6 +679,7 @@
 - при ошибке туннеля сообщает, что `remote`-проброс на порты ниже 1024 внутри VM может быть причиной (из-за ограничения sshd).
 
 #### `agsekit systemd install/uninstall/status`
+- весь набор `systemd`-команд поддерживается только на Linux; на macOS/Windows команды печатают предупреждение о том, что интеграция пока не реализована, и завершаются без действий.
 - `install`:
   - генерирует `systemd.env` в каталоге из `global.systemd_env_folder` (по умолчанию `~/.config/agsekit/systemd.env`);
   - регистрирует и включает user unit для `portforward` (юнит не зависит от `WorkingDirectory`, используется абсолютный путь конфига);
@@ -691,8 +694,8 @@
   - поддерживает `--debug` для подробного вывода `systemctl`.
 - `status`:
   - показывает имя сервиса, путь к bundled unit, текущую user-systemd ссылку на unit, признак установки, состояния `is-enabled` / `is-active`, `LoadState` / `SubState`, `MainPID`, `Result`, временные метки последней активности и хвост последних записей `journalctl --user -u agsekit-portforward`, если служба установлена.
-- `up` использует ту же внутреннюю логику `install` автоматически после VM/agent-этапов, когда работает с конфигом.
-- `down` использует ту же внутреннюю логику остановки unit, но не делает `disable`/`unlink`.
+- `up` использует ту же внутреннюю логику `install` автоматически после VM/agent-этапов, когда работает с конфигом на Linux.
+- `down` на Linux использует ту же внутреннюю логику остановки unit, но не делает `disable`/`unlink`.
 
 Важно по отношению к философии проекта:
 - текущая реализация systemd-юнита автоматизирует только `portforward`;

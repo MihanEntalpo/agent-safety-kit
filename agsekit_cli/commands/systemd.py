@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
+import platform
 import shlex
 import shutil
 import subprocess
@@ -37,6 +38,26 @@ class SystemdServiceStatus:
     active_since: str
     inactive_since: str
     logs: List[str]
+
+
+def is_systemd_supported_platform() -> bool:
+    return platform.system() == "Linux"
+
+
+def _platform_label() -> str:
+    system = platform.system()
+    if system == "Darwin":
+        return "macOS"
+    if system == "Windows":
+        return "Windows"
+    return system or "this platform"
+
+
+def _warn_systemd_unsupported() -> bool:
+    if is_systemd_supported_platform():
+        return False
+    click.echo(click.style(tr("systemd.unsupported_platform", platform=_platform_label()), fg="yellow"))
+    return True
 
 
 def _resolve_agsekit_bin() -> Path:
@@ -140,6 +161,8 @@ def install_portforward_service(
     project_dir: Optional[Path] = None,
     announce: bool = True,
 ) -> None:
+    if not is_systemd_supported_platform():
+        return
     resolved_project_dir = (project_dir or Path.cwd()).resolve()
     write_systemd_env(config_path, project_dir=resolved_project_dir, announce=announce)
 
@@ -157,11 +180,15 @@ def _ensure_linked_service() -> None:
 
 
 def manage_portforward_service(action: str, *, announce: bool = True) -> None:
+    if not is_systemd_supported_platform():
+        return
     _ensure_linked_service()
     _run_systemctl(["systemctl", "--user", action, SERVICE_NAME], announce=announce)
 
 
 def stop_portforward_service(*, announce: bool = True) -> bool:
+    if not is_systemd_supported_platform():
+        return False
     if not LINKED_UNIT_PATH.exists():
         return False
 
@@ -170,6 +197,8 @@ def stop_portforward_service(*, announce: bool = True) -> bool:
 
 
 def uninstall_portforward_service(*, project_dir: Optional[Path] = None, announce: bool = True) -> None:
+    if not is_systemd_supported_platform():
+        return
     del project_dir
     _resolve_unit_path()
     stop_portforward_service(announce=announce)
@@ -222,6 +251,8 @@ def _journal_lines_for_service(service_name: str) -> List[str]:
 
 
 def get_portforward_service_status() -> SystemdServiceStatus:
+    if not is_systemd_supported_platform():
+        raise click.ClickException(tr("systemd.unsupported_platform", platform=_platform_label()))
     linked_target = tr("systemd.status_not_linked")
     installed = LINKED_UNIT_PATH.exists() or LINKED_UNIT_PATH.is_symlink()
     if installed:
@@ -291,6 +322,8 @@ def systemd_install_command(config_path: Optional[str], non_interactive: bool, d
     """Генерирует systemd.env и регистрирует unit для portforward."""
     # not used parameter, explicitly removing it so IDEs/linters do not complain
     del non_interactive
+    if _warn_systemd_unsupported():
+        return
 
     if not debug:
         click.echo(tr("systemd.installing"))
@@ -310,6 +343,8 @@ def systemd_uninstall_command(non_interactive: bool, debug: bool) -> None:
     """Останавливает и удаляет systemd-юнит для portforward."""
     # not used parameter, explicitly removing it so IDEs/linters do not complain
     del non_interactive
+    if _warn_systemd_unsupported():
+        return
 
     if not debug:
         click.echo(tr("systemd.uninstalling"))
@@ -324,6 +359,8 @@ def systemd_uninstall_command(non_interactive: bool, debug: bool) -> None:
 def systemd_start_command(non_interactive: bool, debug: bool) -> None:
     """Запускает user-юнит для portforward."""
     del non_interactive
+    if _warn_systemd_unsupported():
+        return
 
     if not debug:
         click.echo(tr("systemd.starting"))
@@ -338,6 +375,8 @@ def systemd_start_command(non_interactive: bool, debug: bool) -> None:
 def systemd_stop_command(non_interactive: bool, debug: bool) -> None:
     """Останавливает user-юнит для portforward."""
     del non_interactive
+    if _warn_systemd_unsupported():
+        return
 
     if not debug:
         click.echo(tr("systemd.stopping"))
@@ -352,6 +391,8 @@ def systemd_stop_command(non_interactive: bool, debug: bool) -> None:
 def systemd_restart_command(non_interactive: bool, debug: bool) -> None:
     """Перезапускает user-юнит для portforward."""
     del non_interactive
+    if _warn_systemd_unsupported():
+        return
 
     if not debug:
         click.echo(tr("systemd.restarting"))
@@ -367,6 +408,8 @@ def systemd_status_command(non_interactive: bool, debug: bool) -> None:
     """Показывает состояние user-юнита для portforward."""
     del non_interactive
     del debug
+    if _warn_systemd_unsupported():
+        return
 
     status = get_portforward_service_status()
     click.echo(tr("systemd.status_service", service=status.service))
