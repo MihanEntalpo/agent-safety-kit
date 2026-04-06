@@ -38,6 +38,7 @@ agsekit_cli = [
   "ansible/callback_plugins/*.py",
   "ansible/bundles/*.yml",
   "vm_installers/*.sh",
+  "run_with_http_proxy.sh",
   "run_with_proxychains.sh",
   "systemd/*.service",
   "locales/*.json",

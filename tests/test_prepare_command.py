@@ -7,6 +7,11 @@ from click.testing import CliRunner
 import pytest
 import yaml
 
+try:
+    import tomllib
+except ModuleNotFoundError:  # pragma: no cover - Python < 3.11
+    import tomli as tomllib
+
 ROOT = Path(__file__).resolve().parent.parent
 if str(ROOT) not in sys.path:
     sys.path.insert(0, str(ROOT))
@@ -117,6 +122,41 @@ def test_run_prepare_suppresses_multipass_echo_when_progress_enabled(monkeypatch
     assert "Multipass already installed" not in captured.out
 
 
+def test_run_prepare_suspends_progress_during_multipass_install(monkeypatch):
+    calls: list[str] = []
+
+    class DummySuspend:
+        def __enter__(self):
+            calls.append("enter")
+            return None
+
+        def __exit__(self, exc_type, exc, traceback):
+            del exc_type, exc, traceback
+            calls.append("exit")
+            return None
+
+    class DummyProgress:
+        def __bool__(self):
+            return True
+
+        def update(self, *args, **kwargs):
+            del args, kwargs
+
+        def advance(self, *args, **kwargs):
+            del args, kwargs
+
+        def suspend(self):
+            calls.append("suspend")
+            return DummySuspend()
+
+    monkeypatch.setattr(prepare_module, "_install_multipass", lambda **kwargs: calls.append(f"install:{kwargs['quiet']}"))
+    monkeypatch.setattr(prepare_module, "ensure_host_ssh_keypair", lambda *args, **kwargs: None)
+
+    prepare_module.run_prepare(debug=False, progress=DummyProgress())
+
+    assert calls == ["suspend", "enter", "install:True", "exit"]
+
+
 def test_install_multipass_prefers_arch_over_debian(monkeypatch):
     calls: list[str] = []
 
@@ -205,6 +245,19 @@ def test_install_multipass_brew_uses_brew_install(monkeypatch):
     prepare_module._install_multipass_brew()
 
     assert commands == [["brew", "install", "multipass"]]
+
+
+def test_package_data_includes_http_proxy_runner_script():
+    pyproject = tomllib.loads(Path("pyproject.toml").read_text(encoding="utf-8"))
+    package_data = pyproject["tool"]["setuptools"]["package-data"]["agsekit_cli"]
+
+    assert "run_with_http_proxy.sh" in package_data
+
+
+def test_manifest_includes_http_proxy_runner_script():
+    manifest = Path("MANIFEST.in").read_text(encoding="utf-8")
+
+    assert "include agsekit_cli/run_with_http_proxy.sh" in manifest
 
 
 def test_install_multipass_arch_uses_yay(monkeypatch):

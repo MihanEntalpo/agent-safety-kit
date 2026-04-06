@@ -103,7 +103,11 @@ def run_prepare(*, debug: bool, config_path: Optional[str] = None, progress: Opt
 
     with debug_scope(debug):
         _update(tr("progress.up_prepare_multipass"))
-        _install_multipass(quiet=progress is not None)
+        if progress and hasattr(progress, "suspend"):
+            with progress.suspend():
+                _install_multipass(quiet=True)
+        else:
+            _install_multipass(quiet=progress is not None)
         _advance()
 
         _update(tr("progress.up_prepare_ssh"))

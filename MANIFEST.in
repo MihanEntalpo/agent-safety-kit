@@ -1,6 +1,7 @@
 include config-example.yaml
 recursive-include agsekit_cli/agent_scripts *.sh
 recursive-include agsekit_cli/vm_installers *.sh
+include agsekit_cli/run_with_http_proxy.sh
 include agsekit_cli/run_with_proxychains.sh
 recursive-include agsekit_cli/locales *.json
 include prebuilt-agents/codex-glibc/.dockerignore

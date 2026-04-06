@@ -12,6 +12,7 @@ from typing import Any, Dict, Optional
 import pytest
 
 from tests.integration.utils import (
+    REPO_ROOT,
     clean_env,
     random_vm_name,
     require_host_tools,
@@ -288,6 +289,12 @@ def _write_http_proxy_config(
         "vms": {
             vm_name: vm_entry,
         },
+        "mounts": [
+            {
+                "source": str(REPO_ROOT),
+                "vm": vm_name,
+            }
+        ],
         "agents": {
             "aider-http": agent_entry,
         },
@@ -397,7 +404,7 @@ def test_run_with_direct_http_proxy_url(http_proxy_env) -> None:
         },
     )
     result = run_cli(
-        ["run", "aider-http", "--config", str(config_path), "--disable-backups", "--non-interactive"],
+        ["run", "--config", str(config_path), "--disable-backups", "--auto-mount", "--non-interactive", "aider-http"],
         check=True,
         env_overrides=PROXY_ENV_OVERRIDES,
     )
@@ -445,7 +452,7 @@ def test_run_with_upstream_http_proxy_uses_auto_pool_port(http_proxy_env) -> Non
             message="SOCKS portforward did not open on host",
         )
         result = run_cli(
-            ["run", "aider-http", "--config", str(config_path), "--disable-backups", "--non-interactive"],
+            ["run", "--config", str(config_path), "--disable-backups", "--auto-mount", "--non-interactive", "aider-http"],
             check=True,
             env_overrides=PROXY_ENV_OVERRIDES,
         )
@@ -500,7 +507,7 @@ def test_run_with_upstream_http_proxy_respects_explicit_listen(http_proxy_env) -
             message="SOCKS portforward did not open on host",
         )
         result = run_cli(
-            ["run", "aider-http", "--config", str(config_path), "--disable-backups", "--non-interactive"],
+            ["run", "--config", str(config_path), "--disable-backups", "--auto-mount", "--non-interactive", "aider-http"],
             check=True,
             env_overrides=PROXY_ENV_OVERRIDES,
         )
@@ -522,7 +529,7 @@ def test_run_rejects_effective_http_proxy_with_effective_proxychains(http_proxy_
         agent_http_proxy_set=True,
     )
     result = run_cli(
-        ["run", "aider-http", "--config", str(config_path), "--disable-backups", "--non-interactive"],
+        ["run", "--config", str(config_path), "--disable-backups", "--auto-mount", "--non-interactive", "aider-http"],
         check=False,
         env_overrides=PROXY_ENV_OVERRIDES,
     )
