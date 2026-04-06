@@ -1,5 +1,10 @@
 # Agent-Safety-Kit versions history
 
+## Unreleased
+
+* Fixed macOS host preparation with Homebrew under Rich progress: `prepare`/`up` now suspend the progress renderer while `brew install multipass` runs, so interactive `sudo` prompts are visible and accept password input normally
+* Fixed installed-package VM preparation on all platforms: `run_with_http_proxy.sh` is now included in the Python package data, so the Ansible playbook can copy `/usr/bin/agsekit-run_with_http_proxy.sh` from an installed `agsekit` instead of failing with `AnsibleFileNotFound`
+
 ## 1.5.9 - Fixed cli output on agsekit up
 
 * Fixed `agsekit up` without a config file: in interactive terminals it now reports a direct error telling the user to create a config with `config-gen`/`config-example` or pass `--config`, instead of opening the interactive config-selection flow
