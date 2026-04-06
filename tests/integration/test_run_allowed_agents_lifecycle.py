@@ -227,13 +227,14 @@ def test_run_respects_mount_allowed_agents(run_test_vm: str, host_mount_root: Pa
         denied = _run_cli(
             [
                 "run",
-                "blocked-agent",
-                str(source),
                 "--config",
                 str(config_path),
+                "--workdir",
+                str(source),
                 "--disable-backups",
                 "--non-interactive",
                 "--debug",
+                "blocked-agent",
             ],
             check=False,
         )
@@ -245,13 +246,14 @@ def test_run_respects_mount_allowed_agents(run_test_vm: str, host_mount_root: Pa
         allowed = _run_cli(
             [
                 "run",
-                "allowed-agent",
-                str(nested),
                 "--config",
                 str(config_path),
+                "--workdir",
+                str(nested),
                 "--disable-backups",
                 "--non-interactive",
                 "--debug",
+                "allowed-agent",
             ],
             check=False,
         )

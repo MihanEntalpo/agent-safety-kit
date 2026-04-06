@@ -334,14 +334,15 @@ def build_run(session: InteractiveSession) -> List[str]:
         raise click.Abort()
     agent_args = shlex.split(agent_args_raw)
 
-    args = ["run", agent.name]
-    if source_dir:
-        args.append(str(source_dir))
+    args = ["run"]
     if vm_choice:
         args.extend(["--vm", vm_choice])
+    if source_dir:
+        args.extend(["--workdir", str(source_dir)])
     args.extend(session.config_option())
     if disable_backups:
         args.append("--disable-backups")
+    args.append(agent.name)
     args.extend(agent_args)
     return args
 

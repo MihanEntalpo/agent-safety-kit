@@ -144,6 +144,12 @@ def _write_config(
         agent_entry["proxychains"] = agent_proxychains_url
     payload = {
         "vms": {vm_name: vm_entry},
+        "mounts": [
+            {
+                "source": str(REPO_ROOT),
+                "vm": vm_name,
+            }
+        ],
         "agents": {
             "qwen": agent_entry
         },
@@ -290,12 +296,13 @@ def _stop_process(proc: subprocess.Popen[str]) -> None:
 def _run_agent(config_path: Path, cli_proxychains_url: Optional[str] = None) -> subprocess.CompletedProcess[str]:
     args = [
         "run",
-        "qwen",
         "--config",
         str(config_path),
         "--disable-backups",
+        "--auto-mount",
         "--non-interactive",
         "--debug",
+        "qwen",
     ]
     if cli_proxychains_url is not None:
         args.extend(["--proxychains", cli_proxychains_url])

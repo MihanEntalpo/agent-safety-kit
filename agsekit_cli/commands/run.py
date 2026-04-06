@@ -47,8 +47,6 @@ from ..mounts import (
 from ..debug import debug_scope
 from . import debug_option, non_interactive_option
 
-DEFAULT_WORKDIR = Path("/home/ubuntu")
-
 
 def _has_existing_backup(dest_dir: Path) -> bool:
     if not dest_dir.exists() or not dest_dir.is_dir():
@@ -152,10 +150,12 @@ def _apply_direct_http_proxy_env(env_vars: dict, http_proxy: HttpProxyConfig) ->
     env_vars["http_proxy"] = http_proxy.url
 
 
-@click.command(name="run", context_settings={"ignore_unknown_options": True}, help=tr("run.command_help"))
+@click.command(
+    name="run",
+    context_settings={"allow_interspersed_args": False},
+    help=tr("run.command_help"),
+)
 @non_interactive_option
-@click.argument("agent_name")
-@click.argument("source_dir", required=False, type=click.Path(file_okay=False, path_type=Path))
 @click.option("--vm", "vm_name", help=tr("run.option_vm"))
 @click.option(
     "config_path",
@@ -167,6 +167,12 @@ def _apply_direct_http_proxy_env(env_vars: dict, http_proxy: HttpProxyConfig) ->
 )
 @click.option("--disable-backups", is_flag=True, help=tr("run.option_disable_backups"))
 @click.option("--auto-mount", is_flag=True, help=tr("run.option_auto_mount"))
+@click.option(
+    "--workdir",
+    type=click.Path(file_okay=False, path_type=Path),
+    default=None,
+    help=tr("run.option_workdir"),
+)
 @debug_option
 @click.option("--skip-default-args", is_flag=True, help=tr("run.option_skip_default_args"))
 @click.option(
@@ -175,17 +181,18 @@ def _apply_direct_http_proxy_env(env_vars: dict, http_proxy: HttpProxyConfig) ->
     show_default=False,
     help=tr("run.option_proxychains"),
 )
+@click.argument("agent_name")
 @click.argument("agent_args", nargs=-1, type=click.UNPROCESSED)
 def run_command(
-    agent_name: str,
-    source_dir: Optional[Path],
     vm_name: Optional[str],
     config_path: Optional[str],
     disable_backups: bool,
     auto_mount: bool,
+    workdir: Optional[Path],
     debug: bool,
     skip_default_args: bool,
     proxychains: Optional[str],
+    agent_name: str,
     agent_args: Sequence[str],
     non_interactive: bool,
 ) -> None:
@@ -216,23 +223,14 @@ def run_command(
     mount_entry: Optional[MountConfig] = None
     mount_relative_path: Optional[Path] = None
 
-    source_to_resolve = source_dir
-    strict_mount_match = source_dir is not None
-    if source_to_resolve is None:
-        source_to_resolve = Path.cwd()
-        strict_mount_match = False
+    source_to_resolve = workdir or Path.cwd()
+    if not source_to_resolve.is_dir():
+        raise click.ClickException(tr("run.workdir_missing", path=normalize_path(source_to_resolve)))
 
-    if source_dir is not None and not source_dir.is_dir():
-        raise click.ClickException(tr("run.source_dir_missing", path=normalize_path(source_dir)))
-
-    if source_to_resolve is not None:
-        try:
-            mount_entry, mount_relative_path = select_mount_for_source(mounts, source_to_resolve, vm_name)
-        except ConfigError as exc:
-            if strict_mount_match:
-                raise click.ClickException(str(exc))
-            mount_entry = None
-            mount_relative_path = None
+    try:
+        mount_entry, mount_relative_path = select_mount_for_source(mounts, source_to_resolve, vm_name)
+    except ConfigError as exc:
+        raise click.ClickException(str(exc))
 
     vm_to_use = resolve_vm(agent, mount_entry, vm_name, config)
     ensure_vm_exists(vm_to_use, vms)
@@ -269,11 +267,8 @@ def run_command(
     env_vars = build_agent_env(agent)
     if effective_http_proxy is not None and effective_http_proxy.is_direct():
         _apply_direct_http_proxy_env(env_vars, effective_http_proxy)
-    if mount_entry:
-        relative = mount_relative_path or Path(".")
-        workdir = mount_entry.target if relative == Path(".") else mount_entry.target / relative
-    else:
-        workdir = DEFAULT_WORKDIR
+    relative = mount_relative_path or Path(".")
+    workdir_in_vm = mount_entry.target if relative == Path(".") else mount_entry.target / relative
 
     agent_command = agent_command_sequence(agent, agent_args, skip_default_args=skip_default_args)
 
@@ -298,7 +293,7 @@ def run_command(
             should_warn_about_empty_vm_dir = _vm_directory_is_empty_while_host_has_files(
                 mount_entry,
                 warning_source_dir,
-                workdir,
+                workdir_in_vm,
                 debug=debug,
             )
             if should_warn_about_empty_vm_dir and warning_source_dir is not None:
@@ -318,7 +313,7 @@ def run_command(
             raise click.ClickException(str(exc))
 
         click.echo(
-            tr("run.starting_agent", agent=agent.name, vm_name=vm_to_use, workdir=workdir)
+            tr("run.starting_agent", agent=agent.name, vm_name=vm_to_use, workdir=workdir_in_vm)
         )
 
         backup_process = None
@@ -361,7 +356,7 @@ def run_command(
 
             exit_code = run_in_vm(
                 vm_config,
-                workdir,
+                workdir_in_vm,
                 agent_command,
                 env_vars,
                 **run_in_vm_kwargs,

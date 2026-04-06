@@ -1,5 +1,11 @@
 # Agent-Safety-Kit versions history
 
+## Unreleased version
+
+* Changed `agsekit run` syntax to `agsekit run [run-options...] <agent> [agent_args...]`: all CLI options now have to appear before the agent name, and everything after the agent name is forwarded to the agent unchanged
+* Removed the positional source path from `agsekit run`: it now defaults to the current directory and uses `--workdir` for explicit directory selection
+* Tightened `agsekit run` mount resolution: the effective workdir must exist and match a configured mount, and the old fallback launch outside the mount context in `/home/ubuntu` is no longer used
+
 ## 1.5.9 - Fixed cli output on agsekit up
 
 * Fixed `agsekit up` without a config file: in interactive terminals it now reports a direct error telling the user to create a config with `config-gen`/`config-example` or pass `--config`, instead of opening the interactive config-selection flow

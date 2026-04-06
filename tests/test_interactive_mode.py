@@ -84,7 +84,7 @@ def test_main_prompts_for_config_when_missing(monkeypatch, tmp_path):
     missing_config = tmp_path / "absent.yaml"
 
     monkeypatch.setattr(cli_module, "is_interactive_terminal", lambda: True)
-    monkeypatch.setattr(sys, "argv", ["agsekit", "run", "qwen", str(tmp_path)])
+    monkeypatch.setattr(sys, "argv", ["agsekit", "run", "qwen"])
     monkeypatch.setattr(cli_module, "resolve_config_path", lambda _path=None: missing_config)
 
     def fake_run(cli, preselected_command=None, default_config_path=None):
@@ -173,7 +173,7 @@ def test_main_reports_missing_config_without_interactive(monkeypatch, tmp_path):
     called: Dict[str, Any] = {"interactive": False}
 
     monkeypatch.setattr(cli_module, "is_interactive_terminal", lambda: True)
-    monkeypatch.setattr(sys, "argv", ["agsekit", "run", "qwen", str(tmp_path), "--non-interactive"])
+    monkeypatch.setattr(sys, "argv", ["agsekit", "run", "qwen", "--non-interactive"])
     monkeypatch.setattr(config_module, "DEFAULT_CONFIG_PATH", missing_config)
 
     def mark_called(*_args: Any, **_kwargs: Any) -> None:  # pragma: no cover - defensive
@@ -241,7 +241,7 @@ def test_build_run_skips_vm_argument_when_auto_selected(monkeypatch, tmp_path):
 
     args = interactive.build_run(DummySession())
 
-    assert args == ["run", "qwen", str(tmp_path), "--config", "config.yaml"]
+    assert args == ["run", "--workdir", str(tmp_path), "--config", "config.yaml", "qwen"]
 
 
 def test_build_systemd_entries(monkeypatch):

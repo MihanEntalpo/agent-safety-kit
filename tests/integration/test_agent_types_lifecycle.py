@@ -178,6 +178,12 @@ def _write_config(config_path: Path, vm_name: str, agent_name: str, agent_type: 
                 "disk": "5G",
             }
         },
+        "mounts": [
+            {
+                "source": str(REPO_ROOT),
+                "vm": vm_name,
+            }
+        ],
         "agents": {
             agent_name: {
                 "type": agent_type,
@@ -239,12 +245,13 @@ def test_run_supported_agent_types(
     run_generic = _run_cli(
         [
             "run",
-            agent_name,
             "--config",
             str(config_path),
             "--disable-backups",
+            "--auto-mount",
             "--non-interactive",
             "--debug",
+            agent_name,
         ],
         check=False,
     )
@@ -260,11 +267,12 @@ def test_forgecode_disables_tracker_env(run_test_vm: str, tmp_path: Path) -> Non
     result = _run_cli(
         [
             "run",
-            "forgecode-main",
             "--config",
             str(config_path),
             "--disable-backups",
+            "--auto-mount",
             "--non-interactive",
+            "forgecode-main",
         ],
         check=False,
     )
