@@ -556,7 +556,7 @@
 - если изменений нет — snapshot не создаётся;
 - `--progress` показывает прогресс-бар;
 - коды rsync `23/24` трактуются как warning, не fatal.
- - при выводе сообщения о занятом lock PID берётся из `backup.pid` и проверяется по `/proc/<pid>/cmdline` (если это не процесс `agsekit`, PID скрывается).
+ - при выводе сообщения о занятом lock PID берётся из `backup.pid` и проверяется через `psutil.Process(pid).cmdline()`; если это не процесс `agsekit` или информацию получить нельзя, PID скрывается.
 
 #### `agsekit backup-repeated`
 Зачем:

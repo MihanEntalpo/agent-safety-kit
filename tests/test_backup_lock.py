@@ -106,3 +106,25 @@ def test_backup_repeated_honors_quiet_lock_env(monkeypatch, tmp_path):
     )
 
     assert seen == [False]
+
+
+def test_pid_is_ags_backup_uses_psutil_cmdline(monkeypatch):
+    class DummyProcess:
+        def __init__(self, pid):
+            self.pid = pid
+
+        def cmdline(self):
+            return ["python", "-m", "agsekit", "backup-repeated"]
+
+    monkeypatch.setattr(backup.psutil, "Process", DummyProcess)
+
+    assert backup._pid_is_ags_backup(12345) is True
+
+
+def test_pid_is_ags_backup_returns_false_on_psutil_error(monkeypatch):
+    def fake_process(_pid):
+        raise backup.psutil.NoSuchProcess(pid=12345)
+
+    monkeypatch.setattr(backup.psutil, "Process", fake_process)
+
+    assert backup._pid_is_ags_backup(12345) is False

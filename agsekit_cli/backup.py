@@ -12,6 +12,8 @@ from math import log2
 from pathlib import Path
 from typing import Callable, Dict, Iterable, List, Optional, Set, Tuple
 
+import psutil
+
 from .i18n import tr
 
 FilterRule = Tuple[str, str]
@@ -112,14 +114,13 @@ def _write_lock_pid(handle) -> None:
 
 
 def _pid_is_ags_backup(pid: int) -> bool:
-    cmdline_path = Path(f"/proc/{pid}/cmdline")
     try:
-        raw = cmdline_path.read_text(encoding="utf-8", errors="ignore")
-    except OSError:
+        cmdline = psutil.Process(pid).cmdline()
+    except (psutil.Error, OSError, ValueError):
         return False
-    if not raw:
+    if not cmdline:
         return False
-    command = raw.replace("\x00", " ").strip()
+    command = " ".join(str(part) for part in cmdline).strip()
     return "agsekit" in command
 
 
