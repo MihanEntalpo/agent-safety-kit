@@ -1,5 +1,11 @@
 # Agent-Safety-Kit versions history
 
+## 1.5.11 - Temporary run fallback and platform-aware rsync progress
+
+* Added an interactive `agsekit run` fallback for missing project folders: the CLI can now create `/tmp/run-*` inside the target VM and start the agent there without backups
+* Fixed rsync progress flags on macOS and Windows hosts by omitting Linux-only `--info=progress2` outside Linux
+* Changed the interactive `addmount` immediate-mount prompt to say `Сразу примонтировать папку?` / `Mount the folder right away?` and default to yes
+
 ## 1.5.10 - Fixed MacOS problems + rebuilt agsekit run command 
 
 * Changed `agsekit run` syntax to `agsekit run [run-options...] <agent> [agent_args...]`: all CLI options now have to appear before the agent name, and everything after the agent name is forwarded to the agent unchanged

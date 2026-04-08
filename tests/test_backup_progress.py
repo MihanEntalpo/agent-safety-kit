@@ -30,12 +30,19 @@ def test_backup_once_uses_progress_flags(monkeypatch, tmp_path):
     monkeypatch.setattr(backup, "_run_rsync", fake_run)
     monkeypatch.setattr(backup, "remove_inprogress_dirs", lambda *_: None)
     monkeypatch.setattr(backup, "find_previous_backup", lambda *_: None)
+    monkeypatch.setattr(backup.platform, "system", lambda: "Linux")
 
     backup.backup_once(source, dest, show_progress=True)
 
     assert "--progress" in calls["command"]
     assert "--info=progress2" in calls["command"]
     assert calls["show_progress"] is True
+
+
+def test_rsync_progress_flags_are_platform_specific():
+    assert backup.rsync_progress_flags("Linux") == ["--progress", "--info=progress2"]
+    assert backup.rsync_progress_flags("Darwin") == ["--progress"]
+    assert backup.rsync_progress_flags("Windows") == ["--progress"]
 
 
 def test_run_rsync_renders_progress_bar(monkeypatch, capsys):
@@ -81,7 +88,7 @@ def test_run_rsync_reports_real_progress(tmp_path, capsys):
         dest,
         None,
         [],
-        extra_flags=["--progress", "--info=progress2"],
+        extra_flags=backup.rsync_progress_flags(),
     )
 
     result = backup._run_rsync(command, show_progress=True)

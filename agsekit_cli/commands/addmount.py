@@ -364,7 +364,7 @@ def addmount_command(
         click.echo(tr("addmount.added", path=resolved_config_path))
 
         if interactive and not mount_now:
-            mount_now = click.confirm(tr("addmount.mount_now_prompt"), default=False)
+            mount_now = click.confirm(tr("addmount.mount_now_prompt"), default=True)
 
         if mount_now:
             try:

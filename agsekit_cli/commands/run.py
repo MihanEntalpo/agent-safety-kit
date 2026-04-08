@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import shutil
+import secrets
 import subprocess
 import sys
 from pathlib import Path
@@ -31,8 +32,9 @@ from ..config import (
     load_vms_config,
     resolve_config_path,
 )
+from ..debug import debug_log_command, debug_log_result, debug_scope
 from ..i18n import tr
-from ..vm import MultipassError
+from ..vm import MultipassError, ensure_multipass_available
 from ..vm import resolve_proxychains as resolve_effective_proxychains
 from ..mounts import (
     MountAlreadyMountedError,
@@ -44,8 +46,20 @@ from ..mounts import (
     normalize_path,
     vm_path_has_entries,
 )
-from ..debug import debug_scope
 from . import debug_option, non_interactive_option
+
+
+def _create_temp_vm_workdir(vm_name: str, *, debug: bool = False) -> Path:
+    ensure_multipass_available()
+    workdir = Path(f"/tmp/run-{secrets.token_hex(6)}")
+    command = ["multipass", "exec", vm_name, "--", "mkdir", "-p", str(workdir)]
+    debug_log_command(command, enabled=debug)
+    result = subprocess.run(command, check=False, capture_output=True, text=True)
+    debug_log_result(result, enabled=debug)
+    if result.returncode != 0:
+        details = result.stderr.strip() or result.stdout.strip()
+        raise MultipassError(details or tr("run.temp_workdir_create_failed", vm_name=vm_name, path=workdir))
+    return workdir
 
 
 def _has_existing_backup(dest_dir: Path) -> bool:
@@ -224,13 +238,18 @@ def run_command(
     mount_relative_path: Optional[Path] = None
 
     source_to_resolve = workdir or Path.cwd()
-    if not source_to_resolve.is_dir():
-        raise click.ClickException(tr("run.workdir_missing", path=normalize_path(source_to_resolve)))
-
-    try:
-        mount_entry, mount_relative_path = select_mount_for_source(mounts, source_to_resolve, vm_name)
-    except ConfigError as exc:
-        raise click.ClickException(str(exc))
+    use_temp_vm_workdir = False
+    if source_to_resolve.is_dir():
+        try:
+            mount_entry, mount_relative_path = select_mount_for_source(mounts, source_to_resolve, vm_name)
+        except ConfigError as exc:
+            raise click.ClickException(str(exc))
+    else:
+        if non_interactive:
+            raise click.ClickException(tr("run.workdir_missing", path=normalize_path(source_to_resolve)))
+        if not click.confirm(tr("run.missing_workdir_temp_confirm"), default=False):
+            return
+        use_temp_vm_workdir = True
 
     vm_to_use = resolve_vm(agent, mount_entry, vm_name, config)
     ensure_vm_exists(vm_to_use, vms)
@@ -267,8 +286,14 @@ def run_command(
     env_vars = build_agent_env(agent)
     if effective_http_proxy is not None and effective_http_proxy.is_direct():
         _apply_direct_http_proxy_env(env_vars, effective_http_proxy)
-    relative = mount_relative_path or Path(".")
-    workdir_in_vm = mount_entry.target if relative == Path(".") else mount_entry.target / relative
+    workdir_in_vm: Optional[Path]
+    if use_temp_vm_workdir:
+        workdir_in_vm = None
+    else:
+        if mount_entry is None:
+            raise click.ClickException(tr("run.workdir_missing", path=normalize_path(source_to_resolve)))
+        relative = mount_relative_path or Path(".")
+        workdir_in_vm = mount_entry.target if relative == Path(".") else mount_entry.target / relative
 
     agent_command = agent_command_sequence(agent, agent_args, skip_default_args=skip_default_args)
 
@@ -311,6 +336,13 @@ def run_command(
             )
         except MultipassError as exc:
             raise click.ClickException(str(exc))
+
+        if workdir_in_vm is None:
+            try:
+                workdir_in_vm = _create_temp_vm_workdir(vm_to_use, debug=debug)
+            except MultipassError as exc:
+                raise click.ClickException(str(exc))
+            click.echo(tr("run.temp_workdir_created", path=workdir_in_vm))
 
         click.echo(
             tr("run.starting_agent", agent=agent.name, vm_name=vm_to_use, workdir=workdir_in_vm)
