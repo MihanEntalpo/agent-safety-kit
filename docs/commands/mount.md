@@ -34,6 +34,7 @@ agsekit umount --all
 ## `addmount`
 
 Adds a mount entry to the YAML config and can optionally mount it immediately.
+In interactive mode, after saving the new entry, the immediate mount prompt defaults to yes.
 
 Typical fields controlled by the command:
 

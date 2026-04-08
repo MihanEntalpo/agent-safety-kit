@@ -13,6 +13,7 @@ agsekit backup-clean <mount_source> [<keep>] [<method>] [--config <path>]
 ## `backup-once`
 
 Создаёт один snapshot в целевом каталоге. Если относительно предыдущего снапшота ничего не изменилось, новый снапшот не создаётся.
+С `--progress` на Linux в rsync передаются `--progress --info=progress2`; на macOS и Windows передаётся только `--progress`, чтобы сохранять совместимость со старыми bundled-версиями rsync.
 
 ## `backup-repeated`
 
