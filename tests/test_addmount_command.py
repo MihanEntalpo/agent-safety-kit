@@ -121,6 +121,44 @@ def test_addmount_uses_single_vm_by_default(tmp_path):
     assert mount_entry["vm"] == "single-vm"
 
 
+def test_addmount_mount_now_prompt_defaults_to_yes(monkeypatch, tmp_path):
+    source = tmp_path / "source"
+    target = tmp_path / "target"
+    backup = tmp_path / "backup"
+    config_path = tmp_path / "config.yaml"
+    _write_config(config_path, agents=["qwen"])
+
+    mount_calls: list[Path] = []
+    monkeypatch.setattr(addmount_commands, "is_interactive_terminal", lambda: True)
+    monkeypatch.setattr(addmount_commands, "mount_directory", lambda mount: mount_calls.append(mount.source))
+
+    runner = CliRunner()
+    result = runner.invoke(
+        addmount_commands.addmount_command,
+        [
+            str(source),
+            str(target),
+            str(backup),
+            "5",
+            "--max-backups",
+            "100",
+            "--backup-clean-method",
+            "thin",
+            "--allowed-agents",
+            "qwen",
+            "--config",
+            str(config_path),
+            "-y",
+        ],
+        env={"AGSEKIT_LANG": "ru"},
+        input="\n",
+    )
+
+    assert result.exit_code == 0
+    assert "Сразу примонтировать папку? [Y/n]:" in result.output
+    assert mount_calls == [source.resolve()]
+
+
 def test_addmount_interactive_prompts_for_vm_when_multiple(monkeypatch, tmp_path):
     source = tmp_path / "source"
     target = tmp_path / "target"

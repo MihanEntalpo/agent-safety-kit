@@ -215,11 +215,53 @@ def test_run_command_reports_missing_workdir(monkeypatch, tmp_path):
     _write_config(config_path, source, create_source=False)
 
     runner = CliRunner()
-    result = runner.invoke(run_command, ["--config", str(config_path), "--workdir", str(source), "qwen"])
+    result = runner.invoke(
+        run_command,
+        ["--config", str(config_path), "--non-interactive", "--workdir", str(source), "qwen"],
+    )
 
     assert result.exit_code != 0
     assert str(normalize_path(source)) in result.output
     assert "does not exist" in result.output
+
+
+def test_run_command_missing_workdir_can_use_temp_vm_dir_without_backups(monkeypatch, tmp_path):
+    source = tmp_path / "missing"
+    config_path = tmp_path / "config.yaml"
+    _write_config(config_path, source, create_source=False)
+
+    calls: Dict[str, object] = {}
+    backup_calls: list[str] = []
+    temp_dir = Path("/tmp/run-abc123")
+
+    def fake_run_in_vm(vm_config, workdir, command, env_vars, proxychains=None, debug=False):
+        calls.update({
+            "vm": vm_config.name,
+            "workdir": workdir,
+            "command": command,
+        })
+        return 0
+
+    monkeypatch.setattr(run_module, "run_in_vm", fake_run_in_vm)
+    monkeypatch.setattr(run_module, "ensure_agent_binary_available", lambda *_, **__: None)
+    monkeypatch.setattr(run_module, "_create_temp_vm_workdir", lambda *_args, **_kwargs: temp_dir)
+    monkeypatch.setattr(run_module, "backup_once", lambda *_, **__: backup_calls.append("once"))
+    monkeypatch.setattr(run_module, "start_backup_process", lambda *_, **__: backup_calls.append("repeated"))
+
+    runner = CliRunner()
+    result = runner.invoke(
+        run_command,
+        ["--config", str(config_path), "--workdir", str(source), "qwen"],
+        env={"AGSEKIT_LANG": "ru"},
+        input="y\n",
+    )
+
+    assert result.exit_code == 0
+    assert "Папка проекта не найдена, вы хотите запустить агента во временной папке? [y/N]: y" in result.output
+    assert calls["vm"] == "agent"
+    assert calls["workdir"] == temp_dir
+    assert calls["command"] == ["qwen"]
+    assert not backup_calls
 
 
 def test_run_command_does_not_set_proxy_for_agent(monkeypatch, tmp_path):

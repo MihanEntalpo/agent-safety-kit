@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import fcntl
 import os
+import platform
 import sys
 import shutil
 import subprocess
@@ -388,6 +389,15 @@ def build_rsync_command(
     return command
 
 
+def rsync_progress_flags(host_system: Optional[str] = None) -> List[str]:
+    system = host_system or platform.system()
+    if system == "Linux":
+        return ["--progress", "--info=progress2"]
+    if system in {"Darwin", "Windows"}:
+        return ["--progress"]
+    return ["--progress"]
+
+
 def _extract_progress_percentage(line: str) -> Optional[int]:
     for chunk in line.split():
         if not chunk.endswith("%"):
@@ -542,7 +552,7 @@ def _backup_once_impl(
         inprogress_dir.mkdir(parents=True, exist_ok=True)
         time.sleep(0.1)
 
-        extra_flags = ["--progress", "--info=progress2"] if show_progress else None
+        extra_flags = rsync_progress_flags() if show_progress else None
         command = build_rsync_command(source_dir, inprogress_dir, previous_backup, rules, extra_flags=extra_flags)
 
         print(tr("backup.rsync_running", path=inprogress_dir))
