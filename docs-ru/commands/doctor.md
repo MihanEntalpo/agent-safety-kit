@@ -1,0 +1,34 @@
+# `doctor`
+
+## Назначение
+
+Диагностировать известные проблемы установки и runtime и предлагать безопасные исправления.
+
+## Команда
+
+```bash
+agsekit doctor [--config <path>] [-y] [--debug]
+```
+
+## Текущая область покрытия
+
+Сейчас команда в основном фокусируется на известных сбоях Multipass, особенно на stale или broken mount visibility.
+
+## Поведение
+
+- анализирует настроенные mounts;
+- проверяет, не выглядит ли непустая хостовая директория пустой внутри VM;
+- при известном типе ошибки может предложить перезапуск daemon Multipass.
+
+## Примеры
+
+```bash
+agsekit doctor
+agsekit doctor -y
+agsekit doctor --debug
+```
+
+## См. также
+
+- [Troubleshooting](../troubleshooting.md)
+- [create-vm](create-vm.md)
