@@ -148,7 +148,7 @@ Most commands that interact with Multipass support `--debug`; in this mode the C
 
 `agsekit backup-once --source-dir <path> --dest-dir <path> [--exclude <pattern> ...] [--progress]` — runs a single backup of the source directory into the specified destination using `rsync`.
 The command creates a timestamped directory with a `-partial` suffix, supports incremental copies via `--link-dest` to the previous backup, and honors exclusions from `.backupignore` and `--exclude` arguments. When finished, the temporary folder is renamed to a final timestamp without the suffix. If nothing changed relative to the last backup, no new snapshot is created and the tool reports the absence of updates.
-Pass `--progress` to forward rsync progress flags and show a console progress bar while files are copied.
+Pass `--progress` to forward host-compatible rsync progress flags and show a console progress bar while files are copied: Linux uses `--progress --info=progress2`, while macOS and Windows use `--progress`. If rsync prints non-UTF-8 bytes in progress output, `agsekit` replaces those bytes while keeping the backup running.
 
 `.backupignore` examples:
 ```

@@ -420,9 +420,16 @@ def _render_progress_bar(percent: int) -> None:
 
 def _run_rsync(command: List[str], *, show_progress: bool) -> subprocess.CompletedProcess[str]:
     if not show_progress:
-        return subprocess.run(command, check=False, capture_output=True, text=True)
+        return subprocess.run(command, check=False, capture_output=True, text=True, errors="replace")
 
-    process = subprocess.Popen(command, stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True, bufsize=1)
+    process = subprocess.Popen(
+        command,
+        stdout=subprocess.PIPE,
+        stderr=subprocess.PIPE,
+        text=True,
+        errors="replace",
+        bufsize=1,
+    )
     stdout_chunks: List[str] = []
     stderr_chunks: List[str] = []
     last_percent = None
@@ -462,7 +469,7 @@ def _is_rsync_warning(returncode: int) -> bool:
 
 
 def dry_run_has_changes(command: List[str]) -> bool:
-    result = subprocess.run(command, check=False, capture_output=True, text=True)
+    result = subprocess.run(command, check=False, capture_output=True, text=True, errors="replace")
     if result.returncode != 0:
         if result.stderr:
             print(result.stderr, file=sys.stderr, end="" if result.stderr.endswith("\n") else "\n")

@@ -556,6 +556,7 @@
 Поведение:
 - если изменений нет — snapshot не создаётся;
 - `--progress` показывает прогресс-бар; команда rsync формируется с учётом ОС хоста: на Linux используются `--progress --info=progress2`, на macOS (`Darwin`) и Windows — только `--progress`, чтобы не падать на старых bundled rsync;
+- stdout/stderr rsync декодируются tolerant-режимом с replacement для невалидных байтов, чтобы имена файлов или системный вывод не в UTF-8 не прерывали backup-процесс Python-исключением;
 - коды rsync `23/24` трактуются как warning, не fatal.
  - при выводе сообщения о занятом lock PID берётся из `backup.pid` и проверяется через `psutil.Process(pid).cmdline()`; если это не процесс `agsekit` или информацию получить нельзя, PID скрывается.
 
