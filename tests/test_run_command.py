@@ -467,7 +467,7 @@ def test_run_command_uses_current_directory_mount_when_source_not_passed(monkeyp
     monkeypatch.setattr(run_module, "backup_once", lambda *_, **__: None)
 
     runner = CliRunner()
-    result = runner.invoke(run_command, ["--config", str(config_path), "qwen"])
+    result = runner.invoke(run_command, ["--config", str(config_path), "--non-interactive", "qwen"])
 
     assert result.exit_code == 0
     assert calls["workdir"] == Path("/home/ubuntu/project/subdir/inner")
@@ -843,7 +843,45 @@ def test_run_command_does_not_warn_for_empty_host_directory(monkeypatch, tmp_pat
     assert not vm_checks
 
 
-def test_run_command_without_workdir_rejects_current_directory_outside_mount(monkeypatch, tmp_path):
+def test_run_command_without_workdir_can_use_temp_vm_dir_outside_mount(monkeypatch, tmp_path):
+    source = tmp_path / "project"
+    source.mkdir()
+    outside_dir = tmp_path / "outside"
+    outside_dir.mkdir()
+    config_path = tmp_path / "config.yaml"
+    _write_config(config_path, source)
+
+    calls: Dict[str, object] = {}
+    backup_calls: list[str] = []
+    temp_dir = Path("/tmp/run-outside")
+
+    def fake_run_in_vm(vm_config, workdir, command, env_vars, proxychains=None, debug=False):
+        calls.update({
+            "vm": vm_config.name,
+            "workdir": workdir,
+            "command": command,
+        })
+        return 0
+
+    monkeypatch.chdir(outside_dir)
+    monkeypatch.setattr(run_module, "run_in_vm", fake_run_in_vm)
+    monkeypatch.setattr(run_module, "_create_temp_vm_workdir", lambda *_args, **_kwargs: temp_dir)
+    monkeypatch.setattr(run_module, "start_backup_process", lambda *_, **__: backup_calls.append("repeated"))
+    monkeypatch.setattr(run_module, "ensure_agent_binary_available", lambda *_, **__: None)
+    monkeypatch.setattr(run_module, "backup_once", lambda *_, **__: backup_calls.append("once"))
+
+    runner = CliRunner()
+    result = runner.invoke(run_command, ["--config", str(config_path), "qwen"], env={"AGSEKIT_LANG": "ru"}, input="y\n")
+
+    assert result.exit_code == 0
+    assert "Текущая папка не входит в монтируемые папки, вы хотите запустить агента во временной, не примонтированной папке? [y/N]: y" in result.output
+    assert calls["vm"] == "agent"
+    assert calls["workdir"] == temp_dir
+    assert calls["command"] == ["qwen"]
+    assert not backup_calls
+
+
+def test_run_command_without_workdir_rejects_current_directory_outside_mount_in_non_interactive_mode(monkeypatch, tmp_path):
     source = tmp_path / "project"
     source.mkdir()
     outside_dir = tmp_path / "outside"
@@ -859,7 +897,7 @@ def test_run_command_without_workdir_rejects_current_directory_outside_mount(mon
     monkeypatch.setattr(run_module, "backup_once", lambda *_, **__: None)
 
     runner = CliRunner()
-    result = runner.invoke(run_command, ["--config", str(config_path), "qwen"])
+    result = runner.invoke(run_command, ["--config", str(config_path), "--non-interactive", "qwen"])
 
     assert result.exit_code != 0
     assert str(normalize_path(outside_dir)) in result.output
@@ -1238,7 +1276,7 @@ def test_run_command_without_workdir_rejects_disallowed_agent_in_current_directo
     monkeypatch.setattr(run_module, "backup_once", lambda *_, **__: None)
 
     runner = CliRunner()
-    result = runner.invoke(run_command, ["--config", str(config_path), "qwen"])
+    result = runner.invoke(run_command, ["--config", str(config_path), "--non-interactive", "qwen"])
 
     assert result.exit_code != 0
     assert "allowed_agents" in result.output
@@ -1341,7 +1379,7 @@ def test_run_command_without_mount_rejects_current_directory_even_before_vm_allo
     monkeypatch.setattr(run_module, "backup_once", lambda *_, **__: None)
 
     runner = CliRunner()
-    result = runner.invoke(run_command, ["--config", str(config_path), "qwen"])
+    result = runner.invoke(run_command, ["--config", str(config_path), "--non-interactive", "qwen"])
 
     assert result.exit_code != 0
     assert str(normalize_path(outside_dir)) in result.output

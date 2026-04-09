@@ -19,7 +19,6 @@ from ..agents import (
     resolve_http_proxy,
     resolve_vm,
     run_in_vm,
-    select_mount_for_source,
     start_backup_process,
 )
 from ..config import (
@@ -39,6 +38,7 @@ from ..vm import resolve_proxychains as resolve_effective_proxychains
 from ..mounts import (
     MountAlreadyMountedError,
     MountConfig,
+    find_mount_by_path,
     host_path_has_entries,
     is_mount_registered,
     load_multipass_mounts,
@@ -240,10 +240,20 @@ def run_command(
     source_to_resolve = workdir or Path.cwd()
     use_temp_vm_workdir = False
     if source_to_resolve.is_dir():
+        candidate_mounts = [mount for mount in mounts if vm_name is None or mount.vm_name == vm_name]
         try:
-            mount_entry, mount_relative_path = select_mount_for_source(mounts, source_to_resolve, vm_name)
+            mount_entry = find_mount_by_path(candidate_mounts, source_to_resolve)
         except ConfigError as exc:
             raise click.ClickException(str(exc))
+        if mount_entry is None:
+            if non_interactive:
+                suffix = tr("agents.mount_not_found_vm_suffix", vm_name=vm_name) if vm_name else ""
+                raise click.ClickException(tr("agents.mount_not_found", path=normalize_path(source_to_resolve), suffix=suffix))
+            if not click.confirm(tr("run.unconfigured_workdir_temp_confirm"), default=False):
+                return
+            use_temp_vm_workdir = True
+        else:
+            mount_relative_path = normalize_path(source_to_resolve).relative_to(mount_entry.source)
     else:
         if non_interactive:
             raise click.ClickException(tr("run.workdir_missing", path=normalize_path(source_to_resolve)))

@@ -3,6 +3,7 @@
 ## 1.5.12 - Fixed rsync non-UTF-8 progress output
 
 * Fixed backup progress handling for rsync output that contains non-UTF-8 bytes, so such output no longer aborts `agsekit run` or `backup-once`
+* Fixed `agsekit run` temporary-folder fallback so it also works when the current directory exists but is not configured as a mount
 
 ## 1.5.11 - Temporary run fallback and platform-aware rsync progress
 
