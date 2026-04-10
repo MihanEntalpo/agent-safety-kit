@@ -48,6 +48,7 @@ def test_rsync_progress_flags_are_platform_specific():
 def test_run_rsync_renders_progress_bar(monkeypatch, capsys):
     stdout = io.StringIO("123  10%    0:00:01\n456  45%    0:00:02\n999 100%    0:00:03\n")
     stderr = io.StringIO("")
+    popen_kwargs: dict[str, object] = {}
 
     class DummyProcess:
         def __init__(self):
@@ -59,6 +60,7 @@ def test_run_rsync_renders_progress_bar(monkeypatch, capsys):
             return self.returncode
 
     def fake_popen(*args, **kwargs):
+        popen_kwargs.update(kwargs)
         return DummyProcess()
 
     monkeypatch.setattr(subprocess, "Popen", fake_popen)
@@ -68,7 +70,36 @@ def test_run_rsync_renders_progress_bar(monkeypatch, capsys):
     output = capsys.readouterr().out
     assert "Progress: [" in output
     assert output.strip().endswith("100%")
+    assert popen_kwargs["errors"] == "replace"
     assert result.returncode == 0
+
+
+def test_run_rsync_without_progress_replaces_decode_errors(monkeypatch):
+    run_kwargs: dict[str, object] = {}
+
+    def fake_run(command: List[str], **kwargs):
+        run_kwargs.update(kwargs)
+        return subprocess.CompletedProcess(command, 0, stdout="", stderr="")
+
+    monkeypatch.setattr(subprocess, "run", fake_run)
+
+    result = backup._run_rsync(["rsync"], show_progress=False)
+
+    assert result.returncode == 0
+    assert run_kwargs["errors"] == "replace"
+
+
+def test_run_rsync_progress_tolerates_non_utf8_output():
+    command = [
+        sys.executable,
+        "-c",
+        "import sys; sys.stdout.buffer.write(b'file:\\xd0\\n100%\\n')",
+    ]
+
+    result = backup._run_rsync(command, show_progress=True)
+
+    assert result.returncode == 0
+    assert "\ufffd" in result.stdout
 
 
 def test_run_rsync_reports_real_progress(tmp_path, capsys):

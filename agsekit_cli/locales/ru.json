@@ -550,6 +550,7 @@
   "run.mount_empty_confirm": "Всё равно запустить агента?",
   "run.workdir_missing": "Рабочая папка не найдена: {path}",
   "run.missing_workdir_temp_confirm": "Папка проекта не найдена, вы хотите запустить агента во временной папке?",
+  "run.unconfigured_workdir_temp_confirm": "Текущая папка не входит в монтируемые папки, вы хотите запустить агента во временной, не примонтированной папке?",
   "run.temp_workdir_create_failed": "Не удалось создать временный рабочий каталог {path} внутри ВМ `{vm_name}`.",
   "run.temp_workdir_created": "Создан временный рабочий каталог внутри ВМ: {path}",
   "run.source_dir_missing": "Папка не найдена: {path}",

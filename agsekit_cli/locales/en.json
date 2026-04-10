@@ -550,6 +550,7 @@
   "run.mount_empty_confirm": "Start the agent anyway?",
   "run.workdir_missing": "Working directory does not exist: {path}",
   "run.missing_workdir_temp_confirm": "Project folder was not found. Run the agent in a temporary folder?",
+  "run.unconfigured_workdir_temp_confirm": "Current folder is outside the mounted folders. Run the agent in a temporary, unmounted folder?",
   "run.temp_workdir_create_failed": "Failed to create temporary workdir {path} inside VM `{vm_name}`.",
   "run.temp_workdir_created": "Temporary VM workdir created: {path}",
   "run.source_dir_missing": "Source directory does not exist: {path}",
