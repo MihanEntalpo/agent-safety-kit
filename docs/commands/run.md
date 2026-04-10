@@ -18,10 +18,18 @@ All `agsekit run` options must appear before `<agent_name>`. Everything after `<
 
 - default workdir is the current host directory;
 - `--workdir` can point to another configured mount path;
-- if the chosen workdir exists, it must match a configured mount;
+- if the chosen workdir exists and matches a configured mount, `run` starts in the corresponding VM path;
 - if it points into a nested subdirectory, the matching relative path is preserved inside the VM.
 - if the chosen workdir does not exist in an interactive terminal, `run` asks whether to start in a VM-local temporary directory under `/tmp/run-*`; that mode does not use a host mount and does not start backups.
+- if the chosen workdir exists but is outside the configured mounts, interactive mode offers the same VM-local temporary-directory fallback under `/tmp/run-*`.
 - in non-interactive mode, a missing workdir is still an error.
+- in non-interactive mode, a workdir outside the configured mounts is also an error.
+
+## Mount Checks
+
+- if the matching mount exists but is not mounted in Multipass yet, `run` can mount it first;
+- `--auto-mount` performs that step automatically;
+- when a selected mount is active, `run` warns if the host folder is non-empty but the corresponding VM path is empty.
 
 ## Runtime Helpers
 

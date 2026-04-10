@@ -14,6 +14,7 @@ agsekit backup-clean <mount_source> [<keep>] [<method>] [--config <path>]
 
 Creates one snapshot in the destination directory. If nothing changed relative to the previous snapshot, no new snapshot is created.
 With `--progress`, Linux hosts pass `--progress --info=progress2` to rsync; macOS and Windows hosts pass only `--progress` to stay compatible with older bundled rsync versions.
+If rsync emits non-UTF-8 bytes in progress output, `agsekit` replaces those bytes and keeps the backup running.
 
 ## `backup-repeated`
 

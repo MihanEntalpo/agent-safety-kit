@@ -9,6 +9,7 @@ Backups are a core part of the `agsekit` workflow.
 - Unchanged files are hardlinked from the previous snapshot.
 - One destination directory is protected by a filesystem lock, so only one backup writer works there at a time.
 - Progress rsync flags are host-platform aware: Linux uses `--progress --info=progress2`, while macOS and Windows use `--progress` for compatibility with older rsync builds.
+- If rsync emits non-UTF-8 bytes in progress output, `agsekit` replaces those bytes and keeps the backup running.
 
 ## Main Commands
 
@@ -26,7 +27,7 @@ If the chosen mount has backups enabled and `--disable-backups` is not used:
 2. the agent starts inside the VM;
 3. repeated backups continue in the background for the duration of the session.
 
-If `agsekit run` is started from a missing project folder and the user accepts the temporary VM workdir prompt, no mount is selected and backups are not started for that session.
+If `agsekit run` is started either from a missing project folder or from an existing folder outside the configured mounts, and the user accepts the temporary VM workdir prompt, no mount is selected and backups are not started for that session.
 
 ## Cleanup Policies
 

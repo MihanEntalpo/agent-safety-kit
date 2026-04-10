@@ -43,11 +43,11 @@ Each mount describes:
 
 - `source`
 - `vm`
-- `vm-path`
-- `backup-path`
-- `backup-interval-minutes`
-- `max-backups`
-- `backup-clean-method`
+- `target`
+- `backup`
+- `interval`
+- `max_backups`
+- `backup_clean_method`
 - `allowed_agents`
 
 Mount entries connect the host project directory to its VM path and define backup policy.
@@ -60,7 +60,8 @@ Each agent entry can define:
 - `vm`
 - `vms`
 - `default-args`
-- environment-related settings such as API endpoint or keys, depending on how you model them in your config and CLI defaults
+- `env`
+- `proxychains`
 - `http_proxy`
 
 ## Example
@@ -78,9 +79,9 @@ vms:
 mounts:
   - source: /home/user/project
     vm: agent-ubuntu
-    vm-path: /home/ubuntu/project
-    backup-path: /home/user/backups-project
-    backup-interval-minutes: 5
+    target: /home/ubuntu/project
+    backup: /home/user/backups-project
+    interval: 5
 
 agents:
   qwen:

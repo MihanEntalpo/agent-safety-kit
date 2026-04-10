@@ -14,6 +14,7 @@ agsekit backup-clean <mount_source> [<keep>] [<method>] [--config <path>]
 
 Создаёт один snapshot в целевом каталоге. Если относительно предыдущего снапшота ничего не изменилось, новый снапшот не создаётся.
 С `--progress` на Linux в rsync передаются `--progress --info=progress2`; на macOS и Windows передаётся только `--progress`, чтобы сохранять совместимость со старыми bundled-версиями rsync.
+Если rsync печатает в progress output байты не в UTF-8, `agsekit` заменяет их и продолжает бэкап.
 
 ## `backup-repeated`
 

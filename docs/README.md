@@ -36,6 +36,8 @@ Use this index if you already know what the project is and need operational guid
 
 - [Русская версия документации](../docs-ru/README.md)
 
+The CLI follows the system locale when possible. You can override it with `AGSEKIT_LANG`, for example `AGSEKIT_LANG=ru agsekit --help`.
+
 ## See Also
 
 - [README-new.md](../README-new.md)

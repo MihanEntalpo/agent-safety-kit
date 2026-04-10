@@ -36,6 +36,8 @@
 
 - [English documentation](../docs/README.md)
 
+CLI по возможности использует системную локаль. Поведение можно переопределить через `AGSEKIT_LANG`, например `AGSEKIT_LANG=ru agsekit --help`.
+
 ## См. также
 
 - [README-new-ru.md](../README-new-ru.md)
