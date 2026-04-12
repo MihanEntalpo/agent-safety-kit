@@ -541,6 +541,7 @@
   "run.option_auto_mount": "Automatically mount the configured folder without prompting if it is not mounted yet",
   "run.option_workdir": "Host working directory to mirror inside the VM; defaults to the current directory",
   "run.option_proxychains": "Override the proxy URL from config (scheme://host:port) for this run; empty string disables wrapping.",
+  "run.option_http_proxy": "Override http_proxy from config (scheme://host:port) for this run; empty string disables HTTP proxy.",
   "run.http_proxy_invalid_runtime": "Invalid HTTP proxy runtime configuration.",
   "run.http_proxy_proxychains_conflict": "HTTP proxy and runtime proxychains cannot be enabled at the same time. Disable proxychains for this agent or VM.",
   "run.option_skip_default_args": "Do not append agent default-args",

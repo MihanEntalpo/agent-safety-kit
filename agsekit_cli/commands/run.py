@@ -24,6 +24,7 @@ from ..agents import (
 from ..config import (
     ConfigError,
     HttpProxyConfig,
+    _normalize_http_proxy,
     load_agents_config,
     load_config,
     load_global_config,
@@ -195,6 +196,12 @@ def _apply_direct_http_proxy_env(env_vars: dict, http_proxy: HttpProxyConfig) ->
     show_default=False,
     help=tr("run.option_proxychains"),
 )
+@click.option(
+    "--http-proxy",
+    default=None,
+    show_default=False,
+    help=tr("run.option_http_proxy"),
+)
 @click.argument("agent_name")
 @click.argument("agent_args", nargs=-1, type=click.UNPROCESSED)
 def run_command(
@@ -206,6 +213,7 @@ def run_command(
     debug: bool,
     skip_default_args: bool,
     proxychains: Optional[str],
+    http_proxy: Optional[str],
     agent_name: str,
     agent_args: Sequence[str],
     non_interactive: bool,
@@ -265,6 +273,11 @@ def run_command(
     ensure_vm_exists(vm_to_use, vms)
     vm_config = vms[vm_to_use]
     effective_http_proxy = resolve_http_proxy(agent, vm_config)
+    if http_proxy is not None:
+        try:
+            effective_http_proxy = _normalize_http_proxy(http_proxy, "run.--http-proxy")
+        except ConfigError as exc:
+            raise click.ClickException(str(exc))
     effective_proxychains = resolve_effective_proxychains(vm_config, proxychains_override)
 
     effective_allowed_agents = vm_config.allowed_agents

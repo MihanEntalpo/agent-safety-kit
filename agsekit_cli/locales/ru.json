@@ -541,6 +541,7 @@
   "run.option_auto_mount": "Автоматически примонтировать папку из конфига без вопроса, если она ещё не примонтирована",
   "run.option_workdir": "Рабочая папка на хосте, которую нужно отразить внутри ВМ; по умолчанию используется текущая директория",
   "run.option_proxychains": "Перекрыть прокси (scheme://host:port) из конфига для одного запуска; пустая строка отключает обёртку.",
+  "run.option_http_proxy": "Перекрыть http_proxy (scheme://host:port) из конфига для одного запуска; пустая строка отключает HTTP proxy.",
   "run.http_proxy_invalid_runtime": "Некорректная runtime-конфигурация HTTP proxy.",
   "run.http_proxy_proxychains_conflict": "HTTP proxy и runtime proxychains нельзя включать одновременно. Отключите proxychains для этого агента или ВМ.",
   "run.option_skip_default_args": "Не добавлять параметры default-args для агента",

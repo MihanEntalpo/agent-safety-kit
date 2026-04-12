@@ -1,5 +1,9 @@
 # Agent-Safety-Kit versions history
 
+## 1.5.13 - Http_proxy in agsekit run argument
+
+* Added `agsekit run --http-proxy <scheme://host:port>` to override configured `http_proxy` for one run; `--http-proxy ""` disables configured `http_proxy` temporarily
+
 ## 1.5.12 - Fixed rsync non-UTF-8 progress output
 
 * Fixed backup progress handling for rsync output that contains non-UTF-8 bytes, so such output no longer aborts `agsekit run` or `backup-once`

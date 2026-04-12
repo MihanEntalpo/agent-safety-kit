@@ -1162,6 +1162,144 @@ def test_run_command_wraps_upstream_http_proxy(monkeypatch, tmp_path):
     assert "HTTP_PROXY" not in calls["env"]
 
 
+def test_run_command_http_proxy_cli_override_wins_over_config(monkeypatch, tmp_path):
+    source = tmp_path / "project"
+    config_path = tmp_path / "config.yaml"
+    _write_config(
+        config_path,
+        source,
+        vm_http_proxy={"url": "http://127.0.0.1:18881"},
+        agent_http_proxy={"url": "http://127.0.0.1:18882"},
+        agent_http_proxy_set=True,
+    )
+
+    calls: Dict[str, object] = {}
+
+    def fake_run_in_vm(
+        vm_config,
+        workdir,
+        command,
+        env_vars,
+        proxychains=None,
+        debug=False,
+        http_proxy=None,
+        http_proxy_port_pool=None,
+    ):
+        calls["http_proxy"] = http_proxy
+        calls["http_proxy_port_pool"] = http_proxy_port_pool
+        calls["proxychains"] = proxychains
+        calls["env"] = env_vars
+        return 0
+
+    def fake_ensure_agent_binary_available(agent_command, vm_config, proxychains=None, debug=False):
+        calls["binary_check_proxychains"] = proxychains
+
+    monkeypatch.setattr(run_module, "_has_existing_backup", lambda *_: True)
+    monkeypatch.setattr(run_module, "run_in_vm", fake_run_in_vm)
+    monkeypatch.setattr(run_module, "ensure_agent_binary_available", fake_ensure_agent_binary_available)
+    monkeypatch.setattr(run_module, "start_backup_process", lambda *_, **__: None)
+    monkeypatch.setattr(run_module, "backup_once", lambda *_, **__: None)
+
+    runner = CliRunner()
+    result = runner.invoke(
+        run_command,
+        [
+            "--config",
+            str(config_path),
+            "--http-proxy",
+            "socks5://127.0.0.1:8181",
+            "--workdir",
+            str(source),
+            "qwen",
+        ],
+    )
+
+    assert result.exit_code == 0
+    assert calls["proxychains"] is None
+    assert calls["binary_check_proxychains"] is None
+    assert calls["http_proxy"].upstream == "socks5://127.0.0.1:8181"
+    assert calls["http_proxy"].listen is None
+    assert "HTTP_PROXY" not in calls["env"]
+
+
+def test_run_command_http_proxy_cli_empty_disables_config(monkeypatch, tmp_path):
+    source = tmp_path / "project"
+    config_path = tmp_path / "config.yaml"
+    _write_config(
+        config_path,
+        source,
+        vm_http_proxy={"url": "http://127.0.0.1:18881"},
+    )
+
+    calls: Dict[str, object] = {}
+
+    def fake_run_in_vm(
+        vm_config,
+        workdir,
+        command,
+        env_vars,
+        proxychains=None,
+        debug=False,
+        http_proxy=None,
+        http_proxy_port_pool=None,
+    ):
+        calls["http_proxy"] = http_proxy
+        calls["proxychains"] = proxychains
+        calls["env"] = env_vars
+        return 0
+
+    monkeypatch.setattr(run_module, "_has_existing_backup", lambda *_: True)
+    monkeypatch.setattr(run_module, "run_in_vm", fake_run_in_vm)
+    monkeypatch.setattr(run_module, "ensure_agent_binary_available", lambda *_, **__: None)
+    monkeypatch.setattr(run_module, "start_backup_process", lambda *_, **__: None)
+    monkeypatch.setattr(run_module, "backup_once", lambda *_, **__: None)
+
+    runner = CliRunner()
+    result = runner.invoke(
+        run_command,
+        ["--config", str(config_path), "--http-proxy", "", "--workdir", str(source), "qwen"],
+    )
+
+    assert result.exit_code == 0
+    assert calls["http_proxy"] is None
+    assert calls["proxychains"] is None
+    assert "HTTP_PROXY" not in calls["env"]
+    assert "http_proxy" not in calls["env"]
+
+
+def test_run_command_rejects_http_proxy_cli_override_with_effective_proxychains(monkeypatch, tmp_path):
+    source = tmp_path / "project"
+    config_path = tmp_path / "config.yaml"
+    _write_config(
+        config_path,
+        source,
+        vm_proxychains="socks5://127.0.0.1:8080",
+    )
+
+    monkeypatch.setattr(run_module, "_has_existing_backup", lambda *_: True)
+    monkeypatch.setattr(run_module, "ensure_agent_binary_available", lambda *_, **__: None)
+    monkeypatch.setattr(run_module, "run_in_vm", lambda *_, **__: 0)
+    monkeypatch.setattr(run_module, "start_backup_process", lambda *_, **__: None)
+    monkeypatch.setattr(run_module, "backup_once", lambda *_, **__: None)
+
+    runner = CliRunner()
+    result = runner.invoke(
+        run_command,
+        [
+            "--config",
+            str(config_path),
+            "--http-proxy",
+            "socks5://127.0.0.1:8181",
+            "--workdir",
+            str(source),
+            "qwen",
+        ],
+    )
+
+    assert result.exit_code != 0
+    assert "HTTP proxy and runtime proxychains cannot be enabled at the same time" in result.output
+
+
 def test_run_command_rejects_http_proxy_with_effective_proxychains(monkeypatch, tmp_path):
     source = tmp_path / "project"
     config_path = tmp_path / "config.yaml"

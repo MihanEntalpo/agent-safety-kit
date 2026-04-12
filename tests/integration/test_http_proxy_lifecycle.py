@@ -462,6 +462,42 @@ def test_run_with_upstream_http_proxy_uses_auto_pool_port(http_proxy_env) -> Non
             _stop_process(portforward_proc)
 
 
+def test_run_http_proxy_cli_override_wins_over_config(http_proxy_env) -> None:
+    config_path = http_proxy_env["config_path"]
+    vm_name = http_proxy_env["vm_name"]
+    upstream_port = _pick_free_port()
+    pool_port = _pick_free_port()
+    expected_proxy = "http://127.0.0.1:{port}".format(port=pool_port)
+
+    _write_http_proxy_config(
+        config_path,
+        vm_name,
+        vm_http_proxy={"url": "http://127.0.0.1:18881"},
+        agent_http_proxy={"url": "http://127.0.0.1:18882"},
+        agent_http_proxy_set=True,
+        agent_env={
+            "EXPECTED_HTTP_PROXY": expected_proxy,
+        },
+        global_http_proxy_port_pool={"start": pool_port, "end": pool_port},
+    )
+    result = run_cli(
+        [
+            "run",
+            "--config",
+            str(config_path),
+            "--disable-backups",
+            "--auto-mount",
+            "--non-interactive",
+            "--http-proxy",
+            "http://127.0.0.1:{port}".format(port=upstream_port),
+            "aider-http",
+        ],
+        check=True,
+        env_overrides=PROXY_ENV_OVERRIDES,
+    )
+    assert expected_proxy in (result.stdout or "")
+
+
 def test_run_with_upstream_http_proxy_respects_explicit_listen(http_proxy_env) -> None:
     config_path = http_proxy_env["config_path"]
     vm_name = http_proxy_env["vm_name"]

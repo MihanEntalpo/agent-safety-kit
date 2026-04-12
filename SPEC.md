@@ -603,7 +603,7 @@
   - при `--debug` progress callback отключается и используется стандартный вывод ansible;
 - без `--debug` показывает progress-bar'ы установки агентов через `rich`, включая шаги Ansible;
 - при `--debug` Rich progress тоже отключается, чтобы вывод установки оставался обычным потоковым логом;
-- поддерживает proxy override на один запуск (`--proxychains`).
+- поддерживает proxychains override на один запуск (`--proxychains`).
 - при запуске без аргументов в интерактивном TTY запрашивает выбор агента и цели установки;
 - при запуске без аргументов в non-interactive режиме требует явный выбор агента (ошибка `agent_required`).
 - при успешном standalone-запуске печатает явное итоговое сообщение:
@@ -621,7 +621,7 @@
 1. определяет агента и VM;
    - при выборе VM действует порядок: `--vm` override -> VM выбранного mount -> первая VM из `agents.<name>.vm + agents.<name>.vms` -> первая VM из секции `vms`;
 2. определяет mount-контекст:
-   - опции команды (`--vm`, `--config`, `--workdir`, `--proxychains`, `--disable-backups`, `--auto-mount`, `--skip-default-args`, `--debug`) должны быть указаны до `<agent_name>`;
+   - опции команды (`--vm`, `--config`, `--workdir`, `--proxychains`, `--http-proxy`, `--disable-backups`, `--auto-mount`, `--skip-default-args`, `--debug`) должны быть указаны до `<agent_name>`;
    - всё, что стоит после `<agent_name>`, передаётся агенту как `agent_args`, даже если токены выглядят как флаги `agsekit`;
    - host working directory определяется как `--workdir`, если он задан, иначе как текущая директория (`cwd`);
    - если выбранная рабочая директория не существует, в интерактивном режиме спрашивает `Папка проекта не найдена, вы хотите запустить агента во временной папке? [y/N]` / `Project folder was not found. Run the agent in a temporary folder? [y/N]`;
@@ -739,7 +739,9 @@
 - в Ansible agent installers сетевые шаги выполняются через `proxychains_prefix` (без отдельного прокидывания proxy env-переменных).
 
 ### 9.4.1 HTTP proxy режим для `run`
-- effective `http_proxy` определяется как `agents.<name>.http_proxy -> vm.http_proxy -> none`;
+- effective `http_proxy` определяется как `cli --http-proxy override -> agents.<name>.http_proxy -> vm.http_proxy -> none`;
+- `--http-proxy ""` отключает configured `http_proxy` на один запуск;
+- непустой `--http-proxy <scheme://host:port>` работает как string shorthand `http_proxy`, то есть включает upstream-режим через временный VM-local `privoxy`;
 - direct-режим (`http_proxy.url`) не поднимает `privoxy`;
   - агенту добавляются `HTTP_PROXY` и `http_proxy`;
 - upstream-режим (`http_proxy` string или `http_proxy.upstream`) запускает временный VM-local `privoxy` через `/usr/bin/agsekit-run_with_http_proxy.sh`;
@@ -747,7 +749,7 @@
   - helper создаёт временный конфиг `privoxy`, ждёт readiness, запускает агент и затем очищает temp-файлы и процесс;
 - если effective `http_proxy` задан, runtime `proxychains` одновременно использовать нельзя;
   - в такой ситуации `run` завершается ошибкой;
-  - чтобы агент использовал `http_proxy` при VM-level `proxychains`, агент должен явно отключить `proxychains: ""`.
+  - чтобы агент использовал `http_proxy` при VM-level `proxychains`, агент должен явно отключить `proxychains: ""` или запуск должен передать `--proxychains ""`.
 
 ### 9.5 Ограничение запуска по allowed_agents (mount + VM)
 - effective policy вычисляется как `mount.allowed_agents -> vm.allowed_agents -> unrestricted`;
