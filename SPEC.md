@@ -822,6 +822,7 @@ Dependency resolution выполняется кодом до запуска play
 ## 12. Побочные эффекты на диске
 
 На хосте:
+- installer `scripts/install.sh` создаёт per-user venv в `~/.local/share/agsekit/venv`, symlink `~/.local/bin/agsekit`, а при необходимости добавляет `export PATH="$HOME/.local/bin:$PATH"` в shell startup files; на WSL он также идемпотентно добавляет alias `multipass` на Windows-бинарник Multipass в startup-файл текущего shell (`.bashrc`, `.zshrc` или fallback `.profile`);
 - `~/.config/agsekit/config.yaml`
 - SSH keypair в каталоге из `global.ssh_keys_folder` (по умолчанию `~/.config/agsekit/ssh/id_rsa` и `id_rsa.pub`)
 - `systemd.env` в каталоге из `global.systemd_env_folder` (по умолчанию `~/.config/agsekit/systemd.env`)
