@@ -2,6 +2,8 @@
 
 Это самый короткий практический путь к рабочему `agsekit`.
 
+(Если короткий путь не получился, либо у вас Windows, почитайте статью [об установке](install.md))
+
 ## 1. Установка
 
 Создайте виртуальное окружение и установите пакет:
@@ -12,7 +14,11 @@ source .venv/bin/activate
 pip install agsekit
 ```
 
-Установка Multipass на хост позже делается через `agsekit prepare` или `agsekit up`.
+Также можно проделать установку через:
+
+```shell
+curl -fsSL https://agsekit.org/install.sh | sh
+```
 
 ## 2. Создание конфига
 
@@ -30,6 +36,8 @@ agsekit config-example
 
 После этого отредактируйте `~/.config/agsekit/config.yaml` или передавайте свой путь через `--config`.
 
+Подробное описание [конфигурации](configuration.md)
+
 ## 3. Подготовка окружения
 
 Поднимите всё окружение одной командой:
@@ -38,13 +46,13 @@ agsekit config-example
 agsekit up
 ```
 
-Это может включать:
+Что будет сделано:
 
-- подготовку зависимостей на хосте;
-- создание VM;
-- подготовку VM;
-- установку агентов;
-- Linux-only systemd setup для `portforward`.
+- подготовка зависимостей на хосте (для linux это snapd и multipass);
+- создание VM
+- подготовка VM
+- установка агентов
+- для Linux - установка systemd службы
 
 ## 4. Добавление mount
 
@@ -82,4 +90,4 @@ agsekit ssh agent-ubuntu
 - [Конфигурация](configuration.md)
 - [Агенты](agents.md)
 - [Сеть](networking.md)
-- [Индекс команд](commands/README.md)
+- [Все команды](commands/README.md)

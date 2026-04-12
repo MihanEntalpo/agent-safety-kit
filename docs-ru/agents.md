@@ -2,17 +2,19 @@
 
 `agsekit` управляет установкой и runtime-запуском фиксированного набора agent types.
 
+Агенты - это по сути бинарники от различных производителей, таких как claude-code, codex или cline.
+
 ## Поддерживаемые типы
 
-- `aider`
-- `qwen`
-- `forgecode`
-- `codex`
-- `opencode`
-- `claude`
-- `cline`
-- `codex-glibc`
-- `codex-glibc-prebuilt`
+- `aider` - [aider](https://aider.chat/)
+- `qwen` - [Qwen Code](https://qwenlm.github.io/qwen-code-docs/en/)
+- `forgecode` - [ForgeCode](https://forgecode.dev/)
+- `codex` - [Codex](https://openai.com/codex/)
+- `opencode` - [OpenCode](https://opencode.ai/)
+- `claude` - [Claude Code](https://docs.claude.com/en/docs/claude-code/overview)
+- `cline` - [Cline](https://cline.bot/)
+- `codex-glibc` - вариант [Codex](https://openai.com/codex/), собираемый внутри VM
+- `codex-glibc-prebuilt` - вариант [Codex](https://openai.com/codex/), ставящийся из готового prebuilt-релиза
 
 ## Модель установки
 
@@ -27,19 +29,21 @@
 
 ## Модель запуска
 
-`agsekit run` резолвит профиль агента, применяет default arguments, ограничения mount/VM и сетевые настройки, а затем запускает агента внутри VM.
+`agsekit run` резолвит профиль агента, применяет default arguments, env, ограничения mount/VM и сетевые настройки, а затем запускает агента внутри VM.
 
-## OpenAI-compatible API
+## OpenAI-compatible API и другие настройки
 
 Конкретные runtime flags зависят от CLI агента. Обычный паттерн такой:
 
-1. добавить provider-specific default arguments в `agents.<name>.default-args` или передавать их в runtime;
+1. добавить provider-specific default arguments в `agents.<name>.default-args`, `agents.<name>.env` или передавать их в runtime;
 2. не хранить секреты в репозитории;
 3. использовать те же provider-specific flags, что и без `agsekit`.
 
+К сожалению, у всех агентов настройка делается полностью по-своему, поэтому искать, как подключить конкретный агент к конкретной сетке надо искать в их документации.
+
 ## Заметки
 
-- runtime `forgecode` всегда получает `FORGE_TRACKER=false`.
+- runtime `forgecode` всегда получает `FORGE_TRACKER=false`, так как forgecode иначе отправит "для статистики" ваши данные, включая email и имя из .gitconfig
 - `codex-glibc` и `codex-glibc-prebuilt` это отдельные бинарники и могут сосуществовать с `codex`.
 - источник релизов для `codex-glibc-prebuilt` можно переопределить через host environment variables.
 

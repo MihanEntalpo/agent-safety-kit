@@ -2,67 +2,176 @@
 
 На этой странице собраны короткие практические рецепты, которые полезны на раннем этапе использования.
 
-## OpenAI-compatible API
+## Монтирование папок
 
-Конкретные флаги зависят от CLI агента, но общий паттерн всегда один:
+* Не используйте папки, в именах которых содержатся не-ascii-символы, это ограничение multipass
 
-1. задать provider-specific defaults в профиле агента или передавать их в runtime;
-2. не хранить секреты в репозитории;
-3. использовать те же флаги агента, что и без `agsekit`.
+## Self-hosted OpenAI-compatible API
 
-Связанные материалы:
+Если у вас есть своя собственная self-hosted LLM с OpenAI API, то её настройка в различных агентах иногда не слишком тривиальна.
+
+Здесь приведены инструкции для некоторых из поддерживаемых агентов (список обновляется)
+
+Предположим что у вас есть данные (для примера)
+
+```
+OPENAPI_BASE_URL=http://127.0.0.1:8080/v1 - адрес вашего vLLM сервера инференса
+OPENAI_API_KEY="my-very-secure-key"
+OPENAI_MODEL="Qwen/Qwen3-Coder-30B-A3B-Instruct-FP8"
+```
+  
+### Qwen
+
+Параметры можно передать через env-переменные. 
+
+1. Меняем конфигурацию agsekit, задавая env-переменные:
+
+```yaml
+...
+agents:
+...
+  qwen:
+    type: qwen
+    env:
+      OPENAI_API_KEY: "my-very-secure-key"
+      OPENAPI_BASE_URL: "http://127.0.0.1:8080/v1"
+      OPENAPI_MODEL: "Qwen/Qwen3-Coder-30B-A3B-Instruct-FP8"
+...
+```
+
+2. После этого запускаем qwen, и он спросит, какое использовать API: Облачное или локальное. Нужно выбрать локальное, а данные подключения сами подставятся из env
+
+```shell
+agsekit run qwen
+```
+
+### Cline
+
+Параметры можно передать специальной командой.
+
+1. Допустим, у вас в конфигурации agsekit есть агент cline
+
+```yaml
+...
+agents:
+...
+  cline:
+    type: cline
+```
+
+2. Выполняем команду:
+
+```shell
+agsekit run cline auth -p openai -k "my-very-secure-key" -m "Qwen/Qwen3-Coder-30B-A3B-Instruct-FP8" -b "http://127.0.0.1:8080/v1"
+```
+
+После этого запускаем 
+
+```shell
+agsekit run cline 
+```
+
+и настройка уже будет выполнена
+
+### ForgeCode
+
+1. Зададим env-переменные в конфиге agsekit
+
+```yaml
+...
+agents:
+...
+  forgecode:
+    type: forgecode 
+    env:
+      OPENAI_API_KEY: "my-very-secure-key"
+      OPENAI_URL: "http://127.0.0.1:8080/v1"
+```
+
+2. Запускаем агента
+
+```shell
+agsekit run forgecode
+```
+
+3. При первом запуске откроется окно выбора провайдера
+
+Выбираем OpenAI Compatible
+
+Все остальные данные подтянутся из env-переменных
+
+
+### Другие агенты
+
+... В разработке ...
+
+
+
 
 - [Поддерживаемые агенты](agents.md)
 - [run](commands/run.md)
 
-## Работа в ограниченной сети
+## Запуск codex и claude-code при ограничениях доступа
 
-Используйте один из подходов:
+Допустим у вас отсутствует доступ к API OpenAI и Antropic, что мешает вам пользоваться codex/claude-code.
 
-- `proxychains`, когда runtime должен работать через proxy-aware command layer;
-- direct mode `http_proxy`, когда у вас уже есть готовый HTTP proxy;
-- upstream mode `http_proxy`, когда `agsekit` сам поднимает временный `privoxy` внутри VM.
+При этом, предположим у вас есть доступ по SSH на некий сервер в интернете/у вас дома, с которого доступ к упомянутым API не ограничен.
 
-Не включайте effective `proxychains` и effective `http_proxy` одновременно для одного и того же `run`.
+Что можно сделать?
 
-## Использование `proxychains`
+1) Настройка постоянного socks-proxy
 
-Типовой сценарий:
+Если вы пользуетесь linux/macos, вы можете использовать auotssh чтобы настроить постоянный проброс порта socks5-proxy.
 
-```bash
-agsekit install-agents qwen --proxychains socks5://127.0.0.1:1080
-cd /path/to/project
-agsekit run --proxychains socks5://127.0.0.1:1080 qwen
+Написать скрипт вроде такого:
+```shell
+#!/bin/bash
+
+# здесь ваш хост для подключения по ssh
+SSH_USER_HOST="user@remove-vps-host.com"
+# Путь к приватному ключу для ssh
+PRIV_KEY="/home/user/.ssh/id_rsa"
+# Порт на котором будет слушать socks-proxy
+LISTEN="127.0.01:8087"
+
+killall autossh
+
+nohup autossh -M 10984 -N -o "PubkeyAuthentication=yes" -o "PasswordAuthentication=no" -i /"$PRIV_KEY" -o "BatchMode=yes" -o "ConnectTimeout=10" \
+    $SSH_USER_HOST -D $LISTEN &
 ```
 
-## Использование `http_proxy`
+Положить его в файл ~/autossh.sh, сделать исполняемым, и добавить в автозагрузку системы любым удобным для вас способом.
 
-Пример direct mode:
+2) Настройка проброса порта и proxychains
 
-```yaml
+В конфигурации agsekit:
+
+```shell
 vms:
-  agent-ubuntu:
-    http_proxy:
-      url: http://127.0.0.1:18881
+  agents-ubuntu:
+    ...
+    port-forwarding:
+      remote:
+        # На этот порт хоста будет пробрасываться соединение 
+        host-addr: 127.0.0.1:8087
+        # при подключении на этот порт ВМ
+        vm-addr: 127.0.0.1:8087
+
+agents:
+  codex:
+    type: codex-glibc-prebuilt # используем этот тип, так как он поддерживает proxychains
+    # Настраиваем proxychains на порт который ведёт на socks5-прокси хоста
+    proxychians: socks5://127.0.0.1:8087
+    
+  claude:
+    type: claude-code
+    # Настраиваем http-proxy на запуск временного proxify со случайным портом, и прокидыванием траффика на socks5-прокси хоста
+    http_proxy: socks5://127.0.0.1:8087
 ```
 
-Пример upstream mode:
+В linux можно настроить демон systemd командой `agsekit systemd install` - и проброс портов будет поддерживаться автоматически
 
-```yaml
-vms:
-  agent-ubuntu:
-    http_proxy: socks5://127.0.0.1:8181
-```
-
-## Использование `portforward`
-
-Опишите forwarding rules в конфиге и держите их поднятыми так:
-
-```bash
-agsekit portforward
-```
-
-На Linux это же поведение можно держать в фоне через интеграцию с `systemd`.
+В windows / macos можно запустить в отдельном терминале `agsekit portforward` и проброс портов будет поддерживаться пока жив этот терминал
 
 ## См. также
 
