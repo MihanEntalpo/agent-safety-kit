@@ -2,19 +2,23 @@
 
 ## Команды
 
+## `portforward`
+
 ```bash
 agsekit portforward [--config <path>] [--debug]
-agsekit ssh <vm_name> [--config <path>] [--debug] [<ssh_args...>]
-agsekit shell [<vm_name>] [--config <path>] [--debug]
 ```
-
-## `portforward`
 
 Поддерживает настроенные SSH tunnels и периодически перечитывает конфиг, чтобы адаптироваться к изменениям forwarding rules.
 
 ## `ssh`
 
+```shell
+agsekit ssh <vm_name> [--config <path>] [--debug] [<ssh_args...>]
+```
+
 Подключается к VM по SSH, используя host-side key, которым управляет `agsekit`.
+
+Позволяет передавать произвольные ssh-ключи, как в обычную команду ssh.
 
 Типовые применения:
 
@@ -24,7 +28,11 @@ agsekit shell [<vm_name>] [--config <path>] [--debug]
 
 ## `shell`
 
-Открывает интерактивную `multipass shell` сессию в выбранной VM.
+```
+agsekit shell [<vm_name>] [--config <path>] [--debug]
+```
+
+Открывает интерактивную `multipass shell` сессию в выбранной VM, по сути работает так же через ssh, но использует ключи multipass, и не позволяет передавать стандартные ssh-аргументы
 
 ## См. также
 

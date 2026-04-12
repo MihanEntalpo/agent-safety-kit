@@ -17,7 +17,9 @@ agsekit install-agents --all-agents [--all-vms] [--config <path>] [--proxychains
 - Если у агента нет ограничений по VM, целями становятся все VM из конфига.
 - При `--all-vms` все VM выбираются явно.
 
-## Переопределение proxy
+## Переопределение proxychains
+
+По умолчанию install-agents использует proxychains из конфигурации ВМ, что можно переопределить при запуске:
 
 - `--proxychains scheme://host:port` переопределяет VM proxy только для этой установки.
 - `--proxychains ""` отключает proxy на один запуск.

@@ -14,13 +14,12 @@ agsekit prepare [--config <path>] [--debug]
 
 - ставит нужные host-side зависимости, прежде всего Multipass;
 - создаёт или повторно использует host SSH keypair для доступа к VM;
-- читает `global.ssh_keys_folder` из конфига, если он доступен.
 
 ## Замечания по платформам
 
-- Linux: поддерживаются Debian-based и Arch-based установки пакетов.
+- Linux: поддерживаются Debian-based и Arch-based установки пакетов, использует snapd
 - macOS: Multipass ставится через Homebrew.
-- Windows: пока не является first-class workflow.
+- Windows: пока не является first-class workflow, поэтому multipass здесь нужно ставить вручную
 
 ## Примеры
 

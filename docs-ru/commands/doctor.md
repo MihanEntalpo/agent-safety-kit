@@ -22,9 +22,20 @@ agsekit doctor [--config <path>] [-y] [--debug]
 
 ## Примеры
 
+Запуск в интерактивном режиме:
+
 ```bash
 agsekit doctor
+```
+
+Запуск и согласие на применение исправлений:
+
+```shell
 agsekit doctor -y
+```
+
+Запуск с подробной выдачей диагностики:
+```shell
 agsekit doctor --debug
 ```
 
