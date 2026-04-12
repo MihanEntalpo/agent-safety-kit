@@ -18,7 +18,7 @@ You can configure it:
 
 ## http_proxy
 
-`http_proxy` can be resolved from the VM or agent configuration.
+`http_proxy` can be resolved from the VM or agent configuration, overridden for one run with `--http-proxy scheme://host:port`, or disabled for one run with `--http-proxy ""`.
 
 ### Direct Mode
 
@@ -26,7 +26,7 @@ Provide a ready-to-use HTTP proxy URL and `agsekit` injects `HTTP_PROXY` and `ht
 
 ### Upstream Mode
 
-Provide an upstream proxy URL and `agsekit` starts a temporary `privoxy` inside the VM for that run. The local listening port is chosen from `global.http_proxy_port_pool` when not explicitly set.
+Provide an upstream proxy URL and `agsekit` starts a temporary `privoxy` inside the VM for that run. The local listening port is chosen from `global.http_proxy_port_pool` when not explicitly set. The `--http-proxy` command-line override uses this upstream mode.
 
 ## Mutual Exclusion
 

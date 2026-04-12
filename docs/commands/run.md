@@ -7,7 +7,7 @@ Launch an agent inside a target VM while keeping the host project mounted and op
 ## Command
 
 ```bash
-agsekit run [--vm <vm_name>] [--config <path>] [--workdir <path>] [--proxychains <value>] [--disable-backups] [--auto-mount] [--skip-default-args] [--debug] <agent_name> [<agent_args...>]
+agsekit run [--vm <vm_name>] [--config <path>] [--workdir <path>] [--proxychains <value>] [--http-proxy <value>] [--disable-backups] [--auto-mount] [--skip-default-args] [--debug] <agent_name> [<agent_args...>]
 ```
 
 ## Important Parsing Rule
@@ -38,7 +38,9 @@ All `agsekit run` options must appear before `<agent_name>`. Everything after `<
 - auto-mount a configured source directory with `--auto-mount`;
 - start repeated backups unless `--disable-backups` is used;
 - apply agent default arguments unless `--skip-default-args` is used;
-- wrap runtime networking through `proxychains` or `http_proxy`.
+- wrap runtime networking through `proxychains` or `http_proxy`;
+- override configured `proxychains` with `--proxychains <scheme://host:port>` or disable it with `--proxychains ""`;
+- override configured `http_proxy` in upstream mode with `--http-proxy <scheme://host:port>` or disable it with `--http-proxy ""`.
 
 ## Restrictions
 
@@ -56,6 +58,7 @@ agsekit run qwen
 agsekit run --vm agent-ubuntu codex --sandbox danger-full-access
 agsekit run --workdir /path/to/project/subdir qwen
 agsekit run --auto-mount --proxychains socks5://127.0.0.1:1080 qwen
+agsekit run --http-proxy socks5://127.0.0.1:8181 qwen
 ```
 
 ## See Also

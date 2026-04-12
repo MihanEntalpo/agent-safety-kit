@@ -7,7 +7,7 @@
 ## Команда
 
 ```bash
-agsekit run [--vm <vm_name>] [--config <path>] [--workdir <path>] [--proxychains <value>] [--disable-backups] [--auto-mount] [--skip-default-args] [--debug] <agent_name> [<agent_args...>]
+agsekit run [--vm <vm_name>] [--config <path>] [--workdir <path>] [--proxychains <value>] [--http-proxy <value>] [--disable-backups] [--auto-mount] [--skip-default-args] [--debug] <agent_name> [<agent_args...>]
 ```
 
 ## Важное правило разбора аргументов
@@ -38,7 +38,9 @@ agsekit run [--vm <vm_name>] [--config <path>] [--workdir <path>] [--proxychains
 - автоматически монтировать исходную директорию через `--auto-mount`;
 - запускать repeated backups, если не передан `--disable-backups`;
 - применять agent default arguments, если не передан `--skip-default-args`;
-- оборачивать runtime через `proxychains` или `http_proxy`.
+- оборачивать runtime через `proxychains` или `http_proxy`;
+- переопределять `proxychains` через `--proxychains <scheme://host:port>` или отключать его через `--proxychains ""`;
+- переопределять `http_proxy` в upstream-режиме через `--http-proxy <scheme://host:port>` или отключать его через `--http-proxy ""`.
 
 ## Ограничения
 
@@ -56,6 +58,7 @@ agsekit run qwen
 agsekit run --vm agent-ubuntu codex --sandbox danger-full-access
 agsekit run --workdir /path/to/project/subdir qwen
 agsekit run --auto-mount --proxychains socks5://127.0.0.1:1080 qwen
+agsekit run --http-proxy socks5://127.0.0.1:8181 qwen
 ```
 
 ## См. также

@@ -2,101 +2,177 @@
 
 `agsekit` использует YAML-файл, обычно `~/.config/agsekit/config.yaml`.
 
-Порядок поиска:
+Также, в любой команде `agsekit` можно переопределить путь к config-файлу при запуске:
 
-1. `--config <path>`
-2. `CONFIG_PATH`
-3. `~/.config/agsekit/config.yaml`
+1. аргументом командной строки`--config <path>`
+2. переменной окружения `CONFIG_PATH`
 
-## Верхнеуровневые секции
-
-- `global`
-- `vms`
-- `mounts`
-- `agents`
-
-## `global`
-
-Основные поля:
-
-- `ssh_keys_folder`: каталог хостовых SSH-ключей для доступа к VM.
-- `systemd_env_folder`: Linux-only путь для `systemd.env`.
-- `portforward_config_check_interval_sec`: интервал перечитывания конфига для `portforward`.
-- `http_proxy_port_pool.start` / `http_proxy_port_pool.end`: диапазон локальных портов для временных proxy helper'ов.
-
-## `vms`
-
-Каждая VM может описывать:
-
-- `cpu`
-- `ram`
-- `disk`
-- `cloud-init`
-- `proxychains`
-- `http_proxy`
-- `allowed_agents`
-- `port-forwarding`
-
-## `mounts`
-
-Каждый mount описывает:
-
-- `source`
-- `vm`
-- `target`
-- `backup`
-- `interval`
-- `max_backups`
-- `backup_clean_method`
-- `allowed_agents`
-
-Mount связывает хостовую папку проекта с путём внутри VM и описывает backup policy.
-
-## `agents`
-
-Каждый agent profile может описывать:
-
-- `type`
-- `vm`
-- `vms`
-- `default-args`
-- `env`
-- `proxychains`
-- `http_proxy`
-
-## Пример
+## Полный пример конфиг-файла с комментариями:
 
 ```yaml
-global:
-  ssh_keys_folder: ~/.config/agsekit/ssh
+# Глобальная конфигурация для всего agsekit в целом
+global: 
+  # Переопределение папки для ssh-ключей, по умолчанию ~/.config/agsekit/ssh. Сюда agsekit кладёт ssh-ключи.
+  ssh_keys_folder: null
+  # Переопределение папки env-переменных для systemd-службы (используется в linux)
+  systemd_env_folder: null
+  # Частота проверки конфигурации демоном проброса портов, по умолчанию каждые 10 секунд
+  portforward_config_check_interval_sec: 10 
+  # Диапазон портов для динамического выделения при запуске proxy-сервера, по умолчанию от 48000 до 49000
+  http_proxy_port_pool:
+    start: 48000
+    end: 49000
 
+# Описание виртуальных машин. Нужна как минимум одна, задать можно сколько угодно 
 vms:
-  agent-ubuntu:
-    cpu: 4
+  # Название ВМ, после создания лучше не менять
+  agents-personal:
+    # Количество ядер CPU
+    cpu: 2
+    # количество RAM
+    ram: 4G
+    # Объем диска
+    disk: 20G
+    # Здесь можно задать полноценную конфигурацию cloud-init для multipass
+    cloud-init: {}
+    # Включить proxychains для всех агентов, запускаемых в этой ВМ, и настроить его на указанный адрес
+    proxychains: socks5://127.0.0.1:18881
+    # Включить портфорвардинг - проброс портов внутрь и наружу ВМ, на базе ssh-туннелей  
+    port-forwarding:
+      # Типы бывают: remote, local, socks
+      # remote - значит подключение изнутри ВМ на хост
+      - type: remote
+        host-addr: 127.0.0.1:28881
+        vm-addr: 127.0.0.1:18881
+      # local - значит подключение из хоста в ВМ
+      - type: local
+        host-addr: 127.0.0.1:8080
+        vm-addr: 127.0.0.1:80
+      # socks5 - открыть в ВМ порт socks5-прокси ведущий на хост
+      - type: socks5
+        vm-addr: 127.0.0.1:11800
+    # Установить готовые "Пакеты ПО" при создании ВМ
+    install:
+      - docker
+      - pyenv
+      - python
+  # Ещё одна ВМ, в данном примере их 2, одна для личных проектов, вторая для рабочих
+  agents-nda:
+    # Также, количество cpu, ram, диска
+    cpu: 2
     ram: 4G
     disk: 20G
+    cloud-init: {}
+    install:
+      - docker
+      - pyenv
+      - python
+    # Список агентов, которые можно запускать в ВМ, остальные - нельзя. Если не указано - тогда можно всё.
+    allowed_agents: qwen, cline
 
+# Монтирование папок в ВМ
 mounts:
-  - source: /home/user/project
-    vm: agent-ubuntu
-    target: /home/ubuntu/project
-    backup: /home/user/backups-project
+  # source - это путь к папке в основной системе
+  - source: /home/user/work/work-project-1
+    # Папка для бэкапов в основной ОС, если не указана, будет задана в {путь к папка}/backups-{имя папки}
+    backup: /home/user/work/backups-work-project-1
+    # Куда монтируется папка внутри ВМ
+    target: /home/ubuntu/work-project-1
+    # Список агентов, которые можно запускать с этой папкой, остальные - нельзя. Если не указано - можно все.
+    allowed_agents: [qwen, cline]
+    # ВМ, куда монтировать эту папку. Если не указано - будет примонтирована в ПЕРВУЮ ВМ из списка
+    vm: agents-nda    
+    # Интервал создания бэкапов, в минутах, по умолчанию 5
     interval: 5
+    # Скольпо максимум хранить бэкапов, по умоланию 100
+    max_backups: 100
+    # Каким методом очищать старые бэкапы: thin или tail. 
+    # "thin" - лорагифмическое прореживание (давних бэкапов меньше, свежих больше), хранение на большую глубину
+    # 'tail' - просто удалять с конца
+    backup_clean_method: thin  
 
+# Конфигурация агентов
 agents:
+  # Имя агента может быть любым, например "superagent", именно по нему идёт обращение при запуске `agsekit run <agent>`
   qwen:
+    # Тип агента - один из поддерживаемых: qwen, codex, claude, cline, aider, forgecode, opencode, codex-clibc, codex-glibc-prebuilt 
     type: qwen
-    vm: agent-ubuntu
+    # Переменные окружения для агента
+    env:
+      # Здесь, например, задаётся self-hosted модель.      
+      OPENAI_API_KEY: "Your-Api-Key"
+      OPENAPI_BASE_URL: "http://127.0.0.1:8080"
+      OPENAPI_MODEL: "Qwen/Qwen3-Coder-9B"
+    # В какой ВМ запускается по-умолчанию, если нет рабочей папки, либо она есть в обоих ВМ 
+    vm: agent-nda
+  # Вот пример агента того же типа, что и раньше, но с другим именем 
+  qwen-cloud:
+    type: qwen
+    vm: agent-personal  
+  codex:
+    # codex-glibc-prebuilt - это собранныйвручную агент codex, поддерживающий работу через proxychians
+    type: codex-glibc-prebuilt
+    # Агенту можно передать аргуметы командной строки по умолчанию
+    default-args:
+      - "--sandbox=danger-full-access"  
+  claude:
+    type: claude
+    # В агенте можно переопределить proxychains (пустая строка её отключает)
+    proxychains: ""
+    # Также, в агенте можно задать http-proxy
+    http_proxy: socks5://127.0.0.1:18881
+
 ```
 
-## Связанные темы
+## Подробное описание каждого параметра:
 
-- подробности `proxychains` и `http_proxy` в [networking.md](networking.md)
-- backup policy в [backups.md](backups.md)
-- поведение команд в [commands/README.md](commands/README.md)
-
-## См. также
-
-- [Быстрый старт](getting-started.md)
-- [Сеть](networking.md)
-- [Бэкапы](backups.md)
+* `global.ssh_keys_folder`
+  * Указывает путь к папке с ssh-ключами. Команды `agsekit up`, `agsekit prepare` выполняют идемпотентное создание ssh ключей и добавление их в ВМ, для дальнейшего функционирования команд `agsekit ssh` и `agsekit portforward`.
+  * По умолчанию ~/.config/agsekit/ssh
+* `global.systemd_env_folder`
+  * Указывает путь к папке с .env-файлом для запуска systemd-службы (используется только в linux/WSL)
+  * По умолчанию ~/.config/agsekit
+* `global.portforward_config_check_interval_sec`
+  * Как часто нужно перечитывать конфигурацию, чтобы, при изменении списка портов, менять ssh-туннели
+  * Команда `agsekit portforward` а также демон запускаемый через `agsekit systemd start` выполняют проброс портов, и при изменении конфигурации - динамически обновляют порты
+* `global.http_proxy_port_pool` 
+  * Диапазон портов, из которых выбирается порт при запуске прокси-сервера
+  * Команда `agsekit run <agent>` может запускать прокси-сервер, если это задано в конфигурации или аргументе командной строки, и если у него не задан listen-порт - берётся случайный из диапазона
+  * По умолчанию `{"start": 48000, "end": 49000}`
+* `vms` 
+  * Набор виртуальных машин, виртуальных машин может бысть сколько угодно, но не менее одной
+* `vms.<vm_name>`
+  * Конфигурация конкретной виртуальной машины. Её имя - это уникальный идентификатор, который не стоит менять если ВМ уже создана, иначе начнётся серьёзная путанница
+  * mutlipass не умеет переименовывать ВМ, поэтому самое простое, если хотите переименовать - это уничтожить старую и создать новую.
+* `vms.<vm_name>.cpu:
+  * Количество ядер процессора. 
+  * Утилиизи
+      # Количество ядер CPU
+      cpu: 2
+      # количество RAM
+      ram: 4G
+      # Объем диска
+      disk: 20G
+      # Здесь можно задать полноценную конфигурацию cloud-init для multipass
+      cloud-init: {}
+      # Включить proxychains для всех агентов, запускаемых в этой ВМ, и настроить его на указанный адрес
+      proxychains: socks5://127.0.0.1:18881
+      # Включить портфорвардинг - проброс портов внутрь и наружу ВМ, на базе ssh-туннелей  
+      port-forwarding:
+        # Типы бывают: remote, local, socks
+        # remote - значит подключение изнутри ВМ на хост
+        - type: remote
+          host-addr: 127.0.0.1:28881
+          vm-addr: 127.0.0.1:18881
+        # local - значит подключение из хоста в ВМ
+        - type: local
+          host-addr: 127.0.0.1:8080
+          vm-addr: 127.0.0.1:80
+        # socks5 - открыть в ВМ порт socks5-прокси ведущий на хост
+        - type: socks5
+          vm-addr: 127.0.0.1:11800
+      # Установить готовые "Пакеты ПО" при создании ВМ
+      install:
+        - docker
+        - pyenv
+        - python 
