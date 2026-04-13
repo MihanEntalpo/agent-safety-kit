@@ -1,19 +1,25 @@
 # Known Issues
 
-This page tracks current limitations rather than bugs already fixed.
+This page collects current limitations.
 
 ## Current Limitations
 
-- Windows host support is not a first-class workflow yet.
-- Linux-only `systemd` integration does not currently have a native macOS `launchd` replacement.
-- Guest isolation is helpful, but mounted folders are still writable by the guest VM.
-- Large agent installers and source builds can be slow on small VMs.
+- There are problems with mounting folders whose paths contain non-ASCII characters; this is a Multipass issue.
+- There are problems with mounting folders whose paths contain hidden names; this is also a Multipass issue.
+- If you work with several users on one PC, you need to have roughly the same agsekit configuration, otherwise various problems are possible.
+- If you work with several users on one PC, there will be no isolation between users, because Multipass and its VMs are global for the whole machine, not per user.
+- VM size cannot yet be changed automatically after changing its size in the configuration. If needed, do this with Multipass tools.
+- Windows host support is not yet a first-class workflow. Use WSL.
+- The Linux-only integration with `systemd` does not yet have a native macOS replacement via `launchd`.
+- Large installers and source builds can be slow on small VMs.
+- `agsekit run <agent>` itself may not be very fast because of preparation steps and backups.
+- The system daemon currently works only on Linux based on systemd.
 
-## Operational Caveats
+## Operational Notes
 
-- Multipass mount behavior can fail independently of `agsekit`.
-- Network proxy configuration is agent-dependent beyond the generic runtime wrappers.
-- Backup policy protects files, not external side effects such as database changes or network actions.
+- specific proxy settings depend on the capabilities of the agent CLI itself (for example, claude-code does not work with proxychains)
+- backup policy protects files, but does not protect from external side effects such as DB changes or network actions
+- if several folders are mounted into one VM, then by running an agent in one of them, you still risk the others, although this risk is much smaller than when running on the host.
 
 ## See Also
 

@@ -2,7 +2,7 @@
 
 ## Purpose
 
-Diagnose known installation and runtime problems and offer safe repairs.
+Diagnose known installation and runtime problems and suggest safe fixes.
 
 ## Command
 
@@ -12,19 +12,31 @@ agsekit doctor [--config <path>] [-y] [--debug]
 
 ## Current Scope
 
-The command currently focuses on known Multipass-related problems, especially stale or broken mount visibility cases.
+Right now the command mostly focuses on known Multipass failures, especially stale or broken mount visibility.
 
 ## Behavior
 
-- inspects configured mounts;
-- checks whether host data appears unexpectedly empty inside the VM;
-- can propose a Multipass daemon restart when that known issue is detected.
+- analyzes configured mounts;
+- checks whether a non-empty host directory looks empty inside the VM;
+- for a known error type, can suggest restarting the Multipass daemon.
 
 ## Examples
 
+Run in interactive mode:
+
 ```bash
 agsekit doctor
+```
+
+Run and agree to apply fixes:
+
+```shell
 agsekit doctor -y
+```
+
+Run with detailed diagnostic output:
+
+```shell
 agsekit doctor --debug
 ```
 

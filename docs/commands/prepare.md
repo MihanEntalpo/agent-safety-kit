@@ -2,7 +2,7 @@
 
 ## Purpose
 
-Prepare the host machine for `agsekit` workflows.
+Prepare the host machine for the `agsekit` workflow.
 
 ## Command
 
@@ -12,15 +12,14 @@ agsekit prepare [--config <path>] [--debug]
 
 ## What It Does
 
-- installs required host-side dependencies, especially Multipass;
-- creates or reuses the host SSH keypair for VM access;
-- reads `global.ssh_keys_folder` from config when available.
+- installs required host-side dependencies, primarily Multipass;
+- creates or reuses a host SSH keypair for VM access;
 
 ## Platform Notes
 
-- Linux: supports Debian-based package installs and Arch-based package installs.
-- macOS: installs Multipass via Homebrew.
-- Windows: not a first-class workflow yet.
+- Linux: Debian-based and Arch-based package installations are supported, uses snapd
+- macOS: Multipass is installed through Homebrew.
+- Windows: not a first-class workflow yet, so Multipass must be installed manually here
 
 ## Examples
 

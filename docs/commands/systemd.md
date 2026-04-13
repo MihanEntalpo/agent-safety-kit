@@ -4,7 +4,7 @@
 
 Manage the Linux-only user service that keeps `agsekit portforward` running in the background.
 
-## Covered Commands
+## Commands
 
 ```bash
 agsekit systemd install [--config <path>] [--debug]
@@ -18,8 +18,8 @@ agsekit systemd status [--debug]
 ## Platform Support
 
 - Linux: implemented
-- macOS: command prints a warning and does nothing
-- Windows: command prints a warning and does nothing
+- macOS: the command prints a warning and does nothing
+- Windows: the command prints a warning and does nothing
 
 ## `install`
 
@@ -29,15 +29,15 @@ Writes `systemd.env`, links the bundled user unit, reloads systemd, restarts the
 
 Shows:
 
-- bundled unit path
-- linked user unit path
+- path to bundled unit
+- path to linked user unit
 - installation state
 - active/enabled state
-- recent journal tail
+- tail of recent journal entries
 
-## Relationship With `up`
+## Relation to `up`
 
-On Linux, `agsekit up` can install/update this service automatically after VM and agent setup.
+On Linux, `agsekit up` can automatically install or update this service after the VM and agent setup stages.
 
 ## See Also
 

@@ -2,7 +2,7 @@
 
 ## Purpose
 
-Print a consolidated operational report for the configured environment.
+Show a summary operational report for the configured environment.
 
 ## Command
 
@@ -12,13 +12,13 @@ agsekit status [--config <path>] [--debug]
 
 ## What It Shows
 
-- config location
+- config path
 - VM states
-- configured versus actual VM resources
+- configured and real VM resources
 - `portforward` process state
-- mount and backup snapshot information
-- configured and installed agents per VM
-- currently running agent processes and their working directories
+- information about mounts and backup snapshots
+- configured and installed agents by VM
+- current agent processes and their working directories
 
 ## Example
 
@@ -31,4 +31,4 @@ agsekit status --debug
 
 - [run](run.md)
 - [VM lifecycle](vm-lifecycle.md)
-- [Networking](networking.md)
+- [Networking commands](networking.md)

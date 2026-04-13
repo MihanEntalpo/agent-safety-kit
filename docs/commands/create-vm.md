@@ -2,7 +2,9 @@
 
 ## Purpose
 
-Create Multipass VMs from config and prepare them for agent work.
+Create/configure Multipass VMs from the config and prepare them for agent work.
+
+It is idempotent; after any VM configuration change (for example, adding new bundles to `vms.<vm_name>.install`) you can run this command again.
 
 ## Commands
 
@@ -13,15 +15,16 @@ agsekit create-vms [--config <path>] [--debug]
 
 ## What Happens
 
-- `agsekit` checks whether the VM already exists;
-- launches missing VMs with the configured resources;
-- starts the VM;
-- synchronizes SSH access;
-- installs base packages through Ansible.
+- `agsekit` checks whether the VM exists
+- if there is no VM, it is created
+- starts the VM if it was stopped
+- synchronizes SSH keys and known_hosts
+- installs base packages through Ansible
+- installs software bundles (`vms.<vm_name>.install`) into the VM
 
-## Existing VM Behavior
+## Behavior for an Existing VM
 
-If a VM already exists, `agsekit` compares real and configured resources and reports differences. Resizing an existing VM is not handled automatically yet.
+If the VM already exists, `agsekit` compares real and configured resources and reports differences. Automatic resizing of an existing VM is not supported yet.
 
 ## Examples
 
@@ -30,6 +33,8 @@ agsekit create-vms
 agsekit create-vm agent-ubuntu
 agsekit create-vm agent-ubuntu --debug
 ```
+
+The `--debug` argument enables detailed output of the VM setup process.
 
 ## See Also
 

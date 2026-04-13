@@ -1,14 +1,14 @@
 # Command Reference
 
-This section groups `agsekit` commands by workflow.
+In this section, `agsekit` commands are grouped by scenario.
 
-## Setup
+## Preparation
 
 - [prepare](prepare.md)
 - [up](up.md)
 - [doctor](doctor.md)
 
-## VM and Agent Setup
+## VM and Agent Preparation
 
 - [create-vm / create-vms](create-vm.md)
 - [install-agents](install-agents.md)
@@ -37,5 +37,5 @@ This section groups `agsekit` commands by workflow.
 
 ## See Also
 
-- [Docs index](../README.md)
+- [Documentation index](../README.md)
 - [Getting started](../getting-started.md)

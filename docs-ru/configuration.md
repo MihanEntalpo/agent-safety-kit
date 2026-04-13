@@ -95,22 +95,22 @@ mounts:
 agents:
   # Имя агента может быть любым, например "superagent", именно по нему идёт обращение при запуске `agsekit run <agent>`
   qwen:
-    # Тип агента - один из поддерживаемых: qwen, codex, claude, cline, aider, forgecode, opencode, codex-clibc, codex-glibc-prebuilt 
+    # Тип агента - один из поддерживаемых: qwen, codex, claude, cline, aider, forgecode, opencode, codex-glibc, codex-glibc-prebuilt
     type: qwen
     # Переменные окружения для агента
     env:
       # Здесь, например, задаётся self-hosted модель.      
       OPENAI_API_KEY: "Your-Api-Key"
-      OPENAPI_BASE_URL: "http://127.0.0.1:8080"
-      OPENAPI_MODEL: "Qwen/Qwen3-Coder-9B"
+      OPENAI_BASE_URL: "http://127.0.0.1:8080"
+      OPENAI_MODEL: "Qwen/Qwen3-Coder-9B"
     # В какой ВМ запускается по-умолчанию, если нет рабочей папки, либо она есть в обоих ВМ 
-    vm: agent-nda
+    vm: agents-nda
   # Вот пример агента того же типа, что и раньше, но с другим именем 
   qwen-cloud:
     type: qwen
-    vm: agent-personal  
+    vm: agents-personal
   codex:
-    # codex-glibc-prebuilt - это собранныйвручную агент codex, поддерживающий работу через proxychians
+    # codex-glibc-prebuilt - это собранный вручную агент codex, поддерживающий работу через proxychains
     type: codex-glibc-prebuilt
     # Агенту можно передать аргуметы командной строки по умолчанию
     default-args:

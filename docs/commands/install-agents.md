@@ -11,16 +11,18 @@ agsekit install-agents <agent_name> [<vm>|--all-vms] [--config <path>] [--proxyc
 agsekit install-agents --all-agents [--all-vms] [--config <path>] [--proxychains <value>] [--debug]
 ```
 
-## Resolution Rules
+## Target Selection Rules
 
-- If `<vm>` is omitted, `agsekit` uses the agent target defined in config.
-- If the agent has no VM restriction, all configured VMs become targets.
-- With `--all-vms`, all configured VMs are targeted explicitly.
+- If `<vm>` is not passed, `agsekit` uses the target VM of the agent from the config.
+- If the agent has no VM restrictions, all VMs from the config become targets.
+- With `--all-vms`, all VMs are selected explicitly.
 
-## Proxy Override
+## Proxychains Override
 
-- `--proxychains scheme://host:port` overrides the VM proxy for this install.
-- `--proxychains ""` disables proxying for one run.
+By default, install-agents uses proxychains from the VM configuration, which can be overridden at launch:
+
+- `--proxychains scheme://host:port` overrides the VM proxy only for this installation.
+- `--proxychains ""` disables proxy for one run.
 
 ## Examples
 
@@ -33,6 +35,6 @@ agsekit install-agents claude --debug
 
 ## See Also
 
-- [Supported agents](../agents.md)
+- [Agents](../agents.md)
 - [run](run.md)
 - [Networking](../networking.md)

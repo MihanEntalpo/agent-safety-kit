@@ -1,47 +1,51 @@
 # Supported Agents
 
-`agsekit` manages installation and runtime launching for a fixed set of agent types.
+`agsekit` manages installation and runtime launch for a fixed set of agent types.
+
+Agents are essentially binaries from various vendors, such as claude-code, codex, or cline.
 
 ## Supported Types
 
-- `aider`
-- `qwen`
-- `forgecode`
-- `codex`
-- `opencode`
-- `claude`
-- `cline`
-- `codex-glibc`
-- `codex-glibc-prebuilt`
+- `aider` - [aider](https://aider.chat/)
+- `qwen` - [Qwen Code](https://qwenlm.github.io/qwen-code-docs/en/)
+- `forgecode` - [ForgeCode](https://forgecode.dev/)
+- `codex` - [Codex](https://openai.com/codex/)
+- `opencode` - [OpenCode](https://opencode.ai/)
+- `claude` - [Claude Code](https://docs.claude.com/en/docs/claude-code/overview)
+- `cline` - [Cline](https://cline.bot/)
+- `codex-glibc` - a [Codex](https://openai.com/codex/) variant built inside the VM
+- `codex-glibc-prebuilt` - a [Codex](https://openai.com/codex/) variant installed from a ready prebuilt release
 
 ## Installation Model
 
-The `install-agents` command chooses the Ansible playbook for the selected type and installs the matching runtime into the target VM.
+The `install-agents` command selects the Ansible playbook for the required type and installs the corresponding runtime into the target VM.
 
-Common patterns:
+Main patterns:
 
-- npm CLI installs for `codex`, `qwen`, `opencode`, and `cline`
-- official installer flows for `aider`, `forgecode`, and `claude`
-- local source build for `codex-glibc`
+- npm CLI for `codex`, `qwen`, `opencode`, and `cline`
+- official installers for `aider`, `forgecode`, and `claude`
+- local build from source for `codex-glibc`
 - release asset download for `codex-glibc-prebuilt`
 
 ## Runtime Model
 
-`agsekit run` resolves the selected agent profile, applies default arguments, mount restrictions, VM restrictions, and networking settings, then starts the agent inside the VM.
+`agsekit run` resolves the agent profile, applies default arguments, env, mount/VM restrictions, and network settings, then launches the agent inside the VM.
 
-## OpenAI-Compatible APIs
+## OpenAI-Compatible API and Other Settings
 
-The exact runtime flags depend on the agent CLI. The usual pattern is:
+Specific runtime flags depend on the agent CLI. The usual pattern is:
 
-1. add provider-specific default arguments in the `agents.<name>.default-args` section or pass them at runtime;
-2. keep secrets outside the repo;
-3. use the same provider-specific flags you would use without `agsekit`.
+1. add provider-specific default arguments to `agents.<name>.default-args`, `agents.<name>.env`, or pass them at runtime;
+2. do not store secrets in the repository;
+3. use the same provider-specific flags as without `agsekit`.
+
+Unfortunately, every agent is configured in its own way, so you need to look in their documentation for how to connect a specific agent to a specific network.
 
 ## Notes
 
-- `forgecode` runtime forces `FORGE_TRACKER=false`.
+- runtime `forgecode` always receives `FORGE_TRACKER=false`, because otherwise forgecode sends your data "for statistics", including email and name from `.gitconfig`
 - `codex-glibc` and `codex-glibc-prebuilt` are separate binaries and can coexist with `codex`.
-- `codex-glibc-prebuilt` can be redirected to another GitHub release source through host environment variables.
+- the release source for `codex-glibc-prebuilt` can be overridden through host environment variables.
 
 ## See Also
 

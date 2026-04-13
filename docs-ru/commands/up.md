@@ -19,7 +19,7 @@ agsekit up [--config <path>] [--debug] [--prepare/--no-prepare] [--create-vms/--
 - установить всех настроенных агентов в их целевые VM;
 - только на Linux установить или обновить systemd service для `portforward`.
 
-По сути, это аналог поочерёдного запуска команд: `asgekit prepare`, `agsekit create-vms`, `agsekit install-agents`, `agsekit systemd install`
+По сути, это аналог поочерёдного запуска команд: `agsekit prepare`, `agsekit create-vms`, `agsekit install-agents`, `agsekit systemd install`
 
 По умолчанию все 4 и запускаются.
 

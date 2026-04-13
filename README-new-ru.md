@@ -205,11 +205,11 @@ agsekit run claude
 
 - Если хотите внести доработки:
   - Fork repo
-  - git clone ...
-  - pip install -e .
-  - git checkout -b new-shiny-feature
-  - vim ...
-  - git add . && git commit -m "Implemented new" && git push
+  - `git clone ...`
+  - `pip install -e .`
+  - `git checkout -b new-shiny-feature`
+  - `vim ...`
+  - `git add . && git commit -m "Implemented new feature" && git push`
   - create pull request
 - Если есть проблемы - пишите Issues
 

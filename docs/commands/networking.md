@@ -1,32 +1,40 @@
 # Networking Commands
 
-## Covered Commands
-
-```bash
-agsekit portforward [--config <path>] [--debug]
-agsekit ssh <vm_name> [--config <path>] [--debug] [<ssh_args...>]
-agsekit shell [<vm_name>] [--config <path>] [--debug]
-```
+## Commands
 
 ## `portforward`
 
-Maintains configured SSH tunnels and periodically reloads the config to adapt when forwarding rules change.
+```bash
+agsekit portforward [--config <path>] [--debug]
+```
+
+Maintains configured SSH tunnels and periodically rereads the config to adapt to forwarding rule changes.
 
 ## `ssh`
 
-Connects to the VM over SSH using the host-side key managed by `agsekit`.
+```shell
+agsekit ssh <vm_name> [--config <path>] [--debug] [<ssh_args...>]
+```
 
-Useful for:
+Connects to the VM over SSH using a host-side key managed by `agsekit`.
+
+Allows passing arbitrary ssh keys, like in the regular ssh command.
+
+Typical uses:
 
 - manual debugging;
 - ad-hoc command execution;
-- extra forwards such as `-L`, `-R`, and `-N`.
+- additional forwards through `-L`, `-R`, and `-N`.
 
 ## `shell`
 
-Opens an interactive `multipass shell` session in the selected VM.
+```
+agsekit shell [<vm_name>] [--config <path>] [--debug]
+```
+
+Opens an interactive `multipass shell` session in the selected VM; essentially works the same way through ssh, but uses Multipass keys and does not allow passing standard ssh arguments.
 
 ## See Also
 
-- [Networking reference](../networking.md)
+- [Networking and proxies](../networking.md)
 - [systemd](systemd.md)

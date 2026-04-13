@@ -1,41 +1,17 @@
 # Troubleshooting
 
-This page collects the most common operational failures.
+This page collects the most typical operational problems.
 
-## `multipass` commands hang or fail
+## Empty Mounted Folders
 
-Check:
+* Folders are mounted
+* But they are empty inside
+* When trying to mount, both agsekit and Multipass say "everything is already mounted"
+* When trying to unmount, an sshfs server error occurs
 
-- whether stale test VMs are still running;
-- whether the Multipass daemon itself is healthy;
-- whether mounted folders are still visible inside the guest.
+`agsekit doctor` can detect and fix such problems.
 
-`agsekit doctor` can detect at least one known stale-mount case.
-
-## Ansible playbook fails in progress mode
-
-Recent `agsekit` versions buffer hidden Ansible output and print the last lines when a playbook fails. Re-run with `--debug` if you need the full play output.
-
-## A mount looks empty inside the VM
-
-This can be a Multipass mount issue rather than a config issue. Check:
-
-- `agsekit status`
-- `multipass info <vm>`
-- `agsekit doctor`
-
-## Agent run fails on networking
-
-Verify:
-
-- `proxychains` and `http_proxy` are not both effective for the same run;
-- the upstream proxy is reachable;
-- SSH port forwards are not conflicting locally.
-
-## macOS host notes
-
-- Multipass installation goes through Homebrew.
-- Linux-only `systemd` integration is skipped.
+Usually, restarting the Multipass daemon is enough.
 
 ## See Also
 

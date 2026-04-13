@@ -1,8 +1,10 @@
 # Getting Started
 
-This page is the shortest practical route to a working `agsekit` setup.
+This is the shortest practical path to a working `agsekit`.
 
-## 1. Install
+(If the short path did not work, or you use Windows, read the [installation](install.md) article.)
+
+## 1. Installation
 
 Create a virtual environment and install the package:
 
@@ -12,11 +14,15 @@ source .venv/bin/activate
 pip install agsekit
 ```
 
-Host-side Multipass installation is handled later by `agsekit prepare` or `agsekit up`.
+You can also install through:
+
+```shell
+curl -fsSL https://agsekit.org/install.sh | sh
+```
 
 ## 2. Create a Config
 
-Recommended:
+Recommended path:
 
 ```bash
 agsekit config-gen
@@ -28,48 +34,50 @@ Alternative:
 agsekit config-example
 ```
 
-Then edit `~/.config/agsekit/config.yaml` or pass a custom path with `--config`.
+After that, edit `~/.config/agsekit/config.yaml` or pass your own path through `--config`.
+
+Detailed [configuration](configuration.md) description.
 
 ## 3. Prepare the Environment
 
-Bring up the full environment:
+Bring up the whole environment with one command:
 
 ```bash
 agsekit up
 ```
 
-This can include:
+What will be done:
 
-- host dependency preparation;
-- VM creation;
-- VM preparation;
-- agent installation;
-- Linux-only systemd setup for `portforward`.
+- host dependency preparation (for Linux this is snapd and multipass);
+- VM creation
+- VM preparation
+- agent installation
+- for Linux, systemd service installation
 
 ## 4. Add a Mount
 
-Add your project directory:
+Add the project directory:
 
 ```bash
 agsekit addmount /path/to/project
 ```
 
-The CLI can choose sensible defaults for VM path, backup path, interval, and cleanup policy.
+The CLI can fill in reasonable defaults for the path in the VM, backup path, interval, and cleanup policy.
 
 ## 5. Run an Agent
 
-Enter the project directory and launch an agent:
+Go to the project directory and run the agent:
 
 ```bash
 cd /path/to/project
 agsekit run qwen
 ```
 
-If backups are enabled and no snapshot exists yet, the first run creates an initial backup before the agent starts.
+If backups are enabled and there are no snapshots yet, the first initial backup will be created before the agent starts.
 
-## 6. Inspect State
+## 6. Check Status
 
-Useful commands after setup:
+Useful commands after startup:
 
 ```bash
 agsekit status
@@ -79,7 +87,7 @@ agsekit ssh agent-ubuntu
 
 ## See Also
 
-- [Configuration reference](configuration.md)
-- [Supported agents](agents.md)
+- [Configuration](configuration.md)
+- [Agents](agents.md)
 - [Networking](networking.md)
-- [Command index](commands/README.md)
+- [All commands](commands/README.md)

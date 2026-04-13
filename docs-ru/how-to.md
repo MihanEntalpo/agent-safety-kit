@@ -15,7 +15,7 @@
 Предположим что у вас есть данные (для примера)
 
 ```
-OPENAPI_BASE_URL=http://127.0.0.1:8080/v1 - адрес вашего vLLM сервера инференса
+OPENAI_BASE_URL=http://127.0.0.1:8080/v1 - адрес вашего vLLM сервера инференса
 OPENAI_API_KEY="my-very-secure-key"
 OPENAI_MODEL="Qwen/Qwen3-Coder-30B-A3B-Instruct-FP8"
 ```
@@ -34,8 +34,8 @@ agents:
     type: qwen
     env:
       OPENAI_API_KEY: "my-very-secure-key"
-      OPENAPI_BASE_URL: "http://127.0.0.1:8080/v1"
-      OPENAPI_MODEL: "Qwen/Qwen3-Coder-30B-A3B-Instruct-FP8"
+      OPENAI_BASE_URL: "http://127.0.0.1:8080/v1"
+      OPENAI_MODEL: "Qwen/Qwen3-Coder-30B-A3B-Instruct-FP8"
 ...
 ```
 
@@ -98,8 +98,36 @@ agsekit run forgecode
 
 Выбираем OpenAI Compatible
 
-Все остальные данные подтянутся из env-переменных
+Все остальные данные подтянутся из env-переменных, а вариант сетки (если у вас их несколько) можно выбрать отдельной командой
 
+### Aider
+
+1. Настраиваем env-переменные и аргументы в конфиге agsekit:
+
+```yaml
+...
+agents:
+...
+  aider:
+    type: aider
+    proxychains: ""
+    env:
+      OPENAI_API_KEY: "my-very-secure-key"
+      OPENAI_API_BASE: "http://127.0.0.1:8080/v1"
+    default-args:
+      - "--model"
+      - "openai/Qwen/Qwen3-Coder-30B-A3B-Instruct"
+      - "--no-gitignore"
+
+```
+
+Обратите внимание, что перед названием вашей сетки в `--model` надо добавить префикс "openai/" - он отвечает за определение "типа провайдера"
+
+2. Запускаем агента
+
+```shell
+agsekit run aider
+```
 
 ### Другие агенты
 
@@ -113,7 +141,7 @@ agsekit run forgecode
 
 ## Запуск codex и claude-code при ограничениях доступа
 
-Допустим у вас отсутствует доступ к API OpenAI и Antropic, что мешает вам пользоваться codex/claude-code.
+Допустим у вас отсутствует доступ к API OpenAI и Anthropic, что мешает вам пользоваться codex/claude-code.
 
 При этом, предположим у вас есть доступ по SSH на некий сервер в интернете/у вас дома, с которого доступ к упомянутым API не ограничен.
 
@@ -151,7 +179,7 @@ vms:
   agents-ubuntu:
     ...
     port-forwarding:
-      remote:
+      - type: remote
         # На этот порт хоста будет пробрасываться соединение 
         host-addr: 127.0.0.1:8087
         # при подключении на этот порт ВМ
@@ -161,10 +189,10 @@ agents:
   codex:
     type: codex-glibc-prebuilt # используем этот тип, так как он поддерживает proxychains
     # Настраиваем proxychains на порт который ведёт на socks5-прокси хоста
-    proxychians: socks5://127.0.0.1:8087
+    proxychains: socks5://127.0.0.1:8087
     
   claude:
-    type: claude-code
+    type: claude
     # Настраиваем http-proxy на запуск временного proxify со случайным портом, и прокидыванием траффика на socks5-прокси хоста
     http_proxy: socks5://127.0.0.1:8087
 ```

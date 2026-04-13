@@ -34,7 +34,7 @@ agsekit create-vm agent-ubuntu
 agsekit create-vm agent-ubuntu --debug
 ```
 
-Аргумент `--debug` выключает очень подробный вывод процесса настройки ВМ
+Аргумент `--debug` включает подробный вывод процесса настройки ВМ
 
 ## См. также
 
