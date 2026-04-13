@@ -184,7 +184,7 @@ More details: [philosophy.md](philosophy.md)
 
 - Linux host: supported
 - macOS host: supported
-- Windows host: not a first-class workflow yet
+- Windows host: currently only through WSL
 
 ## FAQ
 
