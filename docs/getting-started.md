@@ -4,6 +4,15 @@ This is the shortest practical path to a working `agsekit`.
 
 (If the short path did not work, or you use Windows, read the [installation](install.md) article.)
 
+## Contents
+
+- [1. Installation](#1-installation)
+- [2. Create a Config](#2-create-a-config)
+- [3. Prepare the Environment](#3-prepare-the-environment)
+- [4. Add a Mount](#4-add-a-mount)
+- [5. Run an Agent](#5-run-an-agent)
+- [6. Check Status](#6-check-status)
+
 ## 1. Installation
 
 Create a virtual environment and install the package:

@@ -2,6 +2,11 @@
 
 This page collects current limitations.
 
+## Contents
+
+- [Current Limitations](#current-limitations)
+- [Operational Notes](#operational-notes)
+
 ## Current Limitations
 
 - There are problems with mounting folders whose paths contain non-ASCII characters; this is a Multipass issue.

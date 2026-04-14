@@ -1,5 +1,13 @@
 # `doctor`
 
+## Contents
+
+- [Purpose](#purpose)
+- [Command](#command)
+- [Current Scope](#current-scope)
+- [Behavior](#behavior)
+- [Examples](#examples)
+
 ## Purpose
 
 Diagnose known installation and runtime problems and suggest safe fixes.

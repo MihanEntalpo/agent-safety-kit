@@ -1,5 +1,13 @@
 # `create-vm` and `create-vms`
 
+## Contents
+
+- [Purpose](#purpose)
+- [Commands](#commands)
+- [What Happens](#what-happens)
+- [Behavior for an Existing VM](#behavior-for-an-existing-vm)
+- [Examples](#examples)
+
 ## Purpose
 
 Create/configure Multipass VMs from the config and prepare them for agent work.

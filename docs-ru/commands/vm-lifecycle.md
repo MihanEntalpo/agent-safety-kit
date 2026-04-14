@@ -1,5 +1,13 @@
 # Команды жизненного цикла VM
 
+## Содержание
+
+- [`start-vm`](#start-vm)
+- [`stop-vm`](#stop-vm)
+- [`restart-vm`](#restart-vm)
+- [`down`](#down)
+- [`destroy-vm`](#destroy-vm)
+
 ## Команды
 
 ## `start-vm`

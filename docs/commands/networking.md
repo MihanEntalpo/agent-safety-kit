@@ -1,5 +1,11 @@
 # Networking Commands
 
+## Contents
+
+- [`portforward`](#portforward)
+- [`ssh`](#ssh)
+- [`shell`](#shell)
+
 ## Commands
 
 ## `portforward`

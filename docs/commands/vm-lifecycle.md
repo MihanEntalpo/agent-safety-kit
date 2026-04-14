@@ -1,5 +1,13 @@
 # VM Lifecycle Commands
 
+## Contents
+
+- [`start-vm`](#start-vm)
+- [`stop-vm`](#stop-vm)
+- [`restart-vm`](#restart-vm)
+- [`down`](#down)
+- [`destroy-vm`](#destroy-vm)
+
 ## Commands
 
 ## `start-vm`

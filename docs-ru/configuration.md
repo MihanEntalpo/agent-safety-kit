@@ -7,6 +7,11 @@
 1. аргументом командной строки`--config <path>`
 2. переменной окружения `CONFIG_PATH`
 
+## Содержание
+
+- [Полный пример конфиг-файла с комментариями](#полный-пример-конфиг-файла-с-комментариями)
+- [Подробное описание каждого параметра](#подробное-описание-каждого-параметра)
+
 ## Полный пример конфиг-файла с комментариями:
 
 ```yaml
@@ -141,7 +146,7 @@ agents:
 * `global.http_proxy_port_pool` 
   * Диапазон портов, из которых выбирается порт при запуске прокси-сервера
   * Команда `agsekit run <agent>` может запускать прокси-сервер, если это задано в конфигурации или аргументе командной строки, и если у него не задан listen-порт - берётся случайный из диапазона
-  * См. [HTTP_PROXY](networking.md#httpproxy)
+  * См. [HTTP_PROXY](networking.md#http_proxy)
   * По умолчанию `{"start": 48000, "end": 49000}`
 * `vms` 
   * Набор виртуальных машин, виртуальных машин может бысть сколько угодно, но не менее одной
@@ -166,7 +171,7 @@ agents:
   * Поддерживаются схемы `http`, `https`, `socks4`, `socks5`
   * Агент может переопределить это значение через `agents.<agent_name>.proxychains`; пустая строка отключает `proxychains`
 * `vms.<vm_name>.http_proxy`
-  * HTTP proxy для `agsekit run` на уровне ВМ, см. [HTTP_PROXY](networking.md#httpproxy)
+  * HTTP proxy для `agsekit run` на уровне ВМ, см. [HTTP_PROXY](networking.md#http_proxy)
   * Может быть строкой `scheme://host:port`, тогда agsekit поднимет временный `privoxy` внутри ВМ
   * Может быть объектом `{url: http://host:port}`, тогда агенту просто будут переданы `HTTP_PROXY` и `http_proxy`
   * Может быть объектом `{upstream: scheme://host:port, listen: 127.0.0.1:48080}`, тогда `privoxy` будет слушать явно заданный адрес
@@ -287,7 +292,7 @@ agents:
   * Пустая строка отключает `proxychains` для агента
 * `agents.<agent_name>.http_proxy`
   * HTTP proxy для конкретного агента
-  * См. [HTTP_PROXY](networking.md#httpproxy)
+  * См. [HTTP_PROXY](networking.md#http_proxy)
   * Формат такой же, как у `vms.<vm_name>.http_proxy`
   * Перекрывает `vms.<vm_name>.http_proxy`; пустая строка отключает `http_proxy` для агента
 * `agents.<agent_name>.http_proxy.url`

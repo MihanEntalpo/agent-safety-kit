@@ -2,6 +2,14 @@
 
 Backups are a core part of the `agsekit` workflow.
 
+## Contents
+
+- [Model](#model)
+- [Main Commands](#main-commands)
+- [During `agsekit run`](#during-agsekit-run)
+- [Cleanup Policies](#cleanup-policies)
+- [`.backupignore`](#backupignore)
+
 ## Model
 
 - Snapshots are created on the host side.

@@ -49,7 +49,11 @@ Working with an agent through agsekit is not much harder than working with a "ba
 
 Of course, you need to do the initial setup, but it is much simpler than doing everything manually: installing a VM, connecting to it, installing software, and so on.
 
-1. Installation (you need Python 3.9+). Deb/Arch Linux, macOS (with Homebrew), and Windows (through WSL) are supported.
+### 1. Installation
+
+You need Python 3.9+.
+
+Deb/Arch Linux, macOS with Homebrew, and Windows through WSL are supported.
 
 If you are lazy and fearless:
 
@@ -61,7 +65,9 @@ If you want to do everything yourself, or the "lazy" way did not work:
 
 [Detailed installation guide](./docs/install.md)
 
-2. Create a configuration through the interactive setup wizard:
+### 2. Create a Configuration
+
+Through the interactive setup wizard:
 
 ```shell
 agsekit config-gen
@@ -76,7 +82,7 @@ nano ~/.config/agsekit/config.yaml
 
 [Detailed configuration guide](./docs/configuration.md)
 
-3. Initial installation and setup of everything:
+### 3. Initial Setup
 
 ```shell
 agsekit up
@@ -86,7 +92,7 @@ This command installs Multipass, creates a virtual machine, installs agents, and
 
 It may take some time.
 
-4. Add a project folder:
+### 4. Add a Project Folder
 
 ```shell
 agsekit addmount ~/project/my-project
@@ -94,7 +100,7 @@ agsekit addmount ~/project/my-project
 
 An interactive mode will start and ask a number of questions. You can answer them by simply pressing ENTER.
 
-5. Run the agent in the project folder:
+### 5. Run the Agent in the Project Folder
 
 Assume you configured an agent named claude:
 

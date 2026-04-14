@@ -2,6 +2,12 @@
 
 This page collects short practical recipes that are useful in the early stage of use.
 
+## Contents
+
+- [Mounting Folders](#mounting-folders)
+- [Self-Hosted OpenAI-Compatible API](#self-hosted-openai-compatible-api)
+- [Running codex and claude-code with Access Restrictions](#running-codex-and-claude-code-with-access-restrictions)
+
 ## Mounting Folders
 
 * Do not use folders whose names contain non-ASCII characters; this is a Multipass limitation.

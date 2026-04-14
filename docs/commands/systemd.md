@@ -1,5 +1,14 @@
 # `systemd`
 
+## Contents
+
+- [Purpose](#purpose)
+- [Commands](#commands)
+- [Platform Support](#platform-support)
+- [`install`](#install)
+- [`status`](#status)
+- [Relation to `up`](#relation-to-up)
+
 ## Purpose
 
 Manage the Linux-only user service that keeps `agsekit portforward` running in the background.

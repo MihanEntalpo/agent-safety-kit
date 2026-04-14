@@ -1,5 +1,16 @@
 # `run`
 
+## Contents
+
+- [Purpose](#purpose)
+- [Command](#command)
+- [Important Argument Parsing Rule](#important-argument-parsing-rule)
+- [Workdir Rules](#workdir-rules)
+- [Mount Checks](#mount-checks)
+- [Runtime Helpers](#runtime-helpers)
+- [Restrictions](#restrictions)
+- [Examples](#examples)
+
 ## Purpose
 
 Launch an agent inside the target VM, keeping the project on the host in mounted form and making parallel backups.

@@ -1,5 +1,13 @@
 # `up`
 
+## Contents
+
+- [Purpose](#purpose)
+- [Command](#command)
+- [What It Does](#what-it-does)
+- [Notes](#notes)
+- [Examples](#examples)
+
 ## Purpose
 
 Run the main bootstrap flow without interactive questions.

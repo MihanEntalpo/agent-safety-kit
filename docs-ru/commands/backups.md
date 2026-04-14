@@ -6,6 +6,15 @@
 
 Все команды бэкапов принимают во внимание файлы `.backupignore` которые аналогичны файлам `.gitignore` по структуре, и указывают, что именно не надо копировать
 
+## Содержание
+
+- [`backup-once`](#backup-once)
+- [`backup-repeated`](#backup-repeated)
+- [`backup-repeated-mount`](#backup-repeated-mount)
+- [`backup-repeated-all`](#backup-repeated-all)
+- [`backup-clean`](#backup-clean)
+- [Во время `agsekit run`](#во-время-agsekit-run)
+
 ## Команды
 
 Команды с аргументом `--config` ищут mount в YAML-конфиге и берут оттуда часть параметров: `mounts[].source`, `mounts[].backup`, `mounts[].interval`, `mounts[].max_backups`, `mounts[].backup_clean_method`.

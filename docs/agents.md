@@ -4,6 +4,14 @@
 
 Agents are essentially binaries from various vendors, such as claude-code, codex, or cline.
 
+## Contents
+
+- [Supported Types](#supported-types)
+- [Installation Model](#installation-model)
+- [Runtime Model](#runtime-model)
+- [OpenAI-Compatible API and Other Settings](#openai-compatible-api-and-other-settings)
+- [Notes](#notes)
+
 ## Supported Types
 
 - `aider` - [aider](https://aider.chat/)

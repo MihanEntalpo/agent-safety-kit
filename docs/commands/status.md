@@ -1,5 +1,12 @@
 # `status`
 
+## Contents
+
+- [Purpose](#purpose)
+- [Command](#command)
+- [What It Shows](#what-it-shows)
+- [Example](#example)
+
 ## Purpose
 
 Show a summary operational report for the configured environment.

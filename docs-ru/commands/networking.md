@@ -1,5 +1,11 @@
 # Сетевые команды
 
+## Содержание
+
+- [`portforward`](#portforward)
+- [`ssh`](#ssh)
+- [`shell`](#shell)
+
 ## Команды
 
 ## `portforward`

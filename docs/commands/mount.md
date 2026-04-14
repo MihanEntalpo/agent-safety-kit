@@ -1,5 +1,12 @@
 # Mount Commands
 
+## Contents
+
+- [`mount`](#mount)
+- [`umount`](#umount)
+- [`addmount`](#addmount)
+- [`removemount`](#removemount)
+
 ## Commands
 
 ```bash

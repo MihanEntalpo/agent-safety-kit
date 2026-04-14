@@ -6,6 +6,15 @@ Nevertheless, backups can be launched "manually" with the available commands if 
 
 All backup commands take `.backupignore` files into account. They are structurally similar to `.gitignore` files and specify what should not be copied.
 
+## Contents
+
+- [`backup-once`](#backup-once)
+- [`backup-repeated`](#backup-repeated)
+- [`backup-repeated-mount`](#backup-repeated-mount)
+- [`backup-repeated-all`](#backup-repeated-all)
+- [`backup-clean`](#backup-clean)
+- [During `agsekit run`](#during-agsekit-run)
+
 ## Commands
 
 Commands with the `--config` argument search for a mount in the YAML config and take part of the parameters from it: `mounts[].source`, `mounts[].backup`, `mounts[].interval`, `mounts[].max_backups`, `mounts[].backup_clean_method`.

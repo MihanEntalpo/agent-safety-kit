@@ -1,14 +1,20 @@
 # Установка
 
-### Linux
+## Содержание
 
-#### Требования:
+- [Linux](#linux)
+- [MacOS](#macos)
+- [Windows WSL](#windows-wsl)
+
+## Linux
+
+### Требования:
 
 * Поддерживаются Deb-based и Arch-based дистрибутивы
 * В репозитории должен быть snapd, через него ставится multipass.
 * Если у вас неподдерживаемый дистрибутив, или нет snapd - просто установите в системе multipass доступным вам способом вручную, этого достаточно для работы.
 
-#### Установка:
+### Установка:
 
 * Установите python3.9 любым удобным вам способом
 * Если у вас не Deb/Arch-based дистрибутив, и/или нет snapd, установите multipass вручную
@@ -51,15 +57,15 @@ for FILE in "$HOME/.bashrc" "$HOME/.profile" "$HOME/.zshrc" "$HOME/.zprofile"; d
 done
 ```
 
-### MacOS
+## MacOS
 
-#### Требования:
+### Требования:
 
 * Поддерживается MacOs 13+, необходим HomeBrew
 * Если у вас более старая ОС, нужно вручную поставить более старый mutlipass (Версия 1.14.1 работает на более старых MacOs)
 * Если у вас нет HomeBrew, но вы можете как-то иначе установить multipass, этого достаточно для работы
 
-#### Установка:
+### Установка:
 
 * Установите HomeBrew, если не можете, установите любым удобным способом multipass
 * Если у вас старая система (<13), установите старый multipass (1.14.1)
@@ -103,14 +109,14 @@ for FILE in "$HOME/.bashrc" "$HOME/.profile" "$HOME/.zshrc" "$HOME/.zprofile"; d
 done
 ```
 
-### Windows WSL
+## Windows WSL
 
-#### Требования
+### Требования
 
 * Пока только через WSL (Полноценная поддержка Windows планируется в будущем)
 * mutlipass нужно установить в основной системе (внутри WSL он работать не будет)
 
-#### Установка
+### Установка
 
 * Установите обычную Windows-версию multipass https://canonical.com/multipass/download/windows
 * Если у вас Windows Home, то также установите VirtualBox https://www.virtualbox.org/wiki/Downloads 
@@ -120,7 +126,7 @@ done
 
 **1) Автоматически:**
 
-Скрипт по ссылке создаёт venv, ставит agsekit, добавляет его в PATH
+Скрипт по ссылке создаёт venv, ставит agsekit, добавляет его в PATH, а также создаёт `~/.local/bin/multipass` как symlink на установленный в Windows `multipass.exe`
 
 ```shell
 curl -fsSL https://agsekit.org/install.sh | sh 
@@ -143,6 +149,12 @@ mkdir -p "$HOME/.local/bin" && \
 ln -s "$INSTALL_ROOT/venv/bin/agsekit" "$HOME/.local/bin"
 ```
 
+Создаём symlink на Windows Multipass:
+
+```shell
+ln -s "/mnt/c/Program Files/Multipass/bin/multipass.exe" "$HOME/.local/bin/multipass"
+```
+
 Добавляем папку ~/.local/bin в PATH:
 (добавляет только в те файлы, что существуют, и где ещё нет такой строки)
 
@@ -155,4 +167,3 @@ for FILE in "$HOME/.bashrc" "$HOME/.profile" "$HOME/.zshrc" "$HOME/.zprofile"; d
     fi
 done
 ```
-

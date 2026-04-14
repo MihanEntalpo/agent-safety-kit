@@ -1,5 +1,13 @@
 # `install-agents`
 
+## Contents
+
+- [Purpose](#purpose)
+- [Commands](#commands)
+- [Target Selection Rules](#target-selection-rules)
+- [Proxychains Override](#proxychains-override)
+- [Examples](#examples)
+
 ## Purpose
 
 Install one or more configured agent runtimes into one or more VMs.

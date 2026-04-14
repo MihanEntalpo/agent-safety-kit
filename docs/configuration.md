@@ -7,6 +7,11 @@ Also, in any `agsekit` command you can override the path to the config file when
 1. with the command-line argument `--config <path>`
 2. with the `CONFIG_PATH` environment variable
 
+## Contents
+
+- [Full Example Config File with Comments](#full-example-config-file-with-comments)
+- [Detailed Description of Each Parameter](#detailed-description-of-each-parameter)
+
 ## Full Example Config File with Comments:
 
 ```yaml
@@ -141,7 +146,7 @@ agents:
 * `global.http_proxy_port_pool`
   * Port range from which a port is selected when launching a proxy server
   * The `agsekit run <agent>` command can launch a proxy server if this is set in the configuration or command-line argument, and if it has no listen port, a random one is taken from the range
-  * See [HTTP_PROXY](networking.md#httpproxy)
+  * See [HTTP_PROXY](networking.md#http_proxy)
   * Default: `{"start": 48000, "end": 49000}`
 * `vms`
   * Set of virtual machines; there can be any number of virtual machines, but at least one
@@ -166,7 +171,7 @@ agents:
   * Supported schemes are `http`, `https`, `socks4`, `socks5`
   * An agent can override this value through `agents.<agent_name>.proxychains`; an empty string disables `proxychains`
 * `vms.<vm_name>.http_proxy`
-  * HTTP proxy for `agsekit run` at VM level, see [HTTP_PROXY](networking.md#httpproxy)
+  * HTTP proxy for `agsekit run` at VM level, see [HTTP_PROXY](networking.md#http_proxy)
   * Can be a string `scheme://host:port`, then agsekit will start a temporary `privoxy` inside the VM
   * Can be an object `{url: http://host:port}`, then the agent will simply receive `HTTP_PROXY` and `http_proxy`
   * Can be an object `{upstream: scheme://host:port, listen: 127.0.0.1:48080}`, then `privoxy` will listen on the explicitly specified address
@@ -287,7 +292,7 @@ agents:
   * Empty string disables `proxychains` for the agent
 * `agents.<agent_name>.http_proxy`
   * HTTP proxy for a specific agent
-  * See [HTTP_PROXY](networking.md#httpproxy)
+  * See [HTTP_PROXY](networking.md#http_proxy)
   * Format is the same as `vms.<vm_name>.http_proxy`
   * Overrides `vms.<vm_name>.http_proxy`; empty string disables `http_proxy` for the agent
 * `agents.<agent_name>.http_proxy.url`

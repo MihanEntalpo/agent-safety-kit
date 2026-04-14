@@ -1,5 +1,12 @@
 # Команды монтирования
 
+## Содержание
+
+- [`mount`](#mount)
+- [`umount`](#umount)
+- [`addmount`](#addmount)
+- [`removemount`](#removemount)
+
 ## Команды
 
 ```bash

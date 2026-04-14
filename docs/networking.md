@@ -6,6 +6,13 @@
 - `http_proxy` - the ability to run agents with a preliminary HTTP proxy launch and HTTP_PROXY environment variables set
 - `portforward` - port forwarding into and out of the VM through SSH tunnels
 
+## Contents
+
+- [Proxychains](#proxychains)
+- [HTTP_PROXY](#http_proxy)
+- [Port Forwarding](#port-forwarding)
+- [Typical Scenarios](#typical-scenarios)
+
 ## Proxychains
 
 If you have a restricted network and a socks5/http/https proxy server that allows connecting to the agent, you can call both the agent installer and the agent itself through proxychains4.
