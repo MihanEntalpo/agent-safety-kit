@@ -129,29 +129,9 @@ add_path_line() {
     PATH_FILES_CHANGED=1
 }
 
-add_multipass_alias_line() {
-    RC_FILE=$1
-    RC_DIR=${RC_FILE%/*}
-
-    mkdir -p "$RC_DIR"
-
-    if [ -f "$RC_FILE" ] && grep -F -x "$MULTIPASS_ALIAS_LINE" "$RC_FILE" >/dev/null 2>&1; then
-        return 0
-    fi
-
-    printf '\n%s\n' "$MULTIPASS_ALIAS_LINE" >> "$RC_FILE"
-    MULTIPASS_ALIAS_FILES_CHANGED=1
-}
-
 add_path_line_to_files() {
     for RC_TARGET in "$@"; do
         add_path_line "$RC_TARGET"
-    done
-}
-
-add_multipass_alias_line_to_files() {
-    for RC_TARGET in "$@"; do
-        add_multipass_alias_line "$RC_TARGET"
     done
 }
 
@@ -186,29 +166,53 @@ configure_path() {
     esac
 }
 
-configure_wsl_multipass_alias() {
-    MULTIPASS_ALIAS_FILES_CHANGED=0
+find_wsl_multipass_exe() {
+    WSL_MULTIPASS_EXE=""
+
+    if FOUND_MULTIPASS_EXE=$(command -v multipass.exe 2>/dev/null); then
+        if [ -n "$FOUND_MULTIPASS_EXE" ]; then
+            WSL_MULTIPASS_EXE=$FOUND_MULTIPASS_EXE
+            return 0
+        fi
+    fi
+
+    DEFAULT_MULTIPASS_EXE="/mnt/c/Program Files/Multipass/bin/multipass.exe"
+    if [ -f "$DEFAULT_MULTIPASS_EXE" ]; then
+        WSL_MULTIPASS_EXE=$DEFAULT_MULTIPASS_EXE
+        return 0
+    fi
+
+    return 1
+}
+
+create_or_update_wsl_multipass_symlink() {
+    MULTIPASS_SYMLINK_CHANGED=0
 
     if [ "$PLATFORM" != wsl ]; then
         return 0
     fi
 
-    SHELL_NAME=unknown
-    if [ -n "${SHELL:-}" ]; then
-        SHELL_NAME=${SHELL##*/}
+    if ! find_wsl_multipass_exe; then
+        die "Windows Multipass executable was not found. Install Multipass for Windows first, then rerun this installer."
     fi
 
-    case "$SHELL_NAME" in
-        zsh)
-            add_multipass_alias_line_to_files "$HOME/.zshrc"
-            ;;
-        bash)
-            add_multipass_alias_line_to_files "$HOME/.bashrc"
-            ;;
-        *)
-            add_multipass_alias_line_to_files "$HOME/.profile"
-            ;;
-    esac
+    mkdir -p "$BIN_DIR"
+
+    if [ -e "$MULTIPASS_SYMLINK_PATH" ] || [ -L "$MULTIPASS_SYMLINK_PATH" ]; then
+        if [ ! -L "$MULTIPASS_SYMLINK_PATH" ]; then
+            die "Refusing to replace non-symlink path: $MULTIPASS_SYMLINK_PATH"
+        fi
+
+        CURRENT_MULTIPASS_TARGET=$(readlink "$MULTIPASS_SYMLINK_PATH" 2>/dev/null || printf '')
+        if [ "$CURRENT_MULTIPASS_TARGET" = "$WSL_MULTIPASS_EXE" ]; then
+            return 0
+        fi
+
+        rm -f "$MULTIPASS_SYMLINK_PATH"
+    fi
+
+    ln -s "$WSL_MULTIPASS_EXE" "$MULTIPASS_SYMLINK_PATH"
+    MULTIPASS_SYMLINK_CHANGED=1
 }
 
 print_summary() {
@@ -231,13 +235,12 @@ print_summary() {
 
     if [ "$PLATFORM" = wsl ]; then
         info ""
-        if [ "$MULTIPASS_ALIAS_FILES_CHANGED" -eq 1 ]; then
-            info "WSL Multipass alias was added to shell startup files."
+        if [ "$MULTIPASS_SYMLINK_CHANGED" -eq 1 ]; then
+            info "WSL Multipass symlink was created."
         else
-            info "WSL Multipass alias is already configured in shell startup files."
+            info "WSL Multipass symlink is already configured."
         fi
-        info "For the current shell session, run:"
-        info "$MULTIPASS_ALIAS_LINE"
+        info "Multipass symlink: $MULTIPASS_SYMLINK_PATH -> $WSL_MULTIPASS_EXE"
     fi
 }
 
@@ -250,9 +253,9 @@ main() {
     VENV_PATH="$INSTALL_ROOT/venv"
     BIN_DIR="$HOME/.local/bin"
     SYMLINK_PATH="$BIN_DIR/agsekit"
+    MULTIPASS_SYMLINK_PATH="$BIN_DIR/multipass"
     AGSEKIT_BIN="$VENV_PATH/bin/agsekit"
     PATH_LINE='export PATH="$HOME/.local/bin:$PATH"'
-    MULTIPASS_ALIAS_LINE="alias multipass='/mnt/c/Program\\ Files/Multipass/bin/multipass.exe'"
     AGSEKIT_PACKAGE=${AGSEKIT_PACKAGE:-agsekit}
 
     info "Installing agsekit..."
@@ -263,7 +266,7 @@ main() {
     install_package
     create_or_update_symlink
     configure_path
-    configure_wsl_multipass_alias
+    create_or_update_wsl_multipass_symlink
     print_summary
 }
 

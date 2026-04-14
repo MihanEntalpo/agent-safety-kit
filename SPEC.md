@@ -298,16 +298,20 @@
 
 Что делает:
 1. Проверяет наличие `multipass`.
-2. Если `multipass` отсутствует:
-   - на Debian-based (`apt-get`) ставит системные зависимости и Multipass через `snap`;
+2. Если `multipass` уже доступен в `PATH`, установку Multipass, `snapd` и связанных host-пакетов не выполняет.
+3. Если `multipass` отсутствует:
+   - внутри WSL не пытается ставить ни `snapd`, ни Multipass, а завершает команду понятной ошибкой с требованием установить Multipass на Windows и сделать команду `multipass` доступной в WSL;
+   - на Debian-based (`apt-get`) проверяет host-пакеты (`snapd`, `qemu-kvm`, `libvirt-daemon-system`, `libvirt-clients`, `bridge-utils`) и ставит только отсутствующие, после чего ставит Multipass через `snap`;
    - на Arch Linux (`pacman`) ставит Multipass через AUR helper (`yay` или `aura`) вместе с `libvirt`, `dnsmasq`, `qemu-base`;
    - на macOS (`Darwin` + `brew`) ставит Multipass через `brew install multipass`;
    - если `prepare`/`up` запущен с Rich progress и установка Multipass требует интерактивный ввод (`sudo` внутри Homebrew installer), progress временно приостанавливается, чтобы prompt и ввод пароля работали в обычном терминальном режиме;
    - если нет ни `apt-get`, ни `pacman`, ни поддерживаемого `brew` на macOS, завершает `prepare` ошибкой о неподдерживаемом host package manager.
-3. Использует встроенные ansible plugins проекта для работы с Multipass VM; внешний `ansible-galaxy collection install ...` не требуется.
-4. Встроенный `agsekit_multipass` connection plugin stage'ит локальные файлы через не-hidden staging-каталог в `HOME` перед `multipass transfer`, чтобы Ansible-копирование модулей не ломалось на hidden-путях вроде `~/.ansible/tmp` и не зависело от особенностей snap-based Multipass вокруг `/tmp`.
-5. Создаёт SSH-ключи хоста в `~/.config/agsekit/ssh/` (используются для `ssh`/подготовки VM).
-6. Поддерживает `--debug`: включает подробный вывод внешних команд подготовки.
+4. Проверяет наличие `ssh-keygen`; на поддерживаемом Linux ставит только отсутствующий OpenSSH client package (`openssh-client` на Debian-based, `openssh` на Arch Linux), если `ssh-keygen` не найден.
+5. Проверяет наличие `rsync`; если он не найден, ставит `rsync` через пакетный менеджер на поддерживаемом Linux или через `brew install rsync` на macOS.
+6. Использует встроенные ansible plugins проекта для работы с Multipass VM; внешний `ansible-galaxy collection install ...` не требуется.
+7. Встроенный `agsekit_multipass` connection plugin stage'ит локальные файлы через не-hidden staging-каталог в `HOME` перед `multipass transfer`, чтобы Ansible-копирование модулей не ломалось на hidden-путях вроде `~/.ansible/tmp` и не зависело от особенностей snap-based Multipass вокруг `/tmp`.
+8. Создаёт SSH-ключи хоста в `~/.config/agsekit/ssh/` (используются для `ssh`/подготовки VM).
+9. Поддерживает `--debug`: включает подробный вывод внешних команд подготовки.
 
 #### `agsekit up [--config <path>] [--debug] [--prepare/--no-prepare] [--create-vms/--no-create-vms] [--install-agents/--no-install-agents]`
 Зачем пользователю:
@@ -824,7 +828,7 @@ Dependency resolution выполняется кодом до запуска play
 ## 12. Побочные эффекты на диске
 
 На хосте:
-- installer `scripts/install.sh` создаёт per-user venv в `~/.local/share/agsekit/venv`, symlink `~/.local/bin/agsekit`, а при необходимости добавляет `export PATH="$HOME/.local/bin:$PATH"` в shell startup files; на WSL он также идемпотентно добавляет alias `multipass` на Windows-бинарник Multipass в startup-файл текущего shell (`.bashrc`, `.zshrc` или fallback `.profile`);
+- installer `scripts/install.sh` создаёт per-user venv в `~/.local/share/agsekit/venv`, symlink `~/.local/bin/agsekit`, а при необходимости добавляет `export PATH="$HOME/.local/bin:$PATH"` в shell startup files; на WSL он также идемпотентно создаёт symlink `~/.local/bin/multipass` на Windows-бинарник Multipass;
 - `~/.config/agsekit/config.yaml`
 - SSH keypair в каталоге из `global.ssh_keys_folder` (по умолчанию `~/.config/agsekit/ssh/id_rsa` и `id_rsa.pub`)
 - `systemd.env` в каталоге из `global.systemd_env_folder` (по умолчанию `~/.config/agsekit/systemd.env`)

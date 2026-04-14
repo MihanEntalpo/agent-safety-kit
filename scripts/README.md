@@ -15,3 +15,4 @@
 * Создаёт venv
 * Устанавливает в него agsekit
 * Добавляет agsekit в PATH для запуска откуда угодно
+* В WSL создаёт `~/.local/bin/multipass` как symlink на установленный в Windows `multipass.exe`

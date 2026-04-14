@@ -60,13 +60,15 @@ def test_prepare_command_installs_dependencies_and_keys(monkeypatch):
     calls: list[str] = []
 
     monkeypatch.setattr(prepare_module, "_install_multipass", lambda **kwargs: calls.append("install"))
+    monkeypatch.setattr(prepare_module, "_ensure_ssh_keygen", lambda **kwargs: calls.append("ssh-keygen"))
+    monkeypatch.setattr(prepare_module, "_ensure_rsync", lambda **kwargs: calls.append("rsync"))
     monkeypatch.setattr(prepare_module, "ensure_host_ssh_keypair", lambda *args, **kwargs: calls.append("keys"))
 
     runner = CliRunner()
     result = runner.invoke(prepare_command, [])
 
     assert result.exit_code == 0
-    assert calls == ["install", "keys"]
+    assert calls == ["install", "ssh-keygen", "rsync", "keys"]
 
 
 def test_run_prepare_uses_ssh_keys_folder_from_main_config(monkeypatch, tmp_path):
@@ -78,7 +80,7 @@ def test_run_prepare_uses_ssh_keys_folder_from_main_config(monkeypatch, tmp_path
     )
     captured = {}
 
-    monkeypatch.setattr(prepare_module, "_install_multipass", lambda **kwargs: None)
+    monkeypatch.setattr(prepare_module, "_prepare_host_dependencies", lambda **kwargs: None)
     monkeypatch.setattr(
         prepare_module,
         "ensure_host_ssh_keypair",
@@ -94,7 +96,11 @@ def test_run_prepare_uses_ssh_keys_folder_from_main_config(monkeypatch, tmp_path
 def test_run_prepare_suppresses_multipass_echo_when_progress_enabled(monkeypatch, capsys):
     calls: list[bool] = []
 
-    monkeypatch.setattr(prepare_module.shutil, "which", lambda binary: "/usr/bin/multipass" if binary == "multipass" else None)
+    monkeypatch.setattr(
+        prepare_module.shutil,
+        "which",
+        lambda binary: "/usr/bin/{0}".format(binary) if binary in {"multipass", "ssh-keygen", "rsync"} else None,
+    )
     monkeypatch.setattr(prepare_module, "ensure_host_ssh_keypair", lambda *args, **kwargs: None)
 
     class DummyProgress:
@@ -150,11 +156,13 @@ def test_run_prepare_suspends_progress_during_multipass_install(monkeypatch):
             return DummySuspend()
 
     monkeypatch.setattr(prepare_module, "_install_multipass", lambda **kwargs: calls.append(f"install:{kwargs['quiet']}"))
+    monkeypatch.setattr(prepare_module, "_ensure_ssh_keygen", lambda **kwargs: calls.append(f"ssh-keygen:{kwargs['quiet']}"))
+    monkeypatch.setattr(prepare_module, "_ensure_rsync", lambda **kwargs: calls.append(f"rsync:{kwargs['quiet']}"))
     monkeypatch.setattr(prepare_module, "ensure_host_ssh_keypair", lambda *args, **kwargs: None)
 
     prepare_module.run_prepare(debug=False, progress=DummyProgress())
 
-    assert calls == ["suspend", "enter", "install:True", "exit"]
+    assert calls == ["suspend", "enter", "install:True", "ssh-keygen:True", "rsync:True", "exit"]
 
 
 def test_install_multipass_prefers_arch_over_debian(monkeypatch):
@@ -197,6 +205,43 @@ def test_install_multipass_uses_debian_when_pacman_absent(monkeypatch):
     prepare_module._install_multipass()
 
     assert calls == ["debian"]
+
+
+def test_install_multipass_does_not_try_to_install_inside_wsl(monkeypatch):
+    monkeypatch.setattr(prepare_module.shutil, "which", lambda _binary: None)
+    monkeypatch.setattr(prepare_module, "_is_wsl", lambda: True)
+    monkeypatch.setattr(
+        prepare_module,
+        "_install_multipass_debian",
+        lambda **_kwargs: pytest.fail("Debian installer must not run in WSL"),
+    )
+    monkeypatch.setattr(
+        prepare_module,
+        "_install_multipass_arch",
+        lambda **_kwargs: pytest.fail("Arch installer must not run in WSL"),
+    )
+    monkeypatch.setattr(
+        prepare_module,
+        "_install_multipass_brew",
+        lambda **_kwargs: pytest.fail("Homebrew installer must not run in WSL"),
+    )
+
+    with pytest.raises(prepare_module.click.ClickException) as exc_info:
+        prepare_module._install_multipass()
+
+    assert "WSL detected" in str(exc_info.value)
+
+
+def test_install_multipass_skips_installation_when_available_in_wsl(monkeypatch):
+    calls: list[str] = []
+
+    monkeypatch.setattr(prepare_module.shutil, "which", lambda binary: "/usr/local/bin/multipass" if binary == "multipass" else None)
+    monkeypatch.setattr(prepare_module, "_is_wsl", lambda: True)
+    monkeypatch.setattr(prepare_module, "_install_multipass_debian", lambda **_kwargs: calls.append("debian"))
+
+    prepare_module._install_multipass()
+
+    assert calls == []
 
 
 def test_install_multipass_uses_homebrew_on_macos(monkeypatch):
@@ -245,6 +290,116 @@ def test_install_multipass_brew_uses_brew_install(monkeypatch):
     prepare_module._install_multipass_brew()
 
     assert commands == [["brew", "install", "multipass"]]
+
+
+def test_ensure_rsync_installs_via_homebrew_on_macos(monkeypatch):
+    commands: list[list[str]] = []
+    installed = False
+
+    def fake_which(binary: str):
+        if binary == "rsync":
+            return "/opt/homebrew/bin/rsync" if installed else None
+        if binary == "brew":
+            return "/opt/homebrew/bin/brew"
+        return None
+
+    def fake_run(command, check):
+        nonlocal installed
+        commands.append(command)
+        assert check is True
+        installed = True
+
+    monkeypatch.setattr(prepare_module.platform, "system", lambda: "Darwin")
+    monkeypatch.setattr(prepare_module.shutil, "which", fake_which)
+    monkeypatch.setattr(prepare_module.subprocess, "run", fake_run)
+
+    prepare_module._ensure_rsync()
+
+    assert commands == [["brew", "install", "rsync"]]
+
+
+def test_ensure_rsync_skips_homebrew_when_available_on_macos(monkeypatch):
+    commands: list[list[str]] = []
+
+    def fake_which(binary: str):
+        if binary == "rsync":
+            return "/usr/bin/rsync"
+        if binary == "brew":
+            return "/opt/homebrew/bin/brew"
+        return None
+
+    monkeypatch.setattr(prepare_module.platform, "system", lambda: "Darwin")
+    monkeypatch.setattr(prepare_module.shutil, "which", fake_which)
+    monkeypatch.setattr(prepare_module.subprocess, "run", lambda command, check: commands.append(command))
+
+    prepare_module._ensure_rsync()
+
+    assert commands == []
+
+
+def test_ensure_rsync_installs_linux_package_when_missing(monkeypatch):
+    calls: list[list[str]] = []
+    installed = False
+
+    def fake_which(binary: str):
+        if binary == "rsync":
+            return "/usr/bin/rsync" if installed else None
+        if binary == "apt-get":
+            return "/usr/bin/apt-get"
+        return None
+
+    def fake_install(packages, **_kwargs):
+        nonlocal installed
+        calls.append(packages)
+        installed = True
+
+    monkeypatch.setattr(prepare_module.platform, "system", lambda: "Linux")
+    monkeypatch.setattr(prepare_module.shutil, "which", fake_which)
+    monkeypatch.setattr(prepare_module, "_install_debian_packages_if_missing", fake_install)
+
+    prepare_module._ensure_rsync()
+
+    assert calls == [["rsync"]]
+
+
+def test_install_multipass_debian_installs_only_missing_host_packages(monkeypatch):
+    commands: list[list[str]] = []
+
+    monkeypatch.setattr(prepare_module, "_debian_package_installed", lambda package: package != "snapd")
+    monkeypatch.setattr(prepare_module.shutil, "which", lambda binary: "/usr/bin/snap" if binary == "snap" else None)
+
+    def fake_run(command, check, env=None):
+        del env
+        commands.append(command)
+        assert check is True
+
+    monkeypatch.setattr(prepare_module.subprocess, "run", fake_run)
+
+    prepare_module._install_multipass_debian()
+
+    assert commands == [
+        ["sudo", "apt-get", "update"],
+        ["sudo", "apt-get", "install", "-y", "snapd"],
+        ["sudo", "snap", "install", "multipass", "--classic"],
+    ]
+
+
+def test_install_multipass_debian_skips_package_install_when_packages_exist(monkeypatch):
+    commands: list[list[str]] = []
+
+    monkeypatch.setattr(prepare_module, "_debian_package_installed", lambda _package: True)
+    monkeypatch.setattr(prepare_module.shutil, "which", lambda binary: "/usr/bin/snap" if binary == "snap" else None)
+
+    def fake_run(command, check, env=None):
+        del env
+        commands.append(command)
+        assert check is True
+
+    monkeypatch.setattr(prepare_module.subprocess, "run", fake_run)
+
+    prepare_module._install_multipass_debian()
+
+    assert commands == [["sudo", "snap", "install", "multipass", "--classic"]]
 
 
 def test_package_data_includes_http_proxy_runner_script():
