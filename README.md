@@ -1,340 +1,222 @@
-[README.md на русском](README-ru.md)
-[Project Philosophy](philosophy.md) | [Философия проекта](philosophy-ru.md)
-
 # Agent Safety Kit
 
-A toolkit for running AI agents in an isolated environment inside a Multipass virtual machine.
+Want to run Claude Code, Codex, and other AI agents for development, but do not want them to delete your project, break your system, or hand your secrets to third parties?
 
-## Why this matters
+This project gives you a convenient toolkit for running AI agents in a virtual machine almost the same way as "normally".
 
-<img width="437" height="379" alt="image" src="https://github.com/user-attachments/assets/c3486072-e96a-4197-8b1f-d6ac228c2cc6" />
+[Documentation index](docs/README.md) | [Русская документация](docs-ru/README.md) | [Project philosophy](philosophy.md)
 
-Some stories (you can find plenty more):
+## Why?
 
-* [Qwen Coder agent destroys working builds](https://github.com/QwenLM/qwen-code/issues/354)
-* [Codex keeps deleting unrelated and uncommitted files! even ignoring rejected requests](https://github.com/openai/codex/issues/4969)
-* [comment: qwen-code CLI destroyed my entire project, deleted important files](https://www.reddit.com/r/DeepSeek/comments/1mmfjsl/right_now_qwen_is_the_best_model_they_have_the/)
-* [Claude Code deleted my entire workspace, here's the proof](https://www.reddit.com/r/ClaudeAI/comments/1m299f5/claude_code_deleted_my_entire_workspace_heres_the/)
-* [Claude CLI deleted my entire home directory! Wiped my whole mac.](https://www.reddit.com/r/ClaudeAI/comments/1pgxckk/claude_cli_deleted_my_entire_home_directory_wiped/)
-* [I Asked Claude Code to Fix All Bugs, and It Deleted the Whole Repo](https://levelup.gitconnected.com/i-asked-claude-code-to-fix-all-bugs-and-it-deleted-the-whole-repo-e7f24f5390c5)
-* [Codex has twice deleted and corrupted my files (r/ClaudeAI comment)](https://www.reddit.com/r/ClaudeAI/comments/1nhvyu0/openai_drops_gpt5_codex_cli_right_after/)
+The way autonomous AI agents work feels like magic. But then an agent goes "whoosh" and, as if by magic, the project disappears, the local environment is damaged, the database is wiped, private keys are compromised, and in general everything the agent can reach is at risk.
 
-Everyone says "you should have backups" and "everything must live in git", but console AI agents still lack built-in snapshots to roll back after every change they make. Until sandboxes catch up, this toolkit helps you manage that yourself.
+On the websites of both giant corporations and small teams building their own AI agents, installation often looks like `curl | bash`, `npm i -g ...`, and then `<agent_name>`.
 
-## Key ideas
+In practice, this is a two-command way to allow arbitrary code execution on your working machine, while trusting security to people who, if something happens, will not be responsible for the consequences.
 
-- Agents run only inside a virtual machine.
-- The VM is launched via Multipass (a simple Canonical tool to start Ubuntu VMs with a single command).
-- Project folders from the host are mounted into the VM; an automatic backup job runs in parallel to a sibling directory at a configurable interval (defaults to every five minutes and only when changes are detected), using `rsync` with hardlinks to save space.
-- VM, mount, and cloud-init settings are stored in a YAML config.
-- You can run the agent without entering the guest via `multipass shell`—it still executes inside the VM.
-- Multipass commands and agent runs can be wrapped in proxychains: set a proxy URL per VM or override it once with `--proxychains` to generate a temporary proxychains config automatically.
+A few stories for illustration:
 
-## Working agents
+- [Research: AI agents can swallow a prompt injection and start carrying out someone else's will on your PC](https://arxiv.org/abs/2507.20526)
+- [Claude Code bypasses its own protections and escapes the sandbox](https://ona.com/stories/how-claude-code-escapes-its-own-denylist-and-sandbox)
+- [Qwen Coder breaks working builds](https://github.com/QwenLM/qwen-code/issues/354)
+- [Codex keeps deleting files that are not added to git and are unrelated to the task](https://github.com/openai/codex/issues/4969)
+- [Claude Code deleted my entire working environment](https://www.reddit.com/r/ClaudeAI/comments/1m299f5/claude_code_deleted_my_entire_workspace_heres_the/)
+- [I asked Claude Code to fix all bugs, and it just deleted my project](https://levelup.gitconnected.com/i-asked-claude-code-to-fix-all-bugs-and-it-deleted-the-whole-repo-e7f24f5390c5)
+- [Claude Code deleted 25,000 documents from a third-party project while I was distracted](https://www.reddit.com/r/ClaudeAI/comments/1rshuz9/an_ai_agent_deleted_25000_documents_from_the/)
 
-Currently confirmed working agent types are:
+Other stories can be found in unlimited quantities on Google with the query: [coding agent deleted|removed|compromised|destroyed](https://www.google.com/search?q=coding+agent+deleted%7Cremoved%7Ccompromised%7Cdestroyed)
 
-- aider
-- qwen
-- forgecode
-- codex
-- opencode
-- claude
-- cline
-- codex-glibc (built from source)
-- codex-glibc-prebuilt (prebuilt glibc binary)
+Everywhere people write: "just make backups", "just use git".
 
-`codex-glibc` and `codex-glibc-prebuilt` can be used with proxychains and a SOCKS proxy when your network is restricted.
+But that is not enough:
 
-`codex-glibc` is built locally inside the VM from source, and that can take a considerable amount of time. On a small VM, the build may take about an hour.
+- agents destroy unstaged changes, and git will not help here;
+- agents leave the project folder and their own sandbox and can damage files in your OS;
+- agents can read outside the project folder and potentially read and send your private SSH keys or other secrets to an attacker after eating a prompt injection somewhere on a documentation page, in an issue tracker, or in an infected project;
+- agents can use vulnerabilities in the kernel or local environment if you give them too many rights, tools, and trust;
+- even with the best intentions, an agent can hallucinate nonexistent information, delete a "broken" project instead of fixing it, bring down a DB and wipe its backups, simply because it confidently chose the wrong action.
 
-`codex-glibc-prebuilt` downloads a prebuilt glibc Codex binary from this project's GitHub Releases.
-These binaries are built automatically from the official Codex repository tags for Linux `amd64` and Linux `arm64`, so you do not need to wait for the long build inside the VM.
+Modern coding agents already show a very high level on tasks related to finding and exploiting vulnerabilities. If you give such an agent broad access, the blast radius can easily go far beyond one repository.
 
-All three agents, `codex`, `codex-glibc`, and `codex-glibc-prebuilt`, use separate runtime binaries and can coexist.
+Another idea is to run agents in docker/podman/lxc. It is quite reasonable, but it also has downsides:
 
-## Quick start
+- a container is different from a full PC that agents are designed for, which creates a number of limits. The simplest one is that safely running nested Docker inside Docker is difficult, and this matters in modern development.
+- a container provides much weaker isolation from a malicious agent that has eaten prompt injections somewhere. Escaping a container via kernel vulnerabilities is easier than escaping a VM.
 
-1. Install the package with pip (requires Python 3.9 or newer):
-   ```bash
-   python3 -m venv ./venv
-   source ./venv/bin/activate
-   pip install agsekit
-   ```
-   This makes the `agsekit` command available inside the virtual environment.
-   Host-side automatic Multipass installation in `agsekit prepare` currently supports Debian-based Linux via `apt`, Arch Linux via `pacman` + an AUR helper, and macOS via Homebrew.
+## Quick Start
 
-2. Alternatively, clone the repository and install from sources:
-   ```bash
-   git clone https://github.com/MihanEntalpo/agent-safety-kit/
-   cd agent-safety-kit
-   pip install .
-   ```
+Working with an agent through agsekit is not much harder than working with a "bare" agent.
 
-3. Create the configuration file `~/.config/agsekit/config.yaml` (you can change the path with `--config` or the `CONFIG_PATH` environment variable).
-   The recommended way is to run the interactive wizard, which walks you through the questions about global settings, VMs, mounts, and agents and writes a complete config for you:
-   ```bash
-   agsekit config-gen
-   ```
-   Alternatively, copy the example config and edit it manually:
-   ```bash
-   agsekit config-example
-   nano ~/.config/agsekit/config.yaml
-   ```
+Of course, you need to do the initial setup, but it is much simpler than doing everything manually: installing a VM, connecting to it, installing software, and so on.
 
-4. Bring the environment up in one go: install host dependencies, create and prepare all VMs, and install all configured agents into their configured VM targets:
-   ```bash
-   agsekit up
-   ```
+### 1. Installation
 
-5. Add the current project directory as a mount entry (the command chooses sensible defaults and can mount it immediately in interactive mode):
-   ```bash
-   agsekit addmount /home/user/project
-   ```
+You need Python 3.9+.
 
-6. Launch an agent inside its VM (this example runs `qwen` in the current directory, assuming that directory is configured as a mount, with backups enabled by default):
-   ```bash
-   cd /home/user/project
-   agsekit run qwen
-   ```
-   On the very first run with backups enabled, the CLI creates an initial snapshot with progress output before launching the agent, so wait for it to complete.
+Deb/Arch Linux, macOS with Homebrew, and Windows through WSL are supported.
 
-## agsekit commands
+If you are lazy and fearless:
 
-### Setup and VM lifecycle
-
-Most commands that interact with Multipass support `--debug`; in this mode the CLI prints the executed command, exit code, and captured `stdout`/`stderr`.
-
-* `agsekit prepare [--config <path>] [--debug]` — installs required system dependencies (including Multipass; requires sudo on Linux, supports Debian-based systems via `apt`, Arch Linux via `pacman` + an AUR helper such as `yay`/`aura`, and macOS via `brew install multipass`) and creates the SSH keypair used to access VMs. By default the keypair is stored in `~/.config/agsekit/ssh`, and you can override that path via `global.ssh_keys_folder`.
-* `agsekit up [--config <path>] [--debug] [--prepare/--no-prepare] [--create-vms/--no-create-vms] [--install-agents/--no-install-agents]` — runs `prepare`, `create-vms`, and `install-agents` as one non-interactive flow. By default, all three stages run. The command creates every VM from the config and installs every configured agent into its configured VM targets (`agents.<name>.vm` + `agents.<name>.vms`); if an agent has no VM restrictions, it is installed into all configured VMs. On Linux, when a config is involved, `up` also writes `systemd.env` (by default to `~/.config/agsekit/systemd.env`, overrideable via `global.systemd_env_folder`), registers the user systemd unit for `agsekit portforward`, and starts it. On macOS and Windows, this systemd step is skipped. At least one stage must remain enabled.
-* `agsekit config-gen [--config <path>] [--overwrite]` — interactive wizard that first asks about `global.ssh_keys_folder`, `global.systemd_env_folder`, `global.portforward_config_check_interval_sec`, and `global.http_proxy_port_pool`, then about VMs, mounts, and agents and writes a YAML config to the chosen path (defaults to `~/.config/agsekit/config.yaml`). Without `--overwrite`, the command warns if the file already exists.
-* `agsekit config-example [<path>]` — copies `config-example.yaml` to the target path (defaults to `~/.config/agsekit/config.yaml`). If the default config already exists, the command skips copying.
-* `agsekit pip-upgrade` — upgrades agsekit using `pip install agsekit --upgrade` inside the same Python environment that runs the CLI. If agsekit is not installed in that environment via pip, the command reports that it cannot be upgraded there.
-* `agsekit version` — prints the installed package version along with the project version from `pyproject.toml` when available.
-* `agsekit status [--config <path>] [--debug]` — prints a consolidated status report for configured VMs: config location, VM state (running/stopped), configured vs real resources, port-forwarding rules and `agsekit portforward` process status, mount backup table (including last snapshot time and “backups running?” heuristic), configured/installed agents per VM (using `agents.<name>.vm` + `agents.<name>.vms`; if both are empty, the agent is shown for all VMs), and currently running agent processes in each VM (PID, binary, config names, and process working directory).
-* `agsekit doctor [--config <path>] [-y] [--debug]` — runs diagnostics and attempts safe auto-repairs for known installation and configuration issues. Right now it can detect one known Multipass problem: a configured directory is still registered as mounted, but a non-empty host folder appears empty inside the running VM. In that case the command proposes `sudo snap restart multipass`, asks for confirmation unless `-y` is provided, and then rechecks the affected items. Directories that are not currently mounted in Multipass are skipped.
-* `agsekit create-vms [--debug]` — creates every VM defined in the YAML configuration and prepares them (installs packages via ansible and syncs SSH keys).
-* `agsekit create-vm <name> [--debug]` — launches just one VM and prepares it (installs packages via ansible and syncs SSH keys). If the config contains only one VM, you can omit `<name>` and it will be used automatically. If a VM already exists, the command compares the desired resources with the current ones and reports any differences. Changing resources of an existing VM is not supported yet.
-* `agsekit shell [<vm_name>] [--config <path>] [--debug]` — opens an interactive `multipass shell` session inside the chosen VM, applying any configured port forwarding. If only
-  one VM is defined in the config, the CLI connects there even without `vm_name`. When multiple VMs exist and the command runs in
-  a TTY, the CLI prompts you to pick one; in non-interactive mode, an explicit `vm_name` is required.
-* `agsekit ssh <vm_name> [--config <path>] [--debug] [<ssh_args...>]` — connects to the VM over SSH using `~/.config/agsekit/ssh/id_rsa` by default (overrideable via `global.ssh_keys_folder`) and forwards any extra arguments directly to the `ssh` command (for example, `-L`, `-R`, `-N`).
-* `agsekit portforward [--config <path>] [--debug]` — starts a dedicated `agsekit ssh` tunnel for each VM that defines `port-forwarding` rules, monitors the child processes and restarts them if they exit, and automatically tracks configuration changes to reconnect tunnels when the port-forwarding setup changes. The config reload interval defaults to 10 seconds and can be changed via `global.portforward_config_check_interval_sec`. Stop with Ctrl+C to gracefully terminate the tunnels.
-* `agsekit start-vm <vm_name> [--config <path>] [--debug]` — starts the specified VM from the configuration. If only one VM is configured, the name can be omitted.
-* `agsekit start-vm --all-vms [--config <path>] [--debug]` — starts every VM declared in the config file.
-* `agsekit restart-vm <vm_name> [--config <path>] [--debug]` — restarts the specified VM from the configuration by running the same stop/start sequence as `stop-vm` followed by `start-vm`. If only one VM is configured, the name can be omitted.
-* `agsekit restart-vm --all-vms [--config <path>] [--debug]` — restarts every VM declared in the config file.
-* `agsekit stop-vm <vm_name> [--config <path>] [--debug]` — stops the specified VM from the configuration. If only one VM is configured, the name can be omitted.
-* `agsekit stop-vm --all-vms [--config <path>] [--debug]` — stops every VM declared in the config file.
-* `agsekit down [--config <path>] [-f|--force] [--debug]` — stops every VM from the configuration. Before shutting VMs down, the command checks configured agent processes the same way as `status`: if any are still running, it prints which agents are active in which VMs and working directories, then asks for confirmation. On Linux, before powering VMs off, the command also stops the user systemd service for `agsekit portforward` if it is registered. Use `--force` to skip the prompt and power off all configured VMs immediately.
-* `agsekit destroy-vm <vm_name> [--config <path>] [-y] [--debug]` — deletes the specified VM from Multipass. Without `-y`, the CLI asks for interactive confirmation.
-* `agsekit destroy-vm --all [--config <path>] [-y] [--debug]` — deletes every VM from the configuration, with the same confirmation requirement.
-* `agsekit systemd install [--config <path>] [--debug]` — Linux only. Writes `systemd.env` with absolute paths to `agsekit`, the config, and the current project directory, then registers and starts the bundled user unit for `portforward` via `systemctl --user` (link, daemon-reload, restart, enable). By default the env file is stored as `~/.config/agsekit/systemd.env`; you can override the target directory via `global.systemd_env_folder`. If the user service already points to another `agsekit` installation, the command relinks and restarts it so it uses the current one. Without `--debug`, the command prints only short start/success messages. On macOS and Windows, the command only prints a warning that this integration is not implemented yet.
-* `agsekit systemd uninstall [--debug]` — Linux only. Stops and disables the user unit, then removes the linked `agsekit-portforward.service` from user systemd. Without `--debug`, the command prints only short start/success messages. On macOS and Windows, the command only prints a warning that this integration is not implemented yet.
-* `agsekit systemd start [--debug]` — Linux only. Starts the registered user systemd unit for `agsekit portforward`. Without `--debug`, the command prints only short start/success messages. On macOS and Windows, the command only prints a warning that this integration is not implemented yet.
-* `agsekit systemd stop [--debug]` — Linux only. Stops the registered user systemd unit for `agsekit portforward`. Without `--debug`, the command prints only short start/success messages. On macOS and Windows, the command only prints a warning that this integration is not implemented yet.
-* `agsekit systemd restart [--debug]` — Linux only. Restarts the registered user systemd unit for `agsekit portforward`. Without `--debug`, the command prints only short start/success messages. On macOS and Windows, the command only prints a warning that this integration is not implemented yet.
-* `agsekit systemd status [--debug]` — Linux only. Shows an extended user-systemd status for `agsekit-portforward`: the bundled unit path, the linked user unit path, installation state, `is-enabled` / `is-active`, load/sub-state, PID/result/timestamps, and a short tail of recent `journalctl --user` logs when the service is installed. On macOS and Windows, the command only prints a warning that this integration is not implemented yet.
-
-### Mount management
-
-* `agsekit mount --source-dir <path> [--config <path>] [--debug]` — mounts the directory described by `source` in the configuration file (default search: `--config`, `CONFIG_PATH`, `~/.config/agsekit/config.yaml`) into its VM using `multipass mount`. Use `--all` to mount every entry from the config. When there is only one mount in the config, the command can be run without `--source-dir` or `--all`.
-* `agsekit umount --source-dir <path> [--config <path>] [--debug]` — unmounts the directory described by `source` in the config (or `CONFIG_PATH`/`--config`); `--all` unmounts every configured path. If only one mount is configured, the command will unmount it even without explicit flags.
-* `agsekit addmount <path> [<vm_path> <backup_path> <interval>] [--vm <vm_name>] [--max-backups <count>] [--backup-clean-method <tail|thin>] [--allowed-agents <a,b,c>] [--config <path>] [--mount] [-y] [--debug]` — adds a mount entry to the YAML config (located via `--config`, `CONFIG_PATH`, or `~/.config/agsekit/config.yaml`). If `<path>` is omitted, the command enters interactive mode and asks for the host path. The VM path defaults to `/home/ubuntu/<folder_name>`, the backup path defaults to `<parent_dir>/backups-<folder_name>`, the backup interval defaults to five minutes, the retention cap defaults to 100 snapshots, and the cleanup method defaults to `thin`. You can choose the target VM via `--vm`; in interactive mode the command prompts for a VM when multiple VMs are configured. If the config has exactly one VM, it is selected automatically. Use `--allowed-agents qwen,codex` in non-interactive mode to set mount-level restrictions immediately. In interactive mode, the command offers either no restrictions or per-agent selection from the configured agent list. Before saving, the CLI prints the parameters and asks for confirmation unless `-y` is provided; it also stores a timestamped backup of the config file while preserving comments. Use `--mount` to mount the new entry immediately after saving (interactive mode also asks whether to mount right away).
-* `agsekit removemount [<path>] [--config <path>] [--vm <vm_name>] [-y] [--debug]` — removes a mount entry from the YAML config (located via `--config`, `CONFIG_PATH`, or `~/.config/agsekit/config.yaml`). If `<path>` is omitted, the command prompts to select one of the configured mounts. When multiple mounts share the same source path, use `--vm` to disambiguate. Before saving, the CLI prints the selected mount and asks for confirmation unless `-y` is provided; it also stores a timestamped backup of the config file while preserving comments. The CLI always unmounts the entry first; if unmounting fails, the config is left untouched.
-
-### Backups
-
-#### One-off backup
-
-`agsekit backup-once --source-dir <path> --dest-dir <path> [--exclude <pattern> ...] [--progress]` — runs a single backup of the source directory into the specified destination using `rsync`.
-The command creates a timestamped directory with a `-partial` suffix, supports incremental copies via `--link-dest` to the previous backup, and honors exclusions from `.backupignore` and `--exclude` arguments. When finished, the temporary folder is renamed to a final timestamp without the suffix. If nothing changed relative to the last backup, no new snapshot is created and the tool reports the absence of updates.
-Pass `--progress` to forward host-compatible rsync progress flags and show a console progress bar while files are copied: Linux uses `--progress --info=progress2`, while macOS and Windows use `--progress`. If rsync prints non-UTF-8 bytes in progress output, `agsekit` replaces those bytes while keeping the backup running.
-
-`.backupignore` examples:
-```
-# exclude virtual environments and dependencies
-venv/
-node_modules/
-
-# ignore temporary and log files by pattern
-*.log
-*.tmp
-
-# include a specific file inside an excluded folder
-!logs/important.log
-
-# skip documentation build artifacts
-docs/build/
+```shell
+curl -fsSL https://agsekit.org/install.sh | sh
 ```
 
-Backups use `rsync` with incremental links (`--link-dest`) to the previous copy: if only a small set of files changed, the new snapshot stores just the updated data, while unchanged files are hardlinked to the prior snapshot. This keeps a chain of dated directories while consuming minimal space when changes are rare.
+If you want to do everything yourself, or the "lazy" way did not work:
 
-#### Repeated backups
+[Detailed installation guide](./docs/install.md)
 
-* `agsekit backup-repeated --source-dir <path> --dest-dir <path> [--exclude <pattern> ...] [--interval <minutes>] [--max-backups <count>] [--backup-clean-method <tail|thin>] [--skip-first]` — runs an immediate backup and then repeats it every `interval` minutes (defaults to five minutes). With `--skip-first`, the loop waits for the first interval before performing the initial run. After each backup it prints `Done, waiting N minutes` with the actual interval value.
-* `agsekit backup-repeated-mount --mount <path> [--config <path>]` — looks up the mount by its `source` path in the configuration file (default search: `--config`, `CONFIG_PATH`, `~/.config/agsekit/config.yaml`) and launches repeated backups using the paths and interval from the config. When only one mount is present, `--mount` can be omitted; with multiple mounts, an explicit choice is required.
-* `agsekit backup-repeated-all [--config <path>]` — reads all mounts from the config (default search: `--config`, `CONFIG_PATH`, `~/.config/agsekit/config.yaml`) and starts concurrent repeated backups for each entry within a single process. Use Ctrl+C to stop the loops.
+### 2. Create a Configuration
 
-#### Backup cleanup
+Through the interactive setup wizard:
 
-* `agsekit backup-clean <mount_source> [<keep>] [<method>] [--config <path>]` — removes old snapshots from the backup directory for the mount whose `source` matches `<mount_source>` in the config (default search: `--config`, `CONFIG_PATH`, `~/.config/agsekit/config.yaml`). `<keep>` defaults to 50 and controls how many of the newest backups remain. `<method>` defaults to `thin` for logarithmic thinning: it keeps the latest three backups within the most recent intervals and then thins older snapshots so the further in the past they are, the more sparse they become.
-
-### Agent installation
-
-* `agsekit install-agents <agent_name> [<vm>|--all-vms] [--config <path>] [--proxychains <value>] [--debug]` — runs the prepared installation playbook for the chosen agent type inside the specified VM, or (without `<vm>`) in the VM targets configured for that agent (`agents.<name>.vm` + `agents.<name>.vms`). If both `vm` and `vms` are empty, the agent target is all configured VMs. If the config defines only one agent, you can skip `<agent_name>` and it will be picked automatically. Use `--proxychains <scheme://host:port>` to override the VM proxy for this installation or `--proxychains ""` to ignore it once.
-* `agsekit install-agents --all-agents [--all-vms] [--config <path>] [--proxychains <value>] [--debug]` — installs every configured agent either into their configured VM targets or into every VM when `--all-vms` is set.
-
-The installation playbooks live in `agsekit_cli/ansible/agents/`: `aider`, `forgecode`, and `claude` follow their official installer flows, `codex`, `qwen`, `opencode`, and `cline` install npm CLIs, `codex-glibc` builds the Rust sources with the glibc target and installs the binary as `codex-glibc`, and `codex-glibc-prebuilt` downloads a published `codex-glibc` build from this repository's GitHub Releases and installs it as `codex-glibc-prebuilt`. Runtime binaries are `aider`, `codex`, `qwen`, `forge`, `opencode`, `cline`, `claude`, `codex-glibc`, and `codex-glibc-prebuilt`. Other agent types are not supported yet.
-
-For `codex-glibc-prebuilt`, you can override the release source with environment variables on the host where `agsekit install-agents` runs:
-
-- `AGSEKIT_CODEX_GLIBC_PREBUILT_REPO` — GitHub repository in `owner/name` format. Default: `MihanEntalpo/agent-safety-kit`.
-- `AGSEKIT_CODEX_GLIBC_PREBUILT_TAG` — exact release tag to install. If unset, `agsekit` picks the latest matching `codex-glibc-rust-v<major>.<minor>.<patch>` release.
-- `AGSEKIT_CODEX_GLIBC_PREBUILT_ASSET` — asset name. By default, `agsekit` selects `codex-glibc-linux-amd64.gz` for `x86_64` VMs and `codex-glibc-linux-arm64.gz` for `aarch64`/`arm64` VMs.
-
-### Running agents
-
-* `agsekit run [--vm <vm_name>] [--config <path>] [--workdir <path>] [--proxychains <value>] [--http-proxy <value>] [--disable-backups] [--auto-mount] [--skip-default-args] [--debug] <agent_name> [<agent_args...>]` — starts an interactive agent command inside Multipass. All `agsekit run` options must appear before `<agent_name>`; everything after `<agent_name>` is passed to the agent unchanged. Environment variables from the config are passed to the process. For `forgecode`, `agsekit` also forces `FORGE_TRACKER=false` on every run to disable Forge telemetry. The host working directory defaults to the current directory; use `--workdir` to point at another configured mount. If that directory exists and matches a configured mount, the agent starts in the corresponding VM path. If the directory does not exist in an interactive terminal, the CLI asks whether to create `/tmp/run-*` inside the selected VM and run there without backups. The same temporary-folder fallback is offered when the current directory exists but is not configured as a mount. In non-interactive mode, both cases remain errors. When the matching mount exists but is not currently mounted in Multipass, the CLI prompts to mount it first; `--auto-mount` performs that step automatically, while non-interactive mode fails unless `--auto-mount` is set. When a matching mount exists and is currently mounted in Multipass, the CLI also compares the selected host folder with the corresponding path inside the VM and prints a warning if the host folder is non-empty but the VM side is empty. Unless `--disable-backups` is set, background repeated backups for the selected mount are started for the duration of the run. When no backups exist yet, the CLI first creates an initial snapshot with progress output before launching the agent and then starts the repeated loop with the initial run skipped. Arguments from `agents.<name>.default-args` are added unless `--skip-default-args` is set; if the user already passed an option with the same name (for example `--openai-api-key`), the default value is skipped. Agent restrictions are resolved in order: `mounts[].allowed_agents` (if set for the selected mount), otherwise `vms.<vm>.allowed_agents`; if neither is set, any configured agent may run. `http_proxy` can be configured either on the VM or on the agent: direct mode sets `HTTP_PROXY`/`http_proxy` for the agent, and upstream mode starts a temporary VM-local `privoxy` instance for this run only. If `http_proxy` is enabled for the effective run target, runtime `proxychains` wrapping must be disabled. With `--debug`, the CLI prints executed commands, exit codes, and captured `stdout`/`stderr` to simplify troubleshooting. Use `--proxychains <scheme://host:port>` to override the VM setting for one run; pass an empty string to disable it temporarily. Use `--http-proxy <scheme://host:port>` to override `http_proxy` for one run in upstream mode; pass an empty string to disable it temporarily.
-
-#### HTTP proxy modes
-
-`http_proxy` is resolved the same way as other per-agent runtime settings: an agent-level value overrides the VM-level one. There are two supported modes:
-
-* Direct mode: pass a ready HTTP proxy URL and `agsekit` only injects `HTTP_PROXY` and `http_proxy` into the agent process.
-* Upstream mode: pass an upstream proxy URL and `agsekit run` starts a temporary `privoxy` inside the VM, then points the agent to that local HTTP proxy.
-
-Examples:
-
-```yaml
-vms:
-  agent-ubuntu:
-    http_proxy:
-      url: http://127.0.0.1:18881
+```shell
+agsekit config-gen
 ```
 
-```yaml
-vms:
-  agent-ubuntu:
-    http_proxy: socks5://127.0.0.1:8181
+If you want, you can copy the config template and edit it manually:
+
+```shell
+agsekit config-example
+nano ~/.config/agsekit/config.yaml
 ```
 
-```yaml
-agents:
-  qwen:
-    type: qwen
-    vm: agent-ubuntu
-    http_proxy:
-      upstream: socks5://127.0.0.1:8181
-      listen: 127.0.0.1:8585
+[Detailed configuration guide](./docs/configuration.md)
+
+### 3. Initial Setup
+
+```shell
+agsekit up
 ```
 
-When `listen` is omitted, `agsekit` automatically picks a free port from `global.http_proxy_port_pool`. Effective `http_proxy` and effective `proxychains` are mutually exclusive for `agsekit run`: if both are configured, the CLI aborts with an error instead of guessing which transport should win. Use `--http-proxy <scheme://host:port>` to override the configured `http_proxy` for one run, or `--http-proxy ""` to disable it temporarily.
+This command installs Multipass, creates a virtual machine, installs agents, and installs software packages.
 
-### Interactive mode
+It may take some time.
 
-In a TTY you don’t have to type full commands every time: the CLI can guide you through an interactive menu that fills in parameters for you.
+### 4. Add a Project Folder
 
-* Run `agsekit` without arguments to open the interactive menu, choose a command, and select options such as the config path, mounts, or agent parameters.
-* Start a command without mandatory arguments (for example, `agsekit run`) to automatically fall back to the interactive flow after the CLI prints a “not enough parameters” hint. Use `--non-interactive` if you prefer the usual help output instead of prompts.
-
-## Localization
-
-The CLI reads the system locale and falls back to English if it cannot detect a supported language. You can override this behavior with the `AGSEKIT_LANG` environment variable:
-
-```bash
-AGSEKIT_LANG=ru agsekit --help
+```shell
+agsekit addmount ~/project/my-project
 ```
 
-## YAML configuration
+An interactive mode will start and ask a number of questions. You can answer them by simply pressing ENTER.
 
-The configuration file (looked up via `--config`, `CONFIG_PATH`, or `~/.config/agsekit/config.yaml`) describes global agsekit settings, VM parameters, mounted directories, and any `cloud-init` settings. A base example lives in `config-example.yaml`:
+### 5. Run the Agent in the Project Folder
 
-```yaml
-global: # global agsekit settings
-  ssh_keys_folder: null # optional override for the SSH key directory used to access VMs; defaults to ~/.config/agsekit/ssh
-  systemd_env_folder: null # optional override for the directory where agsekit writes systemd.env; defaults to ~/.config/agsekit
-  portforward_config_check_interval_sec: 10 # how often portforward reloads the config and reconciles tunnels
-  http_proxy_port_pool: # optional auto-port range for VM-local HTTP proxy helper
-    start: 48000
-    end: 49000
-vms: # VM parameters for Multipass (you can define multiple)
-  agent-ubuntu: # VM name
-    cpu: 2      # number of vCPUs
-    ram: 4G     # RAM size (supports 2G, 4096M, etc.)
-    disk: 20G   # disk size
-    allowed_agents: aider, qwen, forgecode, codex, opencode, claude, cline # optional: also supports [qwen, codex]; if omitted, all agents are allowed for this VM
-    proxychains: "" # optional proxy URL (scheme://host:port); agsekit writes a temporary proxychains.conf and wraps Multipass commands automatically
-    http_proxy: "" # optional shorthand upstream for VM-local privoxy (for example socks5://127.0.0.1:8181)
-    cloud-init: {} # place your standard cloud-init config here if needed
-    port-forwarding: # Port forwarding config
-      - type: remote # Open port inside VM and pass connections to Host machine's port
-        host-addr: 127.0.0.1:80
-        vm-addr: 127.0.0.1:8080
-      - type: local # Open port on Host machine, and pass connections to VM's port
-        host-addr: 0.0.0.0:15432
-        vm-addr: 127.0.0.1:5432
-      - type: socks5 # Open socks5-proxy port inside VM, directing traffic to Host machine's network
-        vm-addr: 127.0.0.1:8088        
-    install: # install bundles executed during create-vm/create-vms
-      - python        # pyenv + latest stable Python
-      - nodejs:20     # nvm + Node.js 20
-      - rust          # rustup + toolchain
-mounts:
-  - source: /host/path/project            # path to the source folder on the host
-    target: /home/ubuntu/project          # mount point inside the VM; defaults to /home/ubuntu/<source_basename>
-    backup: /host/backups/project         # backup directory; defaults to backups-<source_basename> next to source
-    allowed_agents: qwen, codex           # optional: also supports [qwen, codex]; spaces after commas are ignored; overrides VM-level allowed_agents for this mount
-    interval: 5                           # backup interval in minutes; defaults to 5 if omitted
-    max_backups: 100                      # number of snapshots to keep after cleanup; defaults to 100
-    backup_clean_method: tail             # cleanup method after each backup: tail or thin; defaults to thin
-    vm: agent-ubuntu # VM name; defaults to the first VM in the configuration
-agents:
-  qwen: # agent name; add as many as you need
-    type: qwen # agent type: aider (installs and runs the `aider` binary), qwen, forgecode (installs and runs the `forge` binary and forces FORGE_TRACKER=false), codex, opencode, codex-glibc (installs the `codex-glibc` binary), codex-glibc-prebuilt (installs and uses the `codex-glibc-prebuilt` binary), claude (runs the `claude` binary), or cline (runs the `cline` binary)
-    http_proxy:
-      upstream: socks5://127.0.0.1:8181
-      listen: 127.0.0.1:8585
-    env: # arbitrary environment variables passed to the agent process
-      OPENAI_API_KEY: "my_local_key"
-      OPENAI_BASE_URL: "https://127.0.0.1:11556/v1"
-      OPENAI_MODEL: "Qwen/Qwen3-Coder-30B-A3B-Instruct-FP8"
-    default-args: # arguments passed to the agent unless the user overrides them
-      - "--openai-api-key=my_local_key"
-      - "--openai-base-url=https://127.0.0.1:11556/v1"
-    vm: agent-ubuntu # optional single VM target for this agent
-    vms: agent-ubuntu # optional multiple VM targets; also supports [agent-ubuntu, another-vm]; merged with vm
-    # if both vm and vms are empty or omitted, this agent is treated as configured for all VMs
-  codex:
-    type: codex 
-  aider:
-    type: aider
-  forgecode:
-    type: forgecode
-  opencode:
-    type: opencode
-  claude:
-    type: claude
-  cline:
-    type: cline
-  codex2:
-    type: codex-glibc
+Assume you configured an agent named claude:
+
+```shell
+cd ~/project/my-project
+agsekit run claude
 ```
 
-### VM install bundles
+That is it, you can use it.
 
-Each VM can define an `install` list of bundles to be installed during `agsekit create-vm` / `create-vms`. Bundles are implemented as idempotent bash scripts and can depend on each other (for example, `python` installs `pyenv` first). Names can include a version suffix after `:` when supported. Supported bundles:
+More details: [Getting started](docs/getting-started.md)
 
-* `pyenv` — installs pyenv along with build dependencies, and wires it into `~/.profile`, `~/.bashrc`, and `~/.bash_profile`.
-* `nvm` — installs nvm and wires it into `~/.profile`, `~/.bashrc`, and `~/.bash_profile`.
-* `python` — installs pyenv plus the latest stable Python.
-* `python:<version>` — installs pyenv plus the specified Python version (for example, `python:3.12.4`).
-* `nodejs` — installs nvm plus the latest LTS Node.js.
-* `nodejs:<version>` — installs nvm plus the specified Node.js version (for example, `nodejs:20`).
-* `rust` — installs rustup with the Rust toolchain.
-* `golang` — installs the Go toolchain via apt.
-* `docker` — installs Docker Engine and Docker Compose via Docker's apt repository.
+## How It Works
 
-Run `agsekit list-bundles` to see the up-to-date bundle list and descriptions.
+* agsekit is a CLI tool for simplifying work with agents in virtual machines
+* the simple and convenient Multipass is used as the virtual machine engine
+* the agent runs inside a Multipass VM (with Ubuntu installed in it)
+* to work with the project, its folder is mounted into the VM
+* so the agent cannot cause damage by wiping the mounted project folder, cyclic backup of the project folder on the main machine runs at the same time as the agent
+* if the agent needs internet access through an http-proxy or socks-proxy, there is support for http-proxy through proxify and running through proxychains4
+* ports can be conveniently forwarded into and out of the VM (based on SSH tunnels)
+* you can have several VMs for different purposes, for example one for personal projects and another for work under NDA
+* there is a set of basic supported agents, and also different software bundles installed into the VM with one command
 
-> **Note:** Prefer ASCII-only paths for both `source` and `target` mount points: AppArmor may refuse to mount directories whose paths contain non-ASCII characters.
+**The basic workflow is this:**
+
+- The host machine stores the real source code and launches an Ubuntu VM through Multipass.
+- The project folder is mounted from the host into the selected VM.
+- The agent binary runs inside the VM, not on the host.
+- `agsekit` runs repeated incremental backups of the mounted folder while the agent session is running.
+- For restricted networks, `proxychains`, `http_proxy`, and `portforward` are available.
+
+Details: [docs/architecture.md](docs/architecture.md)
+
+## Features
+
+- Run agents inside a Multipass VM, not directly on the host.
+- Declarative YAML for VMs, mounts, network settings, and agent defaults.
+- Automatic incremental backups with hardlink snapshots.
+- Several virtual machines with binding of specific agents to specific VMs, for example to separate NDA projects, work, and hobbies across different environments and models.
+- Installation of supported agent CLIs into target VMs through `install-agents`.
+- `proxychains` support for installation and runtime.
+- VM-level and agent-level `http_proxy` support.
+- Persistent SSH port forwarding through `agsekit portforward`.
+- Both interactive and non-interactive CLI scenarios.
+- Automatic preparation of Linux and macOS hosts.
+
+## Documentation
+
+- [Table of contents](docs/README.md)
+  - [Getting started](docs/getting-started.md)
+  - [Configuration](docs/configuration.md)
+  - [Command reference](docs/commands/README.md)
+  - [Supported agents](docs/agents.md)
+  - [Architecture](docs/architecture.md)
+  - [Networking and proxies](docs/networking.md)
+  - [Backups](docs/backups.md)
+  - [Troubleshooting](docs/troubleshooting.md)
+  - [Practical how-to](docs/how-to.md)
+  - [Known issues and limitations](docs/known-issues.md)
+
+## Supported Agents
+
+- [aider](https://aider.chat/)
+- [Qwen Code](https://qwenlm.github.io/qwen-code-docs/en/)
+- [ForgeCode](https://forgecode.dev/)
+- [Codex](https://openai.com/codex/)
+- [OpenCode](https://opencode.ai/)
+- [Claude Code](https://docs.claude.com/en/docs/claude-code/overview)
+- [Cline](https://cline.bot/)
+- `codex-glibc` - a [Codex](https://openai.com/codex/) variant built inside the VM
+- `codex-glibc-prebuilt` - a [Codex](https://openai.com/codex/) variant installed from a ready prebuilt release
+
+Details: [docs/agents.md](docs/agents.md)
+
+## Security Model and Limitations
+
+What the tool does:
+
+- isolates agent execution inside a VM;
+- keeps the host project in mounted storage;
+- creates rollback-friendly backups around agent runs.
+
+More details: [philosophy.md](philosophy.md)
+
+## Platform Support
+
+- Linux host: supported
+- macOS host: supported
+- Windows host: currently only through WSL
+
+## FAQ
+
+### Who is this for?
+
+For developers who want to use coding agents but do not want to break their system.
+
+### Do I need to use git with agsekit?
+
+Yes. `agsekit` complements git, it does not replace it.
+
+### Why Multipass, not Docker?
+
+1. Security: a VM gives much better isolation of the agent from your system
+2. Environment reality: in a VM the agent can install any software, run Docker containers, and do almost everything that can be done on a real machine. In Docker this is impossible or much more complicated
+
+## Contributing and License
+
+- If you want to contribute:
+  - Fork repo
+  - `git clone ...`
+  - `pip install -e .`
+  - `git checkout -b new-shiny-feature`
+  - `vim ...`
+  - `git add . && git commit -m "Implemented new feature" && git push`
+  - create pull request
+- If there are problems, write Issues
+
+- License: [MIT](LICENSE)

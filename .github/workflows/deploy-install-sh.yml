@@ -1,0 +1,80 @@
+name: Deploy install.sh
+
+on:
+  push:
+    paths:
+      - "scripts/install.sh"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: deploy-install-sh
+  cancel-in-progress: false
+
+jobs:
+  deploy:
+    name: Deploy scripts/install.sh to agsekit.org
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    if: github.event_name == 'workflow_dispatch' || github.ref == format('refs/heads/{0}', github.event.repository.default_branch)
+
+    env:
+      DEPLOY_HOST: agsekit.org
+      DEPLOY_USER: agsekit
+      DEPLOY_DIR: /home/agsekit/agsekit.org/www
+      DEPLOY_FILE: install.sh
+      SSH_PORT: ${{ secrets.AGSEKIT_ORG_SSH_PORT }}
+      SSH_PRIVATE_KEY: ${{ secrets.AGSEKIT_ORG_SSH_PRIVATE_KEY }}
+      SSH_KNOWN_HOSTS: ${{ secrets.AGSEKIT_ORG_SSH_KNOWN_HOSTS }}
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Validate installer
+        run: |
+          set -eu
+          test -f scripts/install.sh
+          sh -n scripts/install.sh
+
+      - name: Configure SSH
+        run: |
+          set -eu
+
+          test -n "$SSH_PRIVATE_KEY" || {
+            echo "AGSEKIT_ORG_SSH_PRIVATE_KEY secret is not set." >&2
+            exit 1
+          }
+          test -n "$SSH_KNOWN_HOSTS" || {
+            echo "AGSEKIT_ORG_SSH_KNOWN_HOSTS secret is not set." >&2
+            exit 1
+          }
+
+          mkdir -p "$HOME/.ssh"
+          chmod 700 "$HOME/.ssh"
+          printf '%s\n' "$SSH_PRIVATE_KEY" > "$HOME/.ssh/agsekit_org_deploy_key"
+          printf '%s\n' "$SSH_KNOWN_HOSTS" > "$HOME/.ssh/known_hosts"
+          chmod 600 "$HOME/.ssh/agsekit_org_deploy_key" "$HOME/.ssh/known_hosts"
+
+      - name: Deploy installer
+        run: |
+          set -eu
+
+          SSH_PORT="${SSH_PORT:-22}"
+          SSH_KEY="$HOME/.ssh/agsekit_org_deploy_key"
+          SSH_TARGET="$DEPLOY_USER@$DEPLOY_HOST"
+          TMP_PATH="$DEPLOY_DIR/.$DEPLOY_FILE.tmp-$GITHUB_RUN_ID-$GITHUB_RUN_ATTEMPT"
+          FINAL_PATH="$DEPLOY_DIR/$DEPLOY_FILE"
+
+          ssh -i "$SSH_KEY" -p "$SSH_PORT" -o IdentitiesOnly=yes -o BatchMode=yes -o StrictHostKeyChecking=yes "$SSH_TARGET" \
+            "mkdir -p '$DEPLOY_DIR'"
+
+          scp -i "$SSH_KEY" -P "$SSH_PORT" -o IdentitiesOnly=yes -o BatchMode=yes -o StrictHostKeyChecking=yes \
+            scripts/install.sh "$SSH_TARGET:$TMP_PATH"
+
+          ssh -i "$SSH_KEY" -p "$SSH_PORT" -o IdentitiesOnly=yes -o BatchMode=yes -o StrictHostKeyChecking=yes "$SSH_TARGET" \
+            "chmod 0755 '$TMP_PATH' && mv '$TMP_PATH' '$FINAL_PATH'"
+
+          echo "Deployed scripts/install.sh to $SSH_TARGET:$FINAL_PATH"

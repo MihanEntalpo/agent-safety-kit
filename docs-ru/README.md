@@ -38,5 +38,5 @@ CLI по возможности использует системную лока
 
 ## См. также
 
-- [README-new-ru.md](../README-new-ru.md)
+- [README-ru.md](../README-ru.md)
 - [Философия проекта](../philosophy-ru.md)

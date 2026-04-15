@@ -38,5 +38,5 @@ The CLI uses the system locale where possible. You can override behavior through
 
 ## See Also
 
-- [README-new.md](../README-new.md)
+- [README.md](../README.md)
 - [Project philosophy](../philosophy.md)
