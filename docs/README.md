@@ -13,6 +13,7 @@ This directory contains the user documentation for `agsekit`.
 - [Troubleshooting](troubleshooting.md)
 - [Practical how-to](how-to.md)
 - [Known issues and limitations](known-issues.md)
+- [Project philosophy](philosophy.md)
 
 ## Command Reference
 
@@ -39,4 +40,4 @@ The CLI uses the system locale where possible. You can override behavior through
 ## See Also
 
 - [README.md](../README.md)
-- [Project philosophy](../philosophy.md)
+- [Project philosophy](philosophy.md)

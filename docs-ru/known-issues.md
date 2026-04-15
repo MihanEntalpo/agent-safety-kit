@@ -29,4 +29,4 @@
 ## См. также
 
 - [Troubleshooting](troubleshooting.md)
-- [Философия проекта](../philosophy-ru.md)
+- [Философия проекта](philosophy.md)

@@ -29,4 +29,4 @@ This page collects current limitations.
 ## See Also
 
 - [Troubleshooting](troubleshooting.md)
-- [Project philosophy](../philosophy.md)
+- [Project philosophy](philosophy.md)

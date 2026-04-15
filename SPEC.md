@@ -1,8 +1,8 @@
 # SPEC: Agent Safety Kit (`agsekit`)
 
 Философская рамка проекта вынесена в отдельные документы:
-- `philosophy-ru.md` (русский)
-- `philosophy.md` (English)
+- `docs-ru/philosophy.md` (русский)
+- `docs/philosophy.md` (English)
 
 Этот `SPEC.md` описывает текущее техническое состояние реализации и связывает его с целевой философией.
 
@@ -709,7 +709,7 @@
 
 Важно по отношению к философии проекта:
 - текущая реализация systemd-юнита автоматизирует только `portforward`;
-- более широкий daemon-контур (backups + agent-process supervision + централизованный статус) — это целевое направление развития, зафиксированное в `philosophy-ru.md` / `philosophy.md`.
+- более широкий daemon-контур (backups + agent-process supervision + централизованный статус) — это целевое направление развития, зафиксированное в `docs-ru/philosophy.md` / `docs/philosophy.md`.
 
 ## 9. Внутренние алгоритмы, критичные для поведения
 
@@ -828,7 +828,7 @@ Dependency resolution выполняется кодом до запуска play
 ## 12. Побочные эффекты на диске
 
 На хосте:
-- installer `scripts/install.sh` создаёт per-user venv в `~/.local/share/agsekit/venv`, symlink `~/.local/bin/agsekit`, а при необходимости добавляет `export PATH="$HOME/.local/bin:$PATH"` в shell startup files; на WSL он также идемпотентно создаёт symlink `~/.local/bin/multipass` на Windows-бинарник Multipass;
+- installer `scripts/install/install.sh` создаёт per-user venv в `~/.local/share/agsekit/venv`, symlink `~/.local/bin/agsekit`, а при необходимости добавляет `export PATH="$HOME/.local/bin:$PATH"` в shell startup files; на WSL он также идемпотентно создаёт symlink `~/.local/bin/multipass` на Windows-бинарник Multipass;
 - `~/.config/agsekit/config.yaml`
 - SSH keypair в каталоге из `global.ssh_keys_folder` (по умолчанию `~/.config/agsekit/ssh/id_rsa` и `id_rsa.pub`)
 - `systemd.env` в каталоге из `global.systemd_env_folder` (по умолчанию `~/.config/agsekit/systemd.env`)

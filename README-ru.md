@@ -4,7 +4,7 @@
 
 Этот проект даёт удобный инструментарий для запуска ИИ-агентов в виртуальной машине почти так же как "обычно".
 
-[README in English](README.md) | [Индекс документации](docs-ru/README.md) | [English docs](docs/README.md) | [Философия проекта](philosophy-ru.md)
+[README in English](README.md) | [Индекс документации](docs-ru/README.md) | [English docs](docs/README.md) | [Философия проекта](docs-ru/philosophy.md)
 
 ## Зачем?
 
@@ -184,7 +184,7 @@ agsekit run claude
 - держит хостовый проект в mounted storage;
 - создаёт rollback-friendly backups вокруг агентных запусков.
 
-Подробнее: [philosophy-ru.md](philosophy-ru.md)
+Подробнее: [docs-ru/philosophy.md](docs-ru/philosophy.md)
 
 ## Поддержка платформ
 

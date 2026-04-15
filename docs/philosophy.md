@@ -191,11 +191,6 @@ Goal:
 - minimize manual setup;
 - distribute through Snap (logical, since Multipass itself is distributed via snap).
 
-Future direction:
-
-- Windows support (via WSL),
-- macOS support (through an alternative package system, e.g. Homebrew).
-
 ---
 
 ## 8. Core Philosophical Position

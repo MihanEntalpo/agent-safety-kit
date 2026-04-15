@@ -15,11 +15,6 @@
 * Не нужно ставить в WSL snapd и в нём multipass, он там всё равно работать не будет
 * Нужно проверять, если multipass.exe нет - ругаться "установите"
 
-## [ ] Сделать минимальный agsekit.org
-
-* Нужно доносить scripts/install.sh на agsekit.org/install.sh
-* agsekit.org -> редирект на гит-репозиторий
-
 ## [ ] Работа в любых системах
 
 * На маке
@@ -349,3 +344,8 @@ bash: line 1: cd: /home/ubuntu/agent-safety-kit/preved: No such file or director
 Ошибка запуска агента ["cline"]
 ```
 нужно писать "нет папки такой-то"
+
+## [v] Сделать минимальный agsekit.org
+
+* Нужно доносить scripts/install/install.sh на agsekit.org/install.sh
+* agsekit.org -> редирект на гит-репозиторий

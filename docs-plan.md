@@ -137,7 +137,7 @@ Recommended structure for `README-new.md`:
 
 10. Limitations / philosophy / security model
    - short section describing what the tool does not do;
-   - links to `philosophy.md` and `philosophy-ru.md`.
+   - links to `docs/philosophy.md` and `docs-ru/philosophy.md`.
 
 11. Optional closing sections
    - platform support matrix;
@@ -250,7 +250,7 @@ The new documentation system should include:
 - command docs;
 - troubleshooting;
 - known issues;
-- philosophy docs.
+- `docs/philosophy.md` / `docs-ru/philosophy.md`.
 
 ### 8.2 Inside docs
 

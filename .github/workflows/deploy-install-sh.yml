@@ -3,7 +3,7 @@ name: Deploy install.sh
 on:
   push:
     paths:
-      - "scripts/install.sh"
+      - "scripts/install/install.sh"
   workflow_dispatch:
 
 permissions:
@@ -15,7 +15,7 @@ concurrency:
 
 jobs:
   deploy:
-    name: Deploy scripts/install.sh to agsekit.org
+    name: Deploy scripts/install/install.sh to agsekit.org
     runs-on: ubuntu-latest
     timeout-minutes: 5
     if: github.event_name == 'workflow_dispatch' || github.ref == format('refs/heads/{0}', github.event.repository.default_branch)
@@ -36,8 +36,8 @@ jobs:
       - name: Validate installer
         run: |
           set -eu
-          test -f scripts/install.sh
-          sh -n scripts/install.sh
+          test -f scripts/install/install.sh
+          sh -n scripts/install/install.sh
 
       - name: Configure SSH
         run: |
@@ -72,9 +72,9 @@ jobs:
             "mkdir -p '$DEPLOY_DIR'"
 
           scp -i "$SSH_KEY" -P "$SSH_PORT" -o IdentitiesOnly=yes -o BatchMode=yes -o StrictHostKeyChecking=yes \
-            scripts/install.sh "$SSH_TARGET:$TMP_PATH"
+            scripts/install/install.sh "$SSH_TARGET:$TMP_PATH"
 
           ssh -i "$SSH_KEY" -p "$SSH_PORT" -o IdentitiesOnly=yes -o BatchMode=yes -o StrictHostKeyChecking=yes "$SSH_TARGET" \
             "chmod 0755 '$TMP_PATH' && mv '$TMP_PATH' '$FINAL_PATH'"
 
-          echo "Deployed scripts/install.sh to $SSH_TARGET:$FINAL_PATH"
+          echo "Deployed scripts/install/install.sh to $SSH_TARGET:$FINAL_PATH"

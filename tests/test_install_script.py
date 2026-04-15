@@ -3,7 +3,7 @@ from pathlib import Path
 
 
 PROJECT_ROOT = Path(__file__).resolve().parents[1]
-INSTALL_SCRIPT = PROJECT_ROOT / "scripts" / "install.sh"
+INSTALL_SCRIPT = PROJECT_ROOT / "scripts" / "install" / "install.sh"
 
 
 def test_install_script_is_valid_posix_sh() -> None:

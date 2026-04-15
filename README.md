@@ -4,7 +4,7 @@ Want to run Claude Code, Codex, and other AI agents for development, but do not 
 
 This project gives you a convenient toolkit for running AI agents in a virtual machine almost the same way as "normally".
 
-[README на русском](README-ru.md) | [Documentation index](docs/README.md) | [Русская документация](docs-ru/README.md) | [Project philosophy](philosophy.md)
+[README на русском](README-ru.md) | [Documentation index](docs/README.md) | [Русская документация](docs-ru/README.md) | [Project philosophy](docs/philosophy.md)
 
 ## Why?
 
@@ -184,7 +184,7 @@ What the tool does:
 - keeps the host project in mounted storage;
 - creates rollback-friendly backups around agent runs.
 
-More details: [philosophy.md](philosophy.md)
+More details: [docs/philosophy.md](docs/philosophy.md)
 
 ## Platform Support
 
