@@ -4,7 +4,7 @@
 
 Этот проект даёт удобный инструментарий для запуска ИИ-агентов в виртуальной машине почти так же как "обычно".
 
-[Индекс документации](docs-ru/README.md) | [English docs](docs/README.md) | [Философия проекта](philosophy-ru.md)
+[README in English](README.md) | [Индекс документации](docs-ru/README.md) | [English docs](docs/README.md) | [Философия проекта](philosophy-ru.md)
 
 ## Зачем?
 

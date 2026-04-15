@@ -4,7 +4,7 @@ Want to run Claude Code, Codex, and other AI agents for development, but do not 
 
 This project gives you a convenient toolkit for running AI agents in a virtual machine almost the same way as "normally".
 
-[Documentation index](docs/README.md) | [Русская документация](docs-ru/README.md) | [Project philosophy](philosophy.md)
+[README на русском](README-ru.md) | [Documentation index](docs/README.md) | [Русская документация](docs-ru/README.md) | [Project philosophy](philosophy.md)
 
 ## Why?
 
