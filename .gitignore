@@ -4,6 +4,10 @@ config.yaml
 venv/
 __pycache__/
 build/
+!scripts/build/
+!scripts/build/**
+scripts/build/.venv/
+scripts/build/__pycache__/
 .venv/
 dist/
 .idea/
