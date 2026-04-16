@@ -25,6 +25,10 @@ version in `pyproject.toml` and add a matching section to `changelog.md`.
   section in `changelog.md`, and extracts release notes.
 - `create-github-release.sh` creates a GitHub Release from an already pushed
   tag using `gh release create --verify-tag`.
+- `backfill-github-releases.sh` is a one-shot helper for filling missing
+  GitHub Releases for versions that already exist on PyPI.
+- `backfill_github_releases.py` contains the implementation used by the
+  backfill shell entrypoint.
 - `README.md` documents the subsystem.
 
 ## Why These Scripts Exist
@@ -121,12 +125,60 @@ python3 scripts/build/check_pypi_version.py --repository pypi
 python3 scripts/build/extract_changelog.py
 python3 scripts/build/extract_changelog.py --version-only
 scripts/build/create-github-release.sh v1.2.3 /tmp/release-notes.md
+scripts/build/backfill-github-releases.sh
+scripts/build/backfill-github-releases.sh --apply
+scripts/build/backfill-github-releases.sh --version 1.2.3 --apply
 ```
 
 Normally, use `publish.sh` instead of calling helpers manually.
 
 The repository-root `publish.sh` is kept as a convenience wrapper and delegates
 to `scripts/build/publish.sh`.
+
+## GitHub Release Backfill
+
+`backfill-github-releases.sh` is intended as a one-time maintenance script for
+projects that already have package versions on PyPI but do not yet have matching
+GitHub Releases.
+
+The default mode is dry-run:
+
+```sh
+scripts/build/backfill-github-releases.sh
+```
+
+Real changes require `--apply`:
+
+```sh
+scripts/build/backfill-github-releases.sh --apply
+```
+
+The script does this for each changelog section:
+
+1. Checks whether that version exists on PyPI.
+2. Skips the version when PyPI does not contain it.
+3. Finds the first commit in `pyproject.toml` history where that exact version
+   appeared.
+4. Checks whether `v<version>` exists on `origin`.
+5. If the tag exists, verifies that it points to the expected commit.
+6. If the tag is missing, creates an annotated tag at that commit and pushes it
+   when `--apply` is used.
+7. Checks whether a GitHub Release for that tag already exists.
+8. If the release is missing, creates it with changelog notes when `--apply` is
+   used.
+
+For safety, `--apply` requires a clean working tree and branch `main`. The
+script never rewrites existing remote tags and never edits existing GitHub
+Releases. If a remote tag points to a different commit than the one where the
+version first appeared in `pyproject.toml`, the script reports an error and
+skips that version.
+
+You can limit a run to specific versions:
+
+```sh
+scripts/build/backfill-github-releases.sh --version 1.5.13
+scripts/build/backfill-github-releases.sh --version 1.5.13 --version 1.5.12 --apply
+```
 
 ## Changelog Parsing
 
