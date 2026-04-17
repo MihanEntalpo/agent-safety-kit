@@ -26,8 +26,8 @@ agsekit create-vms [--config <path>] [--debug]
 - `agsekit` checks whether the VM exists
 - if there is no VM, it is created
 - starts the VM if it was stopped
-- synchronizes SSH keys and known_hosts
-- installs base packages through Ansible
+- synchronizes SSH keys and known_hosts through Multipass
+- installs base packages through Ansible over SSH using the key from `global.ssh_keys_folder`
 - installs software bundles (`vms.<vm_name>.install`) into the VM
 
 ## Behavior for an Existing VM

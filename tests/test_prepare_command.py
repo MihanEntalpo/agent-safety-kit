@@ -521,3 +521,46 @@ def test_ensure_vm_ssh_access_runs_ansible_playbook(monkeypatch, tmp_path):
     assert payload["vm_name"] == "agent"
     assert payload["host_public_key"] == "ssh-rsa AAAAB3Nza test@example"
     assert payload["vm_known_hosts"] == ["agent", "10.0.0.15"]
+
+
+def test_vm_ssh_ansible_vars_use_builtin_ssh_and_configured_key(tmp_path):
+    private_key = tmp_path / "custom-ssh" / "id_rsa"
+    private_key.parent.mkdir()
+    private_key.write_text("private", encoding="utf-8")
+
+    payload = vm_prepare_module.vm_ssh_ansible_vars("agent", "10.0.0.15", private_key)
+
+    assert payload["vm_name"] == "agent"
+    assert payload["ansible_host"] == "10.0.0.15"
+    assert payload["ansible_connection"] == "ssh"
+    assert payload["ansible_user"] == "ubuntu"
+    assert payload["ansible_ssh_private_key_file"] == str(private_key.resolve())
+    assert "StrictHostKeyChecking=yes" in payload["ansible_ssh_common_args"]
+    assert "ConnectTimeout=10" in payload["ansible_ssh_common_args"]
+
+
+def test_ensure_vm_packages_runs_over_builtin_ssh(monkeypatch, tmp_path):
+    private_key = tmp_path / "custom-ssh" / "id_rsa"
+    private_key.parent.mkdir()
+    private_key.write_text("private", encoding="utf-8")
+    calls: list[tuple[list[str], Path]] = []
+
+    class Result:
+        returncode = 0
+
+    def fake_run_ansible_playbook(command, *, playbook_path, **_kwargs):
+        calls.append((list(command), Path(playbook_path)))
+        return Result()
+
+    monkeypatch.setattr(vm_prepare_module, "run_ansible_playbook", fake_run_ansible_playbook)
+
+    vm_prepare_module._ensure_vm_packages("agent", "10.0.0.15", private_key)
+
+    assert len(calls) == 1
+    command, playbook_path = calls[0]
+    assert playbook_path.name == "vm_packages.yml"
+    payload = json.loads(command[command.index("-e") + 1])
+    assert payload["vm_name"] == "agent"
+    assert payload["ansible_host"] == "10.0.0.15"
+    assert payload["ansible_connection"] == "ssh"
+    assert payload["ansible_ssh_private_key_file"] == str(private_key.resolve())

@@ -119,7 +119,7 @@ done
 
 ### Installation
 
-* Install the regular Windows version of Multipass: https://canonical.com/multipass/download/windows
+* Install the regular Windows version of Multipass: https://canonical.com/multipass/install
 * If you have Windows Home, also install VirtualBox: https://www.virtualbox.org/wiki/Downloads
 * Install WSL
 * Start a WSL session and install Python 3.9+ there
@@ -127,7 +127,7 @@ done
 
 **1. Automatically:**
 
-The script at the link creates a venv, installs agsekit, adds it to PATH, and also creates `~/.local/bin/multipass` as a symlink to the `multipass.exe` installed in Windows.
+The script at the link creates a venv, installs agsekit, adds it to PATH, and also creates `~/.local/bin/multipass` as a symlink to the `multipass.exe` installed in Windows. If Windows Multipass is not found, the script still creates the symlink to the expected default path and prints a warning with the official Multipass installation page.
 
 ```shell
 curl -fsSL https://agsekit.org/install.sh | sh

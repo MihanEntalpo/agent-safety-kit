@@ -84,6 +84,92 @@ def test_install_agents_defaults_to_single_agent(monkeypatch, tmp_path):
     assert calls[0][2] is None
 
 
+def test_install_agents_passes_configured_ssh_keys_folder(monkeypatch, tmp_path):
+    config_path = tmp_path / "config.yaml"
+    ssh_dir = tmp_path / "custom-ssh"
+    _write_config(config_path, [("qwen", "qwen")])
+    config_path.write_text(
+        "global:\n"
+        f"  ssh_keys_folder: {ssh_dir}\n"
+        + config_path.read_text(encoding="utf-8"),
+        encoding="utf-8",
+    )
+    calls: list[Path] = []
+
+    def fake_run_install_playbook(vm, playbook_path: Path, proxychains=None, **kwargs) -> None:
+        del vm, playbook_path, proxychains
+        calls.append(kwargs["ssh_keys_folder"])
+
+    monkeypatch.setattr(install_agents_module, "_run_install_playbook", fake_run_install_playbook)
+
+    runner = CliRunner()
+    result = _invoke_command(runner, install_agents_command, ["--config", str(config_path)])
+
+    assert result.exit_code == 0
+    assert calls == [ssh_dir.resolve()]
+
+
+def test_run_install_playbook_bootstraps_keys_then_uses_ssh(monkeypatch, tmp_path):
+    ssh_dir = tmp_path / "custom-ssh"
+    private_key = ssh_dir / "id_rsa"
+    public_key = ssh_dir / "id_rsa.pub"
+    playbook_path = tmp_path / "qwen.yml"
+    playbook_path.write_text("- hosts: all\n  tasks: []\n", encoding="utf-8")
+    vm = install_agents_module.VmConfig(
+        name="agent",
+        cpu=1,
+        ram="1G",
+        disk="5G",
+        cloud_init={},
+        port_forwarding=[],
+    )
+    events: list[object] = []
+
+    class Result:
+        returncode = 0
+        stdout = ""
+        stderr = ""
+
+    monkeypatch.setattr(install_agents_module, "ensure_multipass_available", lambda: events.append("ensure-multipass"))
+    monkeypatch.setattr(
+        install_agents_module,
+        "ensure_host_ssh_keypair",
+        lambda ssh_dir, verbose=False: events.append(("keys", ssh_dir, verbose)) or (private_key, public_key),
+    )
+    monkeypatch.setattr(
+        install_agents_module,
+        "_fetch_vm_ips",
+        lambda vm_name, **_kwargs: events.append(("ips", vm_name)) or ["10.0.0.15"],
+    )
+    monkeypatch.setattr(
+        install_agents_module,
+        "_ensure_vm_ssh_access",
+        lambda vm_name, public_key, hosts, **_kwargs: events.append(("bootstrap", vm_name, public_key, hosts)),
+    )
+
+    def fake_run_ansible_playbook(command, *, playbook_path, **_kwargs):
+        events.append(("ansible", list(command), Path(playbook_path)))
+        return Result()
+
+    monkeypatch.setattr(install_agents_module, "run_ansible_playbook", fake_run_ansible_playbook)
+
+    install_agents_module._run_install_playbook(vm, playbook_path, ssh_keys_folder=ssh_dir, debug=True)
+
+    assert events[:4] == [
+        "ensure-multipass",
+        ("keys", ssh_dir, True),
+        ("ips", "agent"),
+        ("bootstrap", "agent", public_key, ["agent", "10.0.0.15"]),
+    ]
+    ansible_event = events[4]
+    assert isinstance(ansible_event, tuple)
+    command = ansible_event[1]
+    payload = json.loads(command[command.index("-e") + 1])
+    assert payload["ansible_connection"] == "ssh"
+    assert payload["ansible_host"] == "10.0.0.15"
+    assert payload["ansible_ssh_private_key_file"] == str(private_key.resolve())
+
+
 def test_install_agents_uses_cline_playbook(monkeypatch, tmp_path):
     config_path = tmp_path / "config.yaml"
     _write_config(config_path, [("cline_main", "cline")])

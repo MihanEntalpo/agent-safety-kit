@@ -45,7 +45,7 @@ def run_create_vms(
 
         if not progress:
             click.echo(tr("prepare.ensure_keypair"))
-        _private_key, public_key = ensure_host_ssh_keypair(
+        private_key, public_key = ensure_host_ssh_keypair(
             ssh_dir=global_config.ssh_keys_folder,
             verbose=debug,
         )
@@ -56,6 +56,7 @@ def run_create_vms(
                     vms,
                     statuses,
                     mismatch_messages,
+                    private_key,
                     public_key,
                     debug=debug,
                     progress=owned_progress,
@@ -67,6 +68,7 @@ def run_create_vms(
             vms,
             statuses,
             mismatch_messages,
+            private_key,
             public_key,
             debug=debug,
             progress=progress,
@@ -78,6 +80,7 @@ def _run_create_vms_with_progress(
     vms,
     statuses,
     mismatch_messages,
+    private_key,
     public_key,
     *,
     debug: bool,
@@ -97,7 +100,7 @@ def _run_create_vms_with_progress(
             else:
                 progress.update(vm_task, description=tr("progress.vm_step_exists"))
             progress.advance(vm_task)
-            prepare_vm(vm.name, public_key, vm.install, progress=progress, step_task_id=vm_task, debug=debug)
+            prepare_vm(vm.name, private_key, public_key, vm.install, progress=progress, step_task_id=vm_task, debug=debug)
             if overall_task is not None:
                 progress.advance(overall_task)
         except MultipassError as exc:
@@ -162,7 +165,7 @@ def create_vm_command(vm_name: Optional[str], config_path: Optional[str], debug:
 
         click.echo(message)
         click.echo(tr("prepare.ensure_keypair"))
-        _private_key, public_key = ensure_host_ssh_keypair(
+        private_key, public_key = ensure_host_ssh_keypair(
             ssh_dir=global_config.ssh_keys_folder,
             verbose=debug,
         )
@@ -175,7 +178,7 @@ def create_vm_command(vm_name: Optional[str], config_path: Optional[str], debug:
                 else:
                     progress.update(vm_task, description=tr("progress.vm_step_create"))
                 progress.advance(vm_task)
-                prepare_vm(target_vm, public_key, bundles, progress=progress, step_task_id=vm_task, debug=debug)
+                prepare_vm(target_vm, private_key, public_key, bundles, progress=progress, step_task_id=vm_task, debug=debug)
         except MultipassError as exc:
             raise click.ClickException(str(exc))
         if mismatch_message:

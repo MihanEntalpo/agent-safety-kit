@@ -68,7 +68,7 @@
 - минимальный порог входа для Ubuntu VM;
 - простые команды (`launch`, `exec`, `mount`, `info`);
 - достаточно для изоляции агентного процесса от хоста;
-- хорошо сочетается с Ansible через встроенный connection plugin `agsekit_multipass`, работающий поверх `multipass exec/transfer`.
+- хорошо сочетается с Ansible: первичный bootstrap SSH-доступа выполняется через встроенный connection plugin `agsekit_multipass`, а дальнейшие playbook'и идут через стандартный Ansible SSH transport.
 
 ### 4.3 Почему бэкапы на хосте, а не «снэпшоты VM»
 - целевой объект защиты — проектные файлы на хосте;
@@ -112,7 +112,7 @@
   - резолв proxychains override и пути раннеров.
 - `agsekit_cli/vm_prepare.py`
   - host SSH keypair;
-  - подготовка VM (authorized_keys и known_hosts через Ansible playbook, base packages, proxychains/http-proxy runner scripts, bundles).
+  - подготовка VM (authorized_keys и known_hosts через Ansible playbook поверх `agsekit_multipass`, затем base packages, proxychains/http-proxy runner scripts и bundles через Ansible SSH).
 - `agsekit_cli/mounts.py`
   - mount/umount wrappers;
   - поиск mount по пути (longest-prefix).
@@ -153,7 +153,7 @@
 ### 6.3 Секция `global`
 Поля:
 - `ssh_keys_folder` (optional, default `~/.config/agsekit/ssh`) — каталог с SSH-ключами хоста, используемыми для доступа к VM.
-  - используется в `prepare`, `create-vm`, `create-vms` и `ssh`;
+  - используется в `prepare`, `create-vm`, `create-vms`, `install-agents`, `ssh`, `portforward` и post-bootstrap Ansible-запусках;
   - при значении `null` или отсутствии поля берётся путь по умолчанию.
 - `systemd_env_folder` (optional, default `~/.config/agsekit`) — каталог, куда записывается `systemd.env` для user-level systemd сервиса `agsekit-portforward` на Linux-хостах.
   - используется в `systemd install` и `up` только на Linux;
@@ -308,9 +308,9 @@
    - если нет ни `apt-get`, ни `pacman`, ни поддерживаемого `brew` на macOS, завершает `prepare` ошибкой о неподдерживаемом host package manager.
 4. Проверяет наличие `ssh-keygen`; на поддерживаемом Linux ставит только отсутствующий OpenSSH client package (`openssh-client` на Debian-based, `openssh` на Arch Linux), если `ssh-keygen` не найден.
 5. Проверяет наличие `rsync`; если он не найден, ставит `rsync` через пакетный менеджер на поддерживаемом Linux или через `brew install rsync` на macOS.
-6. Использует встроенные ansible plugins проекта для работы с Multipass VM; внешний `ansible-galaxy collection install ...` не требуется.
+6. Использует встроенные ansible plugins проекта для первичного bootstrap VM; внешний `ansible-galaxy collection install ...` не требуется.
 7. Встроенный `agsekit_multipass` connection plugin stage'ит локальные файлы через не-hidden staging-каталог в `HOME` перед `multipass transfer`, чтобы Ansible-копирование модулей не ломалось на hidden-путях вроде `~/.ansible/tmp` и не зависело от особенностей snap-based Multipass вокруг `/tmp`.
-8. Создаёт SSH-ключи хоста в `~/.config/agsekit/ssh/` (используются для `ssh`/подготовки VM).
+8. Создаёт SSH-ключи хоста в каталоге из `global.ssh_keys_folder` (по умолчанию `~/.config/agsekit/ssh/`); после bootstrap эти ключи используются для Ansible SSH transport, `ssh` и `portforward`.
 9. Поддерживает `--debug`: включает подробный вывод внешних команд подготовки.
 
 #### `agsekit up [--config <path>] [--debug] [--prepare/--no-prepare] [--create-vms/--no-create-vms] [--install-agents/--no-install-agents]`
@@ -471,10 +471,10 @@
 - если параметры отличаются — сообщает mismatch (ресурсы не меняет);
 - затем всегда запускает подготовку VM:
   - start;
-  - sync SSH authorized_keys;
-  - known_hosts;
-  - install base packages;
-  - install bundles.
+  - sync SSH authorized_keys через `agsekit_multipass`;
+  - known_hosts через `agsekit_multipass`;
+  - install base packages через стандартный Ansible SSH transport;
+  - install bundles через стандартный Ansible SSH transport.
 - без `--debug` отображает тот же `rich` progress для шагов подготовки, ansible и install bundles, что и `create-vms`/`install-agents`;
 - при `--debug` Rich progress отключается и остаётся только подробный лог внешних команд и шагов подготовки.
 
@@ -601,7 +601,8 @@
 - выбирает агента(ов) и VM(ы);
 - если `--all-vms` не задан и позиционный `<vm>` не передан, целевые VM берутся из `agents.<name>.vm + agents.<name>.vms` (если оба поля пустые — во все VM из секции `vms`);
 - определяет playbook по `agents.<name>.type`;
-- запускает Ansible installer через общий runner;
+- перед installer playbook идемпотентно проверяет SSH key bootstrap через `agsekit_multipass`;
+- запускает Ansible installer через общий runner и стандартный Ansible SSH transport;
   - по умолчанию runner включает компактный progress-вывод (`X/Y task-name` + progress bar) через custom callback plugin;
   - при ошибке runner допечатывает хвост последних скрытых строк Ansible (до 10 строк);
   - при `--debug` progress callback отключается и используется стандартный вывод ansible;
@@ -767,6 +768,8 @@
 ### 10.0 Универсальный запуск playbook'ов
 - все вызовы Ansible playbook идут через единый helper `run_ansible_playbook(...)` в `ansible_utils.py`;
 - запуск выполняется через `sys.executable -m ansible.cli.playbook`, чтобы всегда использовать тот же Python-интерпретатор, что и `agsekit` (и не зависеть от локальных `PATH`/`pyenv` переключений);
+- bootstrap-playbook `vm_ssh.yml` использует connection plugin `agsekit_multipass`, чтобы положить host public key в VM и синхронизировать known_hosts;
+- все playbook'и после bootstrap получают extra vars `ansible_connection=ssh`, `ansible_host=<vm_ip>`, `ansible_user=ubuntu`, `ansible_ssh_private_key_file=<global.ssh_keys_folder>/id_rsa` и работают через встроенный SSH transport Ansible;
 - helper предварительно считает общее количество задач по YAML (включая `include_tasks`/`import_tasks` и блоки `block`/`rescue`/`always`);
 - по умолчанию включает stdout callback `agsekit_progress`:
   - печатает заголовок запуска;
@@ -828,7 +831,7 @@ Dependency resolution выполняется кодом до запуска play
 ## 12. Побочные эффекты на диске
 
 На хосте:
-- installer `scripts/install/install.sh` создаёт per-user venv в `~/.local/share/agsekit/venv`, symlink `~/.local/bin/agsekit`, а при необходимости добавляет `export PATH="$HOME/.local/bin:$PATH"` в shell startup files; на WSL он также идемпотентно создаёт symlink `~/.local/bin/multipass` на Windows-бинарник Multipass;
+- installer `scripts/install/install.sh` создаёт per-user venv в `~/.local/share/agsekit/venv`, symlink `~/.local/bin/agsekit`, а при необходимости добавляет `export PATH="$HOME/.local/bin:$PATH"` в shell startup files; на WSL он также идемпотентно создаёт symlink `~/.local/bin/multipass` на Windows-бинарник Multipass, а если Windows Multipass не найден, создаёт symlink на ожидаемый стандартный путь и печатает предупреждение со ссылкой на страницу установки Multipass для Windows;
 - `~/.config/agsekit/config.yaml`
 - SSH keypair в каталоге из `global.ssh_keys_folder` (по умолчанию `~/.config/agsekit/ssh/id_rsa` и `id_rsa.pub`)
 - `systemd.env` в каталоге из `global.systemd_env_folder` (по умолчанию `~/.config/agsekit/systemd.env`)

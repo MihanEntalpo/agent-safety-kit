@@ -132,7 +132,7 @@ agents:
 ## Подробное описание каждого параметра:
 
 * `global.ssh_keys_folder`
-  * Указывает путь к папке с ssh-ключами. Команды `agsekit up`, `agsekit prepare` выполняют идемпотентное создание ssh ключей и добавление их в ВМ, для дальнейшего функционирования команд `agsekit ssh` и `agsekit portforward`.
+  * Указывает путь к папке с ssh-ключами. Команды `agsekit up`, `agsekit prepare`, `agsekit create-vm`, `agsekit create-vms` и `agsekit install-agents` выполняют идемпотентное создание ssh-ключей и добавление их в ВМ. Этот же ключ используется командами `agsekit ssh`, `agsekit portforward` и post-bootstrap Ansible-запусками.
   * См. [prepare](commands/prepare.md) и [сетевые команды](commands/networking.md)
   * По умолчанию ~/.config/agsekit/ssh
 * `global.systemd_env_folder`

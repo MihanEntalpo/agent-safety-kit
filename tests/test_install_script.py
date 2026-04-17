@@ -42,3 +42,48 @@ create_or_update_wsl_multipass_symlink
     multipass_link = fake_home / ".local" / "bin" / "multipass"
     assert multipass_link.is_symlink()
     assert multipass_link.readlink() == fake_multipass
+
+
+def test_wsl_multipass_symlink_warns_when_windows_multipass_missing(tmp_path: Path) -> None:
+    script_body = INSTALL_SCRIPT.read_text(encoding="utf-8").replace('\nmain "$@"\n', "\n")
+    fake_home = tmp_path / "home"
+    missing_multipass = tmp_path / "missing" / "Multipass" / "bin" / "multipass.exe"
+
+    fake_home.mkdir()
+
+    driver = tmp_path / "driver.sh"
+    driver.write_text(
+        script_body
+        + """
+HOME=$1
+PLATFORM=wsl
+INSTALL_ROOT="$HOME/.local/share/agsekit"
+BIN_DIR="$HOME/.local/bin"
+SYMLINK_PATH="$BIN_DIR/agsekit"
+MULTIPASS_SYMLINK_PATH="$BIN_DIR/multipass"
+MULTIPASS_WINDOWS_INSTALL_URL="https://canonical.com/multipass/install"
+WSL_MULTIPASS_EXE_FALLBACK=$2
+PATH_HINT_NEEDED=0
+PATH_FILES_CHANGED=0
+PATH=/usr/bin:/bin
+
+create_or_update_wsl_multipass_symlink
+print_summary
+""",
+        encoding="utf-8",
+    )
+
+    result = subprocess.run(
+        ["sh", str(driver), str(fake_home), str(missing_multipass)],
+        check=True,
+        capture_output=True,
+        text=True,
+    )
+
+    multipass_link = fake_home / ".local" / "bin" / "multipass"
+    assert multipass_link.is_symlink()
+    assert multipass_link.readlink() == missing_multipass
+    assert (
+        "Внимание! Multipass не установлен! Установите его скачав по ссылке "
+        "https://canonical.com/multipass/install"
+    ) in result.stdout
