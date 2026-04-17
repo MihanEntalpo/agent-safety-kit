@@ -16,6 +16,7 @@ dependencies = [
   "ansible-core>=2.16,<2.19; python_version >= '3.10'",
   "ansible-core>=2.15,<2.16; python_version < '3.10'",
   "click>=8.1,<9",
+  "portalocker>=2.8,<3",
   "psutil>=5.9,<8",
   "PyYAML>=6.0,<7",
   "questionary>=2.0,<3",

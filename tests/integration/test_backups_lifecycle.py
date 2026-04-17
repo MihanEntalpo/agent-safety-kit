@@ -38,14 +38,23 @@ def _run(
     return subprocess.run(command, check=check, text=True, capture_output=True, cwd=cwd, env=effective_env)
 
 
-def _run_cli(args: list[str], check: bool = True, cwd: Optional[Path] = None) -> subprocess.CompletedProcess[str]:
-    env = _clean_env({"AGSEKIT_LANG": "en"})
+def _run_cli(
+    args: list[str],
+    check: bool = True,
+    cwd: Optional[Path] = None,
+    env_overrides: Optional[dict[str, str]] = None,
+) -> subprocess.CompletedProcess[str]:
+    env = _clean_env({"AGSEKIT_LANG": "en", **(env_overrides or {})})
     command = [sys.executable, str(REPO_ROOT / "agsekit"), *args]
     return _run(command, check=check, cwd=cwd or REPO_ROOT, env=env)
 
 
-def _start_cli(args: list[str], cwd: Optional[Path] = None) -> subprocess.Popen[str]:
-    env = _clean_env({"AGSEKIT_LANG": "en"})
+def _start_cli(
+    args: list[str],
+    cwd: Optional[Path] = None,
+    env_overrides: Optional[dict[str, str]] = None,
+) -> subprocess.Popen[str]:
+    env = _clean_env({"AGSEKIT_LANG": "en", **(env_overrides or {})})
     command = [sys.executable, str(REPO_ROOT / "agsekit"), *args]
     return subprocess.Popen(
         command,
@@ -65,6 +74,12 @@ def _snapshot_dirs(dest_dir: Path) -> list[Path]:
         for path in dest_dir.iterdir()
         if path.is_dir() and not path.name.endswith("-partial") and not path.name.endswith("-inprogress")
     )
+
+
+def _partial_dirs(dest_dir: Path) -> list[Path]:
+    if not dest_dir.exists():
+        return []
+    return sorted(path for path in dest_dir.iterdir() if path.is_dir() and path.name.endswith("-partial"))
 
 
 def _wait_for(
@@ -231,6 +246,94 @@ def test_backup_repeated_creates_lock_file_with_ags_pid(tmp_path: Path) -> None:
         assert "agsekit" in cmdline
     finally:
         _stop_process_with_sigint(process)
+
+
+def test_two_backup_once_processes_are_serialized_by_lock(tmp_path: Path) -> None:
+    real_rsync = shutil.which("rsync")
+    if real_rsync is None:
+        pytest.skip("rsync is required for backup integration tests")
+
+    source = tmp_path / "source"
+    dest = tmp_path / "dest"
+    wrapper_dir = tmp_path / "bin"
+    marker_dir = tmp_path / "markers"
+    source.mkdir()
+    dest.mkdir()
+    wrapper_dir.mkdir()
+    marker_dir.mkdir()
+    tracked_file = source / "file.txt"
+    tracked_file.write_text("first", encoding="utf-8")
+
+    rsync_wrapper = wrapper_dir / "rsync"
+    rsync_wrapper.write_text(
+        """#!/usr/bin/env sh
+set -eu
+is_dry_run=0
+for arg in "$@"; do
+    if [ "$arg" = "--dry-run" ]; then
+        is_dry_run=1
+    fi
+done
+"$REAL_RSYNC" "$@"
+status=$?
+if [ "$is_dry_run" -eq 0 ] && [ ! -e "$MARKER_DIR/first-rsync-done" ]; then
+    printf done > "$MARKER_DIR/first-rsync-done"
+    sleep 2
+fi
+exit "$status"
+""",
+        encoding="utf-8",
+    )
+    rsync_wrapper.chmod(0o755)
+
+    env_overrides = {
+        "PATH": f"{wrapper_dir}{os.pathsep}{os.environ.get('PATH', '')}",
+        "REAL_RSYNC": real_rsync,
+        "MARKER_DIR": str(marker_dir),
+        "AGSEKIT_BACKUP_LOCK_SLEEP_SECONDS": "0.2",
+    }
+
+    first = _start_cli(
+        ["backup-once", "--source-dir", str(source), "--dest-dir", str(dest), "--non-interactive"],
+        env_overrides=env_overrides,
+    )
+    second: Optional[subprocess.Popen[str]] = None
+    try:
+        _wait_for(
+            lambda: (marker_dir / "first-rsync-done").exists(),
+            timeout=10.0,
+            message="First backup did not reach the controlled rsync hold point",
+        )
+        assert first.poll() is None
+        assert len(_snapshot_dirs(dest)) == 0
+        assert len(_partial_dirs(dest)) == 1
+
+        tracked_file.write_text("second", encoding="utf-8")
+        second = _start_cli(
+            ["backup-once", "--source-dir", str(source), "--dest-dir", str(dest), "--non-interactive"],
+            env_overrides=env_overrides,
+        )
+        time.sleep(0.5)
+        assert second.poll() is None
+        assert len(_snapshot_dirs(dest)) == 0
+        assert len(_partial_dirs(dest)) == 1
+
+        first_stdout, first_stderr = first.communicate(timeout=10)
+        assert first.returncode == 0, first_stdout + first_stderr
+
+        second_stdout, second_stderr = second.communicate(timeout=15)
+        assert second.returncode == 0, second_stdout + second_stderr
+        assert "already running" in second_stdout
+
+        snapshots = _snapshot_dirs(dest)
+        assert len(snapshots) == 2
+        assert (snapshots[0] / "file.txt").read_text(encoding="utf-8") == "first"
+        assert (snapshots[1] / "file.txt").read_text(encoding="utf-8") == "second"
+    finally:
+        for process in (first, second):
+            if process is not None and process.poll() is None:
+                process.kill()
+                process.wait(timeout=5)
 
 
 def test_backup_repeated_mount_uses_mount_entry_from_config(tmp_path: Path) -> None:

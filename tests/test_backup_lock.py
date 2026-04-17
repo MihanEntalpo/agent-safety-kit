@@ -108,6 +108,56 @@ def test_backup_repeated_honors_quiet_lock_env(monkeypatch, tmp_path):
     assert seen == [False]
 
 
+def test_try_acquire_lock_uses_portalocker(monkeypatch, tmp_path):
+    lock_path = tmp_path / "backup.pid"
+    handle = lock_path.open("a+", encoding="utf-8")
+    calls = []
+
+    def fake_lock(received_handle, flags):
+        calls.append((received_handle, flags))
+
+    monkeypatch.setattr(backup.portalocker, "lock", fake_lock)
+
+    try:
+        assert backup._try_acquire_lock(handle) is True
+    finally:
+        handle.close()
+
+    assert calls == [
+        (
+            handle,
+            backup.portalocker.LockFlags.EXCLUSIVE | backup.portalocker.LockFlags.NON_BLOCKING,
+        )
+    ]
+
+
+def test_try_acquire_lock_returns_false_on_portalocker_conflict(monkeypatch, tmp_path):
+    lock_path = tmp_path / "backup.pid"
+    handle = lock_path.open("a+", encoding="utf-8")
+
+    def fake_lock(_handle, _flags):
+        raise backup.portalocker.LockException()
+
+    monkeypatch.setattr(backup.portalocker, "lock", fake_lock)
+
+    try:
+        assert backup._try_acquire_lock(handle) is False
+    finally:
+        handle.close()
+
+
+def test_backup_lock_sleep_seconds_env_override(monkeypatch):
+    monkeypatch.setenv(backup.BACKUP_LOCK_SLEEP_ENV_VAR, "0.25")
+
+    assert backup._backup_lock_sleep_seconds() == 0.25
+
+
+def test_backup_lock_sleep_seconds_env_invalid_falls_back(monkeypatch):
+    monkeypatch.setenv(backup.BACKUP_LOCK_SLEEP_ENV_VAR, "invalid")
+
+    assert backup._backup_lock_sleep_seconds() == backup.DEFAULT_BACKUP_LOCK_SLEEP_SECONDS
+
+
 def test_pid_is_ags_backup_uses_psutil_cmdline(monkeypatch):
     class DummyProcess:
         def __init__(self, pid):

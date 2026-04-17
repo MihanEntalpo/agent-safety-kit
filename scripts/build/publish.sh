@@ -108,6 +108,7 @@ ensure_release_tag_ready() {
 run_prod() {
     require_command git
     require_command python3
+    require_command gh
 
     ensure_clean_worktree
     ensure_main_branch
