@@ -168,17 +168,20 @@ configure_path() {
 
 find_wsl_multipass_exe() {
     WSL_MULTIPASS_EXE=""
+    WSL_MULTIPASS_EXE_FOUND=0
 
     if FOUND_MULTIPASS_EXE=$(command -v multipass.exe 2>/dev/null); then
         if [ -n "$FOUND_MULTIPASS_EXE" ]; then
             WSL_MULTIPASS_EXE=$FOUND_MULTIPASS_EXE
+            WSL_MULTIPASS_EXE_FOUND=1
             return 0
         fi
     fi
 
-    DEFAULT_MULTIPASS_EXE="/mnt/c/Program Files/Multipass/bin/multipass.exe"
+    DEFAULT_MULTIPASS_EXE=${WSL_MULTIPASS_EXE_FALLBACK:-"/mnt/c/Program Files/Multipass/bin/multipass.exe"}
+    WSL_MULTIPASS_EXE=$DEFAULT_MULTIPASS_EXE
     if [ -f "$DEFAULT_MULTIPASS_EXE" ]; then
-        WSL_MULTIPASS_EXE=$DEFAULT_MULTIPASS_EXE
+        WSL_MULTIPASS_EXE_FOUND=1
         return 0
     fi
 
@@ -187,13 +190,14 @@ find_wsl_multipass_exe() {
 
 create_or_update_wsl_multipass_symlink() {
     MULTIPASS_SYMLINK_CHANGED=0
+    WSL_MULTIPASS_WARNING_NEEDED=0
 
     if [ "$PLATFORM" != wsl ]; then
         return 0
     fi
 
     if ! find_wsl_multipass_exe; then
-        die "Windows Multipass executable was not found. Install Multipass for Windows first, then rerun this installer."
+        WSL_MULTIPASS_WARNING_NEEDED=1
     fi
 
     mkdir -p "$BIN_DIR"
@@ -241,6 +245,10 @@ print_summary() {
             info "WSL Multipass symlink is already configured."
         fi
         info "Multipass symlink: $MULTIPASS_SYMLINK_PATH -> $WSL_MULTIPASS_EXE"
+        if [ "$WSL_MULTIPASS_WARNING_NEEDED" -eq 1 ]; then
+            info ""
+            info "Внимание! Multipass не установлен! Установите его скачав по ссылке $MULTIPASS_WINDOWS_INSTALL_URL"
+        fi
     fi
 }
 
@@ -256,6 +264,7 @@ main() {
     MULTIPASS_SYMLINK_PATH="$BIN_DIR/multipass"
     AGSEKIT_BIN="$VENV_PATH/bin/agsekit"
     PATH_LINE='export PATH="$HOME/.local/bin:$PATH"'
+    MULTIPASS_WINDOWS_INSTALL_URL="https://canonical.com/multipass/install"
     AGSEKIT_PACKAGE=${AGSEKIT_PACKAGE:-agsekit}
 
     info "Installing agsekit..."

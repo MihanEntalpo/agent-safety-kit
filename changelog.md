@@ -1,5 +1,9 @@
 # Agent-Safety-Kit versions history
 
+## 1.5.14 - Moved from multipass exec to ssh on heavy ansible playbooks
+
+* Multipass in windows has troubles running heavy playbooks over exec, so moved to ssh (all except initial preparation steps which itself syncs ssh keys to VM)
+
 ## 1.5.13 - Http_proxy in agsekit run argument
 
 * Added `agsekit run --http-proxy <scheme://host:port>` to override configured `http_proxy` for one run; `--http-proxy ""` disables configured `http_proxy` temporarily

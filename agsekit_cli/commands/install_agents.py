@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import json
 import shlex
 import subprocess
 from pathlib import Path
@@ -16,12 +17,22 @@ from ..ansible_utils import (
     emit_hidden_output_tail,
     run_ansible_playbook,
 )
-from ..config import AgentConfig, ConfigError, VmConfig, load_agents_config, load_config, load_vms_config, resolve_config_path
+from ..config import (
+    AgentConfig,
+    ConfigError,
+    VmConfig,
+    load_agents_config,
+    load_config,
+    load_global_config,
+    load_vms_config,
+    resolve_config_path,
+)
 from ..debug import debug_scope
 from ..interactive import is_interactive_terminal
 from ..i18n import tr
 from ..progress import ProgressManager
 from ..vm import MultipassError, ensure_multipass_available, resolve_proxychains
+from ..vm_prepare import _ensure_vm_ssh_access, _fetch_vm_ips, ensure_host_ssh_keypair, vm_ssh_ansible_vars
 from . import debug_option, non_interactive_option
 
 PLAYBOOKS_DIR = Path(__file__).resolve().parents[1] / "ansible" / "agents"
@@ -64,19 +75,27 @@ def _log_failed_command(
 def _run_install_playbook(
     vm: VmConfig,
     playbook_path: Path,
+    ssh_keys_folder: Path,
     proxychains: Optional[str] = None,
     *,
+    debug: bool = False,
     progress: Optional[ProgressManager] = None,
     label: Optional[str] = None,
 ) -> None:
     ensure_multipass_available()
+    private_key, public_key = ensure_host_ssh_keypair(ssh_dir=ssh_keys_folder, verbose=debug)
+    hosts = _fetch_vm_ips(vm.name, progress=progress, debug=debug)
+    if not hosts:
+        raise MultipassError(tr("prepare.no_vm_ips", vm_name=vm.name))
+    _ensure_vm_ssh_access(vm.name, public_key, [vm.name, *hosts], progress=progress)
     effective_proxychains = resolve_proxychains(vm, proxychains)
+    extra_vars = vm_ssh_ansible_vars(vm.name, hosts[0], private_key)
     install_command = [
         *ansible_playbook_command(),
         "-i",
         "localhost,",
         "-e",
-        f"vm_name={vm.name}",
+        json.dumps(extra_vars, ensure_ascii=False),
     ]
     if effective_proxychains:
         install_command.extend(["-e", f"proxychains_url={effective_proxychains}"])
@@ -189,6 +208,7 @@ def run_install_agents(
         resolved_path = resolve_config_path(Path(config_path) if config_path else None)
         try:
             config = load_config(resolved_path)
+            global_config = load_global_config(config)
             agents_config = load_agents_config(config)
             vms_config = load_vms_config(config)
         except ConfigError as exc:
@@ -243,6 +263,7 @@ def run_install_agents(
                 _run_install_targets(
                     targets=targets,
                     agents_config=agents_config,
+                    ssh_keys_folder=global_config.ssh_keys_folder,
                     proxychains=proxychains,
                     debug=debug,
                     progress=owned_progress,
@@ -254,6 +275,7 @@ def run_install_agents(
         _run_install_targets(
             targets=targets,
             agents_config=agents_config,
+            ssh_keys_folder=global_config.ssh_keys_folder,
             proxychains=proxychains,
             debug=debug,
             progress=progress,
@@ -265,6 +287,7 @@ def _run_install_targets(
     *,
     targets: List[Tuple[str, VmConfig]],
     agents_config: dict[str, AgentConfig],
+    ssh_keys_folder: Path,
     proxychains: Optional[str],
     debug: bool,
     progress: ProgressManager,
@@ -299,7 +322,9 @@ def _run_install_targets(
             _run_install_playbook(
                 target_vm,
                 playbook_path,
+                ssh_keys_folder=ssh_keys_folder,
                 proxychains=proxychains_override,
+                debug=debug,
                 progress=progress,
                 label=install_label,
             )
@@ -311,9 +336,9 @@ def _run_install_targets(
                     "install_agents.installed",
                     agent_name=agent.name,
                     agent_type=agent.type,
-                        vm_name=target_vm.name,
-                    )
+                    vm_name=target_vm.name,
                 )
+            )
         if overall_task is not None:
             progress.advance(overall_task)
     if overall_task is not None:

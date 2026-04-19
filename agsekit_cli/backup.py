@@ -1,6 +1,5 @@
 from __future__ import annotations
 
-import fcntl
 import os
 import platform
 import sys
@@ -13,11 +12,14 @@ from math import log2
 from pathlib import Path
 from typing import Callable, Dict, Iterable, List, Optional, Set, Tuple
 
+import portalocker
 import psutil
 
 from .i18n import tr
 
 FilterRule = Tuple[str, str]
+BACKUP_LOCK_SLEEP_ENV_VAR = "AGSEKIT_BACKUP_LOCK_SLEEP_SECONDS"
+DEFAULT_BACKUP_LOCK_SLEEP_SECONDS = 60.0
 
 
 @dataclass(frozen=True)
@@ -79,7 +81,7 @@ class BackupLock:
         if self._handle is None:
             return
         try:
-            fcntl.flock(self._handle.fileno(), fcntl.LOCK_UN)
+            portalocker.unlock(self._handle)
         finally:
             self._handle.close()
             self._handle = None
@@ -87,10 +89,23 @@ class BackupLock:
 
 def _try_acquire_lock(handle) -> bool:
     try:
-        fcntl.flock(handle.fileno(), fcntl.LOCK_EX | fcntl.LOCK_NB)
-    except BlockingIOError:
+        portalocker.lock(handle, portalocker.LockFlags.EXCLUSIVE | portalocker.LockFlags.NON_BLOCKING)
+    except portalocker.LockException:
         return False
     return True
+
+
+def _backup_lock_sleep_seconds() -> float:
+    raw_value = os.environ.get(BACKUP_LOCK_SLEEP_ENV_VAR, "").strip()
+    if not raw_value:
+        return DEFAULT_BACKUP_LOCK_SLEEP_SECONDS
+    try:
+        value = float(raw_value)
+    except ValueError:
+        return DEFAULT_BACKUP_LOCK_SLEEP_SECONDS
+    if value <= 0:
+        return DEFAULT_BACKUP_LOCK_SLEEP_SECONDS
+    return value
 
 
 def _read_lock_pid(handle) -> Optional[int]:
@@ -516,7 +531,7 @@ def backup_once(
 
     dest_dir.mkdir(parents=True, exist_ok=True)
 
-    lock_ctx = BackupLock(dest_dir) if use_lock else None
+    lock_ctx = BackupLock(dest_dir, sleep_seconds=_backup_lock_sleep_seconds()) if use_lock else None
     if lock_ctx is None:
         _backup_once_impl(source_dir, dest_dir, extra_excludes=extra_excludes, show_progress=show_progress)
         return
@@ -606,7 +621,12 @@ def backup_repeated(
         raise ValueError(tr("backup.keep_positive_required"))
 
     announce_lock_wait = os.environ.get("AGSEKIT_BACKUP_LOCK_QUIET") != "1"
-    with BackupLock(dest_dir, announce_wait=announce_lock_wait, sleep_func=sleep_func):
+    with BackupLock(
+        dest_dir,
+        announce_wait=announce_lock_wait,
+        sleep_seconds=_backup_lock_sleep_seconds(),
+        sleep_func=sleep_func,
+    ):
         runs_completed = 0
         first_cycle = True
         while True:

@@ -12,6 +12,8 @@
 
 Install one or more configured agent runtimes into one or more VMs.
 
+Before running the installer playbook, `agsekit` makes sure the VM contains the host SSH key. The key bootstrap is done through Multipass, and the installer itself runs through Ansible over SSH using `global.ssh_keys_folder`.
+
 ## Commands
 
 ```bash

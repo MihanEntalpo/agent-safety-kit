@@ -132,7 +132,7 @@ agents:
 ## Detailed Description of Each Parameter:
 
 * `global.ssh_keys_folder`
-  * Specifies the path to the folder with ssh keys. Commands `agsekit up`, `agsekit prepare` idempotently create ssh keys and add them to the VM for further operation of `agsekit ssh` and `agsekit portforward`.
+  * Specifies the path to the folder with ssh keys. Commands `agsekit up`, `agsekit prepare`, `agsekit create-vm`, `agsekit create-vms`, and `agsekit install-agents` idempotently create ssh keys and add them to the VM. The same key is used by `agsekit ssh`, `agsekit portforward`, and post-bootstrap Ansible runs.
   * See [prepare](commands/prepare.md) and [networking commands](commands/networking.md)
   * Default: ~/.config/agsekit/ssh
 * `global.systemd_env_folder`

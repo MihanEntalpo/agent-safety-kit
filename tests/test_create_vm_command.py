@@ -28,7 +28,7 @@ def test_create_vm_defaults_to_single_vm(monkeypatch, tmp_path):
     _write_config(config_path, ["agent"])
 
     calls: list[tuple[str, str]] = []
-    prep_calls: list[tuple[str, str]] = []
+    prep_calls: list[tuple[str, str, str]] = []
 
     def fake_create_vm_from_config(path: str, vm_name: str) -> str:
         calls.append((path, vm_name))
@@ -43,7 +43,9 @@ def test_create_vm_defaults_to_single_vm(monkeypatch, tmp_path):
     monkeypatch.setattr(
         create_vm_module,
         "prepare_vm",
-        lambda vm_name, public_key, *args, **kwargs: prep_calls.append((vm_name, public_key.name)),
+        lambda vm_name, private_key, public_key, *args, **kwargs: prep_calls.append(
+            (vm_name, private_key.name, public_key.name)
+        ),
     )
 
     runner = CliRunner()
@@ -51,7 +53,7 @@ def test_create_vm_defaults_to_single_vm(monkeypatch, tmp_path):
 
     assert result.exit_code == 0
     assert calls == [(str(config_path), "agent")]
-    assert prep_calls == [("agent", "id_rsa.pub")]
+    assert prep_calls == [("agent", "id_rsa", "id_rsa.pub")]
     assert "agent" in result.output
 
 

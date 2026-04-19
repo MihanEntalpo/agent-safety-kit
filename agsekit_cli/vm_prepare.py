@@ -5,7 +5,7 @@ import os
 import shlex
 import subprocess
 from pathlib import Path
-from typing import Iterable, List, Optional, Tuple
+from typing import Dict, Iterable, List, Optional, Tuple
 
 import click
 from rich.progress import TaskID
@@ -21,6 +21,33 @@ from .i18n import tr
 from .progress import ProgressManager
 from .vm_bundles import ResolvedBundle, resolve_bundles
 from .vm import MultipassError
+
+_VM_SSH_USER = "ubuntu"
+_VM_SSH_COMMON_ARGS = " ".join(
+    [
+        "-o",
+        "BatchMode=yes",
+        "-o",
+        "StrictHostKeyChecking=yes",
+        "-o",
+        "ConnectTimeout=10",
+        "-o",
+        "ServerAliveInterval=15",
+        "-o",
+        "ServerAliveCountMax=4",
+    ]
+)
+
+
+def vm_ssh_ansible_vars(vm_name: str, vm_host: str, private_key: Path) -> Dict[str, str]:
+    return {
+        "vm_name": vm_name,
+        "ansible_host": vm_host,
+        "ansible_connection": "ssh",
+        "ansible_user": _VM_SSH_USER,
+        "ansible_ssh_private_key_file": str(private_key.expanduser().resolve()),
+        "ansible_ssh_common_args": _VM_SSH_COMMON_ARGS,
+    }
 
 
 def _run_multipass(
@@ -127,6 +154,8 @@ def _report_hidden_output_tail(
 
 def _ensure_vm_packages(
     vm_name: str,
+    vm_host: str,
+    private_key: Path,
     progress: Optional[ProgressManager] = None,
     step_task_id: Optional[TaskID] = None,
 ) -> None:
@@ -140,7 +169,7 @@ def _ensure_vm_packages(
         "-i",
         "localhost,",
         "-e",
-        f"vm_name={vm_name}",
+        json.dumps(vm_ssh_ansible_vars(vm_name, vm_host, private_key), ensure_ascii=False),
         str(playbook),
     ]
     if progress:
@@ -169,8 +198,9 @@ def _ensure_vm_ssh_access(
     progress: Optional[ProgressManager] = None,
     step_task_id: Optional[TaskID] = None,
 ) -> None:
-    if progress and step_task_id is not None:
-        progress.update(step_task_id, description=tr("progress.prepare_step_ssh"))
+    if progress:
+        if step_task_id is not None:
+            progress.update(step_task_id, description=tr("progress.prepare_step_ssh"))
     else:
         click.echo(tr("prepare.syncing_keys", vm_name=vm_name))
         click.echo(tr("prepare.ensure_authorized_keys", vm_name=vm_name))
@@ -213,6 +243,8 @@ def _ensure_vm_ssh_access(
 
 def _install_vm_bundles(
     vm_name: str,
+    vm_host: str,
+    private_key: Path,
     bundles: List[ResolvedBundle],
     progress: Optional[ProgressManager] = None,
     step_task_id: Optional[TaskID] = None,
@@ -244,7 +276,7 @@ def _install_vm_bundles(
             "-i",
             "localhost,",
             "-e",
-            f"vm_name={vm_name}",
+            json.dumps(vm_ssh_ansible_vars(vm_name, vm_host, private_key), ensure_ascii=False),
         ]
         if bundle.version:
             command.extend(["-e", f"bundle_version={bundle.version}"])
@@ -302,6 +334,7 @@ def _fetch_vm_ips(
 
 def prepare_vm(
     vm_name: str,
+    private_key: Path,
     public_key: Path,
     bundles: Optional[List[str]] = None,
     progress: Optional[ProgressManager] = None,
@@ -328,9 +361,10 @@ def prepare_vm(
     if progress and step_task_id is not None:
         progress.advance(step_task_id)
     _ensure_vm_ssh_access(vm_name, public_key, [vm_name, *hosts], progress, step_task_id)
-    _ensure_vm_packages(vm_name, progress, step_task_id)
+    vm_host = hosts[0]
+    _ensure_vm_packages(vm_name, vm_host, private_key, progress, step_task_id)
     resolved_bundles = resolve_bundles(bundles or [], vm_name) if bundles else []
-    _install_vm_bundles(vm_name, resolved_bundles, progress, step_task_id)
+    _install_vm_bundles(vm_name, vm_host, private_key, resolved_bundles, progress, step_task_id)
     prepared_message = tr("prepare.prepared_vm", vm_name=vm_name)
     if progress:
         if debug:
