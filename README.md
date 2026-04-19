@@ -53,12 +53,19 @@ Of course, you need to do the initial setup, but it is much simpler than doing e
 
 You need Python 3.9+.
 
-Deb/Arch Linux, macOS with Homebrew, and Windows through WSL are supported.
+Deb/Arch Linux, macOS with Homebrew, and native Windows PowerShell are supported.
+WSL is not supported.
 
-If you are lazy and fearless:
+If you are lazy and fearless on Linux or macOS:
 
 ```shell
 curl -fsSL https://agsekit.org/install.sh | sh
+```
+
+On Windows, run in PowerShell:
+
+```powershell
+irm https://agsekit.org/install.ps1 | iex
 ```
 
 If you want to do everything yourself, or the "lazy" way did not work:
@@ -188,9 +195,9 @@ More details: [docs/philosophy.md](docs/philosophy.md)
 
 ## Platform Support
 
-- Linux host: supported
+- Linux host: supported, but WSL is not supported
 - macOS host: supported
-- Windows host: currently only through WSL
+- Windows host: supported through native PowerShell
 
 ## FAQ
 

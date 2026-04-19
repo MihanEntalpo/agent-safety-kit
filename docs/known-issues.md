@@ -14,7 +14,7 @@ This page collects current limitations.
 - If you work with several users on one PC, you need to have roughly the same agsekit configuration, otherwise various problems are possible.
 - If you work with several users on one PC, there will be no isolation between users, because Multipass and its VMs are global for the whole machine, not per user.
 - VM size cannot yet be changed automatically after changing its size in the configuration. If needed, do this with Multipass tools.
-- Windows host support is not yet a first-class workflow. Use WSL.
+- WSL is not supported; use a regular Linux host or native Windows PowerShell.
 - The Linux-only integration with `systemd` does not yet have a native macOS replacement via `launchd`.
 - Large installers and source builds can be slow on small VMs.
 - `agsekit run <agent>` itself may not be very fast because of preparation steps and backups.

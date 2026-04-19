@@ -27,6 +27,7 @@ from ..config import (
     resolve_config_path,
 )
 from ..debug import debug_log_command, debug_log_result, debug_scope
+from ..host_tools import multipass_command
 from ..i18n import tr
 from ..vm import RESOURCE_SIZE_RELATIVE_TOLERANCE, fetch_existing_info, to_bytes
 
@@ -85,7 +86,7 @@ def _load_multipass_entries() -> tuple[Dict[str, Dict[str, object]], Optional[st
 
 
 def _load_multipass_info_entries() -> tuple[Dict[str, Dict[str, object]], Optional[str]]:
-    command = ["multipass", "info", "--format", "json"]
+    command = [multipass_command(), "info", "--format", "json"]
     debug_log_command(command)
     result = subprocess.run(
         command,
@@ -322,7 +323,7 @@ def _check_agent_binary_installed(vm_name: str, binary: str) -> Optional[bool]:
     agent_cls = get_agent_class_for_runtime_binary(binary)
     command = agent_cls.build_binary_check_command()
 
-    run_command = ["multipass", "exec", vm_name, "--", "bash", "-lc", command]
+    run_command = [multipass_command(), "exec", vm_name, "--", "bash", "-lc", command]
     debug_log_command(run_command)
     result = subprocess.run(
         run_command,
@@ -358,7 +359,7 @@ def _match_binary(args: str, binaries: Iterable[str]) -> Optional[str]:
 
 
 def _read_process_cwd(vm_name: str, pid: str) -> Optional[str]:
-    command = ["multipass", "exec", vm_name, "--", "bash", "-lc", f"readlink -f /proc/{shlex.quote(pid)}/cwd"]
+    command = [multipass_command(), "exec", vm_name, "--", "bash", "-lc", f"readlink -f /proc/{shlex.quote(pid)}/cwd"]
     debug_log_command(command)
     result = subprocess.run(
         command,
@@ -377,7 +378,7 @@ def _collect_running_agent_processes(vm_name: str, binaries: Sequence[str]) -> O
     if not binaries:
         return []
 
-    command = ["multipass", "exec", vm_name, "--", "ps", "-eo", "pid=,ppid=,args="]
+    command = [multipass_command(), "exec", vm_name, "--", "ps", "-eo", "pid=,ppid=,args="]
     debug_log_command(command)
     result = subprocess.run(
         command,

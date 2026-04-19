@@ -297,21 +297,29 @@
 - подготовить именно хостовую машину, чтобы дальше можно было стабильно создавать/готовить VM.
 
 Что делает:
-1. Проверяет наличие `multipass`.
-2. Если `multipass` уже доступен в `PATH`, установку Multipass, `snapd` и связанных host-пакетов не выполняет.
-3. Если `multipass` отсутствует:
-   - внутри WSL не пытается ставить ни `snapd`, ни Multipass, а завершает команду понятной ошибкой с требованием установить Multipass на Windows и сделать команду `multipass` доступной в WSL;
+1. Если хост запущен внутри WSL, завершает команду понятной ошибкой: WSL не поддерживается, нужно использовать обычный Linux-хост или native Windows PowerShell.
+2. На native Windows сначала проверяет host-утилиты `rsync` и `ssh-keygen`; если они отсутствуют, спрашивает пользователя и при согласии ставит MSYS2 через `winget install --id MSYS2.MSYS2 -e --accept-package-agreements --accept-source-agreements`, обновляет пакеты через `pacman -Syu --noconfirm`, затем ставит `rsync` и `openssh` через `pacman -S --needed --noconfirm`.
+3. На native Windows после подготовки MSYS2 идемпотентно добавляет `C:\msys64\usr\bin` в текущий процесс и пользовательский `PATH`, чтобы `rsync` и OpenSSH-утилиты были доступны последующим командам.
+4. Проверяет наличие `multipass`: сначала через `PATH`, затем на native Windows по стандартному пути `C:\Program Files\Multipass\bin\multipass.exe`.
+5. Если `multipass` уже доступен, установку Multipass, `snapd` и связанных host-пакетов не выполняет.
+6. Если `multipass` отсутствует:
+   - на native Windows печатает ссылку на скачивание Multipass for Windows и предлагает открыть её, но не устанавливает Multipass автоматически;
    - на Debian-based (`apt-get`) проверяет host-пакеты (`snapd`, `qemu-kvm`, `libvirt-daemon-system`, `libvirt-clients`, `bridge-utils`) и ставит только отсутствующие, после чего ставит Multipass через `snap`;
    - на Arch Linux (`pacman`) ставит Multipass через AUR helper (`yay` или `aura`) вместе с `libvirt`, `dnsmasq`, `qemu-base`;
    - на macOS (`Darwin` + `brew`) ставит Multipass через `brew install multipass`;
-   - если `prepare`/`up` запущен с Rich progress и установка Multipass требует интерактивный ввод (`sudo` внутри Homebrew installer), progress временно приостанавливается, чтобы prompt и ввод пароля работали в обычном терминальном режиме;
+   - если `prepare`/`up` запущен с Rich progress и установка host-зависимостей требует интерактивный ввод (например, подтверждение установки MSYS2 на Windows или `sudo` внутри Homebrew installer), progress временно приостанавливается, чтобы prompt и ввод работали в обычном терминальном режиме;
    - если нет ни `apt-get`, ни `pacman`, ни поддерживаемого `brew` на macOS, завершает `prepare` ошибкой о неподдерживаемом host package manager.
-4. Проверяет наличие `ssh-keygen`; на поддерживаемом Linux ставит только отсутствующий OpenSSH client package (`openssh-client` на Debian-based, `openssh` на Arch Linux), если `ssh-keygen` не найден.
-5. Проверяет наличие `rsync`; если он не найден, ставит `rsync` через пакетный менеджер на поддерживаемом Linux или через `brew install rsync` на macOS.
-6. Использует встроенные ansible plugins проекта для первичного bootstrap VM; внешний `ansible-galaxy collection install ...` не требуется.
-7. Встроенный `agsekit_multipass` connection plugin stage'ит локальные файлы через не-hidden staging-каталог в `HOME` перед `multipass transfer`, чтобы Ansible-копирование модулей не ломалось на hidden-путях вроде `~/.ansible/tmp` и не зависело от особенностей snap-based Multipass вокруг `/tmp`.
-8. Создаёт SSH-ключи хоста в каталоге из `global.ssh_keys_folder` (по умолчанию `~/.config/agsekit/ssh/`); после bootstrap эти ключи используются для Ansible SSH transport, `ssh` и `portforward`.
-9. Поддерживает `--debug`: включает подробный вывод внешних команд подготовки.
+7. Проверяет наличие `ssh-keygen`; на поддерживаемом Linux ставит только отсутствующий OpenSSH client package (`openssh-client` на Debian-based, `openssh` на Arch Linux), если `ssh-keygen` не найден.
+8. Проверяет наличие `rsync`; если он не найден, ставит `rsync` через пакетный менеджер на поддерживаемом Linux или через `brew install rsync` на macOS.
+9. При запуске внешних host-утилит (`multipass`, `rsync`, `ssh`, `ssh-keygen`) сначала использует имя команды из `PATH`, а на native Windows при отсутствии в `PATH` использует стандартные пути установки Multipass и MSYS2.
+10. Использует встроенные ansible plugins проекта для первичного bootstrap VM; внешний `ansible-galaxy collection install ...` не требуется.
+11. Встроенный `agsekit_multipass` connection plugin stage'ит локальные файлы через не-hidden staging-каталог в `HOME` перед `multipass transfer`, чтобы Ansible-копирование модулей не ломалось на hidden-путях вроде `~/.ansible/tmp` и не зависело от особенностей snap-based Multipass вокруг `/tmp`.
+12. Создаёт SSH-ключи хоста в каталоге из `global.ssh_keys_folder` (по умолчанию `~/.config/agsekit/ssh/`); после bootstrap эти ключи используются для Ansible SSH transport, `ssh` и `portforward`.
+13. Поддерживает `--debug`: включает подробный вывод внешних команд подготовки.
+
+Архитектура реализации:
+- `agsekit_cli/prepare_strategies.py` определяет host-platform через `choose_prepare()` и выбирает strategy-класс: `PrepareWin`, `PrepareMacBrew`, `PrepareLinuxDeb`, `PrepareLinuxArch` или базовый fallback `PrepareBase`;
+- `agsekit_cli/commands/prepare.py` остаётся CLI-обвязкой и вызывает единый `prepare_host()`, а платформенные отличия установки Multipass, `rsync`, `ssh-keygen`/MSYS2 инкапсулированы в соответствующем классе.
 
 #### `agsekit up [--config <path>] [--debug] [--prepare/--no-prepare] [--create-vms/--no-create-vms] [--install-agents/--no-install-agents]`
 Зачем пользователю:
@@ -831,7 +839,8 @@ Dependency resolution выполняется кодом до запуска play
 ## 12. Побочные эффекты на диске
 
 На хосте:
-- installer `scripts/install/install.sh` создаёт per-user venv в `~/.local/share/agsekit/venv`, symlink `~/.local/bin/agsekit`, а при необходимости добавляет `export PATH="$HOME/.local/bin:$PATH"` в shell startup files; на WSL он также идемпотентно создаёт symlink `~/.local/bin/multipass` на Windows-бинарник Multipass, а если Windows Multipass не найден, создаёт symlink на ожидаемый стандартный путь и печатает предупреждение со ссылкой на страницу установки Multipass для Windows;
+- installer `scripts/install/install.sh` создаёт per-user venv в `~/.local/share/agsekit/venv`, symlink `~/.local/bin/agsekit`, а при необходимости добавляет `export PATH="$HOME/.local/bin:$PATH"` в shell startup files;
+- Windows installer `scripts/install/install.ps1` создаёт per-user venv в `%USERPROFILE%\.local\share\agsekit\venv`, wrapper `%USERPROFILE%\.local\bin\agsekit.cmd`, а при необходимости добавляет `%USERPROFILE%\.local\bin` в пользовательский `PATH`;
 - `~/.config/agsekit/config.yaml`
 - SSH keypair в каталоге из `global.ssh_keys_folder` (по умолчанию `~/.config/agsekit/ssh/id_rsa` и `id_rsa.pub`)
 - `systemd.env` в каталоге из `global.systemd_env_folder` (по умолчанию `~/.config/agsekit/systemd.env`)

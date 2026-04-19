@@ -19,7 +19,8 @@ def test_ssh_command_uses_custom_ssh_keys_folder(monkeypatch, tmp_path):
 
     commands = []
 
-    monkeypatch.setattr(ssh_module.shutil, "which", lambda binary: "/usr/bin/ssh" if binary == "ssh" else None)
+    monkeypatch.setattr(ssh_module, "host_tool_exists", lambda binary: binary == "ssh")
+    monkeypatch.setattr(ssh_module, "resolved_ssh_command", lambda: "ssh")
     monkeypatch.setattr(ssh_module, "ensure_multipass_available", lambda: None)
     monkeypatch.setattr(ssh_module, "_fetch_vm_ip", lambda vm_name, debug=False: "10.0.0.8")
     monkeypatch.setattr(

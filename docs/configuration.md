@@ -136,7 +136,7 @@ agents:
   * See [prepare](commands/prepare.md) and [networking commands](commands/networking.md)
   * Default: ~/.config/agsekit/ssh
 * `global.systemd_env_folder`
-  * Specifies the path to the folder with the .env file for launching the systemd service (used only in linux/WSL)
+  * Specifies the path to the folder with the .env file for launching the systemd service (used only on Linux with systemd)
   * See [systemd](commands/systemd.md)
   * Default: ~/.config/agsekit
 * `global.portforward_config_check_interval_sec`

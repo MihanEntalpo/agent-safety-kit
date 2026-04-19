@@ -8,12 +8,21 @@
   * debian
   * arch
 * MacOS
-* WSL (windows linux subsystem)
 
 Что делает:
 
 * Создаёт venv
 * Устанавливает в него agsekit
 * Добавляет agsekit в PATH для запуска откуда угодно
-* В WSL создаёт `~/.local/bin/multipass` как symlink на установленный в Windows `multipass.exe`
-* Если Windows Multipass не найден, в WSL создаёт symlink на ожидаемый стандартный путь и выводит предупреждение со ссылкой на страницу установки Multipass
+
+## install/install.ps1 - Windows-скрипт установки для PowerShell
+
+Работает в native Windows PowerShell. WSL не поддерживается.
+
+Что делает:
+
+* Проверяет наличие Python 3.9+
+* Создаёт venv
+* Устанавливает в него agsekit
+* Создаёт `agsekit.cmd`
+* Добавляет wrapper-каталог в пользовательский PATH

@@ -4,13 +4,14 @@
 
 - [Linux](#linux)
 - [macOS](#macos)
-- [Windows WSL](#windows-wsl)
+- [Windows](#windows)
 
 ## Linux
 
 ### Requirements:
 
 * Deb-based and Arch-based distributions are supported
+* WSL is not supported. Use a regular Linux host or native Windows PowerShell.
 * The repository must have snapd; Multipass is installed through it.
 * If you have an unsupported distribution, or no snapd, simply install Multipass manually in the system using any method available to you. That is enough for operation.
 
@@ -110,62 +111,69 @@ for FILE in "$HOME/.bashrc" "$HOME/.profile" "$HOME/.zshrc" "$HOME/.zprofile"; d
 done
 ```
 
-## Windows WSL
+## Windows
 
 ### Requirements
 
-* For now, only through WSL (full Windows support is planned for the future)
-* Multipass must be installed in the main system (it will not work inside WSL)
+* Native Windows PowerShell is supported.
+* Python 3.9+ is required. The installer checks for it and asks you to install Python first if it is missing.
+* Multipass for Windows must be installed: https://canonical.com/multipass/install
+* `agsekit prepare` can install MSYS2 through `winget` and then install `rsync` and `openssh` through MSYS2 `pacman`.
 
 ### Installation
 
-* Install the regular Windows version of Multipass: https://canonical.com/multipass/install
-* If you have Windows Home, also install VirtualBox: https://www.virtualbox.org/wiki/Downloads
-* Install WSL
-* Start a WSL session and install Python 3.9+ there
-* After that, run all commands in WSL, and agsekit will work only there as well.
+* Install Python 3.9+.
+* Install Multipass for Windows.
+* Open PowerShell.
 
 **1. Automatically:**
 
-The script at the link creates a venv, installs agsekit, adds it to PATH, and also creates `~/.local/bin/multipass` as a symlink to the `multipass.exe` installed in Windows. If Windows Multipass is not found, the script still creates the symlink to the expected default path and prints a warning with the official Multipass installation page.
+The script at the link creates a venv, installs agsekit, creates an `agsekit.cmd` wrapper, and adds it to the user PATH.
 
-```shell
-curl -fsSL https://agsekit.org/install.sh | sh
+```powershell
+irm https://agsekit.org/install.ps1 | iex
 ```
 
-Restart the shell:
+Restart PowerShell, or update PATH in the current session using the command printed by the installer.
 
-```shell
-$SHELL
+After installation, run:
+
+```powershell
+agsekit prepare
 ```
+
+If MSYS2 or required MSYS2 packages are missing, `prepare` will ask before installing them.
 
 **2. Manually:**
 
 Create a venv and install agsekit:
 
-```shell
-INSTALL_ROOT="$HOME/.local/share/agsekit" && \
-python -m venv "$INSTALL_ROOT/venv" && \
-"$INSTALL_ROOT/venv/bin/python" -m pip install -U agsekit pip && \
-mkdir -p "$HOME/.local/bin" && \
-ln -s "$INSTALL_ROOT/venv/bin/agsekit" "$HOME/.local/bin"
+```powershell
+$InstallRoot = "$env:USERPROFILE\.local\share\agsekit"
+py -3 -m venv "$InstallRoot\venv"
+& "$InstallRoot\venv\Scripts\python.exe" -m pip install -U pip agsekit
 ```
 
-Create a symlink to Windows Multipass:
+Create a command wrapper:
 
-```shell
-ln -s "/mnt/c/Program Files/Multipass/bin/multipass.exe" "$HOME/.local/bin/multipass"
+```powershell
+$BinDir = "$env:USERPROFILE\.local\bin"
+New-Item -ItemType Directory -Force -Path $BinDir | Out-Null
+Set-Content -Path "$BinDir\agsekit.cmd" -Value "@echo off`r`n`"$InstallRoot\venv\Scripts\agsekit.exe`" %*`r`n" -Encoding ASCII
 ```
 
-Add the ~/.local/bin folder to PATH:
-(adds only to files that exist and do not yet contain this line)
+Add the wrapper directory to user PATH:
 
-```shell
-PATH_LINE='export PATH="$HOME/.local/bin:$PATH"'
+```powershell
+$CurrentPath = [Environment]::GetEnvironmentVariable("Path", "User")
+if (-not (($CurrentPath -split ";") -contains $BinDir)) {
+    $NewPath = if ([string]::IsNullOrEmpty($CurrentPath)) { $BinDir } else { "$CurrentPath;$BinDir" }
+    [Environment]::SetEnvironmentVariable("Path", $NewPath, "User")
+}
+```
 
-for FILE in "$HOME/.bashrc" "$HOME/.profile" "$HOME/.zshrc" "$HOME/.zprofile"; do
-    if [ -f "$FILE" ] && ! grep -Fxq "$PATH_LINE" "$FILE"; then
-      printf '\n%s\n' "$PATH_LINE" >> "$FILE"
-    fi
-done
+Prepare host dependencies:
+
+```powershell
+agsekit prepare
 ```

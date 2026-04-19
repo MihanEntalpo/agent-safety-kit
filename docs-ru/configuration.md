@@ -136,7 +136,7 @@ agents:
   * См. [prepare](commands/prepare.md) и [сетевые команды](commands/networking.md)
   * По умолчанию ~/.config/agsekit/ssh
 * `global.systemd_env_folder`
-  * Указывает путь к папке с .env-файлом для запуска systemd-службы (используется только в linux/WSL)
+  * Указывает путь к папке с .env-файлом для запуска systemd-службы (используется только на Linux с systemd)
   * См. [systemd](commands/systemd.md)
   * По умолчанию ~/.config/agsekit
 * `global.portforward_config_check_interval_sec`

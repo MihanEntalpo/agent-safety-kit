@@ -22,6 +22,8 @@ from ansible.plugins.connection import ConnectionBase
 from ansible.utils.display import Display
 from ansible.utils.path import unfrackpath
 
+from agsekit_cli.host_tools import multipass_command
+
 
 display = Display()
 
@@ -85,7 +87,7 @@ class Connection(ConnectionBase):
         super().exec_command(cmd, in_data=in_data, sudoable=sudoable)
 
         shell_command = to_text(cmd)
-        command = ["multipass", "exec", self._remote_vm_name, "--", "/bin/sh", "-c", shell_command]
+        command = [multipass_command(), "exec", self._remote_vm_name, "--", "/bin/sh", "-c", shell_command]
         display.vvv("EXEC {0}".format(shell_command), host=self._play_context.remote_addr)
 
         process = subprocess.Popen(
@@ -113,7 +115,7 @@ class Connection(ConnectionBase):
         staged_source_path = _stage_local_source(source_path)
         try:
             result = subprocess.run(
-                ["multipass", "transfer", staged_source_path, "{0}:{1}".format(self._remote_vm_name, destination_path)],
+                [multipass_command(), "transfer", staged_source_path, "{0}:{1}".format(self._remote_vm_name, destination_path)],
                 check=False,
                 capture_output=True,
                 text=True,
@@ -143,7 +145,7 @@ class Connection(ConnectionBase):
         staged_destination_path = _stage_local_destination(destination_path)
         try:
             result = subprocess.run(
-                ["multipass", "transfer", "{0}:{1}".format(self._remote_vm_name, source_path), staged_destination_path],
+                [multipass_command(), "transfer", "{0}:{1}".format(self._remote_vm_name, source_path), staged_destination_path],
                 check=False,
                 capture_output=True,
                 text=True,

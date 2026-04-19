@@ -2,7 +2,6 @@ from __future__ import annotations
 
 import json
 import signal
-import shutil
 import subprocess
 from pathlib import Path
 from typing import Optional, Sequence
@@ -11,6 +10,7 @@ import click
 
 from ..config import ConfigError, load_config, load_global_config, load_vms_config, resolve_config_path
 from ..debug import debug_log_command, debug_log_result, debug_scope
+from ..host_tools import host_tool_exists, multipass_command, ssh_command as resolved_ssh_command
 from ..i18n import tr
 from ..vm import MultipassError, ensure_multipass_available
 from . import debug_option, non_interactive_option
@@ -26,7 +26,7 @@ def _resolve_ssh_key(ssh_keys_folder: Path) -> Path:
 
 
 def _fetch_vm_ip(vm_name: str, *, debug: bool = False) -> str:
-    command = ["multipass", "info", vm_name, "--format", "json"]
+    command = [multipass_command(), "info", vm_name, "--format", "json"]
     debug_log_command(command, enabled=debug)
     result = subprocess.run(
         command,
@@ -104,7 +104,7 @@ def ssh_command(
     # not used parameter, explicitly removing it so IDEs/linters do not complain
     del non_interactive
 
-    if shutil.which("ssh") is None:
+    if not host_tool_exists("ssh"):
         raise click.ClickException(tr("ssh.client_missing"))
 
     resolved_path = resolve_config_path(Path(config_path) if config_path else None)
@@ -136,7 +136,7 @@ def ssh_command(
             ssh_options = ssh_args_list[:delimiter_index]
             ssh_command_args = ssh_args_list[delimiter_index + 1 :]
             command = [
-                "ssh",
+                resolved_ssh_command(),
                 "-i",
                 str(key_path),
                 *ssh_options,
@@ -145,7 +145,7 @@ def ssh_command(
                 *ssh_command_args,
             ]
         else:
-            command = ["ssh", "-i", str(key_path), *ssh_args_list, f"ubuntu@{ip_address}"]
+            command = [resolved_ssh_command(), "-i", str(key_path), *ssh_args_list, f"ubuntu@{ip_address}"]
         debug_log_command(command, enabled=debug)
         return_code = _run_ssh_process(command, debug=debug)
         if return_code != 0:

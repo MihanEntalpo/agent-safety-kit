@@ -9,6 +9,7 @@ import questionary
 
 from ..config import ConfigError, load_config, load_vms_config, resolve_config_path
 from ..debug import debug_log_command, debug_log_result, debug_scope
+from ..host_tools import multipass_command
 from ..interactive import is_interactive_terminal
 from ..i18n import tr
 from ..vm import MultipassError, ensure_multipass_available
@@ -68,7 +69,7 @@ def shell_command(vm_name: Optional[str], config_path: Optional[str], debug: boo
 
         click.echo(tr("shell.opening", vm_name=target_vm))
 
-        command = ["multipass", "shell", target_vm]
+        command = [multipass_command(), "shell", target_vm]
         debug_log_command(command, enabled=debug)
         result = subprocess.run(command, check=False)
         debug_log_result(result, enabled=debug)

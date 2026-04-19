@@ -3,7 +3,6 @@ from __future__ import annotations
 import json
 import os
 import re
-import shutil
 import subprocess
 import tempfile
 import time
@@ -14,6 +13,7 @@ import yaml
 
 from .config import ConfigError, PortForwardingRule, VmConfig, load_config, load_vms_config
 from .debug import debug_log_command, debug_log_result
+from .host_tools import host_tool_exists, multipass_command
 from .i18n import tr
 
 SIZE_MAP: Dict[str, int] = {
@@ -101,7 +101,7 @@ def _to_bytes_deep(value: object) -> Optional[int]:
 
 
 def _fetch_runtime_info_entry(name: str) -> Optional[Dict[str, object]]:
-    command = ["multipass", "info", name, "--format", "json"]
+    command = [multipass_command(), "info", name, "--format", "json"]
     debug_log_command(command)
     result = subprocess.run(command, check=False, capture_output=True, text=True)
     debug_log_result(result)
@@ -238,13 +238,13 @@ def compare_vm(
 
 
 def ensure_multipass_available() -> None:
-    if shutil.which("multipass") is None:
+    if not host_tool_exists("multipass"):
         raise MultipassError(tr("vm.multipass_missing"))
 
 
 def fetch_existing_info() -> str:
     command = [
-        "multipass",
+        multipass_command(),
         "list",
         "--format",
         "json",
@@ -383,7 +383,7 @@ def _build_launch_command(
     launch_timeout_seconds: Optional[int] = None,
 ) -> List[str]:
     command = [
-        "multipass",
+        multipass_command(),
         "launch",
         "--name",
         vm_config.name,
@@ -410,7 +410,7 @@ def _is_transient_launch_error(stderr: str) -> bool:
 
 
 def _warm_multipass_catalog() -> None:
-    command = ["multipass", "find"]
+    command = [multipass_command(), "find"]
     debug_log_command(command)
     result = subprocess.run(command, check=False, capture_output=True, text=True)
     debug_log_result(result)

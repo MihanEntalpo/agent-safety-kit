@@ -16,6 +16,7 @@ changes.
 
 - `dangerous_clean_debian.sh` cleans a Debian or Ubuntu host.
 - `dangerous_clean_wsl.sh` cleans a Debian or Ubuntu WSL environment.
+- `dangerous_clean_windows.cmd` cleans a native Windows MSYS2 environment.
 - `dangerous_clean_macos.sh` cleans a macOS host.
 - `dangerous_clean_arch.sh` cleans an Arch Linux host.
 - `dangerous_clean_common.sh` contains shared helper functions and is not meant
@@ -52,6 +53,20 @@ Packages marked as manually installed by apt are kept.
 - `agsekit` only when it matches the `scripts/install/install.sh` layout.
 
 It does not remove Multipass from Windows.
+
+### Native Windows
+
+`dangerous_clean_windows.cmd` removes:
+
+- MSYS2 packages installed by `agsekit prepare`:
+  - `rsync`
+  - `openssh`
+- MSYS2 itself through `winget uninstall --id MSYS2.MSYS2 -e`, if `winget` is
+  available;
+- the default MSYS2 directory, `C:\msys64`, if it remains after uninstall;
+- the default MSYS2 binary directory, `C:\msys64\usr\bin`, from the user PATH.
+
+The script does not remove Multipass for Windows.
 
 ### macOS
 
@@ -97,6 +112,7 @@ Run the script for the current host:
 ```sh
 scripts/tests/dangerous_clean_debian.sh
 scripts/tests/dangerous_clean_wsl.sh
+scripts/tests/dangerous_clean_windows.cmd
 scripts/tests/dangerous_clean_macos.sh
 scripts/tests/dangerous_clean_arch.sh
 ```
@@ -114,7 +130,10 @@ agsekit prepare
 - They are not part of the user-facing installation flow.
 - They may call `sudo` on Linux.
 - They may call Homebrew uninstall commands on macOS.
-- They intentionally do not edit shell startup files or remove the PATH line
-  added by `scripts/install/install.sh`.
+- They may call `winget`, PowerShell, and `rmdir /S /Q` on Windows.
+- Unix cleanup scripts intentionally do not edit shell startup files or remove
+  the PATH line added by `scripts/install/install.sh`.
+- The Windows cleanup script does remove the MSYS2 binary directory from the
+  user PATH, because it removes MSYS2 itself.
 - They intentionally avoid removing packages that the package manager says were
   manually or explicitly installed.

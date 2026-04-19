@@ -29,6 +29,12 @@ pip install agsekit
 curl -fsSL https://agsekit.org/install.sh | sh
 ```
 
+На Windows используйте PowerShell:
+
+```powershell
+irm https://agsekit.org/install.ps1 | iex
+```
+
 ## 2. Создание конфига
 
 Рекомендуемый путь:
@@ -57,7 +63,7 @@ agsekit up
 
 Что будет сделано:
 
-- подготовка зависимостей на хосте (для linux это snapd и multipass);
+- подготовка зависимостей на хосте (для linux это snapd и multipass; WSL не поддерживается);
 - создание VM
 - подготовка VM
 - установка агентов
