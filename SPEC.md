@@ -318,8 +318,8 @@
 13. Поддерживает `--debug`: включает подробный вывод внешних команд подготовки.
 
 Архитектура реализации:
-- `prepare` определяет host-platform один раз через `choose_prepare()` и выбирает strategy-класс: `PrepareWin`, `PrepareMacBrew`, `PrepareLinuxDeb`, `PrepareLinuxArch` или базовый fallback `PrepareBase`;
-- основной CLI-код дальше вызывает единый `prepare_host()`, а платформенные отличия установки Multipass, `rsync`, `ssh-keygen`/MSYS2 инкапсулированы в соответствующем классе.
+- `agsekit_cli/prepare_strategies.py` определяет host-platform через `choose_prepare()` и выбирает strategy-класс: `PrepareWin`, `PrepareMacBrew`, `PrepareLinuxDeb`, `PrepareLinuxArch` или базовый fallback `PrepareBase`;
+- `agsekit_cli/commands/prepare.py` остаётся CLI-обвязкой и вызывает единый `prepare_host()`, а платформенные отличия установки Multipass, `rsync`, `ssh-keygen`/MSYS2 инкапсулированы в соответствующем классе.
 
 #### `agsekit up [--config <path>] [--debug] [--prepare/--no-prepare] [--create-vms/--no-create-vms] [--install-agents/--no-install-agents]`
 Зачем пользователю:
