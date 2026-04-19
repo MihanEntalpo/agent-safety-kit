@@ -33,6 +33,7 @@ from ..config import (
     resolve_config_path,
 )
 from ..debug import debug_log_command, debug_log_result, debug_scope
+from ..host_tools import multipass_command
 from ..i18n import tr
 from ..vm import MultipassError, ensure_multipass_available
 from ..vm import resolve_proxychains as resolve_effective_proxychains
@@ -53,7 +54,7 @@ from . import debug_option, non_interactive_option
 def _create_temp_vm_workdir(vm_name: str, *, debug: bool = False) -> Path:
     ensure_multipass_available()
     workdir = Path(f"/tmp/run-{secrets.token_hex(6)}")
-    command = ["multipass", "exec", vm_name, "--", "mkdir", "-p", str(workdir)]
+    command = [multipass_command(), "exec", vm_name, "--", "mkdir", "-p", str(workdir)]
     debug_log_command(command, enabled=debug)
     result = subprocess.run(command, check=False, capture_output=True, text=True)
     debug_log_result(result, enabled=debug)

@@ -16,6 +16,7 @@ import portalocker
 import psutil
 
 from .i18n import tr
+from .host_tools import rsync_command
 
 FilterRule = Tuple[str, str]
 BACKUP_LOCK_SLEEP_ENV_VAR = "AGSEKIT_BACKUP_LOCK_SLEEP_SECONDS"
@@ -36,7 +37,7 @@ class BackupLock:
         *,
         announce_wait: bool = True,
         announce_once: bool = False,
-        sleep_seconds: int = 60,
+        sleep_seconds: float = 60,
         logger: Callable[[str], None] = print,
         sleep_func: Callable[[float], None] = time.sleep,
     ) -> None:
@@ -390,7 +391,7 @@ def build_rsync_command(
     filters: Iterable[FilterRule],
     extra_flags: Optional[Iterable[str]] = None,
 ) -> List[str]:
-    command = ["rsync", "-avz", "--delete"]
+    command = [rsync_command(), "-avz", "--delete"]
 
     if extra_flags:
         command.extend(extra_flags)

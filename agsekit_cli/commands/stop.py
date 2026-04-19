@@ -10,6 +10,7 @@ import click
 
 from ..config import ConfigError, MountConfig, load_config, load_mounts_config, load_vms_config, resolve_config_path
 from ..debug import debug_log_command, debug_log_result, debug_scope
+from ..host_tools import multipass_command
 from ..i18n import tr
 from ..mounts import is_mount_registered, load_multipass_mounts, umount_directory
 from ..vm import MultipassError, ensure_multipass_available
@@ -26,7 +27,7 @@ def _run_multipass_command(command: list[str], *, debug: bool = False) -> subpro
 
 
 def _read_vm_state(vm_name: str, *, debug: bool = False) -> Optional[str]:
-    result = _run_multipass_command(["multipass", "list", "--format", "json"], debug=debug)
+    result = _run_multipass_command([multipass_command(), "list", "--format", "json"], debug=debug)
     if result.returncode != 0:
         return None
 
@@ -53,7 +54,7 @@ def _read_vm_state(vm_name: str, *, debug: bool = False) -> Optional[str]:
 
 def _stop_vm(vm_name: str, *, debug: bool = False) -> None:
     poweroff_result = _run_multipass_command(
-        ["multipass", "exec", vm_name, "--", "sudo", "poweroff"],
+        [multipass_command(), "exec", vm_name, "--", "sudo", "poweroff"],
         debug=debug,
     )
 
@@ -62,7 +63,7 @@ def _stop_vm(vm_name: str, *, debug: bool = False) -> None:
     if state in {"stopped", "suspended"}:
         return
 
-    force_result = _run_multipass_command(["multipass", "stop", "--force", vm_name], debug=debug)
+    force_result = _run_multipass_command([multipass_command(), "stop", "--force", vm_name], debug=debug)
     if force_result.returncode != 0:
         stderr = force_result.stderr.strip() or force_result.stdout.strip()
         if not stderr and poweroff_result.returncode != 0:

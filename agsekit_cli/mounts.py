@@ -8,6 +8,7 @@ from typing import Dict, Iterable, List, Optional, Set, Tuple, Union
 
 from .config import ConfigError, MountConfig, load_config, load_mounts_config, resolve_config_path
 from .debug import debug_log_command, debug_log_result
+from .host_tools import multipass_command
 from .i18n import tr
 from .vm import MultipassError, ensure_multipass_available
 
@@ -131,7 +132,7 @@ def _extract_registered_mounts(raw_mounts: object) -> list[RegisteredMount]:
 
 def load_multipass_mounts(*, debug: bool = False) -> Dict[str, Set[RegisteredMount]]:
     ensure_multipass_available()
-    command = ["multipass", "info", "--format", "json"]
+    command = [multipass_command(), "info", "--format", "json"]
     debug_log_command(command, enabled=debug)
     result = subprocess.run(command, check=False, capture_output=True, text=True)
     debug_log_result(result, enabled=debug)
@@ -188,7 +189,7 @@ def vm_path_has_entries(vm_name: str, path: Path, *, debug: bool = False) -> boo
         "elif find \"$path\" -mindepth 1 -maxdepth 1 -print -quit | grep -q .; then printf 'non-empty'; "
         "else printf 'empty'; fi"
     )
-    command = ["multipass", "exec", vm_name, "--", "bash", "-lc", script]
+    command = [multipass_command(), "exec", vm_name, "--", "bash", "-lc", script]
     debug_log_command(command, enabled=debug)
     result = subprocess.run(command, check=False, capture_output=True, text=True)
     debug_log_result(result, enabled=debug)
@@ -218,7 +219,7 @@ def _run_multipass(command: list[str], error_message: str, *, allow_already_moun
 
 def mount_directory(mount: MountConfig) -> None:
     _run_multipass(
-        ["multipass", "mount", str(mount.source), f"{mount.vm_name}:{mount.target}"],
+        [multipass_command(), "mount", str(mount.source), f"{mount.vm_name}:{mount.target}"],
         tr("mounts.mount_failed", source=mount.source, vm_name=mount.vm_name, target=mount.target),
         allow_already_mounted=True,
     )
@@ -226,6 +227,6 @@ def mount_directory(mount: MountConfig) -> None:
 
 def umount_directory(mount: MountConfig) -> None:
     _run_multipass(
-        ["multipass", "umount", f"{mount.vm_name}:{mount.target}"],
+        [multipass_command(), "umount", f"{mount.vm_name}:{mount.target}"],
         tr("mounts.umount_failed", vm_name=mount.vm_name, target=mount.target),
     )

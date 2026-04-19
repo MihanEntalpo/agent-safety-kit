@@ -1,5 +1,12 @@
 # Agent-Safety-Kit versions history
 
+## 1.5.15 - Native Windows preparation workflow
+
+* Added native Windows host preparation through MSYS2: `agsekit prepare` can install MSYS2 through `winget`, then install `rsync` and `openssh` through MSYS2 `pacman`
+* Added Windows host tool resolution for `multipass`, `rsync`, `ssh`, and `ssh-keygen`: commands are used from `PATH` first and then from standard Windows installation paths
+* Changed WSL host preparation to fail explicitly because WSL is not a supported host workflow
+* Added a Windows PowerShell installer script that creates a per-user venv, installs `agsekit`, creates an `agsekit.cmd` wrapper, and updates the user PATH
+
 ## 1.5.14 - Moved from multipass exec to ssh on heavy ansible playbooks
 
 * Multipass in windows has troubles running heavy playbooks over exec, so moved to ssh (all except initial preparation steps which itself syncs ssh keys to VM)

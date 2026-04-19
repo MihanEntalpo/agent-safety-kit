@@ -20,6 +20,7 @@ from .config import (
     resolve_config_path,
 )
 from .debug import debug_log_command, debug_log_result
+from .host_tools import multipass_command
 from .i18n import tr
 from .mounts import MountConfig, normalize_path
 from .vm import (
@@ -175,9 +176,9 @@ def run_in_vm(
             f"bash {shlex.quote(PROXYCHAINS_RUNNER_PATH)} --proxy {shlex.quote(effective_proxychains)} -- "
             f"bash -lc {shlex.quote(shell_command)}"
         )
-        command = ["multipass", "exec", vm.name, "--", "bash", "-lc", wrapped_command]
+        command = [multipass_command(), "exec", vm.name, "--", "bash", "-lc", wrapped_command]
     else:
-        command = ["multipass", "exec", vm.name, "--", "bash", "-lc", shell_command]
+        command = [multipass_command(), "exec", vm.name, "--", "bash", "-lc", shell_command]
     debug_log_command(command, enabled=debug)
     result = subprocess.run(command, check=False)
     debug_log_result(result, enabled=debug)
@@ -201,9 +202,9 @@ def ensure_agent_binary_available(
             f"bash {shlex.quote(PROXYCHAINS_RUNNER_PATH)} --proxy {shlex.quote(effective_proxychains)} -- "
             f"bash -lc {shlex.quote(check_command)}"
         )
-        command = ["multipass", "exec", vm.name, "--", "bash", "-lc", wrapped_command]
+        command = [multipass_command(), "exec", vm.name, "--", "bash", "-lc", wrapped_command]
     else:
-        command = ["multipass", "exec", vm.name, "--", "bash", "-lc", check_command]
+        command = [multipass_command(), "exec", vm.name, "--", "bash", "-lc", check_command]
     debug_log_command(command, enabled=debug)
     result = subprocess.run(command, check=False, capture_output=True, text=True)
     debug_log_result(result, enabled=debug)

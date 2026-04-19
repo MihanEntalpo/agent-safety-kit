@@ -53,12 +53,19 @@
 
 Вам понадобится Python 3.9+.
 
-Поддерживается Deb/Arch Linux, MacOS с HomeBrew и Windows через WSL.
+Поддерживаются Deb/Arch Linux, MacOS с HomeBrew и native Windows PowerShell.
+WSL не поддерживается.
 
-Если вы ленивы и бесстрашны:
+Если вы ленивы и бесстрашны на Linux или macOS:
 
 ```shell
 curl -fsSL https://agsekit.org/install.sh | sh
+```
+
+На Windows запустите в PowerShell:
+
+```powershell
+irm https://agsekit.org/install.ps1 | iex
 ```
 
 Если хотите всё сделать самостоятельно, или у вас не получилось "ленивым" способом
@@ -188,9 +195,9 @@ agsekit run claude
 
 ## Поддержка платформ
 
-- Linux host: поддерживается
+- Linux host: поддерживается, но WSL не поддерживается
 - macOS host: поддерживается
-- Windows host: пока только через WSL
+- Windows host: поддерживается через native PowerShell
 
 ## FAQ
 

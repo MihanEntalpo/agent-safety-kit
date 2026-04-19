@@ -29,6 +29,12 @@ You can also install through:
 curl -fsSL https://agsekit.org/install.sh | sh
 ```
 
+On Windows, use PowerShell:
+
+```powershell
+irm https://agsekit.org/install.ps1 | iex
+```
+
 ## 2. Create a Config
 
 Recommended path:
@@ -57,7 +63,7 @@ agsekit up
 
 What will be done:
 
-- host dependency preparation (for Linux this is snapd and multipass);
+- host dependency preparation (on Linux this is snapd and multipass; WSL is not supported);
 - VM creation
 - VM preparation
 - agent installation

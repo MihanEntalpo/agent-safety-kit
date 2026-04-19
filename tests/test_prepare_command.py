@@ -59,9 +59,11 @@ def test_prepare_repairs_mismatched_public_key(monkeypatch, tmp_path):
 def test_prepare_command_installs_dependencies_and_keys(monkeypatch):
     calls: list[str] = []
 
-    monkeypatch.setattr(prepare_module, "_install_multipass", lambda **kwargs: calls.append("install"))
-    monkeypatch.setattr(prepare_module, "_ensure_ssh_keygen", lambda **kwargs: calls.append("ssh-keygen"))
-    monkeypatch.setattr(prepare_module, "_ensure_rsync", lambda **kwargs: calls.append("rsync"))
+    class FakePrepare:
+        def prepare_host(self):
+            calls.extend(["install", "ssh-keygen", "rsync"])
+
+    monkeypatch.setattr(prepare_module, "choose_prepare", lambda **_kwargs: FakePrepare())
     monkeypatch.setattr(prepare_module, "ensure_host_ssh_keypair", lambda *args, **kwargs: calls.append("keys"))
 
     runner = CliRunner()
@@ -113,13 +115,14 @@ def test_run_prepare_suppresses_multipass_echo_when_progress_enabled(monkeypatch
         def advance(self, *args, **kwargs):
             del args, kwargs
 
-    original = prepare_module._install_multipass
+    class FakePrepare:
+        def __init__(self, quiet: bool):
+            self.quiet = quiet
 
-    def wrapped_install_multipass(*, quiet: bool = False):
-        calls.append(quiet)
-        return original(quiet=quiet)
+        def prepare_host(self):
+            calls.append(self.quiet)
 
-    monkeypatch.setattr(prepare_module, "_install_multipass", wrapped_install_multipass)
+    monkeypatch.setattr(prepare_module, "choose_prepare", lambda **kwargs: FakePrepare(kwargs["quiet"]))
 
     prepare_module.run_prepare(debug=False, progress=DummyProgress())
 
@@ -155,9 +158,14 @@ def test_run_prepare_suspends_progress_during_multipass_install(monkeypatch):
             calls.append("suspend")
             return DummySuspend()
 
-    monkeypatch.setattr(prepare_module, "_install_multipass", lambda **kwargs: calls.append(f"install:{kwargs['quiet']}"))
-    monkeypatch.setattr(prepare_module, "_ensure_ssh_keygen", lambda **kwargs: calls.append(f"ssh-keygen:{kwargs['quiet']}"))
-    monkeypatch.setattr(prepare_module, "_ensure_rsync", lambda **kwargs: calls.append(f"rsync:{kwargs['quiet']}"))
+    class FakePrepare:
+        def __init__(self, quiet: bool):
+            self.quiet = quiet
+
+        def prepare_host(self):
+            calls.extend([f"install:{self.quiet}", f"ssh-keygen:{self.quiet}", f"rsync:{self.quiet}"])
+
+    monkeypatch.setattr(prepare_module, "choose_prepare", lambda **kwargs: FakePrepare(kwargs["quiet"]))
     monkeypatch.setattr(prepare_module, "ensure_host_ssh_keypair", lambda *args, **kwargs: None)
 
     prepare_module.run_prepare(debug=False, progress=DummyProgress())
@@ -165,12 +173,8 @@ def test_run_prepare_suspends_progress_during_multipass_install(monkeypatch):
     assert calls == ["suspend", "enter", "install:True", "ssh-keygen:True", "rsync:True", "exit"]
 
 
-def test_install_multipass_prefers_arch_over_debian(monkeypatch):
-    calls: list[str] = []
-
+def test_choose_prepare_prefers_arch_over_debian(monkeypatch):
     def fake_which(binary: str):
-        if binary == "multipass":
-            return None
         if binary == "pacman":
             return "/usr/bin/pacman"
         if binary == "apt-get":
@@ -178,20 +182,12 @@ def test_install_multipass_prefers_arch_over_debian(monkeypatch):
         return None
 
     monkeypatch.setattr(prepare_module.shutil, "which", fake_which)
-    monkeypatch.setattr(prepare_module, "_install_multipass_arch", lambda **kwargs: calls.append("arch"))
-    monkeypatch.setattr(prepare_module, "_install_multipass_debian", lambda **kwargs: calls.append("debian"))
 
-    prepare_module._install_multipass()
-
-    assert calls == ["arch"]
+    assert isinstance(prepare_module.choose_prepare(), prepare_module.PrepareLinuxArch)
 
 
-def test_install_multipass_uses_debian_when_pacman_absent(monkeypatch):
-    calls: list[str] = []
-
+def test_choose_prepare_uses_debian_when_pacman_absent(monkeypatch):
     def fake_which(binary: str):
-        if binary == "multipass":
-            return None
         if binary == "pacman":
             return None
         if binary == "apt-get":
@@ -199,12 +195,8 @@ def test_install_multipass_uses_debian_when_pacman_absent(monkeypatch):
         return None
 
     monkeypatch.setattr(prepare_module.shutil, "which", fake_which)
-    monkeypatch.setattr(prepare_module, "_install_multipass_arch", lambda **kwargs: calls.append("arch"))
-    monkeypatch.setattr(prepare_module, "_install_multipass_debian", lambda **kwargs: calls.append("debian"))
 
-    prepare_module._install_multipass()
-
-    assert calls == ["debian"]
+    assert isinstance(prepare_module.choose_prepare(), prepare_module.PrepareLinuxDeb)
 
 
 def test_install_multipass_does_not_try_to_install_inside_wsl(monkeypatch):
@@ -229,44 +221,32 @@ def test_install_multipass_does_not_try_to_install_inside_wsl(monkeypatch):
     with pytest.raises(prepare_module.click.ClickException) as exc_info:
         prepare_module._install_multipass()
 
-    assert "WSL detected" in str(exc_info.value)
+    assert "WSL is not supported" in str(exc_info.value)
 
 
-def test_install_multipass_skips_installation_when_available_in_wsl(monkeypatch):
+def test_install_multipass_is_unsupported_in_wsl_even_when_multipass_exists(monkeypatch):
     calls: list[str] = []
 
     monkeypatch.setattr(prepare_module.shutil, "which", lambda binary: "/usr/local/bin/multipass" if binary == "multipass" else None)
     monkeypatch.setattr(prepare_module, "_is_wsl", lambda: True)
     monkeypatch.setattr(prepare_module, "_install_multipass_debian", lambda **_kwargs: calls.append("debian"))
 
-    prepare_module._install_multipass()
+    with pytest.raises(prepare_module.click.ClickException) as exc_info:
+        prepare_module._install_multipass()
 
     assert calls == []
+    assert "WSL is not supported" in str(exc_info.value)
 
 
-def test_install_multipass_uses_homebrew_on_macos(monkeypatch):
-    calls: list[str] = []
-
+def test_choose_prepare_uses_homebrew_on_macos(monkeypatch):
     def fake_which(binary: str):
-        if binary == "multipass":
-            return None
-        if binary == "pacman":
-            return None
-        if binary == "apt-get":
-            return None
-        if binary == "brew":
-            return "/opt/homebrew/bin/brew"
+        del binary
         return None
 
     monkeypatch.setattr(prepare_module.platform, "system", lambda: "Darwin")
     monkeypatch.setattr(prepare_module.shutil, "which", fake_which)
-    monkeypatch.setattr(prepare_module, "_install_multipass_arch", lambda **kwargs: calls.append("arch"))
-    monkeypatch.setattr(prepare_module, "_install_multipass_debian", lambda **kwargs: calls.append("debian"))
-    monkeypatch.setattr(prepare_module, "_install_multipass_brew", lambda **kwargs: calls.append("brew"))
 
-    prepare_module._install_multipass()
-
-    assert calls == ["brew"]
+    assert isinstance(prepare_module.choose_prepare(), prepare_module.PrepareMacBrew)
 
 
 def test_install_multipass_arch_requires_aur_helper(monkeypatch):
@@ -286,6 +266,7 @@ def test_install_multipass_brew_uses_brew_install(monkeypatch):
         assert check is True
 
     monkeypatch.setattr(prepare_module.subprocess, "run", fake_run)
+    monkeypatch.setattr(prepare_module.shutil, "which", lambda binary: "/opt/homebrew/bin/brew" if binary == "brew" else None)
 
     prepare_module._install_multipass_brew()
 
@@ -360,6 +341,138 @@ def test_ensure_rsync_installs_linux_package_when_missing(monkeypatch):
     prepare_module._ensure_rsync()
 
     assert calls == [["rsync"]]
+
+
+def test_windows_msys2_host_packages_install_missing_tools(monkeypatch, tmp_path):
+    msys_root = tmp_path / "msys64"
+    msys_bin = msys_root / "usr" / "bin"
+    commands: list[list[str]] = []
+    prompts: list[str] = []
+
+    monkeypatch.setenv("AGSEKIT_MSYS2_ROOT", str(msys_root))
+    monkeypatch.setenv("PATH", "")
+
+    def fake_which(binary: str):
+        if binary == "winget":
+            return "C:/Windows/System32/winget.exe"
+        if binary == "powershell":
+            return "C:/Windows/System32/WindowsPowerShell/v1.0/powershell.exe"
+        return None
+
+    def fake_confirm(prompt: str, default: bool):
+        prompts.append(prompt)
+        assert default is False
+        return True
+
+    def fake_run(command, check, env=None):
+        del env
+        commands.append([str(part) for part in command])
+        assert check is True
+        if command[0] == "winget":
+            msys_bin.mkdir(parents=True)
+            (msys_bin / "bash.exe").write_text("", encoding="utf-8")
+        elif len(command) >= 3 and command[2].startswith("pacman -S --needed"):
+            (msys_bin / "rsync.exe").write_text("", encoding="utf-8")
+            (msys_bin / "ssh-keygen.exe").write_text("", encoding="utf-8")
+
+    monkeypatch.setattr(prepare_module.shutil, "which", fake_which)
+    monkeypatch.setattr(prepare_module.click, "confirm", fake_confirm)
+    monkeypatch.setattr(prepare_module.subprocess, "run", fake_run)
+
+    prepare_module._ensure_windows_msys2_host_packages(prepare_module.WINDOWS_MSYS2_PACKAGES)
+
+    assert "rsync" in prompts[0]
+    assert "openssh" in prompts[0]
+    assert commands == [
+        [
+            "winget",
+            "install",
+            "--id",
+            "MSYS2.MSYS2",
+            "-e",
+            "--accept-package-agreements",
+            "--accept-source-agreements",
+        ],
+        [str(msys_bin / "bash.exe"), "-lc", "pacman -Syu --noconfirm"],
+        [str(msys_bin / "bash.exe"), "-lc", "pacman -S --needed --noconfirm rsync openssh"],
+        [
+            "C:/Windows/System32/WindowsPowerShell/v1.0/powershell.exe",
+            "-NoProfile",
+            "-ExecutionPolicy",
+            "Bypass",
+            "-Command",
+            commands[-1][5],
+        ],
+    ]
+    assert str(msys_bin) in prepare_module.os.environ["PATH"]
+
+
+def test_windows_msys2_host_packages_decline_aborts(monkeypatch, tmp_path):
+    monkeypatch.setenv("AGSEKIT_MSYS2_ROOT", str(tmp_path / "msys64"))
+    monkeypatch.setattr(prepare_module.shutil, "which", lambda _binary: None)
+    monkeypatch.setattr(prepare_module.click, "confirm", lambda _prompt, default: False)
+    monkeypatch.setattr(
+        prepare_module.subprocess,
+        "run",
+        lambda *_args, **_kwargs: pytest.fail("installer commands must not run"),
+    )
+
+    with pytest.raises(prepare_module.click.ClickException) as exc_info:
+        prepare_module._ensure_windows_msys2_host_packages(["rsync"])
+
+    assert "not installed" in str(exc_info.value)
+
+
+def test_prepare_host_dependencies_checks_windows_multipass_before_msys2(monkeypatch):
+    calls: list[str] = []
+
+    class FakePrepare:
+        def __init__(self, quiet: bool):
+            self.quiet = quiet
+
+        def prepare_host(self):
+            calls.extend([f"multipass:{self.quiet}", f"msys2:rsync,openssh:{self.quiet}"])
+
+    monkeypatch.setattr(prepare_module, "choose_prepare", lambda **kwargs: FakePrepare(kwargs["quiet"]))
+
+    prepare_module._prepare_host_dependencies(quiet=True)
+
+    assert calls == ["multipass:True", "msys2:rsync,openssh:True"]
+
+
+def test_install_multipass_on_native_windows_requires_manual_multipass(monkeypatch):
+    def fake_which(binary: str):
+        if binary == "multipass":
+            return None
+        return None
+
+    monkeypatch.setattr(prepare_module.platform, "system", lambda: "Windows")
+    monkeypatch.setattr(prepare_module.shutil, "which", fake_which)
+    monkeypatch.setattr(prepare_module, "_is_wsl", lambda: False)
+    monkeypatch.setattr(prepare_module.click, "confirm", lambda _prompt, default: False)
+
+    with pytest.raises(prepare_module.click.ClickException) as exc_info:
+        prepare_module._install_multipass()
+
+    assert "Install Multipass for Windows" in str(exc_info.value)
+
+
+def test_install_multipass_on_native_windows_accepts_standard_install_path(monkeypatch, tmp_path):
+    multipass_exe = tmp_path / "Multipass" / "bin" / "multipass.exe"
+    multipass_exe.parent.mkdir(parents=True)
+    multipass_exe.write_text("", encoding="utf-8")
+
+    monkeypatch.setenv("AGSEKIT_MULTIPASS_EXE", str(multipass_exe))
+    monkeypatch.setattr(prepare_module.platform, "system", lambda: "Windows")
+    monkeypatch.setattr(prepare_module.shutil, "which", lambda _binary: None)
+    monkeypatch.setattr(prepare_module, "_is_wsl", lambda: False)
+    monkeypatch.setattr(
+        prepare_module.click,
+        "confirm",
+        lambda *_args, **_kwargs: pytest.fail("download prompt must not be shown"),
+    )
+
+    prepare_module._install_multipass()
 
 
 def test_install_multipass_debian_installs_only_missing_host_packages(monkeypatch):

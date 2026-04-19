@@ -17,6 +17,7 @@ from .ansible_utils import (
     run_ansible_playbook,
 )
 from .debug import debug_log_command, debug_log_result
+from .host_tools import multipass_command, ssh_command, ssh_keygen_command
 from .i18n import tr
 from .progress import ProgressManager
 from .vm_bundles import ResolvedBundle, resolve_bundles
@@ -46,6 +47,7 @@ def vm_ssh_ansible_vars(vm_name: str, vm_host: str, private_key: Path) -> Dict[s
         "ansible_connection": "ssh",
         "ansible_user": _VM_SSH_USER,
         "ansible_ssh_private_key_file": str(private_key.expanduser().resolve()),
+        "ansible_ssh_executable": ssh_command(),
         "ansible_ssh_common_args": _VM_SSH_COMMON_ARGS,
     }
 
@@ -72,7 +74,7 @@ def _run_multipass(
 
 def _derive_public_key(private_key: Path) -> str:
     result = subprocess.run(
-        ["ssh-keygen", "-y", "-f", str(private_key)],
+        [ssh_keygen_command(), "-y", "-f", str(private_key)],
         check=True,
         capture_output=True,
         text=True,
@@ -309,7 +311,7 @@ def _fetch_vm_ips(
     debug: bool = False,
 ) -> List[str]:
     result = _run_multipass(
-        ["multipass", "info", vm_name, "--format", "json"],
+        [multipass_command(), "info", vm_name, "--format", "json"],
         tr("prepare.fetching_vm_info", vm_name=vm_name),
         progress=progress,
         debug=debug,
@@ -347,7 +349,7 @@ def prepare_vm(
     else:
         click.echo(tr("prepare.preparing_vm", vm_name=vm_name))
     _run_multipass(
-        ["multipass", "start", vm_name],
+        [multipass_command(), "start", vm_name],
         tr("prepare.starting_vm", vm_name=vm_name),
         progress=progress,
         debug=debug,

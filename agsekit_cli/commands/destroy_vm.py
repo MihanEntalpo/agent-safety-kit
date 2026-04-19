@@ -8,6 +8,7 @@ import click
 
 from ..config import ConfigError, load_config, load_vms_config, resolve_config_path
 from ..debug import debug_log_command, debug_log_result, debug_scope
+from ..host_tools import multipass_command
 from ..interactive import is_interactive_terminal
 from ..i18n import tr
 from ..vm import MultipassError, ensure_multipass_available
@@ -15,7 +16,7 @@ from . import debug_option, non_interactive_option
 
 
 def _delete_vm(vm_name: str, *, debug: bool = False) -> None:
-    command = ["multipass", "delete", vm_name]
+    command = [multipass_command(), "delete", vm_name]
     debug_log_command(command, enabled=debug)
     result = subprocess.run(command, check=False, capture_output=True, text=True)
     debug_log_result(result, enabled=debug)
@@ -26,7 +27,7 @@ def _delete_vm(vm_name: str, *, debug: bool = False) -> None:
 
 
 def _purge_deleted(*, debug: bool = False) -> None:
-    command = ["multipass", "purge"]
+    command = [multipass_command(), "purge"]
     debug_log_command(command, enabled=debug)
     result = subprocess.run(command, check=False, capture_output=True, text=True)
     debug_log_result(result, enabled=debug)

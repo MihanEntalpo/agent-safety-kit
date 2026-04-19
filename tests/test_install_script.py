@@ -1,13 +1,41 @@
 import subprocess
+import shutil
 from pathlib import Path
 
 
 PROJECT_ROOT = Path(__file__).resolve().parents[1]
 INSTALL_SCRIPT = PROJECT_ROOT / "scripts" / "install" / "install.sh"
+WINDOWS_INSTALL_SCRIPT = PROJECT_ROOT / "scripts" / "install" / "install.ps1"
 
 
 def test_install_script_is_valid_posix_sh() -> None:
     subprocess.run(["sh", "-n", str(INSTALL_SCRIPT)], check=True)
+
+
+def test_windows_install_script_is_valid_powershell() -> None:
+    pwsh = shutil.which("pwsh")
+    if pwsh is None:
+        return
+    subprocess.run(
+        [
+            pwsh,
+            "-NoProfile",
+            "-Command",
+            "$tokens=$null; $errors=$null; "
+            "$null=[System.Management.Automation.Language.Parser]::ParseFile($args[0], [ref]$tokens, [ref]$errors); "
+            "if ($errors.Count) { $errors | Format-List; exit 1 }",
+            str(WINDOWS_INSTALL_SCRIPT),
+        ],
+        check=True,
+    )
+
+
+def test_windows_install_script_checks_python_before_installing() -> None:
+    script = WINDOWS_INSTALL_SCRIPT.read_text(encoding="utf-8")
+
+    assert "Python 3.9+ is required" in script
+    assert "https://www.python.org/downloads/windows/" in script
+    assert "agsekit.cmd" in script
 
 
 def test_wsl_multipass_symlink_is_idempotent(tmp_path: Path) -> None:

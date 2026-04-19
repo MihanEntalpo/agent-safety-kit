@@ -8,13 +8,14 @@ import click
 
 from ..config import ConfigError, load_config, load_vms_config, resolve_config_path
 from ..debug import debug_log_command, debug_log_result, debug_scope
+from ..host_tools import multipass_command
 from ..i18n import tr
 from ..vm import MultipassError, ensure_multipass_available
 from . import debug_option, non_interactive_option
 
 
 def _start_vm(vm_name: str, *, debug: bool = False) -> None:
-    command = ["multipass", "start", vm_name]
+    command = [multipass_command(), "start", vm_name]
     debug_log_command(command, enabled=debug)
     result = subprocess.run(command, check=False, capture_output=True, text=True)
     debug_log_result(result, enabled=debug)
