@@ -8,6 +8,8 @@ This project gives you a convenient toolkit for running AI agents in a virtual m
 
 ## Why?
 
+![Agent mistake](docs/assets/agent-mistake.png)
+
 The way autonomous AI agents work feels like magic. But then an agent goes "whoosh" and, as if by magic, the project disappears, the local environment is damaged, the database is wiped, private keys are compromised, and in general everything the agent can reach is at risk.
 
 On the websites of both giant corporations and small teams building their own AI agents, installation often looks like `curl | bash`, `npm i -g ...`, and then `<agent_name>`.
