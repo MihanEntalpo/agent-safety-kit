@@ -20,6 +20,7 @@ A few stories for illustration:
 - [Claude Code bypasses its own protections and escapes the sandbox](https://ona.com/stories/how-claude-code-escapes-its-own-denylist-and-sandbox)
 - [Qwen Coder breaks working builds](https://github.com/QwenLM/qwen-code/issues/354)
 - [Codex keeps deleting files that are not added to git and are unrelated to the task](https://github.com/openai/codex/issues/4969)
+- [Google Antigravity just deleted the contents of my whole drive](https://www.reddit.com/r/google_antigravity/comments/1p82or6/google_antigravity_just_deleted_the_contents_of/)
 - [Claude Code deleted my entire working environment](https://www.reddit.com/r/ClaudeAI/comments/1m299f5/claude_code_deleted_my_entire_workspace_heres_the/)
 - [I asked Claude Code to fix all bugs, and it just deleted my project](https://levelup.gitconnected.com/i-asked-claude-code-to-fix-all-bugs-and-it-deleted-the-whole-repo-e7f24f5390c5)
 - [Claude Code deleted 25,000 documents from a third-party project while I was distracted](https://www.reddit.com/r/ClaudeAI/comments/1rshuz9/an_ai_agent_deleted_25000_documents_from_the/)
