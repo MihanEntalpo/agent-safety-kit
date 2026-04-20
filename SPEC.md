@@ -306,7 +306,7 @@
    - на native Windows печатает ссылку на скачивание Multipass for Windows и предлагает открыть её, но не устанавливает Multipass автоматически;
    - на Debian-based (`apt-get`) проверяет host-пакеты (`snapd`, `qemu-kvm`, `libvirt-daemon-system`, `libvirt-clients`, `bridge-utils`) и ставит только отсутствующие, после чего ставит Multipass через `snap`;
    - на Arch Linux (`pacman`) ставит Multipass через AUR helper (`yay` или `aura`) вместе с `libvirt`, `dnsmasq`, `qemu-base`;
-   - на macOS (`Darwin` + `brew`) ставит Multipass через `brew install multipass`;
+   - на macOS (`Darwin` + `brew`) ставит Multipass через Homebrew cask; на macOS 13+ используется текущая cask `multipass`, а на macOS <13 используется зафиксированная legacy cask Multipass `1.14.1`;
    - если `prepare`/`up` запущен с Rich progress и установка host-зависимостей требует интерактивный ввод (например, подтверждение установки MSYS2 на Windows или `sudo` внутри Homebrew installer), progress временно приостанавливается, чтобы prompt и ввод работали в обычном терминальном режиме;
    - если нет ни `apt-get`, ни `pacman`, ни поддерживаемого `brew` на macOS, завершает `prepare` ошибкой о неподдерживаемом host package manager.
 7. Проверяет наличие `ssh-keygen`; на поддерживаемом Linux ставит только отсутствующий OpenSSH client package (`openssh-client` на Debian-based, `openssh` на Arch Linux), если `ssh-keygen` не найден.

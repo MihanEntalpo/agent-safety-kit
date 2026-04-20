@@ -32,7 +32,7 @@ agsekit prepare [--config <path>] [--debug]
 ## Platform Notes
 
 - Linux: Debian-based and Arch-based package installations are supported; on Debian-based systems `snapd` is installed only when `multipass` is missing
-- macOS: Multipass and `rsync` are installed through Homebrew, only when missing.
+- macOS: Multipass and `rsync` are installed through Homebrew, only when missing. On macOS 13+ `prepare` installs the current Multipass cask; on macOS <13 it installs the pinned legacy Multipass 1.14.1 cask.
 - Windows host: native Windows can prepare MSYS2 host tools (`rsync` and `openssh`); Multipass for Windows must be installed separately.
 - WSL is not supported. Use a regular Linux host or native Windows PowerShell.
 

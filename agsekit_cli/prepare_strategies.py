@@ -4,6 +4,7 @@ import os
 import platform
 import shutil
 import subprocess
+import tempfile
 from pathlib import Path
 from typing import Optional
 
@@ -191,10 +192,59 @@ class PrepareLinuxArch(PrepareBase):
 
 
 class PrepareMacBrew(PrepareBase):
+    LEGACY_MACOS_MULTIPASS_VERSION = "1.14.1"
+    LEGACY_MACOS_MAX_MAJOR = 12
+    LEGACY_MULTIPASS_CASK = """cask "multipass" do
+  version "1.14.1"
+  sha256 "f1c6dbd9ded551a00b38a780615f4c96a401c6a9ab8d752e4475007e07e4b0af"
+
+  on_arm do
+    postflight do
+      File.symlink("/Library/Application Support/com.canonical.multipass/Resources/completions/bash/multipass",
+                   "#{HOMEBREW_PREFIX}/etc/bash_completion.d/multipass")
+    end
+  end
+
+  url "https://github.com/canonical/multipass/releases/download/v#{version}/multipass-#{version}+mac-Darwin.pkg"
+  name "Multipass"
+  desc "Orchestrates virtual Ubuntu instances"
+  homepage "https://github.com/canonical/multipass/"
+
+  livecheck do
+    url :url
+    strategy :github_latest
+  end
+
+  depends_on macos: ">= :mojave"
+
+  pkg "multipass-#{version}+mac-Darwin.pkg"
+
+  uninstall launchctl: "com.canonical.multipassd",
+            pkgutil:   "com.canonical.multipass.*",
+            delete:    [
+              "#{HOMEBREW_PREFIX}/etc/bash_completion.d/multipass",
+              "/Applications/Multipass.app",
+              "/Library/Application Support/com.canonical.multipass",
+              "/Library/Logs/Multipass",
+              "/usr/local/bin/multipass",
+              "/usr/local/etc/bash_completion.d/multipass",
+            ]
+
+  zap trash: [
+    "~/Library/Application Support/com.canonical.multipassGui",
+    "~/Library/Application Support/multipass",
+    "~/Library/Application Support/multipass-gui",
+    "~/Library/LaunchAgents/com.canonical.multipass.gui.autostart.plist",
+    "~/Library/Preferences/multipass",
+    "~/Library/Saved Application State/com.canonical.multipassGui.savedState",
+  ]
+end
+"""
+
     def _install_multipass(self) -> None:
         self.ensure_brew(tr("prepare.apt_missing"))
         self.echo(tr("prepare.installing_multipass_brew"))
-        subprocess.run(["brew", "install", "multipass"], check=True)
+        self.install_multipass_with_brew()
         self.echo(tr("prepare.multipass_installed_brew"))
 
     def _install_rsync(self) -> None:
@@ -206,6 +256,31 @@ class PrepareMacBrew(PrepareBase):
     def ensure_brew(missing_message: str) -> None:
         if shutil.which("brew") is None:
             raise click.ClickException(missing_message)
+
+    def install_multipass_with_brew(self) -> None:
+        if not self.is_legacy_macos():
+            subprocess.run(["brew", "install", "--cask", "multipass"], check=True)
+            return
+
+        with tempfile.TemporaryDirectory(prefix="agsekit-multipass-cask-") as temp_dir:
+            cask_path = Path(temp_dir) / "multipass.rb"
+            cask_path.write_text(self.LEGACY_MULTIPASS_CASK, encoding="utf-8")
+            subprocess.run(["brew", "install", "--cask", str(cask_path)], check=True)
+
+    @classmethod
+    def is_legacy_macos(cls) -> bool:
+        major_version = cls.macos_major_version()
+        return major_version is not None and major_version <= cls.LEGACY_MACOS_MAX_MAJOR
+
+    @staticmethod
+    def macos_major_version() -> Optional[int]:
+        version = platform.mac_ver()[0]
+        if not version:
+            return None
+        try:
+            return int(version.split(".", 1)[0])
+        except ValueError:
+            return None
 
 
 class PrepareWin(PrepareBase):

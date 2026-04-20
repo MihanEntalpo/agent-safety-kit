@@ -1,5 +1,9 @@
 # Agent-Safety-Kit versions history
 
+## 1.5.16 - Legacy macOS Multipass support
+
+* Added support for preparing older macOS hosts: when `agsekit prepare` needs to install Multipass on macOS <13, it now uses a pinned legacy Multipass 1.14.1 Homebrew cask instead of the current cask
+
 ## 1.5.15 - Native Windows preparation workflow
 
 * Added native Windows host preparation through MSYS2: `agsekit prepare` can install MSYS2 through `winget`, then install `rsync` and `openssh` through MSYS2 `pacman`

@@ -63,14 +63,15 @@ done
 
 ### Requirements:
 
-* macOS 13+ is supported, Homebrew is required
-* If you have an older OS, you need to manually install an older Multipass (version 1.14.1 works on older macOS versions)
+* macOS 13+ is the primary supported workflow, Homebrew is required
+* If you have an older OS and use `agsekit prepare`, it installs the pinned legacy Multipass 1.14.1 cask through Homebrew
+* If you install Multipass manually on an older OS, use an older Multipass; version 1.14.1 works on older macOS versions
 * If you do not have Homebrew but can install Multipass some other way, that is enough for operation
 
 ### Installation:
 
 * Install Homebrew; if you cannot, install Multipass in any convenient way
-* If you have an old system (<13), install an old Multipass (1.14.1)
+* If you have an old system (<13), `agsekit prepare` will use Multipass 1.14.1 when installing through Homebrew
 
 **1. Automatically:**
 

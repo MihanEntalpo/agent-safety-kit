@@ -150,7 +150,7 @@ At the same time, suppose you have SSH access to some server on the internet/at 
 
 What can you do?
 
-1. Configure a permanent socks-proxy
+**1. Configure a permanent socks-proxy**
 
 If you use Linux/macOS, you can use autossh to configure permanent forwarding of a socks5-proxy port.
 
@@ -174,7 +174,7 @@ nohup autossh -M 10984 -N -o "PubkeyAuthentication=yes" -o "PasswordAuthenticati
 
 Put it in `~/autossh.sh`, make it executable, and add it to system autostart in any convenient way.
 
-2. Configure port forwarding and proxychains
+**2. Configure port forwarding and proxychains**
 
 In the agsekit configuration:
 
@@ -204,6 +204,20 @@ agents:
 On Linux you can configure the systemd daemon with `agsekit systemd install`, and port forwarding will be maintained automatically.
 
 On Windows / macOS you can run `agsekit portforward` in a separate terminal, and port forwarding will be maintained while that terminal is alive.
+
+**3. Run the agent**
+
+After port forwarding is active, run the agent as usual from the mounted project folder:
+
+```shell
+agsekit run codex
+```
+
+or:
+
+```shell
+agsekit run claude
+```
 
 ## See Also
 
