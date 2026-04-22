@@ -34,6 +34,10 @@ agsekit install-agents --all-agents [--all-vms] [--config <path>] [--proxychains
 - `--proxychains scheme://host:port` переопределяет VM proxy только для этой установки.
 - `--proxychains ""` отключает proxy на один запуск.
 
+Для Node-based агентов (`codex`, `qwen`, `opencode`, `cline`), если `node` отсутствует, installer сначала резолвит через `nvm ls-remote` последнюю доступную patch-версию в поддерживаемой major-ветке Node 24 и ставит уже её точное значение.
+
+Для тех же Node-based агентов installer проверяет уже установленный Node.js и в текущем `PATH`, и через `nvm use --silent default`, так что версия Node, уже установленная через `nvm`, не приводит к лишней переустановке только из-за того, что Ansible работает в non-login shell.
+
 ## Примеры
 
 ```bash

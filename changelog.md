@@ -1,5 +1,10 @@
 # Agent-Safety-Kit versions history
 
+## 1.5.18 - Installer and agent installation fixes
+
+* Fixed Node-based agent installers (`codex`, `qwen`, `opencode`, `cline`): Node detection now also checks the default `nvm` environment, and fresh installs resolve the latest available `v24.x.y` release through `nvm ls-remote` instead of relying on `nvm install 24`
+* Fixed `codex-glibc-prebuilt` installation: release metadata resolution now runs controller-side without inheriting remote SSH connection vars, so the installer no longer tries to execute the host Python interpreter path inside the VM
+
 ## 1.5.17 - Windows installer and prepare fixes
 
 * Fixed the Windows PowerShell installer PATH refresh command so it rebuilds the current session PATH from Machine+User PATH and does not hide existing tools such as `winget`

@@ -34,6 +34,10 @@ By default, install-agents uses proxychains from the VM configuration, which can
 - `--proxychains scheme://host:port` overrides the VM proxy only for this installation.
 - `--proxychains ""` disables proxy for one run.
 
+For Node-based agents (`codex`, `qwen`, `opencode`, `cline`), if `node` is missing, the installer resolves the latest available patch release inside the supported Node 24 major line through `nvm ls-remote` and installs that exact version.
+
+For the same Node-based agents, the installer checks for an existing Node.js both in the current `PATH` and through `nvm use --silent default`, so a Node version that is already installed through `nvm` does not trigger a redundant reinstall just because Ansible is running in a non-login shell.
+
 ## Examples
 
 ```bash

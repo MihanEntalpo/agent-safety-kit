@@ -28,7 +28,14 @@
       become: true
 
     - name: Check for node
-      ansible.builtin.command: node -v
+      ansible.builtin.shell: >-
+        bash -lc "if command -v node >/dev/null 2>&1; then
+        node -v;
+        elif [ -s '{{ nvm_dir }}/nvm.sh' ]; then
+        . '{{ nvm_dir }}/nvm.sh' && nvm use --silent default >/dev/null && node -v;
+        else
+        exit 1;
+        fi"
       register: node_check
       changed_when: false
       failed_when: false
@@ -49,8 +56,17 @@
         creates: "{{ nvm_dir }}/nvm.sh"
 
     - name: Install Node.js
-      ansible.builtin.command: >-
-        {{ proxychains_prefix }}bash -lc ". {{ nvm_dir }}/nvm.sh && nvm install {{ node_version }} && nvm alias default {{ node_version }}"
+      ansible.builtin.shell: |-
+        {{ proxychains_prefix }}bash -lc '
+        . {{ nvm_dir }}/nvm.sh
+        resolved_version="$(nvm ls-remote | awk '"'"'/^[[:space:]]*v{{ node_version | replace(".", "\\.") }}\\./ { version=$1 } END { print version }'"'"')"
+        if [ -z "$resolved_version" ]; then
+          echo "Failed to resolve the latest Node.js {{ node_version }} release from nvm ls-remote." >&2
+          exit 1
+        fi
+        nvm install "$resolved_version"
+        nvm alias default "$resolved_version"
+        '
       when: node_check.rc != 0
 
     - name: Verify npm

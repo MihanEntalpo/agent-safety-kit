@@ -27,6 +27,22 @@ load_nvm() {
   return 1
 }
 
+resolve_latest_node_major() {
+  local major="$1"
+  local resolved_version
+
+  resolved_version="$(
+    nvm ls-remote | awk "/^[[:space:]]*v${major//./\\.}\\./ { version=\\$1 } END { print version }"
+  )"
+
+  if [ -z "$resolved_version" ]; then
+    echo "Failed to resolve the latest Node.js ${major} release from nvm ls-remote." >&2
+    return 1
+  fi
+
+  printf '%s\n' "$resolved_version"
+}
+
 if ! command -v node >/dev/null 2>&1; then
   echo "Node.js not found, installing Node.js via nvm..."
   if [ ! -s "$NVM_DIR/nvm.sh" ]; then
@@ -38,9 +54,10 @@ if ! command -v node >/dev/null 2>&1; then
     exit 1
   fi
 
-  run_with_proxychains bash -lc "source \"$NVM_DIR/nvm.sh\"; nvm install 24"
+  RESOLVED_NODE_VERSION="$(resolve_latest_node_major 24)"
+  run_with_proxychains bash -lc "source \"$NVM_DIR/nvm.sh\"; nvm install \"$RESOLVED_NODE_VERSION\"; nvm alias default \"$RESOLVED_NODE_VERSION\""
   load_nvm >/dev/null 2>&1 || true
-  nvm use 24 >/dev/null 2>&1 || true
+  nvm use "$RESOLVED_NODE_VERSION" >/dev/null 2>&1 || true
   echo "Node.js version after installation: $(node -v)"
   echo "npm version after installation: $(npm -v)"
 else
