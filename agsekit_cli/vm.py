@@ -9,6 +9,7 @@ import time
 from pathlib import Path
 from typing import Dict, Iterable, List, Optional
 
+import psutil
 import yaml
 
 from .config import ConfigError, PortForwardingRule, VmConfig, load_config, load_vms_config
@@ -270,6 +271,11 @@ def _system_memory_bytes() -> int:
         page_count = os.sysconf("SC_PHYS_PAGES")  # type: ignore[arg-type]
         return int(page_size) * int(page_count)
     except (AttributeError, ValueError, OSError):
+        pass
+
+    try:
+        return int(psutil.virtual_memory().total)
+    except (AttributeError, OSError, ValueError):
         raise MultipassError(tr("vm.memory_total_failed"))
 
 

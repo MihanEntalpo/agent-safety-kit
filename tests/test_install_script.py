@@ -38,6 +38,16 @@ def test_windows_install_script_checks_python_before_installing() -> None:
     assert "agsekit.cmd" in script
 
 
+def test_windows_install_script_refreshes_path_from_machine_and_user_path() -> None:
+    script = WINDOWS_INSTALL_SCRIPT.read_text(encoding="utf-8")
+
+    assert "Get-RefreshedPath" in script
+    assert '$env:Path = Get-RefreshedPath' in script
+    assert "[Environment]::GetEnvironmentVariable(''Path'',''Machine'')" in script
+    assert "[Environment]::GetEnvironmentVariable(''Path'',''User'')" in script
+    assert '`$env:Path = `"$BinDir;`$env:Path`"' not in script
+
+
 def test_wsl_multipass_symlink_is_idempotent(tmp_path: Path) -> None:
     script_body = INSTALL_SCRIPT.read_text(encoding="utf-8").replace('\nmain "$@"\n', "\n")
     fake_home = tmp_path / "home"

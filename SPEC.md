@@ -298,7 +298,7 @@
 
 Что делает:
 1. Если хост запущен внутри WSL, завершает команду понятной ошибкой: WSL не поддерживается, нужно использовать обычный Linux-хост или native Windows PowerShell.
-2. На native Windows сначала проверяет host-утилиты `rsync` и `ssh-keygen`; если они отсутствуют, спрашивает пользователя и при согласии ставит MSYS2 через `winget install --id MSYS2.MSYS2 -e --accept-package-agreements --accept-source-agreements`, обновляет пакеты через `pacman -Syu --noconfirm`, затем ставит `rsync` и `openssh` через `pacman -S --needed --noconfirm`.
+2. На native Windows сначала проверяет host-утилиты `rsync` и `ssh-keygen`; если они отсутствуют, спрашивает пользователя с default `Yes` и при согласии ставит MSYS2 через `winget install --id MSYS2.MSYS2 -e --accept-package-agreements --accept-source-agreements`, обновляет пакеты через `pacman -Syu --noconfirm`, затем ставит `rsync` и `openssh` через `pacman -S --needed --noconfirm`.
 3. На native Windows после подготовки MSYS2 идемпотентно добавляет `C:\msys64\usr\bin` в текущий процесс и пользовательский `PATH`, чтобы `rsync` и OpenSSH-утилиты были доступны последующим командам.
 4. Проверяет наличие `multipass`: сначала через `PATH`, затем на native Windows по стандартному пути `C:\Program Files\Multipass\bin\multipass.exe`.
 5. Если `multipass` уже доступен, установку Multipass, `snapd` и связанных host-пакетов не выполняет.
@@ -306,7 +306,7 @@
    - на native Windows печатает ссылку на скачивание Multipass for Windows и предлагает открыть её, но не устанавливает Multipass автоматически;
    - на Debian-based (`apt-get`) проверяет host-пакеты (`snapd`, `qemu-kvm`, `libvirt-daemon-system`, `libvirt-clients`, `bridge-utils`) и ставит только отсутствующие, после чего ставит Multipass через `snap`;
    - на Arch Linux (`pacman`) ставит Multipass через AUR helper (`yay` или `aura`) вместе с `libvirt`, `dnsmasq`, `qemu-base`;
-   - на macOS (`Darwin` + `brew`) ставит Multipass через `brew install multipass`;
+   - на macOS (`Darwin` + `brew`) ставит Multipass через Homebrew cask; на macOS 13+ используется текущая cask `multipass`, а на macOS <13 используется зафиксированная legacy cask Multipass `1.14.1`;
    - если `prepare`/`up` запущен с Rich progress и установка host-зависимостей требует интерактивный ввод (например, подтверждение установки MSYS2 на Windows или `sudo` внутри Homebrew installer), progress временно приостанавливается, чтобы prompt и ввод работали в обычном терминальном режиме;
    - если нет ни `apt-get`, ни `pacman`, ни поддерживаемого `brew` на macOS, завершает `prepare` ошибкой о неподдерживаемом host package manager.
 7. Проверяет наличие `ssh-keygen`; на поддерживаемом Linux ставит только отсутствующий OpenSSH client package (`openssh-client` на Debian-based, `openssh` на Arch Linux), если `ssh-keygen` не найден.
@@ -741,6 +741,7 @@
 Перед созданием новых VM:
 - читаются существующие allocation (CPU/RAM) из `multipass list --format json`;
 - суммируются планируемые ресурсы новых VM;
+- общий объём RAM определяется через `os.sysconf` на POSIX-хостах, а при недоступности `sysconf` используется fallback `psutil.virtual_memory()`, что покрывает native Windows;
 - запрещается создание, если останется меньше 1 CPU или меньше 1 GiB RAM.
 
 ### 9.4 Proxychains режим
@@ -840,7 +841,7 @@ Dependency resolution выполняется кодом до запуска play
 
 На хосте:
 - installer `scripts/install/install.sh` создаёт per-user venv в `~/.local/share/agsekit/venv`, symlink `~/.local/bin/agsekit`, а при необходимости добавляет `export PATH="$HOME/.local/bin:$PATH"` в shell startup files;
-- Windows installer `scripts/install/install.ps1` создаёт per-user venv в `%USERPROFILE%\.local\share\agsekit\venv`, wrapper `%USERPROFILE%\.local\bin\agsekit.cmd`, а при необходимости добавляет `%USERPROFILE%\.local\bin` в пользовательский `PATH`;
+- Windows installer `scripts/install/install.ps1` создаёт per-user venv в `%USERPROFILE%\.local\share\agsekit\venv`, wrapper `%USERPROFILE%\.local\bin\agsekit.cmd`, а при необходимости добавляет `%USERPROFILE%\.local\bin` в пользовательский `PATH`; после изменения пользовательского `PATH` установщик обновляет `PATH` текущей PowerShell-сессии из Machine+User PATH, чтобы не терять стандартные entries вроде WindowsApps/`winget`;
 - `~/.config/agsekit/config.yaml`
 - SSH keypair в каталоге из `global.ssh_keys_folder` (по умолчанию `~/.config/agsekit/ssh/id_rsa` и `id_rsa.pub`)
 - `systemd.env` в каталоге из `global.systemd_env_folder` (по умолчанию `~/.config/agsekit/systemd.env`)

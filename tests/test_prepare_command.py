@@ -244,7 +244,7 @@ def test_install_multipass_arch_requires_aur_helper(monkeypatch):
     assert "AUR helper" in str(exc_info.value)
 
 
-def test_install_multipass_brew_uses_brew_install(monkeypatch):
+def test_install_multipass_brew_uses_current_cask_on_macos_13_or_newer(monkeypatch):
     commands: list[list[str]] = []
 
     def fake_run(command, check):
@@ -253,10 +253,36 @@ def test_install_multipass_brew_uses_brew_install(monkeypatch):
 
     monkeypatch.setattr(prepare_strategies.subprocess, "run", fake_run)
     monkeypatch.setattr(prepare_strategies.shutil, "which", lambda binary: "/opt/homebrew/bin/brew" if binary == "brew" else None)
+    monkeypatch.setattr(prepare_strategies.platform, "mac_ver", lambda: ("13.6.1", ("", "", ""), "arm64"))
 
     prepare_strategies.PrepareMacBrew()._install_multipass()
 
-    assert commands == [["brew", "install", "multipass"]]
+    assert commands == [["brew", "install", "--cask", "multipass"]]
+
+
+def test_install_multipass_brew_uses_legacy_cask_on_old_macos(monkeypatch):
+    commands: list[list[str]] = []
+    captured_cask = ""
+
+    def fake_run(command, check):
+        nonlocal captured_cask
+        commands.append(command)
+        assert check is True
+        cask_path = Path(command[-1])
+        assert cask_path.exists()
+        captured_cask = cask_path.read_text(encoding="utf-8")
+
+    monkeypatch.setattr(prepare_strategies.subprocess, "run", fake_run)
+    monkeypatch.setattr(prepare_strategies.shutil, "which", lambda binary: "/opt/homebrew/bin/brew" if binary == "brew" else None)
+    monkeypatch.setattr(prepare_strategies.platform, "mac_ver", lambda: ("12.7.6", ("", "", ""), "x86_64"))
+
+    prepare_strategies.PrepareMacBrew()._install_multipass()
+
+    assert len(commands) == 1
+    assert commands[0][:3] == ["brew", "install", "--cask"]
+    assert commands[0][3].endswith("/multipass.rb")
+    assert 'version "1.14.1"' in captured_cask
+    assert "multipass-#{version}+mac-Darwin.pkg" in captured_cask
 
 
 def test_ensure_rsync_installs_via_homebrew_on_macos(monkeypatch):
@@ -348,7 +374,7 @@ def test_windows_msys2_host_packages_install_missing_tools(monkeypatch, tmp_path
 
     def fake_confirm(prompt: str, default: bool):
         prompts.append(prompt)
-        assert default is False
+        assert default is True
         return True
 
     def fake_run(command, check, env=None):
