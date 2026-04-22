@@ -298,7 +298,7 @@
 
 Что делает:
 1. Если хост запущен внутри WSL, завершает команду понятной ошибкой: WSL не поддерживается, нужно использовать обычный Linux-хост или native Windows PowerShell.
-2. На native Windows сначала проверяет host-утилиты `rsync` и `ssh-keygen`; если они отсутствуют, спрашивает пользователя и при согласии ставит MSYS2 через `winget install --id MSYS2.MSYS2 -e --accept-package-agreements --accept-source-agreements`, обновляет пакеты через `pacman -Syu --noconfirm`, затем ставит `rsync` и `openssh` через `pacman -S --needed --noconfirm`.
+2. На native Windows сначала проверяет host-утилиты `rsync` и `ssh-keygen`; если они отсутствуют, спрашивает пользователя с default `Yes` и при согласии ставит MSYS2 через `winget install --id MSYS2.MSYS2 -e --accept-package-agreements --accept-source-agreements`, обновляет пакеты через `pacman -Syu --noconfirm`, затем ставит `rsync` и `openssh` через `pacman -S --needed --noconfirm`.
 3. На native Windows после подготовки MSYS2 идемпотентно добавляет `C:\msys64\usr\bin` в текущий процесс и пользовательский `PATH`, чтобы `rsync` и OpenSSH-утилиты были доступны последующим командам.
 4. Проверяет наличие `multipass`: сначала через `PATH`, затем на native Windows по стандартному пути `C:\Program Files\Multipass\bin\multipass.exe`.
 5. Если `multipass` уже доступен, установку Multipass, `snapd` и связанных host-пакетов не выполняет.
@@ -741,6 +741,7 @@
 Перед созданием новых VM:
 - читаются существующие allocation (CPU/RAM) из `multipass list --format json`;
 - суммируются планируемые ресурсы новых VM;
+- общий объём RAM определяется через `os.sysconf` на POSIX-хостах, а при недоступности `sysconf` используется fallback `psutil.virtual_memory()`, что покрывает native Windows;
 - запрещается создание, если останется меньше 1 CPU или меньше 1 GiB RAM.
 
 ### 9.4 Proxychains режим
@@ -840,7 +841,7 @@ Dependency resolution выполняется кодом до запуска play
 
 На хосте:
 - installer `scripts/install/install.sh` создаёт per-user venv в `~/.local/share/agsekit/venv`, symlink `~/.local/bin/agsekit`, а при необходимости добавляет `export PATH="$HOME/.local/bin:$PATH"` в shell startup files;
-- Windows installer `scripts/install/install.ps1` создаёт per-user venv в `%USERPROFILE%\.local\share\agsekit\venv`, wrapper `%USERPROFILE%\.local\bin\agsekit.cmd`, а при необходимости добавляет `%USERPROFILE%\.local\bin` в пользовательский `PATH`;
+- Windows installer `scripts/install/install.ps1` создаёт per-user venv в `%USERPROFILE%\.local\share\agsekit\venv`, wrapper `%USERPROFILE%\.local\bin\agsekit.cmd`, а при необходимости добавляет `%USERPROFILE%\.local\bin` в пользовательский `PATH`; после изменения пользовательского `PATH` установщик обновляет `PATH` текущей PowerShell-сессии из Machine+User PATH, чтобы не терять стандартные entries вроде WindowsApps/`winget`;
 - `~/.config/agsekit/config.yaml`
 - SSH keypair в каталоге из `global.ssh_keys_folder` (по умолчанию `~/.config/agsekit/ssh/id_rsa` и `id_rsa.pub`)
 - `systemd.env` в каталоге из `global.systemd_env_folder` (по умолчанию `~/.config/agsekit/systemd.env`)

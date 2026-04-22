@@ -135,7 +135,7 @@ The script at the link creates a venv, installs agsekit, creates an `agsekit.cmd
 irm https://agsekit.org/install.ps1 | iex
 ```
 
-Restart PowerShell, or update PATH in the current session using the command printed by the installer.
+The installer refreshes `PATH` in the current PowerShell session from Machine+User PATH. If another terminal still does not see `agsekit`, run the refresh command printed by the installer.
 
 After installation, run:
 
@@ -143,7 +143,7 @@ After installation, run:
 agsekit prepare
 ```
 
-If MSYS2 or required MSYS2 packages are missing, `prepare` will ask before installing them.
+If MSYS2 or required MSYS2 packages are missing, `prepare` will ask before installing them. The default answer is yes.
 
 **2. Manually:**
 

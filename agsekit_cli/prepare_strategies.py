@@ -316,7 +316,7 @@ class PrepareWin(PrepareBase):
             return
 
         prompt = tr("prepare.windows_msys2_install_prompt", packages=", ".join(missing))
-        if not click.confirm(prompt, default=False):
+        if not click.confirm(prompt, default=True):
             raise click.ClickException(tr("prepare.windows_msys2_install_declined"))
 
         self.install_msys2_if_missing()

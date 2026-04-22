@@ -1,5 +1,11 @@
 # Agent-Safety-Kit versions history
 
+## 1.5.17 - Windows installer and prepare fixes
+
+* Fixed the Windows PowerShell installer PATH refresh command so it rebuilds the current session PATH from Machine+User PATH and does not hide existing tools such as `winget`
+* Changed native Windows `agsekit prepare` MSYS2 installation confirmation to default to yes
+* Fixed native Windows VM launch resource checks by falling back to `psutil.virtual_memory()` when POSIX `os.sysconf` memory detection is unavailable
+
 ## 1.5.16 - Legacy macOS Multipass support
 
 * Added support for preparing older macOS hosts: when `agsekit prepare` needs to install Multipass on macOS <13, it now uses a pinned legacy Multipass 1.14.1 Homebrew cask instead of the current cask

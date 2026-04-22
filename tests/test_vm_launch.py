@@ -79,6 +79,19 @@ def test_resolve_multipass_launch_timeout_seconds_rejects_invalid_values(monkeyp
     assert vm_module.MULTIPASS_LAUNCH_TIMEOUT_ENV_VAR in str(exc_info.value)
 
 
+def test_system_memory_bytes_uses_psutil_when_sysconf_is_unavailable(monkeypatch):
+    class Memory:
+        total = 16 * 1024 ** 3
+
+    def fake_sysconf(_name):
+        raise AttributeError("sysconf is unavailable")
+
+    monkeypatch.setattr(vm_module.os, "sysconf", fake_sysconf)
+    monkeypatch.setattr(vm_module.psutil, "virtual_memory", lambda: Memory())
+
+    assert vm_module._system_memory_bytes() == 16 * 1024 ** 3
+
+
 def test_do_launch_uses_timeout_from_env(monkeypatch):
     monkeypatch.setenv(vm_module.MULTIPASS_LAUNCH_TIMEOUT_ENV_VAR, "600")
     monkeypatch.setattr(vm_module, "compare_vm", lambda *_args: "absent")

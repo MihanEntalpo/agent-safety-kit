@@ -104,6 +104,25 @@ function Ensure-UserPath {
     return $true
 }
 
+function Get-RefreshedPath {
+    $machinePath = [Environment]::GetEnvironmentVariable("Path", "Machine")
+    $userPath = [Environment]::GetEnvironmentVariable("Path", "User")
+    $parts = @()
+
+    if (-not [string]::IsNullOrEmpty($machinePath)) {
+        $parts += $machinePath.TrimEnd(";")
+    }
+    if (-not [string]::IsNullOrEmpty($userPath)) {
+        $parts += $userPath.TrimEnd(";")
+    }
+
+    return ($parts -join ";")
+}
+
+function Get-PathRefreshCommand {
+    return '$env:Path = "$([Environment]::GetEnvironmentVariable(''Path'',''Machine''));$([Environment]::GetEnvironmentVariable(''Path'',''User''))"'
+}
+
 $PythonCommand = Find-Python
 
 New-Item -ItemType Directory -Force -Path $InstallRoot | Out-Null
@@ -131,6 +150,7 @@ $wrapper = "@echo off`r`n`"$AgsekitExe`" %*`r`n"
 Set-Content -Path $WrapperPath -Value $wrapper -Encoding ASCII
 
 $pathChanged = Ensure-UserPath $BinDir
+$env:Path = Get-RefreshedPath
 
 Write-Host ""
 Write-Host "agsekit installed."
@@ -138,8 +158,9 @@ Write-Host "Install directory: $InstallRoot"
 Write-Host "Command wrapper: $WrapperPath"
 if ($pathChanged) {
     Write-Host "PATH was updated for future terminal sessions."
-    Write-Host "For the current PowerShell session, run:"
-    Write-Host "`$env:Path = `"$BinDir;`$env:Path`""
 } else {
     Write-Host "PATH already contains $BinDir"
 }
+Write-Host "Current PowerShell session PATH was refreshed."
+Write-Host "If another terminal still does not see agsekit, run:"
+Write-Host (Get-PathRefreshCommand)

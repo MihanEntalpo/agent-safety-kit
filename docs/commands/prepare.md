@@ -25,7 +25,7 @@ agsekit prepare [--config <path>] [--debug]
 - if host packages are needed, installs only the missing ones;
 - checks for `ssh-keygen` and installs the OpenSSH client package on supported Linux when needed;
 - checks for `rsync` and installs it through the Linux package manager, Homebrew on macOS, or MSYS2 on native Windows when needed;
-- on native Windows, if MSYS2 tools are missing, asks before installing MSYS2 through `winget` and `rsync`/`openssh` through MSYS2 `pacman`;
+- on native Windows, if MSYS2 tools are missing, asks before installing MSYS2 through `winget` and `rsync`/`openssh` through MSYS2 `pacman`; the default answer is yes;
 - adds the MSYS2 binary directory to the current process and the user `PATH` on native Windows;
 - creates or reuses a host SSH keypair for VM access;
 

@@ -374,7 +374,7 @@ def test_windows_msys2_host_packages_install_missing_tools(monkeypatch, tmp_path
 
     def fake_confirm(prompt: str, default: bool):
         prompts.append(prompt)
-        assert default is False
+        assert default is True
         return True
 
     def fake_run(command, check, env=None):
