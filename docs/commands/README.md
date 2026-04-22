@@ -7,6 +7,7 @@ In this section, `agsekit` commands are grouped by scenario.
 - [prepare](prepare.md)
 - [up](up.md)
 - [doctor](doctor.md)
+- [pip-upgrade](pip-upgrade.md)
 
 ## VM and Agent Preparation
 

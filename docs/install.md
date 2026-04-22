@@ -116,10 +116,11 @@ done
 
 ### Requirements
 
-* Native Windows PowerShell is supported.
+* Native Windows PowerShell is supported for installation and host-side tooling.
 * Python 3.9+ is required. The installer checks for it and asks you to install Python first if it is missing.
 * Multipass for Windows must be installed: https://canonical.com/multipass/install
 * `agsekit prepare` can install MSYS2 through `winget` and then install `rsync` and `openssh` through MSYS2 `pacman`.
+* Ansible-based provisioning commands (`up`, `create-vm`, `create-vms`, `install-agents`) are not available on native Windows because upstream Ansible does not support Windows control nodes.
 
 ### Installation
 
@@ -144,6 +145,8 @@ agsekit prepare
 ```
 
 If MSYS2 or required MSYS2 packages are missing, `prepare` will ask before installing them. The default answer is yes.
+
+To provision VMs and install agents after that, switch to a Linux or macOS host.
 
 **2. Manually:**
 
@@ -178,3 +181,5 @@ Prepare host dependencies:
 ```powershell
 agsekit prepare
 ```
+
+For `up`, `create-vm`, `create-vms`, and `install-agents`, use Linux or macOS.

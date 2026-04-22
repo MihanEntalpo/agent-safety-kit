@@ -11,6 +11,7 @@ import click
 import yaml
 
 from .debug import debug_log_command, debug_log_result, is_debug_enabled
+from .host_tools import is_windows
 from .i18n import tr
 
 _ANSIBLE_PROGRESS_CALLBACK = "agsekit_progress"
@@ -72,6 +73,11 @@ def _append_output_tail_line(tail: Deque[str], line: str) -> None:
 
 def ansible_playbook_command() -> list[str]:
     return [sys.executable, "-m", "ansible.cli.playbook"]
+
+
+def ensure_ansible_control_node_supported() -> None:
+    if is_windows():
+        raise click.ClickException(tr("ansible.windows_control_node_unsupported"))
 
 
 def _ansible_plugins_dir(kind: str) -> Path:
@@ -202,6 +208,7 @@ def run_ansible_playbook(
     progress_handler: Optional[Callable[[int, int, str], None]] = None,
     progress_output: Optional[Callable[[str], None]] = None,
 ) -> AnsiblePlaybookResult:
+    ensure_ansible_control_node_supported()
     command_list = [str(part) for part in command]
     debug_log_command(command_list)
 

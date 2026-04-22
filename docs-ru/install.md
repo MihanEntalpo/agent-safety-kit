@@ -115,10 +115,11 @@ done
 
 ### Требования
 
-* Поддерживается native Windows PowerShell.
+* Native Windows PowerShell поддерживается для установки и хостовых утилит.
 * Нужен Python 3.9+. Установщик проверяет его наличие и попросит сначала установить Python, если его нет.
 * Нужно установить Multipass for Windows: https://canonical.com/multipass/install
 * `agsekit prepare` умеет поставить MSYS2 через `winget`, а затем `rsync` и `openssh` через MSYS2 `pacman`.
+* Команды с Ansible-подготовкой (`up`, `create-vm`, `create-vms`, `install-agents`) на native Windows недоступны, потому что upstream Ansible не поддерживает Windows как control node.
 
 ### Установка
 
@@ -143,6 +144,8 @@ agsekit prepare
 ```
 
 Если MSYS2 или нужных MSYS2-пакетов нет, `prepare` спросит перед установкой. Ответ по умолчанию - yes.
+
+Чтобы после этого поднимать VM и ставить агентов, используйте Linux или macOS как хост.
 
 **2) Вручную:**
 
@@ -177,3 +180,5 @@ if (-not (($CurrentPath -split ";") -contains $BinDir)) {
 ```powershell
 agsekit prepare
 ```
+
+Для `up`, `create-vm`, `create-vms` и `install-agents` используйте Linux или macOS.

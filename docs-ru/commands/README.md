@@ -7,6 +7,7 @@
 - [prepare](prepare.md)
 - [up](up.md)
 - [doctor](doctor.md)
+- [pip-upgrade](pip-upgrade.md)
 
 ## Подготовка VM и агентов
 

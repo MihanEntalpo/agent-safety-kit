@@ -112,7 +112,8 @@
   - резолв proxychains override и пути раннеров.
 - `agsekit_cli/vm_prepare.py`
   - host SSH keypair;
-  - подготовка VM (authorized_keys и known_hosts через Ansible playbook поверх `agsekit_multipass`, затем base packages, proxychains/http-proxy runner scripts и bundles через Ansible SSH).
+  - подготовка VM (bootstrap SSH-доступа и known_hosts через Ansible playbook поверх `agsekit_multipass`, затем base packages, proxychains/http-proxy runner scripts и bundles через Ansible SSH);
+  - на native Windows сама подготовка VM не запускается: команды, которым нужен Ansible control node (`up`, `create-vm`, `create-vms`, `install-agents`), завершаются понятной ошибкой до начала provisioning.
 - `agsekit_cli/mounts.py`
   - mount/umount wrappers;
   - поиск mount по пути (longest-prefix).
@@ -316,6 +317,7 @@
 11. Встроенный `agsekit_multipass` connection plugin stage'ит локальные файлы через не-hidden staging-каталог в `HOME` перед `multipass transfer`, чтобы Ansible-копирование модулей не ломалось на hidden-путях вроде `~/.ansible/tmp` и не зависело от особенностей snap-based Multipass вокруг `/tmp`.
 12. Создаёт SSH-ключи хоста в каталоге из `global.ssh_keys_folder` (по умолчанию `~/.config/agsekit/ssh/`); после bootstrap эти ключи используются для Ansible SSH transport, `ssh` и `portforward`.
 13. Поддерживает `--debug`: включает подробный вывод внешних команд подготовки.
+14. На native Windows поддерживается только host-side часть `prepare`; команды и этапы, требующие запуска Ansible playbook'ов с хоста (`up` с включёнными `create-vms`/`install-agents`, `create-vm`, `create-vms`, `install-agents`), завершаются ранней ошибкой, потому что upstream Ansible не поддерживает Windows как control node.
 
 Архитектура реализации:
 - `agsekit_cli/prepare_strategies.py` определяет host-platform через `choose_prepare()` и выбирает strategy-класс: `PrepareWin`, `PrepareMacBrew`, `PrepareLinuxDeb`, `PrepareLinuxArch` или базовый fallback `PrepareBase`;
@@ -386,8 +388,9 @@
 Что делает:
 1. Проверяет, что `agsekit` установлен через `pip` в текущем окружении.
 2. Считывает текущую версию через `pip show`.
-3. Выполняет `pip install agsekit --upgrade`.
-4. Повторно считывает версию и печатает итог:
+3. На native Windows перед обновлением переисполняет команду под `python.exe` из того же venv, чтобы освободить launcher `agsekit.exe` и не упереться в WinError 32 при замене console-script launcher.
+4. Выполняет `pip install agsekit --upgrade`.
+5. Повторно считывает версию и печатает итог:
    - если версия изменилась: `agsekit обновлён с версии X на версию Y`;
    - если версия не изменилась: `agsekit уже и так максимальной версии - X`.
 
@@ -777,6 +780,7 @@
 ### 10.0 Универсальный запуск playbook'ов
 - все вызовы Ansible playbook идут через единый helper `run_ansible_playbook(...)` в `ansible_utils.py`;
 - запуск выполняется через `sys.executable -m ansible.cli.playbook`, чтобы всегда использовать тот же Python-интерпретатор, что и `agsekit` (и не зависеть от локальных `PATH`/`pyenv` переключений);
+- перед запуском helper явно проверяет платформу control node и на native Windows завершает команду понятной ошибкой вместо попытки стартовать `ansible-playbook`;
 - bootstrap-playbook `vm_ssh.yml` использует connection plugin `agsekit_multipass`, чтобы положить host public key в VM и синхронизировать known_hosts;
 - все playbook'и после bootstrap получают extra vars `ansible_connection=ssh`, `ansible_host=<vm_ip>`, `ansible_user=ubuntu`, `ansible_ssh_private_key_file=<global.ssh_keys_folder>/id_rsa` и работают через встроенный SSH transport Ansible;
 - helper предварительно считает общее количество задач по YAML (включая `include_tasks`/`import_tasks` и блоки `block`/`rescue`/`always`);

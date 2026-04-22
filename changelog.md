@@ -1,5 +1,11 @@
 # Agent-Safety-Kit versions history
 
+## 1.5.18 - Windows Ansible guard and pip-upgrade fix
+
+* Fixed native Windows provisioning flow to fail early with a clear error for `up`, `create-vm`, `create-vms`, and `install-agents`, because upstream Ansible does not support Windows control nodes; this replaces the low-level `os.get_blocking` / `WinError 1` crash during playbook startup
+* Fixed native Windows `pip-upgrade` by re-executing the upgrade under the current venv `python.exe`, so the command no longer collides with the running `agsekit.exe` launcher during self-update
+* Added test coverage for the native Windows Ansible preflight and the Windows `pip-upgrade` re-exec path
+
 ## 1.5.17 - Windows installer and prepare fixes
 
 * Fixed the Windows PowerShell installer PATH refresh command so it rebuilds the current session PATH from Machine+User PATH and does not hide existing tools such as `winget`

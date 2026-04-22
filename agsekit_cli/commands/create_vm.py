@@ -7,6 +7,7 @@ import click
 
 from . import debug_option, non_interactive_option
 
+from ..ansible_utils import ensure_ansible_control_node_supported
 from ..config import ConfigError, load_config, load_global_config, load_vms_config, resolve_config_path
 from ..debug import debug_scope
 from ..i18n import tr
@@ -21,6 +22,7 @@ def run_create_vms(
     debug: bool,
     progress: Optional[ProgressManager] = None,
 ) -> None:
+    ensure_ansible_control_node_supported()
     resolved_path = resolve_config_path(Path(config_path) if config_path else None)
     try:
         config = load_config(resolved_path)
@@ -131,6 +133,7 @@ def create_vm_command(vm_name: Optional[str], config_path: Optional[str], debug:
     # not used parameter, explicitly removing it so IDEs/linters do not complain
     del non_interactive
 
+    ensure_ansible_control_node_supported()
     resolved_path = resolve_config_path(Path(config_path) if config_path else None)
 
     try:

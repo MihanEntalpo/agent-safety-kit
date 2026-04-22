@@ -27,6 +27,8 @@ agsekit install-agents --all-agents [--all-vms] [--config <path>] [--proxychains
 - If the agent has no VM restrictions, all VMs from the config become targets.
 - With `--all-vms`, all VMs are selected explicitly.
 
+On native Windows PowerShell, this command is not available because upstream Ansible does not support Windows control nodes. Use Linux or macOS.
+
 ## Proxychains Override
 
 By default, install-agents uses proxychains from the VM configuration, which can be overridden at launch:

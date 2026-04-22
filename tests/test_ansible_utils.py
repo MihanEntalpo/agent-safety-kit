@@ -5,6 +5,9 @@ import os
 import sys
 from pathlib import Path
 
+import click
+import pytest
+
 from agsekit_cli.ansible_utils import (
     AnsiblePlaybookResult,
     ansible_playbook_command,
@@ -104,6 +107,18 @@ def test_run_ansible_playbook_disables_progress_callback_in_debug(monkeypatch, t
     assert "ANSIBLE_CALLBACK_PLUGINS" not in env
     connection_path = env["ANSIBLE_CONNECTION_PLUGINS"].split(os.pathsep)[0]
     assert connection_path.endswith("agsekit_cli/ansible/connection_plugins")
+
+
+def test_run_ansible_playbook_rejects_native_windows(monkeypatch, tmp_path):
+    playbook = tmp_path / "playbook.yml"
+    playbook.write_text("[]\n", encoding="utf-8")
+
+    monkeypatch.setattr("agsekit_cli.ansible_utils.is_windows", lambda: True)
+
+    with pytest.raises(click.ClickException) as exc_info:
+        run_ansible_playbook(["ansible-playbook", str(playbook)], playbook_path=playbook)
+
+    assert "does not support Windows control nodes" in str(exc_info.value)
 
 
 def test_run_ansible_playbook_collects_hidden_output_tail(monkeypatch, tmp_path):

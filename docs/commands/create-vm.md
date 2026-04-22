@@ -34,6 +34,8 @@ agsekit create-vms [--config <path>] [--debug]
 
 If the VM already exists, `agsekit` compares real and configured resources and reports differences. Automatic resizing of an existing VM is not supported yet.
 
+These commands are not available on native Windows PowerShell because the VM preparation stages rely on Ansible playbooks. Use Linux or macOS.
+
 ## Examples
 
 ```bash

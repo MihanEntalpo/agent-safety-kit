@@ -122,6 +122,28 @@ def test_up_prepare_only_does_not_require_config_or_install_systemd(monkeypatch)
     assert calls == ["prepare"]
 
 
+def test_up_rejects_native_windows_before_running_stages(monkeypatch, tmp_path):
+    calls: list[str] = []
+    config_path = tmp_path / "config.yaml"
+    config_path.write_text("vms: {}\n", encoding="utf-8")
+
+    monkeypatch.setattr(
+        up_module,
+        "ensure_ansible_control_node_supported",
+        lambda: (_ for _ in ()).throw(click.ClickException("windows ansible unsupported")),
+    )
+    monkeypatch.setattr(up_module, "run_prepare", lambda **kwargs: calls.append("prepare"))
+    monkeypatch.setattr(up_module, "run_create_vms", lambda *args, **kwargs: calls.append("create-vms"))
+    monkeypatch.setattr(up_module, "run_install_agents", lambda **kwargs: calls.append("install-agents"))
+
+    runner = CliRunner()
+    result = _invoke_command(runner, up_command, ["--config", str(config_path)])
+
+    assert result.exit_code != 0
+    assert "windows ansible unsupported" in result.output
+    assert calls == []
+
+
 def test_up_reports_helpful_error_when_default_config_missing(monkeypatch, tmp_path):
     missing_default = tmp_path / "missing-config.yaml"
     monkeypatch.setattr(config_module, "DEFAULT_CONFIG_PATH", missing_default)

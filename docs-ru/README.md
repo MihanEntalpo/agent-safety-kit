@@ -22,6 +22,7 @@
   - [up](commands/up.md)
   - [create-vm / create-vms](commands/create-vm.md)
   - [install-agents](commands/install-agents.md)
+  - [pip-upgrade](commands/pip-upgrade.md)
   - [run](commands/run.md)
   - [mount / umount / addmount / removemount](commands/mount.md)
   - [status](commands/status.md)

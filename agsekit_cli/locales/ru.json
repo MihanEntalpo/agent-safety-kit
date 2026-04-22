@@ -5,6 +5,7 @@
   "agents.agent_not_found_empty": "Агент `{name}` не найден в конфигурации. В конфигурации нет агентов.",
   "agents.agent_not_found_with_list": "Агент `{name}` не найден в конфигурации. Доступные агенты: {available}.",
   "ansible.hidden_output_tail_label": "Последние скрытые строки Ansible:\n{output}",
+  "ansible.windows_control_node_unsupported": "Native Windows PowerShell не может запускать Ansible playbook'и, которые agsekit использует для подготовки ВМ и установки агентов, потому что upstream Ansible не поддерживает Windows как control node. Для `up`, `create-vm`, `create-vms` и `install-agents` используйте Linux или macOS.",
   "debug.command": "[DEBUG] команда: {command}",
   "debug.exit_code": "[DEBUG] код возврата: {code}",
   "debug.option": "Показывать запускаемые команды и их вывод",

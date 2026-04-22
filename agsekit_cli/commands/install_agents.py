@@ -14,6 +14,7 @@ from ..agents_modules import get_agent_class
 from ..ansible_utils import (
     ansible_playbook_command,
     count_playbook_tasks,
+    ensure_ansible_control_node_supported,
     emit_hidden_output_tail,
     run_ansible_playbook,
 )
@@ -198,6 +199,7 @@ def run_install_agents(
     interactive: bool,
     progress: Optional[ProgressManager] = None,
 ) -> None:
+    ensure_ansible_control_node_supported()
     with debug_scope(debug):
         if not progress:
             click.echo(tr("install_agents.preparing"))
