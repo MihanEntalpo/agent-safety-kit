@@ -25,6 +25,9 @@
     - name: Configure proxychains
       ansible.builtin.include_tasks: "{{ playbook_dir }}/proxychains.yml"
 
+    - name: Configure Codex logrotate
+      ansible.builtin.include_tasks: "{{ playbook_dir }}/codex_logrotate.yml"
+
     - name: Install build dependencies
       ansible.builtin.apt:
         update_cache: true

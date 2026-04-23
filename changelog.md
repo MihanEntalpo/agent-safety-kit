@@ -1,5 +1,9 @@
 # Agent-Safety-Kit versions history
 
+## 1.5.19 - Codex log rotation setup
+
+* Added automatic `logrotate` setup for `codex`, `codex-glibc`, and `codex-glibc-prebuilt` installers inside the VM: `~/.codex/log/codex-tui.log` now gets a policy with `size 100M`, `rotate 10`, `compress`, `delaycompress`, `missingok`, `notifempty`, and `copytruncate`
+
 ## 1.5.18 - Installer and agent installation fixes
 
 * Fixed Node-based agent installers (`codex`, `qwen`, `opencode`, `cline`): Node detection now also checks the default `nvm` environment, and fresh installs resolve the latest available `v24.x.y` release through `nvm ls-remote` instead of relying on `nvm install 24`

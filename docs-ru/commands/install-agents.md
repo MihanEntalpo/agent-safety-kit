@@ -38,6 +38,8 @@ agsekit install-agents --all-agents [--all-vms] [--config <path>] [--proxychains
 
 Для тех же Node-based агентов installer проверяет уже установленный Node.js и в текущем `PATH`, и через `nvm use --silent default`, так что версия Node, уже установленная через `nvm`, не приводит к лишней переустановке только из-за того, что Ansible работает в non-login shell.
 
+Для `codex`, `codex-glibc` и `codex-glibc-prebuilt` installer также настраивает внутри VM `logrotate` для `~/.codex/log/codex-tui.log` с политикой `size 100M`, `rotate 10`, `compress`, `delaycompress`, `missingok`, `notifempty` и `copytruncate`.
+
 ## Примеры
 
 ```bash

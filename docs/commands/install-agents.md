@@ -38,6 +38,8 @@ For Node-based agents (`codex`, `qwen`, `opencode`, `cline`), if `node` is missi
 
 For the same Node-based agents, the installer checks for an existing Node.js both in the current `PATH` and through `nvm use --silent default`, so a Node version that is already installed through `nvm` does not trigger a redundant reinstall just because Ansible is running in a non-login shell.
 
+For `codex`, `codex-glibc`, and `codex-glibc-prebuilt`, the installer also configures `logrotate` inside the VM for `~/.codex/log/codex-tui.log` with `size 100M`, `rotate 10`, `compress`, `delaycompress`, `missingok`, `notifempty`, and `copytruncate`.
+
 ## Examples
 
 ```bash

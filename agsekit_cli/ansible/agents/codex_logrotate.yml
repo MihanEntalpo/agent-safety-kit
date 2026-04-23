@@ -1,0 +1,24 @@
+- name: Install logrotate
+  ansible.builtin.apt:
+    update_cache: true
+    name: logrotate
+  become: true
+
+- name: Install Codex TUI logrotate config
+  ansible.builtin.copy:
+    dest: /etc/logrotate.d/codex-tui
+    owner: root
+    group: root
+    mode: "0644"
+    content: |
+      {{ ansible_env.HOME }}/.codex/log/codex-tui.log {
+          size 100M
+          rotate 10
+          compress
+          delaycompress
+          missingok
+          notifempty
+          copytruncate
+          su {{ ansible_user | default(ansible_env.USER) }} {{ ansible_user | default(ansible_env.USER) }}
+      }
+  become: true

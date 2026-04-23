@@ -822,6 +822,7 @@ Dependency resolution выполняется кодом до запуска play
 ### 10.3 Agent installers
 - `aider.yml`: установка через официальный aider install script с последующей проверкой бинарника `aider`; сетевые шаги выполняются через `proxychains_prefix`.
 - `codex.yml`: установка `bubblewrap`, Node через nvm (с резолвом последнего доступного `v24.x.y` через `nvm ls-remote`) + `@openai/codex`.
+  - дополнительно ставится `logrotate` и конфиг `/etc/logrotate.d/codex-tui`, который ограничивает `~/.codex/log/codex-tui.log` политикой `size 100M`, `rotate 10`, `compress`, `delaycompress`, `missingok`, `notifempty`, `copytruncate`.
 - `qwen.yml`: установка Node через nvm (с резолвом последнего доступного `v24.x.y` через `nvm ls-remote`) + `@qwen-code/qwen-code`.
 - `forgecode.yml`: установка через официальный Forge install script с последующей проверкой бинарника `forge`; сетевые шаги выполняются через `proxychains_prefix`.
 - `opencode.yml`: установка Node через nvm (с резолвом последнего доступного `v24.x.y` через `nvm ls-remote`) + `opencode-ai`.
@@ -829,7 +830,9 @@ Dependency resolution выполняется кодом до запуска play
 - Node-based installer playbooks проверяют наличие `node` сначала в текущем `PATH`, а затем через `nvm use --silent default`, чтобы установленный через `nvm` Node считался уже готовым даже в non-login shell'е Ansible.
 - `claude.yml`: установка через официальный install script; сетевые шаги выполняются через `proxychains_prefix`; если нативный post-install падает, применяется fallback-установка `claude` прямой загрузкой последнего release-бинарника по официальным `latest` + `manifest.json` с проверкой `sha256`, причём release-base динамически определяется через redirect c `https://claude.ai/install.sh`, без захардкоженного bucket URL.
 - `codex-glibc.yml`: установка `bubblewrap`, сборка из исходников `openai/codex`, управление swap при нехватке памяти, установка бинарника `codex-glibc`, post-build проверка.
+  - дополнительно ставится тот же `logrotate`-конфиг для `~/.codex/log/codex-tui.log`.
 - `codex-glibc-prebuilt.yml`: установка `bubblewrap`, разрешение подходящего GitHub Release проекта с выбором ассета по архитектуре целевой VM (`amd64`/`arm64`) и установка опубликованного `codex-glibc` бинарника под именем `codex-glibc-prebuilt` без сборки в VM; release metadata резолвится controller-side через `ansible_playbook_python -m agsekit_cli.prebuilt ...` внутри `lookup('pipe', ...)`, чтобы этот шаг не наследовал remote SSH vars из playbook extra vars.
+  - дополнительно ставится тот же `logrotate`-конфиг для `~/.codex/log/codex-tui.log`.
 
 ## 11. Локализация
 
