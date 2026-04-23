@@ -1,12 +1,6 @@
 ---
 - name: Enable proxychains when requested
   block:
-    - name: Install proxychains
-      ansible.builtin.apt:
-        update_cache: true
-        name: proxychains4
-      become: true
-
     - name: Parse proxychains URL
       ansible.builtin.set_fact:
         proxy_scheme: "{{ proxychains_url | regex_replace('://.*', '') }}"

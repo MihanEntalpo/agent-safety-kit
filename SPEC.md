@@ -623,6 +623,7 @@
   - для одного target: что агент готов к работе в выбранной ВМ;
   - для нескольких target: общее сообщение об успешной установке.
 - для Node-based agent installers (`codex`, `qwen`, `opencode`, `cline`) при отсутствии `node` сначала резолвит через `nvm ls-remote` последнюю доступную patch-версию поддерживаемой major-ветки и только потом выполняет `nvm install <resolved_version>`, чтобы не зависеть от поддержки short-major form вроде `nvm install 24`.
+- если в одном запуске `install-agents` несколько Node-based агентов ставятся в одну и ту же VM, после первого успешного Node-based installer run CLI запоминает эту VM в локальном in-memory cache и передаёт в следующие playbook extra vars `skip_nvm_install=true` и `skip_node_install=true`, чтобы повторно не делать `nvm`/Node bootstrap.
 - для Node-based agent installers проверка наличия `node` не ограничивается голым системным `PATH`: installer сначала пробует `command -v node`, а если бинарник не найден, явно загружает `{{ ansible_env.HOME }}/.nvm/nvm.sh`, делает `nvm use --silent default` и повторяет `node -v`; это предотвращает ложную переустановку Node, когда он уже установлен через `nvm`, но не виден не-login shell'у Ansible.
 
 Инвариант CLI:
@@ -752,7 +753,7 @@
 - `run` и binary precheck используют предустановленный раннер `/usr/bin/agsekit-run_with_proxychains.sh` без runtime-инициализации/копирования;
 - создаётся временный proxychains config;
 - команда запускается через `proxychains4`;
-- в Ansible agent installers сетевые шаги выполняются через `proxychains_prefix` (без отдельного прокидывания proxy env-переменных).
+- в Ansible agent installers сетевые шаги выполняются через `proxychains_prefix` (без отдельного прокидывания proxy env-переменных); пакет `proxychains4`, `privoxy` и раннеры `/usr/bin/agsekit-run_with_proxychains.sh` / `/usr/bin/agsekit-run_with_http_proxy.sh` ставятся на этапе VM-wide подготовки, а agent-level `proxychains.yml` только собирает временный `/tmp/agsekit-proxychains.conf` и `proxychains_prefix`.
 
 ### 9.4.1 HTTP proxy режим для `run`
 - effective `http_proxy` определяется как `cli --http-proxy override -> agents.<name>.http_proxy -> vm.http_proxy -> none`;

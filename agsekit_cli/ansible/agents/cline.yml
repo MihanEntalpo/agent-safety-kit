@@ -17,6 +17,8 @@
   vars:
     nvm_dir: "{{ ansible_env.HOME }}/.nvm"
     node_version: "24"
+    skip_nvm_install: false
+    skip_node_install: false
   tasks:
     - name: Configure proxychains
       ansible.builtin.include_tasks: "{{ playbook_dir }}/proxychains.yml"
@@ -26,6 +28,15 @@
         update_cache: true
         name: curl
       become: true
+
+    - name: Assume Node.js and nvm are already prepared when requested
+      ansible.builtin.set_fact:
+        node_check:
+          rc: 0
+        nvm_stat:
+          stat:
+            exists: true
+      when: (skip_nvm_install | bool) or (skip_node_install | bool)
 
     - name: Check for node
       ansible.builtin.shell: >-
@@ -39,19 +50,21 @@
       register: node_check
       changed_when: false
       failed_when: false
+      when: not (skip_node_install | bool)
 
     - name: Check for nvm
       ansible.builtin.stat:
         path: "{{ nvm_dir }}/nvm.sh"
       register: nvm_stat
+      when: not (skip_nvm_install | bool)
 
     - name: Download nvm installer
       ansible.builtin.command: "{{ proxychains_prefix }}curl -o /tmp/nvm-install.sh https://raw.githubusercontent.com/nvm-sh/nvm/v0.40.3/install.sh"
-      when: not nvm_stat.stat.exists
+      when: (not (skip_nvm_install | bool)) and not nvm_stat.stat.exists
 
     - name: Install nvm
       ansible.builtin.command: "{{ proxychains_prefix }}bash /tmp/nvm-install.sh"
-      when: not nvm_stat.stat.exists
+      when: (not (skip_nvm_install | bool)) and not nvm_stat.stat.exists
       args:
         creates: "{{ nvm_dir }}/nvm.sh"
 
@@ -67,7 +80,7 @@
         nvm install "$resolved_version"
         nvm alias default "$resolved_version"
         '
-      when: node_check.rc != 0
+      when: (not (skip_node_install | bool)) and node_check.rc != 0
 
     - name: Verify npm
       ansible.builtin.command: >-
@@ -105,4 +118,4 @@
       ansible.builtin.file:
         path: /tmp/nvm-install.sh
         state: absent
-      when: not nvm_stat.stat.exists
+      when: (not (skip_nvm_install | bool)) and not nvm_stat.stat.exists

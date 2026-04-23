@@ -612,3 +612,24 @@ def test_log_failed_command_halts_progress_before_printing(capsys):
     captured = capsys.readouterr()
     assert halted == [True]
     assert "cmd: /bin/false" in captured.err
+
+
+def test_install_agents_reuses_node_setup_per_vm_within_one_run(monkeypatch, tmp_path):
+    config_path = tmp_path / "config.yaml"
+    _write_config(config_path, [("codex_main", "codex"), ("qwen_main", "qwen")])
+
+    calls = []
+
+    def fake_run_install_playbook(vm, playbook_path: Path, proxychains=None, **kwargs) -> None:
+        calls.append((vm.name, playbook_path.name, proxychains, kwargs.get("extra_vars_overrides")))
+
+    monkeypatch.setattr(install_agents_module, "_run_install_playbook", fake_run_install_playbook)
+
+    runner = CliRunner()
+    result = _invoke_command(runner, install_agents_command, ["--config", str(config_path), "--all-agents"])
+
+    assert result.exit_code == 0
+    assert calls == [
+        ("agent", "codex.yml", None, None),
+        ("agent", "qwen.yml", None, {"skip_nvm_install": True, "skip_node_install": True}),
+    ]

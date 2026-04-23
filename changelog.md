@@ -1,5 +1,10 @@
 # Agent-Safety-Kit versions history
 
+## 1.5.20 - Speed up install-agents
+
+* Made proxychains be installed on VM setup
+* Made nvm/node install only once if multiple agents needs them
+
 ## 1.5.19 - Codex log rotation setup
 
 * Added automatic `logrotate` setup for `codex`, `codex-glibc`, and `codex-glibc-prebuilt` installers inside the VM: `~/.codex/log/codex-tui.log` now gets a policy with `size 100M`, `rotate 10`, `compress`, `delaycompress`, `missingok`, `notifempty`, and `copytruncate`

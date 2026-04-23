@@ -18,8 +18,10 @@ def test_proxychains_tasks_define_only_command_prefix():
 
     enable_task = tasks[0]
     enable_block = enable_task["block"]
+    task_names = [item["name"] for item in enable_block]
     prefix_task = next(item for item in enable_block if item["name"] == "Set proxychains command prefix")
 
+    assert "Install proxychains" not in task_names
     assert prefix_task["ansible.builtin.set_fact"]["proxychains_prefix"] == "proxychains4 -q -f /tmp/agsekit-proxychains.conf "
 
     disable_task = tasks[1]

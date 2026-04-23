@@ -34,7 +34,7 @@ def test_count_playbook_tasks_counts_blocks_and_includes():
     proxychains = Path("agsekit_cli/ansible/agents/proxychains.yml")
     opencode = Path("agsekit_cli/ansible/agents/opencode.yml")
 
-    assert count_playbook_tasks(proxychains) == 7
+    assert count_playbook_tasks(proxychains) == 6
     assert count_playbook_tasks(opencode) == 21
 
 
