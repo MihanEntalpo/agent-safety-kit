@@ -2,7 +2,6 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 import shlex
-import shutil
 import signal
 import subprocess
 import time
@@ -11,6 +10,7 @@ from typing import Dict, List, Optional, Sequence
 
 import click
 
+from .. import cli_entry
 from ..config import (
     ConfigError,
     PortForwardingRule,
@@ -37,15 +37,7 @@ class PortforwardRuntimeConfig:
 
 
 def _resolve_agsekit_command() -> List[str]:
-    resolved = shutil.which("agsekit")
-    if resolved:
-        return [resolved]
-
-    local_script = Path(__file__).resolve().parents[2] / "agsekit"
-    if local_script.exists():
-        return [str(local_script)]
-
-    raise click.ClickException(tr("portforward.cli_not_found"))
+    return cli_entry.resolve_agsekit_command("portforward.cli_not_found")
 
 
 def _format_command(command: List[str]) -> str:

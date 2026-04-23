@@ -3,13 +3,13 @@ from __future__ import annotations
 from dataclasses import dataclass
 import platform
 import shlex
-import shutil
 import subprocess
 from pathlib import Path
 from typing import Dict, List, Optional
 
 import click
 
+from .. import cli_entry
 from ..config import DEFAULT_SYSTEMD_ENV_DIR, load_global_config_from_path, resolve_config_path
 from ..i18n import tr
 from . import debug_option, non_interactive_option
@@ -61,15 +61,7 @@ def _warn_systemd_unsupported() -> bool:
 
 
 def _resolve_agsekit_bin() -> Path:
-    resolved = shutil.which("agsekit")
-    if resolved:
-        return Path(resolved).resolve()
-
-    local_script = Path(__file__).resolve().parents[2] / "agsekit"
-    if local_script.exists():
-        return local_script
-
-    raise click.ClickException(tr("systemd.cli_not_found"))
+    return cli_entry.resolve_agsekit_bin("systemd.cli_not_found")
 
 
 def _format_command(command: List[str]) -> str:

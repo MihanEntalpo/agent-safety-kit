@@ -6,6 +6,7 @@ import pytest
 from click.testing import CliRunner
 
 import agsekit_cli.commands.systemd as systemd_module
+from agsekit_cli import cli_entry
 
 
 @pytest.fixture(autouse=True)
@@ -19,6 +20,18 @@ def test_packaged_systemd_unit_uses_shell_wrapper_for_env_expansion():
 
     assert 'ExecStart=/bin/bash -lc \'exec "$AGSEKIT_BIN" portforward --config "$AGSEKIT_CONFIG"\'' in contents
 
+
+
+
+def test_resolve_agsekit_bin_prefers_current_cli_path(monkeypatch, tmp_path):
+    current_cli = tmp_path / "current" / "agsekit"
+    current_cli.parent.mkdir(parents=True)
+    current_cli.write_text("#!/bin/sh\n", encoding="utf-8")
+
+    monkeypatch.setattr(cli_entry.sys, "argv", [str(current_cli)])
+    monkeypatch.setattr(cli_entry.shutil, "which", lambda _name: "/tmp/stale/agsekit")
+
+    assert systemd_module._resolve_agsekit_bin() == current_cli.resolve()
 
 def test_install_portforward_service_relinks_existing_unit_to_current_installation(monkeypatch, tmp_path):
     current_project = tmp_path / "current"

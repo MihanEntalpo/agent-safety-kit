@@ -32,7 +32,7 @@ agsekit systemd status [--debug]
 
 ## `install`
 
-Writes `systemd.env`, links the bundled user unit, reloads systemd, restarts the service, and enables it.
+Writes `systemd.env`, links the bundled user unit, reloads systemd, restarts the service, and enables it. The env file stores the absolute path to the current `agsekit` CLI, and `portforward` reuses that same installation for child `ssh` tunnel processes instead of depending on `PATH`.
 
 ## `status`
 

@@ -32,7 +32,7 @@ agsekit systemd status [--debug]
 
 ## `install`
 
-Записывает `systemd.env`, линкует bundled user unit, делает reload systemd, перезапускает сервис и включает его.
+Записывает `systemd.env`, линкует bundled user unit, делает reload systemd, перезапускает сервис и включает его. В env-файл пишется абсолютный путь к текущему `agsekit`, а `portforward` использует ту же установку и для дочерних `ssh`-процессов, не полагаясь на `PATH`.
 
 ## `status`
 

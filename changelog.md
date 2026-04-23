@@ -1,5 +1,10 @@
 # Agent-Safety-Kit versions history
 
+## 1.5.21 - Systemd portforward executable resolution
+
+* Fixed Linux `systemd` portforward services after reinstalling `agsekit` from another location: `systemd install` now stores the path to the current CLI instead of accidentally reusing a stale `agsekit` from `PATH`
+* Fixed `agsekit portforward` child tunnel startup in restricted environments such as user-level `systemd`: the command now reuses the current `agsekit` executable first and falls back to `python -m agsekit_cli.cli` when needed, so SSH tunnel workers no longer depend on `~/.local/bin` being present in `PATH`
+
 ## 1.5.20 - Speed up install-agents
 
 * Made proxychains be installed on VM setup
