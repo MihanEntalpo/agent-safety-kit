@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+from dataclasses import dataclass
 import json
 import shlex
 import subprocess
@@ -41,6 +42,12 @@ _DEFAULT_VM_VALUE = "__default_vm__"
 _ALL_VMS_VALUE = "__all_vms__"
 
 
+@dataclass
+class _PreparedVmSsh:
+    private_key: Path
+    vm_host: str
+
+
 def _playbook_for(agent: AgentConfig) -> Path:
     candidate = PLAYBOOKS_DIR / get_agent_class(agent.type).playbook_name()
     if not candidate.exists():
@@ -78,19 +85,22 @@ def _run_install_playbook(
     ssh_keys_folder: Path,
     proxychains: Optional[str] = None,
     *,
+    prepared_ssh: Optional[_PreparedVmSsh] = None,
     extra_vars_overrides: Optional[Dict[str, object]] = None,
     debug: bool = False,
     progress: Optional[ProgressManager] = None,
     label: Optional[str] = None,
-) -> None:
+) -> _PreparedVmSsh:
     ensure_multipass_available()
-    private_key, public_key = ensure_host_ssh_keypair(ssh_dir=ssh_keys_folder, verbose=debug)
-    hosts = _fetch_vm_ips(vm.name, progress=progress, debug=debug)
-    if not hosts:
-        raise MultipassError(tr("prepare.no_vm_ips", vm_name=vm.name))
-    _ensure_vm_ssh_access(vm.name, public_key, [vm.name, *hosts], progress=progress)
+    if prepared_ssh is None:
+        private_key, public_key = ensure_host_ssh_keypair(ssh_dir=ssh_keys_folder, verbose=debug)
+        hosts = _fetch_vm_ips(vm.name, progress=progress, debug=debug)
+        if not hosts:
+            raise MultipassError(tr("prepare.no_vm_ips", vm_name=vm.name))
+        _ensure_vm_ssh_access(vm.name, public_key, [vm.name, *hosts], progress=progress)
+        prepared_ssh = _PreparedVmSsh(private_key=private_key, vm_host=hosts[0])
     effective_proxychains = resolve_proxychains(vm, proxychains)
-    extra_vars = vm_ssh_ansible_vars(vm.name, hosts[0], private_key)
+    extra_vars = vm_ssh_ansible_vars(vm.name, prepared_ssh.vm_host, prepared_ssh.private_key)
     if extra_vars_overrides:
         extra_vars.update(extra_vars_overrides)
     install_command = [
@@ -133,6 +143,7 @@ def _run_install_playbook(
             progress=progress,
         )
         raise MultipassError(tr("install_agents.install_failed", vm_name=vm.name, code=result.returncode))
+    return prepared_ssh
 
 
 def _default_vms(agent: AgentConfig, available: Iterable[str]) -> List[str]:
@@ -298,6 +309,7 @@ def _run_install_targets(
 ) -> None:
     overall_task = progress.add_task(tr("progress.install_agents_title"), total=len(targets)) if show_overall_task else None
     node_ready_vms: set[str] = set()
+    ssh_ready_vms: Dict[str, _PreparedVmSsh] = {}
     for target_agent_name, target_vm in targets:
         agent = find_agent(agents_config, target_agent_name)
         agent_cls = get_agent_class(agent.type)
@@ -328,16 +340,20 @@ def _run_install_targets(
             if agent_cls.needs_nvm() and target_vm.name in node_ready_vms:
                 extra_vars_overrides["skip_nvm_install"] = True
                 extra_vars_overrides["skip_node_install"] = True
-            _run_install_playbook(
+            prepared_ssh = ssh_ready_vms.get(target_vm.name)
+            updated_prepared_ssh = _run_install_playbook(
                 target_vm,
                 playbook_path,
                 ssh_keys_folder=ssh_keys_folder,
                 proxychains=proxychains_override,
+                prepared_ssh=prepared_ssh,
                 extra_vars_overrides=extra_vars_overrides or None,
                 debug=debug,
                 progress=progress,
                 label=install_label,
             )
+            if updated_prepared_ssh is not None:
+                ssh_ready_vms[target_vm.name] = updated_prepared_ssh
             if agent_cls.needs_nvm():
                 node_ready_vms.add(target_vm.name)
         except (MultipassError, ConfigError) as exc:

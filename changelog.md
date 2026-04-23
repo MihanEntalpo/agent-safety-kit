@@ -1,5 +1,9 @@
 # Agent-Safety-Kit versions history
 
+## 1.6.1 - Faster agent installation
+
+* Sped up `install-agents` when several agents are installed into the same VM: SSH key bootstrap is now cached per VM within one run and is not repeated for every agent installer
+
 ## 1.6.0 - Cross-platform daemon command
 
 * Added `agsekit daemon` as the main command group for managing background services, including `portforward`

@@ -610,6 +610,7 @@
 - если `--all-vms` не задан и позиционный `<vm>` не передан, целевые VM берутся из `agents.<name>.vm + agents.<name>.vms` (если оба поля пустые — во все VM из секции `vms`);
 - определяет playbook по `agents.<name>.type`;
 - перед installer playbook идемпотентно проверяет SSH key bootstrap через `agsekit_multipass`;
+- в рамках одного запуска `install-agents` кэширует результат SSH-подготовки по VM: после первого успешного bootstrap следующие installer playbook'и для той же VM используют уже подготовленные `ansible_host`/ключ и не запускают `vm_ssh.yml` повторно;
 - запускает Ansible installer через общий runner и стандартный Ansible SSH transport;
   - по умолчанию runner включает компактный progress-вывод (`X/Y task-name` + progress bar) через custom callback plugin;
   - при ошибке runner допечатывает хвост последних скрытых строк Ansible (до 10 строк);

@@ -633,3 +633,61 @@ def test_install_agents_reuses_node_setup_per_vm_within_one_run(monkeypatch, tmp
         ("agent", "codex.yml", None, None),
         ("agent", "qwen.yml", None, {"skip_nvm_install": True, "skip_node_install": True}),
     ]
+
+
+def test_install_agents_reuses_ssh_bootstrap_per_vm_within_one_run(monkeypatch, tmp_path):
+    config_path = tmp_path / "config.yaml"
+    ssh_dir = tmp_path / "custom-ssh"
+    private_key = ssh_dir / "id_rsa"
+    public_key = ssh_dir / "id_rsa.pub"
+    _write_config(config_path, [("aider_main", "aider"), ("forge_main", "forgecode")])
+    config_path.write_text(
+        "global:\n"
+        f"  ssh_keys_folder: {ssh_dir}\n"
+        + config_path.read_text(encoding="utf-8"),
+        encoding="utf-8",
+    )
+
+    events: list[object] = []
+    playbook_calls: list[tuple[str, dict]] = []
+
+    monkeypatch.setattr(install_agents_module, "ensure_multipass_available", lambda: events.append("ensure-multipass"))
+    monkeypatch.setattr(
+        install_agents_module,
+        "ensure_host_ssh_keypair",
+        lambda ssh_dir, verbose=False: events.append(("keys", ssh_dir, verbose)) or (private_key, public_key),
+    )
+    monkeypatch.setattr(
+        install_agents_module,
+        "_fetch_vm_ips",
+        lambda vm_name, **_kwargs: events.append(("ips", vm_name)) or ["10.0.0.15"],
+    )
+    monkeypatch.setattr(
+        install_agents_module,
+        "_ensure_vm_ssh_access",
+        lambda vm_name, public_key, hosts, **_kwargs: events.append(("bootstrap", vm_name, public_key, hosts)),
+    )
+
+    class Result:
+        returncode = 0
+        stdout = ""
+        stderr = ""
+
+    def fake_run_ansible_playbook(command, *, playbook_path, **_kwargs):
+        payload = json.loads(command[command.index("-e") + 1])
+        playbook_calls.append((Path(playbook_path).name, payload))
+        return Result()
+
+    monkeypatch.setattr(install_agents_module, "run_ansible_playbook", fake_run_ansible_playbook)
+
+    runner = CliRunner()
+    result = _invoke_command(runner, install_agents_command, ["--config", str(config_path), "--all-agents"])
+
+    assert result.exit_code == 0
+    assert events.count("ensure-multipass") == 2
+    assert events.count(("keys", ssh_dir.resolve(), False)) == 1
+    assert events.count(("ips", "agent")) == 1
+    assert events.count(("bootstrap", "agent", public_key, ["agent", "10.0.0.15"])) == 1
+    assert [name for name, _payload in playbook_calls] == ["aider.yml", "forgecode.yml"]
+    assert all(payload["ansible_host"] == "10.0.0.15" for _name, payload in playbook_calls)
+    assert all(payload["ansible_ssh_private_key_file"] == str(private_key.resolve()) for _name, payload in playbook_calls)
