@@ -201,9 +201,9 @@ agents:
     http_proxy: socks5://127.0.0.1:8087
 ```
 
-On Linux you can configure the systemd daemon with `agsekit systemd install`, and port forwarding will be maintained automatically.
+On Linux and macOS you can install the background daemon with `agsekit daemon install`; it manages background services, including port forwarding. On Linux this uses `systemd`; on macOS it uses `launchd`.
 
-On Windows / macOS you can run `agsekit portforward` in a separate terminal, and port forwarding will be maintained while that terminal is alive.
+On Windows you can run `agsekit portforward` in a separate terminal, and port forwarding will be maintained while that terminal is alive.
 
 **3. Run the agent**
 
@@ -223,4 +223,5 @@ agsekit run claude
 
 - [Networking and proxies](networking.md)
 - [Networking commands](commands/networking.md)
+- [daemon](commands/daemon.md)
 - [systemd](commands/systemd.md)

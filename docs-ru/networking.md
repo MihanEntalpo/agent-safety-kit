@@ -128,8 +128,7 @@ agents:
 
 ## Port Forwarding
 
-Команда `agsekit portforward`, а также демон, запускаемый через `agsekit systemd start`
-Создаёт и поддерживает SSH туннели внутри и наружу ВМ и периодически перечитывает конфиг, чтобы переподключать forwards при изменении правил.
+Команда `agsekit portforward`, а также демон, запускаемый через `agsekit daemon start`, создаёт и поддерживает SSH туннели внутри и наружу ВМ и периодически перечитывает конфиг, чтобы переподключать forwards при изменении правил.
 
 Если вы не знаете что такое SSH-туннели, почитать про них можно здесь: https://docs.oracle.com/en/operating-systems/oracle-linux/openssh/openssh-SettingUpPortForwardingOverSSH.html
 

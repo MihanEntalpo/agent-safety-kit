@@ -67,7 +67,7 @@ What will be done:
 - VM creation
 - VM preparation
 - agent installation
-- for Linux, systemd service installation
+- on supported platforms, daemon installation (`systemd` on Linux, `launchd` on macOS)
 
 ## 4. Add a Mount
 

@@ -25,9 +25,9 @@ Depending on flags, `up` can:
 - prepare the host;
 - create and prepare all configured VMs;
 - install all configured agents into their target VMs;
-- only on Linux, install or update the systemd service for `portforward`.
+- on supported platforms, install or update the daemon for background services, including `portforward`.
 
-In practice, this is equivalent to running commands in sequence: `agsekit prepare`, `agsekit create-vms`, `agsekit install-agents`, `agsekit systemd install`
+In practice, this is equivalent to running commands in sequence: `agsekit prepare`, `agsekit create-vms`, `agsekit install-agents`, `agsekit daemon install`
 
 By default, all 4 are launched.
 
@@ -50,4 +50,4 @@ agsekit up --prepare --no-create-vms --no-install-agents
 - [prepare](prepare.md)
 - [create-vm / create-vms](create-vm.md)
 - [install-agents](install-agents.md)
-- [systemd](systemd.md)
+- [daemon](daemon.md)

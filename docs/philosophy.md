@@ -146,7 +146,7 @@ The system includes:
 - generation of independent SSH keys;
 - SSH-based port forwarding (without relying on changing VM IP addresses);
 - SOCKS proxy support;
-- a systemd daemon that manages:
+- a host daemon that manages:
   - backups,
   - agent processes,
   - port forwarding,

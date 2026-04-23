@@ -26,7 +26,7 @@ This directory contains the user documentation for `agsekit`.
   - [mount / umount / addmount / removemount](commands/mount.md)
   - [status](commands/status.md)
   - [doctor](commands/doctor.md)
-  - [systemd](commands/systemd.md)
+  - [daemon](commands/daemon.md)
   - [VM lifecycle](commands/vm-lifecycle.md)
   - [Networking commands](commands/networking.md)
   - [Backup commands](commands/backups.md)

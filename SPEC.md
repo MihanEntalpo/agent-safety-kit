@@ -39,7 +39,7 @@
 3. Как пользователь, я хочу хранить инфраструктуру в YAML, чтобы конфигурация была воспроизводимой, переносимой и версионируемой.
 4. Как пользователь, я хочу устанавливать окружение в VM декларативно (`install` bundles), чтобы не дублировать shell-скрипты.
 5. Как пользователь, я хочу интерактивный режим для редких операций, но полноценный non-interactive режим для автоматизации.
-6. Как пользователь, я хочу быстро управлять жизненным циклом VM и туннелями (`start/stop/destroy`, `portforward`, `systemd`).
+6. Как пользователь, я хочу быстро управлять жизненным циклом VM и туннелями (`start/stop/destroy`, `portforward`, `daemon`).
 
 ## 3. Границы ответственности (что инструмент делает и чего не делает)
 
@@ -48,7 +48,7 @@
 - монтирование директорий и запуск агентов внутри VM;
 - snapshot-like резервные копии на хосте;
 - установку базовых пакетов/агентов через Ansible;
-- управление локальным сервисом port-forwarding через user-level systemd на Linux-хостах.
+- управление локальным daemon-сервисом port-forwarding через `systemd` на Linux и `launchd` на macOS;
 
 Инструмент не делает:
 - не обеспечивает криптографическую защиту данных и не заменяет полноценный секрет-менеджмент;
@@ -155,11 +155,11 @@
 - `ssh_keys_folder` (optional, default `~/.config/agsekit/ssh`) — каталог с SSH-ключами хоста, используемыми для доступа к VM.
   - используется в `prepare`, `create-vm`, `create-vms`, `install-agents`, `ssh`, `portforward` и post-bootstrap Ansible-запусках;
   - при значении `null` или отсутствии поля берётся путь по умолчанию.
-- `systemd_env_folder` (optional, default `~/.config/agsekit`) — каталог, куда записывается `systemd.env` для user-level systemd сервиса `agsekit-portforward` на Linux-хостах.
-  - используется в `systemd install` и `up` только на Linux;
+- `systemd_env_folder` (optional, default `~/.config/agsekit`) — каталог, куда записывается `systemd.env` для Linux backend команды `daemon`.
+  - используется в `daemon install` и `up` только на Linux;
   - текущий systemd unit по-прежнему читает `~/.config/agsekit/systemd.env`, поэтому при кастомном каталоге CLI создаёт compatibility symlink из стандартного пути на фактический env-файл.
 - `portforward_config_check_interval_sec` (optional, default `10`, >0) — интервал перечитывания YAML-конфига командой `portforward`.
-  - применяется и при ручном запуске `agsekit portforward`, и в systemd-демоне, потому что сервис запускает ту же CLI-команду.
+  - применяется и при ручном запуске `agsekit portforward`, и в daemon-режиме, потому что backend запускает ту же CLI-команду.
 - `http_proxy_port_pool.start` / `http_proxy_port_pool.end` (optional, defaults `48000..49000`) — диапазон auto-port для временного локального HTTP proxy helper внутри VM.
   - используется только в `run`, когда effective `http_proxy` задан в upstream-режиме и `listen` явно не указан.
 
@@ -254,19 +254,20 @@
 - `pip-upgrade`
 - `version`
 - `list-bundles`
-- `systemd install`
-- `systemd uninstall`
-- `systemd start`
-- `systemd stop`
-- `systemd restart`
-- `systemd status`
+- `daemon install`
+- `daemon uninstall`
+- `daemon start`
+- `daemon stop`
+- `daemon restart`
+- `daemon status`
 
 Важно:
 - `prepare` может работать без YAML-конфига, но если конфиг есть и в нём задан `global.ssh_keys_folder`, команда использует этот путь для host SSH keypair;
-- `systemd install` технически может быть вызван без существующего файла конфига (путь резолвится), но practically предназначен для сценария, когда конфиг уже есть, потому что service запускает `portforward`.
-- все команды `systemd *` функционально поддерживаются только на Linux; на macOS/Windows они не пытаются вызывать `systemctl`, а печатают предупреждение, что интеграция пока не реализована.
-- `systemd start`, `systemd stop` и `systemd restart` на Linux не читают YAML-конфиг и управляют уже зарегистрированным user systemd unit `agsekit-portforward`.
-- `systemd status` на Linux не читает YAML-конфиг и показывает расширенное состояние user systemd unit `agsekit-portforward`, включая последние записи журнала, если служба установлена.
+- `daemon install` технически может быть вызван без существующего файла конфига (путь резолвится), но practically предназначен для сценария, когда конфиг уже есть, потому что daemon-managed services читают project-конфигурацию.
+- публичные команды `daemon *` поддерживаются на Linux и macOS; на Windows они печатают предупреждение, что daemon пока не реализован.
+- `daemon start`, `daemon stop` и `daemon restart` не читают YAML-конфиг и управляют уже зарегистрированными backend-сервисами.
+- `daemon status` не читает YAML-конфиг и показывает backend-specific состояние сервиса: на Linux это `systemd` unit и журнал, на macOS — `launchd` job и хвост stdout/stderr логов.
+- `systemd *` остаётся доступным как deprecated alias: команда печатает предупреждение `используйте agsekit daemon ...` и затем вызывает соответствующий `daemon` handler.
 
 ### 7.2 Команды, которые работают через конфиг
 Практически все остальные команды читают и валидируют конфиг: VM lifecycle, mounts, agent install/run, backup по mount, порт-форвардинг.
@@ -279,7 +280,7 @@
 - virtual machines
 - mounts
 - agents/shell
-- daemon control (`systemd install`, `systemd uninstall`, `systemd start`, `systemd stop`, `systemd restart`, `systemd status`)
+- daemon control (`daemon install`, `daemon uninstall`, `daemon start`, `daemon stop`, `daemon restart`, `daemon status`)
 - manual backup
 
 Поведение fallback:
@@ -344,11 +345,10 @@
 6. В обычном режиме показывает общий `rich` progress по выбранным этапам и вложенный прогресс текущего внутреннего шага (`prepare`, `create-vms`, `install-agents`) под ним.
 7. При `--debug` отключает Rich progress и оставляет только обычный подробный вывод внутренних команд и внешних процессов.
 8. Если вложенный Ansible playbook падает в обычном режиме, CLI сначала останавливает Rich progress, печатает пустую строку-разделитель, а затем выводит хвост последних скрытых строк Ansible (до 10 строк), чтобы ошибка не терялась за progress-рендерингом.
-9. Если сценарий использует конфиг (включены `create-vms` и/или `install-agents`) и CLI работает на Linux, после основных этапов дополнительно:
-   - генерирует `systemd.env` в каталоге из `global.systemd_env_folder` (по умолчанию `~/.config/agsekit/systemd.env`);
-   - регистрирует user systemd unit для `agsekit portforward`;
-   - запускает и включает этот unit.
-   На macOS и Windows этот этап пропускается полностью.
+9. Если сценарий использует конфиг (включены `create-vms` и/или `install-agents`) и CLI работает на поддерживаемой платформе, после основных этапов дополнительно устанавливает или обновляет daemon для фоновых сервисов, включая `portforward`.
+   - на Linux: генерирует `systemd.env`, регистрирует user systemd unit и запускает/включает его;
+   - на macOS: генерирует `LaunchAgent` plist в `~/Library/LaunchAgents`, настраивает вывод в `~/Library/Logs/agsekit/daemon.stdout.log` и `~/Library/Logs/agsekit/daemon.stderr.log`, затем выполняет `launchctl bootstrap/enable/kickstart`;
+   - на Windows этот этап пропускается полностью.
 10. При успешном завершении печатает итоговое сообщение об успешной установке.
 
 ### 8.2 Создание конфигов
@@ -369,7 +369,7 @@
 Что делает:
 - интерактивно сначала собирает `global`;
   - `global.ssh_keys_folder`;
-  - `global.systemd_env_folder`;
+  - `global.systemd_env_folder` (для Linux backend);
   - `global.portforward_config_check_interval_sec`;
   - `global.http_proxy_port_pool.start/end`;
 - затем собирает `vms`, `mounts`, `agents`;
@@ -502,7 +502,7 @@
 - `stop-vm` перед выключением размонтирует все mount-ы выбранной ВМ, которые сейчас реально зарегистрированы в Multipass;
 - `stop-vm` выключает гостевую ОС изнутри через `multipass exec <vm> -- sudo poweroff`, ждёт 30 секунд и при незавершённом shutdown выполняет `multipass stop --force <vm>`;
 - `down` всегда работает по всем ВМ из конфига: перед выключением проверяет текущие процессы настроенных агентов тем же способом, что и `status`; если агенты запущены, печатает список `VM -> agent names -> cwd` и в интерактивном режиме просит подтверждение `y/N`, а в неинтерактивном режиме требует `--force`;
-- `down` перед остановкой ВМ на Linux пытается остановить user systemd unit `agsekit-portforward`, если он зарегистрирован; на macOS/Windows этот шаг является no-op;
+- `down` перед остановкой ВМ на Linux и macOS пытается остановить daemon-managed services, если daemon зарегистрирован; на Windows этот шаг является no-op;
 - `down --force` пропускает проверочный prompt и выключает все ВМ сразу;
 - `destroy-vm` требует подтверждение (если нет `-y`), затем `delete` + `purge`.
 
@@ -698,32 +698,32 @@
   - если у ВМ раньше не было ни одного правила, а потом появились, поднимает SSH-туннель для этой ВМ;
   - если у ВМ были правила, но после изменения конфига не осталось ни одного, останавливает SSH-туннель для этой ВМ;
 - если в текущем валидном конфиге правил `port-forwarding` нет вообще, команда не завершается, а остаётся в режиме ожидания изменений конфига.
-- для запуска дочерних `ssh`-процессов пытается переиспользовать путь текущего запущенного `agsekit` (через `sys.argv[0]`), а если это невозможно, падает назад на `PATH` и затем на `sys.executable -m agsekit_cli.cli`; это нужно, чтобы `portforward` и user-level `systemd` service не зависели от наличия `~/.local/bin` в окружении.
+- для запуска дочерних `ssh`-процессов пытается переиспользовать путь текущего запущенного `agsekit` (через `sys.argv[0]`), а если это невозможно, падает назад на `PATH` и затем на `sys.executable -m agsekit_cli.cli`; это нужно, чтобы `portforward` и daemon backend не зависели от наличия `~/.local/bin` в окружении.
 - при ошибке туннеля сообщает, что `remote`-проброс на порты ниже 1024 внутри VM может быть причиной (из-за ограничения sshd).
 
-#### `agsekit systemd install/uninstall/status`
-- весь набор `systemd`-команд поддерживается только на Linux; на macOS/Windows команды печатают предупреждение о том, что интеграция пока не реализована, и завершаются без действий.
-- `install`:
+#### `agsekit daemon install/uninstall/status`
+- публичный интерфейс daemon-управления — это `daemon *`; `systemd *` остаётся доступным как deprecated alias и после предупреждения перенаправляет выполнение в соответствующую `daemon`-команду.
+- Linux backend:
   - генерирует `systemd.env` в каталоге из `global.systemd_env_folder` (по умолчанию `~/.config/agsekit/systemd.env`);
-  - регистрирует и включает user unit для `portforward` (юнит не зависит от `WorkingDirectory`, используется абсолютный путь конфига);
-  - использует единственный bundled unit из самой установки `agsekit` (`agsekit_cli/systemd/agsekit-portforward.service`);
+  - регистрирует и включает user unit для фоновых сервисов, включая `portforward` (юнит не зависит от `WorkingDirectory`, используется абсолютный путь конфига);
+  - использует bundled unit из самой установки `agsekit` (`agsekit_cli/systemd/agsekit-portforward.service`);
   - bundled unit запускает `agsekit portforward` через `/bin/bash -lc`, чтобы переменные из `EnvironmentFile` (`AGSEKIT_BIN`, `AGSEKIT_CONFIG`) корректно подставлялись и в путь к исполняемому файлу, и в аргументы;
-  - `systemd install` записывает в `AGSEKIT_BIN` путь именно к текущему запущенному CLI, а не к случайному `agsekit` из `PATH`, если команда была запущена напрямую из другого места;
+  - `daemon install` на Linux записывает в `AGSEKIT_BIN` путь именно к текущему запущенному CLI, а не к случайному `agsekit` из `PATH`, если команда была запущена напрямую из другого места;
   - если `global.systemd_env_folder` отличается от стандартного каталога, CLI создаёт compatibility symlink из `~/.config/agsekit/systemd.env` на фактический env-файл;
-  - если link на unit уже существует, но указывает на другую инсталляцию/checkout `agsekit`, перелинковывает его на текущий bundled unit и делает `restart`, чтобы подхватить новый `ExecStart` и env.
-  - поддерживает `--debug`: в обычном режиме печатает только короткие пользовательские сообщения о начале и успешном завершении установки, а подробные `systemctl`/env-сообщения показывает только в debug-режиме.
-- `uninstall`:
-  - останавливает/отключает/unlink unit;
-  - без `--debug` печатает только короткие сообщения о начале и успешном завершении удаления;
-  - поддерживает `--debug` для подробного вывода `systemctl`.
-- `status`:
-  - показывает имя сервиса, путь к bundled unit, текущую user-systemd ссылку на unit, признак установки, состояния `is-enabled` / `is-active`, `LoadState` / `SubState`, `MainPID`, `Result`, временные метки последней активности и хвост последних записей `journalctl --user -u agsekit-portforward`, если служба установлена.
-- `up` использует ту же внутреннюю логику `install` автоматически после VM/agent-этапов, когда работает с конфигом на Linux.
-- `down` на Linux использует ту же внутреннюю логику остановки unit, но не делает `disable`/`unlink`.
+  - если link на unit уже существует, но указывает на другую инсталляцию/checkout `agsekit`, перелинковывает его на текущий bundled unit и делает `restart`, чтобы подхватить новый `ExecStart` и env;
+  - `status` показывает имя сервиса, путь к bundled unit, текущую user-systemd ссылку на unit, признак установки, состояния `is-enabled` / `is-active`, `LoadState` / `SubState`, `MainPID`, `Result`, временные метки последней активности и хвост последних записей `journalctl --user -u agsekit-portforward`, если служба установлена.
+- macOS backend:
+  - генерирует plist `~/Library/LaunchAgents/org.agsekit.portforward.plist`;
+  - запускает `agsekit portforward --config ...` через `launchctl bootstrap/enable/kickstart`;
+  - пишет stdout/stderr в `~/Library/Logs/agsekit/daemon.stdout.log` и `~/Library/Logs/agsekit/daemon.stderr.log`;
+  - `status` показывает label, путь к plist, installed/loaded/enabled state, PID, last exit status и хвост stdout/stderr логов.
+- Windows backend:
+  - весь набор `daemon`-команд пока не реализован и печатает предупреждение без выполнения действий.
+- `up` использует ту же внутреннюю логику `install` автоматически после VM/agent-этапов на поддерживаемых платформах.
+- `down` использует ту же внутреннюю логику мягкой остановки daemon, но не делает uninstall.
 
 Важно по отношению к философии проекта:
-- текущая реализация systemd-юнита автоматизирует только `portforward`;
-- более широкий daemon-контур (backups + agent-process supervision + централизованный статус) — это целевое направление развития, зафиксированное в `docs-ru/philosophy.md` / `docs/philosophy.md`.
+- daemon-контур отвечает за host-level background services; текущие backends регистрируют сервис, который поддерживает `portforward`.
 
 ## 9. Внутренние алгоритмы, критичные для поведения
 
@@ -853,8 +853,10 @@ Dependency resolution выполняется кодом до запуска play
 - Windows installer `scripts/install/install.ps1` создаёт per-user venv в `%USERPROFILE%\.local\share\agsekit\venv`, wrapper `%USERPROFILE%\.local\bin\agsekit.cmd`, а при необходимости добавляет `%USERPROFILE%\.local\bin` в пользовательский `PATH`; после изменения пользовательского `PATH` установщик обновляет `PATH` текущей PowerShell-сессии из Machine+User PATH, чтобы не терять стандартные entries вроде WindowsApps/`winget`;
 - `~/.config/agsekit/config.yaml`
 - SSH keypair в каталоге из `global.ssh_keys_folder` (по умолчанию `~/.config/agsekit/ssh/id_rsa` и `id_rsa.pub`)
-- `systemd.env` в каталоге из `global.systemd_env_folder` (по умолчанию `~/.config/agsekit/systemd.env`)
+- `systemd.env` в каталоге из `global.systemd_env_folder` (по умолчанию `~/.config/agsekit/systemd.env`) на Linux
 - compatibility symlink `~/.config/agsekit/systemd.env`, если `global.systemd_env_folder` переопределён
+- `~/Library/LaunchAgents/org.agsekit.portforward.plist` на macOS
+- `~/Library/Logs/agsekit/daemon.stdout.log` и `~/Library/Logs/agsekit/daemon.stderr.log` на macOS
 - backup snapshots `.../<timestamp>`
 - временные backup dirs `*-partial` / `*-inprogress`
 - `backup.log` для фоновых backup-процессов
@@ -868,7 +870,7 @@ Dependency resolution выполняется кодом до запуска play
 ## 13. Ограничения и текущие особенности
 
 - Нельзя in-place менять `cpu/ram/disk` у уже созданной VM (только детект mismatch).
-- `shell` не включает автоматически порт-форвардинг; для постоянных туннелей используется `portforward`/`systemd`.
+- `shell` не включает автоматически порт-форвардинг; для постоянных туннелей используется `portforward`/`daemon`.
 - Источником истины для текущего поведения являются код и тесты.
 
 ## 14. Влияние на развитие проекта
@@ -879,6 +881,6 @@ Dependency resolution выполняется кодом до запуска play
 - если меняется backup-логика, важно сохранить базовую user-гарантию: «запуск агента не оставляет пользователя без отката»;
 - если добавляются новые типы агентов, нужно расширять и схему `agents.type`, и Ansible installers, и тестовое покрытие.
 - если развивается observability/статус-интерфейс, нужно двигаться в сторону философской цели «прозрачность состояния» (VM, mounts, forward rules, backup health, активные процессы).
-- если расширяется сервисный режим, нужно синхронизировать реализацию с философской целью более широкого system daemon orchestration.
+- если расширяется сервисный режим, нужно синхронизировать реализацию с философской целью более широкого daemon orchestration.
 
 Иными словами, `agsekit` — это не только набор команд, а операционная модель безопасной работы с агентами. Именно эта модель должна оставаться консистентной при любых будущих изменениях.

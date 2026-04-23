@@ -1,5 +1,13 @@
 # Agent-Safety-Kit versions history
 
+## 1.6.0 - Cross-platform daemon command
+
+* Added `agsekit daemon` as the main command group for managing background services, including `portforward`
+* Added Linux and macOS daemon backends: Linux continues to use user-level `systemd`, while macOS now uses user-level `launchd` with logs in `~/Library/Logs/agsekit/daemon.stdout.log` and `~/Library/Logs/agsekit/daemon.stderr.log`
+* Kept `agsekit systemd` as a deprecated alias that prints a warning and delegates to the matching `agsekit daemon` command
+* Updated `up` and `down` to use the cross-platform daemon backend instead of Linux-only systemd helpers
+* Added host integration coverage for `agsekit daemon`, `agsekit systemd`, and `up/down` daemon lifecycle behavior
+
 ## 1.5.21 - Systemd portforward executable resolution
 
 * Fixed Linux `systemd` portforward services after reinstalling `agsekit` from another location: `systemd install` now stores the path to the current CLI instead of accidentally reusing a stale `agsekit` from `PATH`

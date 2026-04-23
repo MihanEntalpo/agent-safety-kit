@@ -26,7 +26,7 @@
   - [mount / umount / addmount / removemount](commands/mount.md)
   - [status](commands/status.md)
   - [doctor](commands/doctor.md)
-  - [systemd](commands/systemd.md)
+  - [daemon](commands/daemon.md)
   - [Жизненный цикл VM](commands/vm-lifecycle.md)
   - [Сетевые команды](commands/networking.md)
   - [Backup-команды](commands/backups.md)

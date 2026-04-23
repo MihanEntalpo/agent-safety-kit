@@ -21,11 +21,11 @@ def test_down_stops_all_vms_when_no_agents_running(monkeypatch, tmp_path):
     _write_config(config_path, ["vm1", "vm2"])
 
     shutdown_calls = []
-    systemd_calls = []
+    daemon_calls = []
 
     monkeypatch.setattr(down_module, "ensure_multipass_available", lambda: None)
     monkeypatch.setattr(down_module, "_collect_running_configured_agents", lambda vm_names, agents: [])
-    monkeypatch.setattr(down_module, "stop_portforward_service", lambda announce=False: systemd_calls.append(announce))
+    monkeypatch.setattr(down_module, "stop_portforward_daemon", lambda announce=False: daemon_calls.append(announce))
     monkeypatch.setattr(
         down_module,
         "_shutdown_vms",
@@ -36,7 +36,7 @@ def test_down_stops_all_vms_when_no_agents_running(monkeypatch, tmp_path):
     result = runner.invoke(down_command, ["--config", str(config_path)])
 
     assert result.exit_code == 0
-    assert systemd_calls == [False]
+    assert daemon_calls == [False]
     assert shutdown_calls == [(["vm1", "vm2"], [], False)]
 
 
@@ -66,7 +66,7 @@ def test_down_cancels_when_user_rejects_confirmation(monkeypatch, tmp_path):
     _write_config(config_path, ["agent-vm"])
 
     shutdown_calls = []
-    systemd_calls = []
+    daemon_calls = []
 
     monkeypatch.setattr(down_module, "ensure_multipass_available", lambda: None)
     monkeypatch.setattr(
@@ -76,7 +76,7 @@ def test_down_cancels_when_user_rejects_confirmation(monkeypatch, tmp_path):
     )
     monkeypatch.setattr(down_module, "is_interactive_terminal", lambda: True)
     monkeypatch.setattr(down_module.click, "confirm", lambda text, default=False: False)
-    monkeypatch.setattr(down_module, "stop_portforward_service", lambda announce=False: systemd_calls.append(announce))
+    monkeypatch.setattr(down_module, "stop_portforward_daemon", lambda announce=False: daemon_calls.append(announce))
     monkeypatch.setattr(
         down_module,
         "_shutdown_vms",
@@ -88,7 +88,7 @@ def test_down_cancels_when_user_rejects_confirmation(monkeypatch, tmp_path):
 
     assert result.exit_code == 0
     assert "Shutdown cancelled." in result.output
-    assert systemd_calls == []
+    assert daemon_calls == []
     assert shutdown_calls == []
 
 
@@ -97,7 +97,7 @@ def test_down_force_skips_confirmation(monkeypatch, tmp_path):
     _write_config(config_path, ["agent-vm"])
 
     shutdown_calls = []
-    systemd_calls = []
+    daemon_calls = []
 
     monkeypatch.setattr(down_module, "ensure_multipass_available", lambda: None)
     monkeypatch.setattr(
@@ -105,7 +105,7 @@ def test_down_force_skips_confirmation(monkeypatch, tmp_path):
         "_collect_running_configured_agents",
         lambda vm_names, agents: [("agent-vm", "codex", "codex-glibc-prebuilt", "/work/project")],
     )
-    monkeypatch.setattr(down_module, "stop_portforward_service", lambda announce=False: systemd_calls.append(announce))
+    monkeypatch.setattr(down_module, "stop_portforward_daemon", lambda announce=False: daemon_calls.append(announce))
     monkeypatch.setattr(
         down_module,
         "_shutdown_vms",
@@ -116,5 +116,5 @@ def test_down_force_skips_confirmation(monkeypatch, tmp_path):
     result = runner.invoke(down_command, ["--config", str(config_path), "--force"])
 
     assert result.exit_code == 0
-    assert systemd_calls == [False]
+    assert daemon_calls == [False]
     assert shutdown_calls == [(["agent-vm"], [], False)]

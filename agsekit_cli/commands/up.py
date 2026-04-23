@@ -13,7 +13,7 @@ from . import debug_option, non_interactive_option
 from .create_vm import run_create_vms
 from .install_agents import run_install_agents
 from .prepare import run_prepare
-from .systemd import install_portforward_service, is_systemd_supported_platform
+from ..daemon_backends import install_portforward_daemon, is_daemon_supported_platform
 
 
 @click.command(name="up", help=tr("up.command_help"))
@@ -86,11 +86,11 @@ def up_command(
                 True,
             )
         )
-    if config_required and is_systemd_supported_platform():
+    if config_required and is_daemon_supported_platform():
         stages.append(
             (
-                tr("progress.up_stage_systemd"),
-                lambda progress: install_portforward_service(resolved_config_path, announce=debug),
+                tr("progress.up_stage_daemon"),
+                lambda progress: install_portforward_daemon(resolved_config_path, announce=debug),
                 False,
             )
         )

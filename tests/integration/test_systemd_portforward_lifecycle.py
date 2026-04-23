@@ -4,11 +4,11 @@ import json
 import signal
 import socket
 from pathlib import Path
+import subprocess
 from typing import Any, Dict, Optional
 
 import pytest
 
-from agsekit_cli.commands.systemd import _resolve_agsekit_bin
 from tests.integration.utils import (
     REPO_ROOT,
     clean_env,
@@ -23,6 +23,18 @@ from tests.integration.utils import (
 
 
 pytestmark = pytest.mark.host_integration
+
+
+def _expected_agsekit_bin() -> Path:
+    return (REPO_ROOT / "agsekit").resolve()
+
+
+def _skip_if_insufficient_multipass_disk(exc: subprocess.CalledProcessError) -> None:
+    stderr = (exc.stderr or "").strip()
+    stdout = (exc.stdout or "").strip()
+    message = stderr or stdout
+    if "Available disk" in message and "below minimum" in message:
+        pytest.skip(message)
 
 
 @pytest.fixture(scope="module", autouse=True)
@@ -226,7 +238,7 @@ def test_systemd_install_relinks_existing_service_and_uninstall_removes_it(
     run_cli(["systemd", "install", "--config", str(config_path), "--non-interactive"], check=True)
     assert env_path.exists()
     env_contents = env_path.read_text(encoding="utf-8")
-    assert f"AGSEKIT_BIN={_resolve_agsekit_bin().resolve()}" in env_contents
+    assert f"AGSEKIT_BIN={_expected_agsekit_bin()}" in env_contents
     assert f"AGSEKIT_CONFIG={config_path.resolve()}" in env_contents
     assert f"AGSEKIT_PROJECT_DIR={REPO_ROOT.resolve()}" in env_contents
     assert unit_link.exists()
@@ -329,7 +341,11 @@ def test_global_ssh_keys_folder_and_systemd_env_folder_are_used(
     )
 
     try:
-        run_cli(["create-vm", vm_name, "--config", str(config_path), "--non-interactive"], check=True)
+        try:
+            run_cli(["create-vm", vm_name, "--config", str(config_path), "--non-interactive"], check=True)
+        except subprocess.CalledProcessError as exc:
+            _skip_if_insufficient_multipass_disk(exc)
+            raise
 
         private_key = ssh_dir / "id_rsa"
         public_key = ssh_dir / "id_rsa.pub"
@@ -372,7 +388,11 @@ def test_portforward_reloads_config_and_reconciles_forwarders(tmp_path: Path) ->
             },
         },
     )
-    run_cli(["create-vms", "--config", str(setup_config_path), "--non-interactive"], check=True)
+    try:
+        run_cli(["create-vms", "--config", str(setup_config_path), "--non-interactive"], check=True)
+    except subprocess.CalledProcessError as exc:
+        _skip_if_insufficient_multipass_disk(exc)
+        raise
 
     _rewrite_portforward_config(
         config_path,

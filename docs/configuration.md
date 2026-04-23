@@ -136,12 +136,13 @@ agents:
   * See [prepare](commands/prepare.md) and [networking commands](commands/networking.md)
   * Default: ~/.config/agsekit/ssh
 * `global.systemd_env_folder`
-  * Specifies the path to the folder with the .env file for launching the systemd service (used only on Linux with systemd)
-  * See [systemd](commands/systemd.md)
+  * Specifies the path to the folder with the `.env` file for the Linux `systemd` backend used by `agsekit daemon`
+  * This setting only affects Linux; macOS `launchd` does not use it
+  * See [daemon](commands/daemon.md)
   * Default: ~/.config/agsekit
 * `global.portforward_config_check_interval_sec`
   * How often the configuration should be reread so that when the port list changes, SSH tunnels are changed
-  * The `agsekit portforward` command and the daemon started through `agsekit systemd start` perform port forwarding, and when the configuration changes, dynamically update ports
+  * The `agsekit portforward` command and the daemon started through `agsekit daemon start` perform port forwarding, and when the configuration changes, dynamically update ports
   * See [Port Forwarding](networking.md#port-forwarding) and [portforward](commands/networking.md)
 * `global.http_proxy_port_pool`
   * Port range from which a port is selected when launching a proxy server

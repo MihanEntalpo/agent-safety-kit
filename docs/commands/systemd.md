@@ -3,17 +3,14 @@
 ## Contents
 
 - [Purpose](#purpose)
-- [Commands](#commands)
-- [Platform Support](#platform-support)
-- [`install`](#install)
-- [`status`](#status)
-- [Relation to `up`](#relation-to-up)
+- [Deprecated Alias](#deprecated-alias)
+- [Platform Notes](#platform-notes)
 
 ## Purpose
 
-Manage the Linux-only user service that keeps `agsekit portforward` running in the background.
+`systemd` is now a deprecated alias for [`daemon`](daemon.md).
 
-## Commands
+## Deprecated Alias
 
 ```bash
 agsekit systemd install [--config <path>] [--debug]
@@ -24,31 +21,16 @@ agsekit systemd restart [--debug]
 agsekit systemd status [--debug]
 ```
 
-## Platform Support
+Each command prints a warning and then runs the matching `agsekit daemon ...` command.
 
-- Linux: implemented
-- macOS: the command prints a warning and does nothing
-- Windows: the command prints a warning and does nothing
+## Platform Notes
 
-## `install`
-
-Writes `systemd.env`, links the bundled user unit, reloads systemd, restarts the service, and enables it. The env file stores the absolute path to the current `agsekit` CLI, and `portforward` reuses that same installation for child `ssh` tunnel processes instead of depending on `PATH`.
-
-## `status`
-
-Shows:
-
-- path to bundled unit
-- path to linked user unit
-- installation state
-- active/enabled state
-- tail of recent journal entries
-
-## Relation to `up`
-
-On Linux, `agsekit up` can automatically install or update this service after the VM and agent setup stages.
+- On Linux, `agsekit daemon` uses `systemd`.
+- On macOS, `agsekit daemon` uses `launchd`.
+- On Windows, `agsekit daemon` is not implemented yet.
 
 ## See Also
 
+- [daemon](daemon.md)
 - [up](up.md)
 - [Networking commands](networking.md)
