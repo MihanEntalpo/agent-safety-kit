@@ -26,15 +26,15 @@ agsekit create-vms [--config <path>] [--debug]
 - `agsekit` проверяет, существует ли VM
 - если VM нет, она создаётся
 - стартует VM если она была выключена 
-- синхронизирует SSH-ключи и known_hosts через Multipass
-- ставит базовые пакеты через Ansible по SSH с ключом из `global.ssh_keys_folder`
+- через Multipass bootstrap'ит SSH-доступ и host `known_hosts`
+- ставит базовые пакеты через Ansible
+- на Linux и macOS Ansible запускается с хоста по SSH с ключом из `global.ssh_keys_folder`
+- на native Windows PowerShell Ansible запускается внутри целевой ВМ против `localhost` через VM-local control node
 - ставит бандлы ПО (`vms.<vm_name>.install`) в ВМ
 
 ## Поведение для уже существующей VM
 
 Если VM уже есть, `agsekit` сравнивает реальные и настроенные ресурсы и сообщает о различиях. Автоматическое изменение размеров существующей VM пока не поддерживается.
-
-На native Windows PowerShell эти команды недоступны, потому что этапы подготовки VM опираются на Ansible playbook'и. Используйте Linux или macOS.
 
 ## Примеры
 

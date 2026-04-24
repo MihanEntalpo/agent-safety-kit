@@ -35,7 +35,6 @@ agsekit up [--config <path>] [--debug] [--prepare/--no-prepare] [--create-vms/--
 
 - Хотя бы один этап должен остаться включённым.
 - Если для workflow нужен конфиг и он не найден, команда падает.
-- На native Windows PowerShell `up` доступна только с `--no-create-vms --no-install-agents`; этапы подготовки VM и установки агентов требуют Ansible, поэтому для них нужен Linux или macOS.
 
 ## Примеры
 

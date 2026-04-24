@@ -54,11 +54,11 @@ Of course, you need to do the initial setup, but it is much simpler than doing e
 
 ### 1. Installation
 
-You need Python 3.9+.
+You need **Python 3.9+.**
 
-Deb/Arch Linux and macOS with Homebrew are fully supported.
-Native Windows PowerShell supports installation and host-side tooling, but Ansible-based provisioning commands (`up`, `create-vm`, `create-vms`, `install-agents`) require Linux or macOS.
-WSL is not supported.
+* Deb/Arch Linux and macOS with Homebrew are fully supported.
+* Native Windows PowerShell is also supported
+* WSL is not supported.
 
 If you are lazy and fearless on Linux or macOS:
 
@@ -201,7 +201,7 @@ More details: [docs/philosophy.md](docs/philosophy.md)
 
 - Linux host: supported, but WSL is not supported
 - macOS host: supported
-- Windows host: installation and host-side tooling are supported through native PowerShell, but Ansible-based provisioning requires Linux or macOS
+- Windows host: supported
 
 ## FAQ
 

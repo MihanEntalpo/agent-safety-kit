@@ -112,8 +112,16 @@
   - резолв proxychains override и пути раннеров.
 - `agsekit_cli/vm_prepare.py`
   - host SSH keypair;
-  - подготовка VM (bootstrap SSH-доступа и known_hosts через Ansible playbook поверх `agsekit_multipass`, затем base packages, proxychains/http-proxy runner scripts и bundles через Ansible SSH);
-  - на native Windows сама подготовка VM не запускается: команды, которым нужен Ansible control node (`up`, `create-vm`, `create-vms`, `install-agents`), завершаются понятной ошибкой до начала provisioning.
+  - host-side helper'ы подготовки VM для Linux/macOS (fetch VM info, host-side Ansible SSH transport, bundles).
+- `agsekit_cli/vm_ssh_bootstrap.py`
+  - host-side bootstrap SSH-доступа в VM через `multipass exec`;
+  - обновление `authorized_keys` и локального `known_hosts` без Ansible control node на хосте.
+- `agsekit_cli/vm_local_control_node.py`
+  - подготовка persistent VM-local control node внутри гостевой Ubuntu VM;
+  - копирование automation payload, создание guest venv и запуск `ansible-playbook` внутри VM против `localhost`.
+- `agsekit_cli/provision_handlers.py`
+  - platform-specific provisioning handler factory;
+  - Linux/macOS используют host-side Ansible over SSH; native Windows использует VM-local Ansible control node.
 - `agsekit_cli/mounts.py`
   - mount/umount wrappers;
   - поиск mount по пути (longest-prefix).
@@ -318,7 +326,7 @@
 11. Встроенный `agsekit_multipass` connection plugin stage'ит локальные файлы через не-hidden staging-каталог в `HOME` перед `multipass transfer`, чтобы Ansible-копирование модулей не ломалось на hidden-путях вроде `~/.ansible/tmp` и не зависело от особенностей snap-based Multipass вокруг `/tmp`.
 12. Создаёт SSH-ключи хоста в каталоге из `global.ssh_keys_folder` (по умолчанию `~/.config/agsekit/ssh/`); после bootstrap эти ключи используются для Ansible SSH transport, `ssh` и `portforward`.
 13. Поддерживает `--debug`: включает подробный вывод внешних команд подготовки.
-14. На native Windows поддерживается только host-side часть `prepare`; команды и этапы, требующие запуска Ansible playbook'ов с хоста (`up` с включёнными `create-vms`/`install-agents`, `create-vm`, `create-vms`, `install-agents`), завершаются ранней ошибкой, потому что upstream Ansible не поддерживает Windows как control node.
+14. На native Windows `prepare` остаётся host-side командой, но provisioning больше не блокируется: `create-vm`, `create-vms`, `install-agents` и `up` используют guest-side Ansible control node внутри целевой Ubuntu VM, поэтому upstream-ограничение Windows control node на хосте больше не мешает этим командам.
 
 Архитектура реализации:
 - `agsekit_cli/prepare_strategies.py` определяет host-platform через `choose_prepare()` и выбирает strategy-класс: `PrepareWin`, `PrepareMacBrew`, `PrepareLinuxDeb`, `PrepareLinuxArch` или базовый fallback `PrepareBase`;
@@ -347,7 +355,7 @@
 6. В обычном режиме показывает общий `rich` progress по выбранным этапам и вложенный прогресс текущего внутреннего шага (`prepare`, `create-vms`, `install-agents`) под ним.
 7. При `--debug` отключает Rich progress и оставляет только обычный подробный вывод внутренних команд и внешних процессов.
 8. Если вложенный Ansible playbook падает в обычном режиме, CLI сначала останавливает Rich progress, печатает пустую строку-разделитель, а затем выводит хвост последних скрытых строк Ansible (до 10 строк), чтобы ошибка не терялась за progress-рендерингом.
-9. Если сценарий использует конфиг (включены `create-vms` и/или `install-agents`) и CLI работает на поддерживаемой платформе, после основных этапов дополнительно устанавливает или обновляет daemon для фоновых сервисов, включая `portforward`.
+9. Если сценарий использует конфиг (включены `create-vms` и/или `install-agents`) и CLI работает на платформе с поддержанным daemon backend, после основных этапов дополнительно устанавливает или обновляет daemon для фоновых сервисов, включая `portforward`.
    - на Linux: генерирует `systemd.env`, регистрирует user systemd unit и запускает/включает его;
    - на macOS: генерирует `LaunchAgent` plist в `~/Library/LaunchAgents`, настраивает вывод в `~/Library/Logs/agsekit/daemon.stdout.log` и `~/Library/Logs/agsekit/daemon.stderr.log`, затем выполняет `launchctl bootstrap/enable/kickstart`;
    - на Windows этот этап пропускается полностью.
@@ -482,10 +490,12 @@
 - если параметры отличаются — сообщает mismatch (ресурсы не меняет);
 - затем всегда запускает подготовку VM:
   - start;
-  - sync SSH authorized_keys через `agsekit_multipass`;
-  - known_hosts через `agsekit_multipass`;
-  - install base packages через стандартный Ansible SSH transport;
-  - install bundles через стандартный Ansible SSH transport.
+  - host-side bootstrap SSH access и `known_hosts`;
+  - prepare guest-side tooling;
+  - install base packages;
+  - install bundles.
+- на Linux и macOS базовые пакеты и bundles ставятся через host-side Ansible SSH transport;
+- на native Windows тот же provisioning выполняется через guest-side Ansible control node внутри VM против `localhost`.
 - без `--debug` отображает тот же `rich` progress для шагов подготовки, ansible и install bundles, что и `create-vms`/`install-agents`;
 - при `--debug` Rich progress отключается и остаётся только подробный лог внешних команд и шагов подготовки.
 
@@ -612,13 +622,16 @@
 - выбирает агента(ов) и VM(ы);
 - если `--all-vms` не задан и позиционный `<vm>` не передан, целевые VM берутся из `agents.<name>.vm + agents.<name>.vms` (если оба поля пустые — во все VM из секции `vms`);
 - определяет playbook по `agents.<name>.type`;
-- перед installer playbook идемпотентно проверяет SSH key bootstrap через `agsekit_multipass`;
-- в рамках одного запуска `install-agents` кэширует результат SSH-подготовки по VM: после первого успешного bootstrap следующие installer playbook'и для той же VM используют уже подготовленные `ansible_host`/ключ и не запускают `vm_ssh.yml` повторно;
-- запускает Ansible installer через общий runner и стандартный Ansible SSH transport;
-  - по умолчанию runner включает компактный progress-вывод (`X/Y task-name` + progress bar) через custom callback plugin;
+- перед installer playbook идемпотентно проверяет SSH key bootstrap через Multipass-host helpers;
+- в рамках одного запуска `install-agents` кэширует результат SSH-подготовки по VM: после первого успешного bootstrap следующие installer playbook'и для той же VM повторно используют уже подготовленный доступ;
+- на Linux и macOS запускает Ansible installer через общий host-side runner и стандартный Ansible SSH transport;
+  - по умолчанию host-side runner включает компактный progress-вывод (`X/Y task-name` + progress bar) через custom callback plugin;
   - при ошибке runner допечатывает хвост последних скрытых строк Ansible (до 10 строк);
   - при `--debug` progress callback отключается и используется стандартный вывод ansible;
-- без `--debug` показывает progress-bar'ы установки агентов через `rich`, включая шаги Ansible;
+- на native Windows запускает тот же installer playbook через VM-local control node внутри VM против `localhost`;
+  - в обычном режиме вывод остаётся на уровне high-level шагов команды без nested Ansible progress;
+  - при `--debug` включается подробный вывод внешних `multipass exec` и guest-side `ansible-playbook -vvv`;
+- без `--debug` показывает `rich` progress установки агентов;
 - при `--debug` Rich progress тоже отключается, чтобы вывод установки оставался обычным потоковым логом;
 - поддерживает proxychains override на один запуск (`--proxychains`).
 - при запуске без аргументов в интерактивном TTY запрашивает выбор агента и цели установки;

@@ -7,13 +7,17 @@ import click
 
 from . import debug_option, non_interactive_option
 
-from ..ansible_utils import ensure_ansible_control_node_supported
 from ..config import ConfigError, load_config, load_global_config, load_vms_config, resolve_config_path
 from ..debug import debug_scope
 from ..i18n import tr
-from ..vm import MultipassError, create_all_vms_from_config, create_vm_from_config
 from ..progress import ProgressManager
-from ..vm_prepare import ensure_host_ssh_keypair, prepare_vm
+from ..provision_handlers import choose_provision_handler
+from ..vm import MultipassError, create_all_vms_from_config, create_vm_from_config
+from ..vm_prepare import ensure_host_ssh_keypair
+
+
+def prepare_vm(*args, **kwargs):
+    return choose_provision_handler().prepare_vm(*args, **kwargs)
 
 
 def run_create_vms(
@@ -22,7 +26,6 @@ def run_create_vms(
     debug: bool,
     progress: Optional[ProgressManager] = None,
 ) -> None:
-    ensure_ansible_control_node_supported()
     resolved_path = resolve_config_path(Path(config_path) if config_path else None)
     try:
         config = load_config(resolved_path)
@@ -133,7 +136,6 @@ def create_vm_command(vm_name: Optional[str], config_path: Optional[str], debug:
     # not used parameter, explicitly removing it so IDEs/linters do not complain
     del non_interactive
 
-    ensure_ansible_control_node_supported()
     resolved_path = resolve_config_path(Path(config_path) if config_path else None)
 
     try:

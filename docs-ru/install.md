@@ -119,7 +119,6 @@ done
 * Нужен Python 3.9+. Установщик проверяет его наличие и попросит сначала установить Python, если его нет.
 * Нужно установить Multipass for Windows: https://canonical.com/multipass/install
 * `agsekit prepare` умеет поставить MSYS2 через `winget`, а затем `rsync` и `openssh` через MSYS2 `pacman`.
-* Команды с Ansible-подготовкой (`up`, `create-vm`, `create-vms`, `install-agents`) на native Windows недоступны, потому что upstream Ansible не поддерживает Windows как control node.
 
 ### Установка
 

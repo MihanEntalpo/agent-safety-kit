@@ -12,7 +12,7 @@
 
 Установить один или несколько настроенных agent runtime в одну или несколько VM.
 
-Перед запуском installer playbook `agsekit` проверяет, что в VM добавлен host SSH key. Bootstrap ключа выполняется через Multipass, а сам installer запускается через Ansible по SSH с ключом из `global.ssh_keys_folder`.
+Перед запуском installer playbook `agsekit` проверяет, что в VM добавлен host SSH key. Bootstrap ключа выполняется через Multipass. На Linux и macOS сам installer запускается через Ansible по SSH с ключом из `global.ssh_keys_folder`, а на native Windows PowerShell он запускается внутри целевой ВМ против `localhost` через VM-local control node.
 
 ## Команды
 
@@ -26,8 +26,6 @@ agsekit install-agents --all-agents [--all-vms] [--config <path>] [--proxychains
 - Если `<vm>` не передана, `agsekit` использует целевую VM агента из конфига.
 - Если у агента нет ограничений по VM, целями становятся все VM из конфига.
 - При `--all-vms` все VM выбираются явно.
-
-На native Windows PowerShell эта команда недоступна, потому что upstream Ansible не поддерживает Windows как control node. Используйте Linux или macOS.
 
 ## Переопределение proxychains
 

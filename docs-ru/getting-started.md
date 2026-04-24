@@ -61,8 +61,6 @@ agsekit config-example
 agsekit up
 ```
 
-На native Windows PowerShell команда `agsekit up` недоступна, потому что этапы подготовки VM и установки агентов требуют Ansible playbook'ов, а upstream Ansible не поддерживает Windows как control node. Для этой команды используйте Linux или macOS.
-
 Что будет сделано:
 
 - подготовка зависимостей на хосте (для linux это snapd и multipass; WSL не поддерживается);

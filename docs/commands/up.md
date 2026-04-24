@@ -35,7 +35,6 @@ By default, all 4 are launched.
 
 - At least one stage must remain enabled.
 - If the workflow needs a config and it is not found, the command fails.
-- On native Windows PowerShell, `up` is available only with `--no-create-vms --no-install-agents`; the VM provisioning and agent installation stages require Ansible and therefore need Linux or macOS.
 
 ## Examples
 

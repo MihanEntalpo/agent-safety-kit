@@ -120,7 +120,6 @@ done
 * Python 3.9+ is required. The installer checks for it and asks you to install Python first if it is missing.
 * Multipass for Windows must be installed: https://canonical.com/multipass/install
 * `agsekit prepare` can install MSYS2 through `winget` and then install `rsync` and `openssh` through MSYS2 `pacman`.
-* Ansible-based provisioning commands (`up`, `create-vm`, `create-vms`, `install-agents`) are not available on native Windows because upstream Ansible does not support Windows control nodes.
 
 ### Installation
 

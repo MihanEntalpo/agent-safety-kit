@@ -6,7 +6,6 @@ from typing import Callable, Optional, Union
 
 import click
 
-from ..ansible_utils import ensure_ansible_control_node_supported
 from ..config import CONFIG_ENV_VAR, DEFAULT_CONFIG_PATH, resolve_config_path
 from ..i18n import tr
 from ..progress import ProgressManager, SingleTaskProgressProxy
@@ -57,9 +56,6 @@ def up_command(
         if explicit_or_env_config:
             raise click.ClickException(tr("config.file_not_found", path=resolved_config_path))
         raise click.ClickException(tr("up.default_config_missing", path=DEFAULT_CONFIG_PATH))
-
-    if config_required:
-        ensure_ansible_control_node_supported()
 
     stages: list[tuple[str, Callable[[Union[ProgressManager, SingleTaskProgressProxy]], None], bool]] = []
     if do_prepare:

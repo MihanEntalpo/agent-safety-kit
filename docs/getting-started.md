@@ -61,8 +61,6 @@ Bring up the whole environment with one command:
 agsekit up
 ```
 
-On native Windows PowerShell, `agsekit up` is not available because the VM preparation and agent installation stages require Ansible playbooks, and upstream Ansible does not support Windows control nodes. Use Linux or macOS for this command.
-
 What will be done:
 
 - host dependency preparation (on Linux this is snapd and multipass; WSL is not supported);

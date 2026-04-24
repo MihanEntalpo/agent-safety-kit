@@ -54,11 +54,11 @@
 
 ### 1. Установка
 
-Вам понадобится Python 3.9+.
+Вам понадобится **Python 3.9+**.
 
-Deb/Arch Linux и macOS с Homebrew поддерживаются полностью.
-Native Windows PowerShell поддерживает установку и хостовые утилиты, но команды с Ansible-подготовкой (`up`, `create-vm`, `create-vms`, `install-agents`) требуют Linux или macOS.
-WSL не поддерживается.
+* Deb/Arch Linux и macOS с Homebrew поддерживаются полностью.
+* Native Windows PowerShell также поддерживается
+* WSL не поддерживается.
 
 Если вы ленивы и бесстрашны на Linux или macOS:
 
@@ -201,7 +201,7 @@ agsekit run claude
 
 - Linux host: поддерживается, но WSL не поддерживается
 - macOS host: поддерживается
-- Windows host: через native PowerShell поддерживаются установка и хостовые утилиты, но Ansible-based provisioning требует Linux или macOS
+- Windows host: поддерживается через PowerShell
 
 ## FAQ
 
