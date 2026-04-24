@@ -11,7 +11,7 @@ import agsekit_cli.agents as agents
 from agsekit_cli.config import AGENT_RUNTIME_BINARIES, AgentConfig, PortForwardingRule, VmConfig
 
 
-def test_run_in_vm_uses_cd_and_no_workdir_flag(monkeypatch):
+def test_run_in_vm_uses_vm_side_wrapper(monkeypatch):
     calls = {}
 
     def fake_run(args, check):
@@ -45,9 +45,14 @@ def test_run_in_vm_uses_cd_and_no_workdir_flag(monkeypatch):
     assert exit_code == 0
     args = calls["args"]
     assert args[:3] == ["multipass", "exec", "agent-vm"]
-    assert args[-1].startswith("export NVM_DIR=")
-    assert f"cd {workdir}" in args[-1]
-    assert "qwen --flag" in args[-1]
+    assert args[3:6] == ["--", "bash", "-lc"]
+    remote_command = args[6]
+    assert agents.RUN_AGENT_RUNNER_PATH in remote_command
+    assert f"--workdir {workdir}" in remote_command
+    assert "--binary qwen" in remote_command
+    assert "--load-nvm" in remote_command
+    assert "--env TOKEN=abc" in remote_command
+    assert "exec qwen --flag" in remote_command
 
 
 @pytest.mark.parametrize("binary", sorted(set(AGENT_RUNTIME_BINARIES.values())))
@@ -83,13 +88,16 @@ def test_run_in_vm_wraps_with_proxychains(monkeypatch, binary: str):
     args = calls["args"]
     assert args[:3] == ["multipass", "exec", "agent-vm"]
     assert args[3:6] == ["--", "bash", "-lc"]
-    assert f"bash {agents.PROXYCHAINS_RUNNER_PATH} --proxy socks5://127.0.0.1:1080 --" in args[6]
-    assert binary in args[6]
+    remote_command = args[6]
+    assert agents.RUN_AGENT_RUNNER_PATH in remote_command
+    assert "--proxychains socks5://127.0.0.1:1080" in remote_command
+    assert f"exec {binary}" in remote_command
 
     calls.clear()
     agents.run_in_vm(vm_config, workdir, [binary], env_vars, proxychains="")
     args = calls["args"]
-    assert args[0] == "multipass"
+    remote_command = args[6]
+    assert "--proxychains" not in remote_command
 
 
 def test_agent_command_sequence_skips_overridden_equals_args():
@@ -183,3 +191,52 @@ def test_agent_command_sequence_uses_runtime_binary(agent_type: str, runtime_bin
     command = agents.agent_command_sequence(agent, ["--print"])
 
     assert command == [runtime_binary, "--verbose", "--print"]
+
+
+
+def test_run_in_vm_passes_http_proxy_upstream_settings(monkeypatch):
+    calls = {}
+
+    def fake_run(args, check):
+        calls["args"] = args
+
+        class Result:
+            returncode = 0
+
+        return Result()
+
+    monkeypatch.setattr(agents, "ensure_multipass_available", lambda: None)
+    monkeypatch.setattr(agents.subprocess, "run", fake_run)
+
+    workdir = Path("/home/ubuntu/project")
+    env_vars = {"TOKEN": "abc"}
+
+    vm_config = VmConfig(
+        name="agent-vm",
+        cpu=2,
+        ram="2G",
+        disk="10G",
+        cloud_init={},
+        port_forwarding=[],
+    )
+
+    http_proxy = agents.HttpProxyConfig(upstream="socks5://127.0.0.1:18881", listen="127.0.0.1:8118")
+    http_proxy_port_pool = agents.HttpProxyPortPoolConfig(start=21000, end=21010)
+
+    agents.run_in_vm(
+        vm_config,
+        workdir,
+        ["qwen", "--flag"],
+        env_vars,
+        http_proxy=http_proxy,
+        http_proxy_port_pool=http_proxy_port_pool,
+    )
+
+    args = calls["args"]
+    assert args[:3] == ["multipass", "exec", "agent-vm"]
+    assert args[3:6] == ["--", "bash", "-lc"]
+    remote_command = args[6]
+    assert "--http-proxy-upstream socks5://127.0.0.1:18881" in remote_command
+    assert "--http-proxy-listen 127.0.0.1:8118" in remote_command
+    assert "--http-proxy-pool-start 21000" in remote_command
+    assert "--http-proxy-pool-end 21010" in remote_command

@@ -56,6 +56,8 @@ but the corresponding path inside the VM is empty. This usually indicates a Mult
 
 ## Runtime Helpers
 
+After mount checks, `run` starts the agent through one bundled VM-side wrapper script. This wrapper checks that the agent binary exists, prepares `nvm` when needed, applies runtime env, optionally enables `proxychains` or `http_proxy`, and then starts the agent.
+
 `run` can also:
 
 - automatically mount the source directory through `--auto-mount`;

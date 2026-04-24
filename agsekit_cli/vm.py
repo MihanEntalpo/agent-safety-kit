@@ -505,6 +505,7 @@ def build_port_forwarding_args(rules: Iterable[PortForwardingRule]) -> List[str]
 
 PROXYCHAINS_RUNNER_PATH = "/usr/bin/agsekit-run_with_proxychains.sh"
 HTTP_PROXY_RUNNER_PATH = "/usr/bin/agsekit-run_with_http_proxy.sh"
+RUN_AGENT_RUNNER_PATH = "/usr/bin/agsekit-run_agent.sh"
 
 
 def resolve_proxychains(vm: VmConfig, override: Optional[str]) -> Optional[str]:

@@ -7,7 +7,6 @@ from typing import Optional
 
 import pytest
 
-from agsekit_cli.commands.systemd import _resolve_agsekit_bin
 from tests.integration.utils import clean_env, random_vm_name, require_host_tools, run_cli, run_cmd, wait_for, write_config
 
 
@@ -92,7 +91,7 @@ def test_up_and_down_manage_vm_and_portforward_service(tmp_path, preserve_portfo
         wait_for(_service_is_active, timeout=90.0, message="portforward service did not become active after up")
         assert env_path.exists()
         env_contents = env_path.read_text(encoding="utf-8")
-        assert f"AGSEKIT_BIN={_resolve_agsekit_bin().resolve()}" in env_contents
+        assert f"AGSEKIT_BIN={(Path.cwd().resolve() / "agsekit").resolve()}" in env_contents
         assert f"AGSEKIT_CONFIG={config_path.resolve()}" in env_contents
         assert f"AGSEKIT_PROJECT_DIR={Path.cwd().resolve()}" in env_contents
         assert unit_link.exists()

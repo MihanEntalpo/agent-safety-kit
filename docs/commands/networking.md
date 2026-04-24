@@ -43,4 +43,4 @@ Opens an interactive `multipass shell` session in the selected VM; essentially w
 ## See Also
 
 - [Networking and proxies](../networking.md)
-- [systemd](systemd.md)
+- [daemon](daemon.md)

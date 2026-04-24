@@ -43,4 +43,4 @@ agsekit shell [<vm_name>] [--config <path>] [--debug]
 ## См. также
 
 - [Сеть и прокси](../networking.md)
-- [systemd](systemd.md)
+- [daemon](daemon.md)

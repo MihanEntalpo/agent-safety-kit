@@ -31,7 +31,7 @@ agsekit install-agents --all-agents [--all-vms] [--config <path>] [--proxychains
 
 ## Переопределение proxychains
 
-По умолчанию install-agents использует proxychains из конфигурации ВМ, что можно переопределить при запуске:
+По умолчанию install-agents использует proxychains из конфигурации ВМ, что можно переопределить при запуске. Сама runtime-инфраструктура proxychains/http-proxy готовится на уровне ВМ во время её подготовки, поэтому installer агента при необходимости только собирает временный proxychains config и command prefix:
 
 - `--proxychains scheme://host:port` переопределяет VM proxy только для этой установки.
 - `--proxychains ""` отключает proxy на один запуск.
@@ -44,6 +44,15 @@ agsekit install-agents qwen agent-ubuntu
 agsekit install-agents --all-agents --all-vms
 agsekit install-agents claude --debug
 ```
+
+## Примечания
+
+Для Node-based агентов (`codex`, `qwen`, `opencode`, `cline`), если `node` отсутствует, installer сначала резолвит через `nvm ls-remote` последнюю доступную patch-версию в поддерживаемой major-ветке Node 24 и ставит уже её точное значение.
+
+Для тех же Node-based агентов installer проверяет уже установленный Node.js и в текущем `PATH`, и через `nvm use --silent default`, так что версия Node, уже установленная через `nvm`, не приводит к лишней переустановке только из-за того, что Ansible работает в non-login shell. Если в одном запуске `install-agents` несколько Node-based агентов ставятся в одну и ту же ВМ, `agsekit` после первого успешного installer run запоминает, что `nvm` и Node.js там уже готовы, и передаёт в следующие playbook дополнительные флаги для пропуска повторной подготовки `nvm`/Node.
+
+Для `codex`, `codex-glibc` и `codex-glibc-prebuilt` installer также настраивает внутри VM `logrotate` для `~/.codex/log/codex-tui.log` с политикой `size 100M`, `rotate 10`, `compress`, `delaycompress`, `missingok`, `notifempty` и `copytruncate`.
+
 
 ## См. также
 

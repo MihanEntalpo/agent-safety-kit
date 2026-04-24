@@ -27,6 +27,7 @@ from .vm import (
     HTTP_PROXY_RUNNER_PATH,
     MultipassError,
     PROXYCHAINS_RUNNER_PATH,
+    RUN_AGENT_RUNNER_PATH,
     ensure_multipass_available,
     resolve_proxychains,
 )
@@ -124,6 +125,27 @@ def build_shell_command(workdir: Path, agent_command: Sequence[str], env_vars: D
     return agent_cls.build_shell_command(workdir, agent_command, env_vars)
 
 
+def _http_proxy_runner_args(
+    http_proxy: HttpProxyConfig,
+    http_proxy_port_pool: HttpProxyPortPoolConfig,
+) -> List[str]:
+    if http_proxy.url is not None:
+        return ["--http-proxy-url", http_proxy.url]
+    if http_proxy.upstream is None:
+        raise ConfigError(tr("run.http_proxy_invalid_runtime"))
+    args = [
+        "--http-proxy-upstream",
+        http_proxy.upstream,
+        "--http-proxy-pool-start",
+        str(http_proxy_port_pool.start),
+        "--http-proxy-pool-end",
+        str(http_proxy_port_pool.end),
+    ]
+    if http_proxy.listen is not None:
+        args.extend(["--http-proxy-listen", http_proxy.listen])
+    return args
+
+
 def _http_proxy_wrapped_shell_command(
     shell_command: str,
     http_proxy: HttpProxyConfig,
@@ -162,23 +184,48 @@ def run_in_vm(
     debug: bool = False,
 ) -> int:
     ensure_multipass_available()
-    shell_command = build_shell_command(workdir, agent_command, env_vars)
+    agent_cls = get_agent_class_for_runtime_binary(agent_command[0])
+    effective_proxychains = resolve_proxychains(vm, proxychains)
+
+    wrapper_command: List[str] = [
+        RUN_AGENT_RUNNER_PATH,
+        "--workdir",
+        str(workdir),
+        "--binary",
+        agent_command[0],
+    ]
+    if agent_cls.needs_nvm():
+        wrapper_command.append("--load-nvm")
+    for key, value in env_vars.items():
+        wrapper_command.extend(["--env", f"{key}={value}"])
+    if effective_proxychains:
+        wrapper_command.extend(["--proxychains", effective_proxychains])
     if http_proxy is not None:
         effective_pool = http_proxy_port_pool or HttpProxyPortPoolConfig()
-        shell_command = _http_proxy_wrapped_shell_command(
-            shell_command,
+        wrapper_command.extend(_http_proxy_runner_args(http_proxy, effective_pool))
+    wrapper_command.append("--")
+    wrapper_command.extend(agent_command)
+
+    fallback_shell_command = build_shell_command(workdir, agent_command, env_vars)
+    if http_proxy is not None:
+        effective_pool = http_proxy_port_pool or HttpProxyPortPoolConfig()
+        fallback_shell_command = _http_proxy_wrapped_shell_command(
+            fallback_shell_command,
             http_proxy,
             effective_pool,
         )
-    effective_proxychains = resolve_proxychains(vm, proxychains)
     if effective_proxychains:
-        wrapped_command = (
+        fallback_shell_command = (
             f"bash {shlex.quote(PROXYCHAINS_RUNNER_PATH)} --proxy {shlex.quote(effective_proxychains)} -- "
-            f"bash -lc {shlex.quote(shell_command)}"
+            f"bash -lc {shlex.quote(fallback_shell_command)}"
         )
-        command = [multipass_command(), "exec", vm.name, "--", "bash", "-lc", wrapped_command]
-    else:
-        command = [multipass_command(), "exec", vm.name, "--", "bash", "-lc", shell_command]
+
+    remote_command = (
+        f"if [ -x {shlex.quote(RUN_AGENT_RUNNER_PATH)} ]; then "
+        f"exec {shlex.join(wrapper_command)}; "
+        f"else {fallback_shell_command}; fi"
+    )
+    command = [multipass_command(), "exec", vm.name, "--", "bash", "-lc", remote_command]
     debug_log_command(command, enabled=debug)
     result = subprocess.run(command, check=False)
     debug_log_result(result, enabled=debug)

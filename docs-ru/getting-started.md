@@ -69,7 +69,7 @@ agsekit up
 - создание VM
 - подготовка VM
 - установка агентов
-- для Linux - установка systemd службы
+- на поддерживаемых платформах - установка daemon (`systemd` на Linux, `launchd` на macOS)
 
 ## 4. Добавление mount
 

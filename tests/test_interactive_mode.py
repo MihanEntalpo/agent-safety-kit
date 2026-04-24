@@ -244,7 +244,7 @@ def test_build_run_skips_vm_argument_when_auto_selected(monkeypatch, tmp_path):
     assert args == ["run", "--workdir", str(tmp_path), "--config", "config.yaml", "qwen"]
 
 
-def test_build_systemd_entries(monkeypatch):
+def test_build_daemon_entries(monkeypatch):
     prompts = ["custom-config.yaml"]
 
     class DummySession:
@@ -260,15 +260,15 @@ def test_build_systemd_entries(monkeypatch):
 
     session = DummySession()
 
-    assert interactive.build_systemd_install(session) == ["systemd", "install", "--config", "custom-config.yaml"]
-    assert interactive.build_systemd_uninstall(session) == ["systemd", "uninstall"]
-    assert interactive.build_systemd_start(session) == ["systemd", "start"]
-    assert interactive.build_systemd_stop(session) == ["systemd", "stop"]
-    assert interactive.build_systemd_restart(session) == ["systemd", "restart"]
-    assert interactive.build_systemd_status(session) == ["systemd", "status"]
+    assert interactive.build_daemon_install(session) == ["daemon", "install", "--config", "custom-config.yaml"]
+    assert interactive.build_daemon_uninstall(session) == ["daemon", "uninstall"]
+    assert interactive.build_daemon_start(session) == ["daemon", "start"]
+    assert interactive.build_daemon_stop(session) == ["daemon", "stop"]
+    assert interactive.build_daemon_restart(session) == ["daemon", "restart"]
+    assert interactive.build_daemon_status(session) == ["daemon", "status"]
 
 
-def test_select_command_places_up_before_prepare_and_lists_systemd_actions(monkeypatch):
+def test_select_command_places_up_before_prepare_and_lists_daemon_actions(monkeypatch):
     dummy_cli = click.Group()
 
     @dummy_cli.command(name="prepare", help="prepare help")
@@ -321,9 +321,9 @@ def test_select_command_places_up_before_prepare_and_lists_systemd_actions(monke
     up_index = next(index for index, title in enumerate(titles) if title.strip().startswith("up "))
     prepare_index = next(index for index, title in enumerate(titles) if title.strip().startswith("prepare "))
     assert up_index < prepare_index
-    assert any("systemd install" in title for title in titles)
-    assert any("systemd uninstall" in title for title in titles)
-    assert any("systemd start" in title for title in titles)
-    assert any("systemd stop" in title for title in titles)
-    assert any("systemd restart" in title for title in titles)
-    assert any("systemd status" in title for title in titles)
+    assert any("daemon install" in title for title in titles)
+    assert any("daemon uninstall" in title for title in titles)
+    assert any("daemon start" in title for title in titles)
+    assert any("daemon stop" in title for title in titles)
+    assert any("daemon restart" in title for title in titles)
+    assert any("daemon status" in title for title in titles)

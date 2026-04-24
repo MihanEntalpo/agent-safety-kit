@@ -24,7 +24,7 @@ from ..vm import MultipassError, ensure_multipass_available
 from . import debug_option, non_interactive_option
 from .status import _collect_running_agent_processes
 from .stop import _read_vm_state, _stop_vm, _unmount_vm_mounts
-from .systemd import stop_portforward_service
+from ..daemon_backends import stop_portforward_daemon
 
 
 def _collect_running_configured_agents(vm_names: List[str], agents: Dict[str, AgentConfig]) -> List[Tuple[str, str, str, str]]:
@@ -125,7 +125,7 @@ def down_command(
                     return
 
         try:
-            stop_portforward_service(announce=debug)
+            stop_portforward_daemon(announce=debug)
             _shutdown_vms(targets, mounts, debug=debug)
         except MultipassError as exc:
             raise click.ClickException(str(exc))

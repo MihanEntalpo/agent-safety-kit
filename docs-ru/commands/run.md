@@ -56,6 +56,8 @@ agsekit run [--vm <vm_name>] [--config <path>] [--workdir <path>] [--proxychains
 
 ## Runtime helper'ы
 
+После mount-проверок `run` запускает агента через один bundled VM-side wrapper script. Этот wrapper проверяет наличие бинарника агента, при необходимости подготавливает `nvm`, применяет runtime env, при необходимости включает `proxychains` или `http_proxy`, и затем запускает самого агента.
+
 `run` также умеет:
 
 - автоматически монтировать исходную директорию через `--auto-mount`;

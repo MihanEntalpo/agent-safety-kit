@@ -38,7 +38,7 @@ agsekit restart-vm <vm_name>|--all-vms [--config <path>] [--debug]
 
 Stops all configured VMs. If configured agents are still running, `agsekit` shows them and asks for confirmation unless `--force` is passed.
 
-On Linux, `down` also first tries to stop the `portforward` systemd service.
+On supported platforms, `down` also first tries to stop daemon-managed background services.
 
 ```bash
 agsekit down [--config <path>] [-f|--force] [--debug]

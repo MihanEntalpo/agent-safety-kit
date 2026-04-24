@@ -3,17 +3,14 @@
 ## Содержание
 
 - [Назначение](#назначение)
-- [Команды](#команды)
-- [Поддержка платформ](#поддержка-платформ)
-- [`install`](#install)
-- [`status`](#status)
-- [Связь с `up`](#связь-с-up)
+- [Устаревший alias](#устаревший-alias)
+- [Оговорки по платформам](#оговорки-по-платформам)
 
 ## Назначение
 
-Управлять Linux-only user service, который держит `agsekit portforward` в фоне.
+`systemd` теперь является устаревшим alias для [`daemon`](daemon.md).
 
-## Команды
+## Устаревший alias
 
 ```bash
 agsekit systemd install [--config <path>] [--debug]
@@ -24,31 +21,16 @@ agsekit systemd restart [--debug]
 agsekit systemd status [--debug]
 ```
 
-## Поддержка платформ
+Каждая команда печатает предупреждение и затем запускает соответствующую `agsekit daemon ...`.
 
-- Linux: реализовано
-- macOS: команда печатает предупреждение и ничего не делает
-- Windows: команда печатает предупреждение и ничего не делает
+## Оговорки по платформам
 
-## `install`
-
-Записывает `systemd.env`, линкует bundled user unit, делает reload systemd, перезапускает сервис и включает его.
-
-## `status`
-
-Показывает:
-
-- путь к bundled unit
-- путь к linked user unit
-- состояние установки
-- active/enabled state
-- хвост последних записей журнала
-
-## Связь с `up`
-
-На Linux `agsekit up` может автоматически установить или обновить этот сервис после этапов VM и agent setup.
+- На Linux `agsekit daemon` использует `systemd`.
+- На macOS `agsekit daemon` использует `launchd`.
+- На Windows `agsekit daemon` пока не реализован.
 
 ## См. также
 
+- [daemon](daemon.md)
 - [up](up.md)
 - [Сетевые команды](networking.md)

@@ -17,6 +17,8 @@
   vars:
     nvm_dir: "{{ ansible_env.HOME }}/.nvm"
     node_version: "24"
+    skip_nvm_install: false
+    skip_node_install: false
   tasks:
     - name: Configure proxychains
       ansible.builtin.include_tasks: "{{ playbook_dir }}/proxychains.yml"
@@ -27,31 +29,58 @@
         name: curl
       become: true
 
+    - name: Assume Node.js and nvm are already prepared when requested
+      ansible.builtin.set_fact:
+        node_check:
+          rc: 0
+        nvm_stat:
+          stat:
+            exists: true
+      when: (skip_nvm_install | bool) or (skip_node_install | bool)
+
     - name: Check for node
-      ansible.builtin.command: node -v
+      ansible.builtin.shell: >-
+        bash -lc "if command -v node >/dev/null 2>&1; then
+        node -v;
+        elif [ -s '{{ nvm_dir }}/nvm.sh' ]; then
+        . '{{ nvm_dir }}/nvm.sh' && nvm use --silent default >/dev/null && node -v;
+        else
+        exit 1;
+        fi"
       register: node_check
       changed_when: false
       failed_when: false
+      when: not (skip_node_install | bool)
 
     - name: Check for nvm
       ansible.builtin.stat:
         path: "{{ nvm_dir }}/nvm.sh"
       register: nvm_stat
+      when: not (skip_nvm_install | bool)
 
     - name: Download nvm installer
       ansible.builtin.command: "{{ proxychains_prefix }}curl -o /tmp/nvm-install.sh https://raw.githubusercontent.com/nvm-sh/nvm/v0.40.3/install.sh"
-      when: not nvm_stat.stat.exists
+      when: (not (skip_nvm_install | bool)) and not nvm_stat.stat.exists
 
     - name: Install nvm
       ansible.builtin.command: "{{ proxychains_prefix }}bash /tmp/nvm-install.sh"
-      when: not nvm_stat.stat.exists
+      when: (not (skip_nvm_install | bool)) and not nvm_stat.stat.exists
       args:
         creates: "{{ nvm_dir }}/nvm.sh"
 
     - name: Install Node.js
-      ansible.builtin.command: >-
-        {{ proxychains_prefix }}bash -lc ". {{ nvm_dir }}/nvm.sh && nvm install {{ node_version }} && nvm alias default {{ node_version }}"
-      when: node_check.rc != 0
+      ansible.builtin.shell: |-
+        {{ proxychains_prefix }}bash -lc '
+        . {{ nvm_dir }}/nvm.sh
+        resolved_version="$(nvm ls-remote | awk '"'"'/^[[:space:]]*v{{ node_version | replace(".", "\\.") }}\\./ { version=$1 } END { print version }'"'"')"
+        if [ -z "$resolved_version" ]; then
+          echo "Failed to resolve the latest Node.js {{ node_version }} release from nvm ls-remote." >&2
+          exit 1
+        fi
+        nvm install "$resolved_version"
+        nvm alias default "$resolved_version"
+        '
+      when: (not (skip_node_install | bool)) and node_check.rc != 0
 
     - name: Verify npm
       ansible.builtin.command: >-
@@ -94,4 +123,4 @@
       ansible.builtin.file:
         path: /tmp/nvm-install.sh
         state: absent
-      when: not nvm_stat.stat.exists
+      when: (not (skip_nvm_install | bool)) and not nvm_stat.stat.exists

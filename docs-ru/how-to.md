@@ -203,9 +203,9 @@ agents:
     http_proxy: socks5://127.0.0.1:8087
 ```
 
-В linux можно настроить демон systemd командой `agsekit systemd install` - и проброс портов будет поддерживаться автоматически
+В Linux и macOS можно установить фоновый daemon командой `agsekit daemon install`; он управляет фоновыми сервисами, включая проброс портов. На Linux для этого используется `systemd`, на macOS - `launchd`.
 
-В windows / macos можно запустить в отдельном терминале `agsekit portforward` и проброс портов будет поддерживаться пока жив этот терминал
+В Windows можно запустить в отдельном терминале `agsekit portforward`, и проброс портов будет поддерживаться, пока жив этот терминал.
 
 **3. Запуск агента**
 
@@ -225,4 +225,5 @@ agsekit run claude
 
 - [Сеть и прокси](networking.md)
 - [Сетевые команды](commands/networking.md)
+- [daemon](commands/daemon.md)
 - [systemd](commands/systemd.md)

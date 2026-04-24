@@ -26,6 +26,7 @@
 ## Сеть
 
 - [portforward / ssh / shell](networking.md)
+- [daemon](daemon.md)
 - [systemd](systemd.md)
 
 ## Жизненный цикл VM

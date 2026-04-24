@@ -20,6 +20,7 @@ from .commands.prepare import prepare_command
 from .commands.run import run_command
 from .commands.shell import shell_command
 from .commands.up import up_command
+from .commands.daemon import daemon_group
 from .commands.systemd import systemd_group
 from .commands.ssh import ssh_command
 from .commands.status import status_command
@@ -142,6 +143,7 @@ def main() -> None:
         status_command,
         doctor_command,
         down_command,
+        daemon_group,
         systemd_group,
         destroy_vm_command,
     ):

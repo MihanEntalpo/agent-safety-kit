@@ -1,10 +1,40 @@
 # Agent-Safety-Kit versions history
 
-## 1.5.18 - Windows Ansible guard and pip-upgrade fix
+## 1.6.2 - Faster agent run startup
 
-* Fixed native Windows provisioning flow to fail early with a clear error for `up`, `create-vm`, `create-vms`, and `install-agents`, because upstream Ansible does not support Windows control nodes; this replaces the low-level `os.get_blocking` / `WinError 1` crash during playbook startup
-* Fixed native Windows `pip-upgrade` by re-executing the upgrade under the current venv `python.exe`, so the command no longer collides with the running `agsekit.exe` launcher during self-update
-* Added test coverage for the native Windows Ansible preflight and the Windows `pip-upgrade` re-exec path
+* Sped up `agsekit run`: after host-side mount checks, agent binary validation and agent startup are now combined into one `multipass exec` through a VM-side run wrapper
+* Kept `agsekit run` compatible with VMs that do not have the new wrapper installed yet: in that case the same remote call falls back to the previous inline shell startup path
+
+## 1.6.1 - Faster agent installation
+
+* Sped up `install-agents` when several agents are installed into the same VM: SSH key bootstrap is now cached per VM within one run and is not repeated for every agent installer
+
+## 1.6.0 - Cross-platform daemon command
+
+* Added `agsekit daemon` as the main command group for managing background services, including `portforward`
+* Added Linux and macOS daemon backends: Linux continues to use user-level `systemd`, while macOS now uses user-level `launchd` with logs in `~/Library/Logs/agsekit/daemon.stdout.log` and `~/Library/Logs/agsekit/daemon.stderr.log`
+* Kept `agsekit systemd` as a deprecated alias that prints a warning and delegates to the matching `agsekit daemon` command
+* Updated `up` and `down` to use the cross-platform daemon backend instead of Linux-only systemd helpers
+* Added host integration coverage for `agsekit daemon`, `agsekit systemd`, and `up/down` daemon lifecycle behavior
+
+## 1.5.21 - Systemd portforward executable resolution
+
+* Fixed Linux `systemd` portforward services after reinstalling `agsekit` from another location: `systemd install` now stores the path to the current CLI instead of accidentally reusing a stale `agsekit` from `PATH`
+* Fixed `agsekit portforward` child tunnel startup in restricted environments such as user-level `systemd`: the command now reuses the current `agsekit` executable first and falls back to `python -m agsekit_cli.cli` when needed, so SSH tunnel workers no longer depend on `~/.local/bin` being present in `PATH`
+
+## 1.5.20 - Speed up install-agents
+
+* Made proxychains be installed on VM setup
+* Made nvm/node install only once if multiple agents needs them
+
+## 1.5.19 - Codex log rotation setup
+
+* Added automatic `logrotate` setup for `codex`, `codex-glibc`, and `codex-glibc-prebuilt` installers inside the VM: `~/.codex/log/codex-tui.log` now gets a policy with `size 100M`, `rotate 10`, `compress`, `delaycompress`, `missingok`, `notifempty`, and `copytruncate`
+
+## 1.5.18 - Installer and agent installation fixes
+
+* Fixed Node-based agent installers (`codex`, `qwen`, `opencode`, `cline`): Node detection now also checks the default `nvm` environment, and fresh installs resolve the latest available `v24.x.y` release through `nvm ls-remote` instead of relying on `nvm install 24`
+* Fixed `codex-glibc-prebuilt` installation: release metadata resolution now runs controller-side without inheriting remote SSH connection vars, so the installer no longer tries to execute the host Python interpreter path inside the VM
 
 ## 1.5.17 - Windows installer and prepare fixes
 

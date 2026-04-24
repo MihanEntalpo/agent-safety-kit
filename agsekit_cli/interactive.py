@@ -395,29 +395,29 @@ def build_portforward(session: InteractiveSession) -> List[str]:
     return ["portforward", *session.config_option()]
 
 
-def build_systemd_install(session: InteractiveSession) -> List[str]:
+def build_daemon_install(session: InteractiveSession) -> List[str]:
     session._prompt_config_path()
-    return ["systemd", "install", *session.config_option()]
+    return ["daemon", "install", *session.config_option()]
 
 
-def build_systemd_uninstall(_: InteractiveSession) -> List[str]:
-    return ["systemd", "uninstall"]
+def build_daemon_uninstall(_: InteractiveSession) -> List[str]:
+    return ["daemon", "uninstall"]
 
 
-def build_systemd_start(_: InteractiveSession) -> List[str]:
-    return ["systemd", "start"]
+def build_daemon_start(_: InteractiveSession) -> List[str]:
+    return ["daemon", "start"]
 
 
-def build_systemd_stop(_: InteractiveSession) -> List[str]:
-    return ["systemd", "stop"]
+def build_daemon_stop(_: InteractiveSession) -> List[str]:
+    return ["daemon", "stop"]
 
 
-def build_systemd_restart(_: InteractiveSession) -> List[str]:
-    return ["systemd", "restart"]
+def build_daemon_restart(_: InteractiveSession) -> List[str]:
+    return ["daemon", "restart"]
 
 
-def build_systemd_status(_: InteractiveSession) -> List[str]:
-    return ["systemd", "status"]
+def build_daemon_status(_: InteractiveSession) -> List[str]:
+    return ["daemon", "status"]
 
 
 def build_start_vm(session: InteractiveSession) -> List[str]:
@@ -514,12 +514,12 @@ def _command_builders() -> Dict[str, CommandBuilder]:
         "shell": build_shell,
         "ssh": build_ssh,
         "portforward": build_portforward,
-        "systemd-install": build_systemd_install,
-        "systemd-uninstall": build_systemd_uninstall,
-        "systemd-start": build_systemd_start,
-        "systemd-stop": build_systemd_stop,
-        "systemd-restart": build_systemd_restart,
-        "systemd-status": build_systemd_status,
+        "daemon-install": build_daemon_install,
+        "daemon-uninstall": build_daemon_uninstall,
+        "daemon-start": build_daemon_start,
+        "daemon-stop": build_daemon_stop,
+        "daemon-restart": build_daemon_restart,
+        "daemon-status": build_daemon_status,
         "start-vm": build_start_vm,
         "stop-vm": build_stop_vm,
         "restart-vm": build_restart_vm,
@@ -540,35 +540,35 @@ def _resolve_interactive_entries(cli: click.Group) -> Dict[str, InteractiveComma
             label=command.name,
             help_text=command.help or command.short_help or "",
         )
-    entries["systemd-install"] = InteractiveCommandEntry(
-        key="systemd-install",
-        label=tr("interactive.systemd_install_label"),
-        help_text=tr("systemd.install_help"),
+    entries["daemon-install"] = InteractiveCommandEntry(
+        key="daemon-install",
+        label=tr("interactive.daemon_install_label"),
+        help_text=tr("daemon.install_help"),
     )
-    entries["systemd-uninstall"] = InteractiveCommandEntry(
-        key="systemd-uninstall",
-        label=tr("interactive.systemd_uninstall_label"),
-        help_text=tr("systemd.uninstall_help"),
+    entries["daemon-uninstall"] = InteractiveCommandEntry(
+        key="daemon-uninstall",
+        label=tr("interactive.daemon_uninstall_label"),
+        help_text=tr("daemon.uninstall_help"),
     )
-    entries["systemd-start"] = InteractiveCommandEntry(
-        key="systemd-start",
-        label=tr("interactive.systemd_start_label"),
-        help_text=tr("systemd.start_help"),
+    entries["daemon-start"] = InteractiveCommandEntry(
+        key="daemon-start",
+        label=tr("interactive.daemon_start_label"),
+        help_text=tr("daemon.start_help"),
     )
-    entries["systemd-stop"] = InteractiveCommandEntry(
-        key="systemd-stop",
-        label=tr("interactive.systemd_stop_label"),
-        help_text=tr("systemd.stop_help"),
+    entries["daemon-stop"] = InteractiveCommandEntry(
+        key="daemon-stop",
+        label=tr("interactive.daemon_stop_label"),
+        help_text=tr("daemon.stop_help"),
     )
-    entries["systemd-restart"] = InteractiveCommandEntry(
-        key="systemd-restart",
-        label=tr("interactive.systemd_restart_label"),
-        help_text=tr("systemd.restart_help"),
+    entries["daemon-restart"] = InteractiveCommandEntry(
+        key="daemon-restart",
+        label=tr("interactive.daemon_restart_label"),
+        help_text=tr("daemon.restart_help"),
     )
-    entries["systemd-status"] = InteractiveCommandEntry(
-        key="systemd-status",
-        label=tr("interactive.systemd_status_label"),
-        help_text=tr("systemd.status_help"),
+    entries["daemon-status"] = InteractiveCommandEntry(
+        key="daemon-status",
+        label=tr("interactive.daemon_status_label"),
+        help_text=tr("daemon.status_help"),
     )
     return entries
 
@@ -594,7 +594,7 @@ def _select_command(cli: click.Group, builders: Dict[str, CommandBuilder], prese
         ),
         (
             tr("interactive.section_daemon_control"),
-            ["systemd-install", "systemd-uninstall", "systemd-start", "systemd-stop", "systemd-restart", "systemd-status"],
+            ["daemon-install", "daemon-uninstall", "daemon-start", "daemon-stop", "daemon-restart", "daemon-status"],
         ),
         (
             tr("interactive.section_manual_backup"),

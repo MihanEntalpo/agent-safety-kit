@@ -126,7 +126,7 @@ One `run` cannot have both `http_proxy` and `proxychains` at the same time. `ags
 
 ## Port Forwarding
 
-The `agsekit portforward` command, as well as the daemon started through `agsekit systemd start`, creates and maintains SSH tunnels into and out of the VM and periodically rereads the config to reconnect forwards when rules change.
+The `agsekit portforward` command, as well as the daemon started through `agsekit daemon start`, creates and maintains SSH tunnels into and out of the VM and periodically rereads the config to reconnect forwards when rules change.
 
 If you do not know what SSH tunnels are, you can read about them here: https://docs.oracle.com/en/operating-systems/oracle-linux/openssh/openssh-SettingUpPortForwardingOverSSH.html
 

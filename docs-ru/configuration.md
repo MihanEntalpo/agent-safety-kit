@@ -136,12 +136,13 @@ agents:
   * См. [prepare](commands/prepare.md) и [сетевые команды](commands/networking.md)
   * По умолчанию ~/.config/agsekit/ssh
 * `global.systemd_env_folder`
-  * Указывает путь к папке с .env-файлом для запуска systemd-службы (используется только на Linux с systemd)
-  * См. [systemd](commands/systemd.md)
+  * Указывает путь к папке с `.env`-файлом для Linux backend `systemd`, который используется командой `agsekit daemon`
+  * Эта настройка влияет только на Linux; macOS `launchd` её не использует
+  * См. [daemon](commands/daemon.md)
   * По умолчанию ~/.config/agsekit
 * `global.portforward_config_check_interval_sec`
   * Как часто нужно перечитывать конфигурацию, чтобы, при изменении списка портов, менять ssh-туннели
-  * Команда `agsekit portforward` а также демон запускаемый через `agsekit systemd start` выполняют проброс портов, и при изменении конфигурации - динамически обновляют порты
+  * Команда `agsekit portforward`, а также демон, запускаемый через `agsekit daemon start`, выполняют проброс портов, и при изменении конфигурации динамически обновляют порты
   * См. [Port Forwarding](networking.md#port-forwarding) и [portforward](commands/networking.md)
 * `global.http_proxy_port_pool` 
   * Диапазон портов, из которых выбирается порт при запуске прокси-сервера

@@ -20,10 +20,12 @@
     codex_binary_name: codex-glibc-prebuilt
     codex_system_path: /usr/local/bin/codex-glibc-prebuilt
     codex_user_path: "{{ ansible_env.HOME }}/.local/bin/codex-glibc-prebuilt"
-    codex_prebuilt_url: "{{ hostvars['localhost'].codex_glibc_prebuilt_meta.download_url }}"
   tasks:
     - name: Configure proxychains
       ansible.builtin.include_tasks: "{{ playbook_dir }}/proxychains.yml"
+
+    - name: Configure Codex logrotate
+      ansible.builtin.include_tasks: "{{ playbook_dir }}/codex_logrotate.yml"
 
     - name: Install codex-glibc-prebuilt dependencies
       ansible.builtin.apt:
@@ -40,24 +42,16 @@
           {{ "arm64" if ansible_architecture in ["aarch64", "arm64"] else "amd64" }}
 
     - name: Resolve codex-glibc prebuilt release metadata for VM architecture
-      ansible.builtin.command:
-        argv:
-          - "{{ ansible_playbook_python }}"
-          - -m
-          - agsekit_cli.prebuilt
-          - resolve-codex-glibc-prebuilt
-          - --arch
-          - "{{ codex_prebuilt_arch }}"
-      delegate_to: localhost
-      connection: local
-      vars:
-        ansible_python_interpreter: "{{ ansible_playbook_python }}"
-      register: codex_glibc_prebuilt_release
-      changed_when: false
-
-    - name: Cache codex-glibc prebuilt release metadata
       ansible.builtin.set_fact:
-        codex_glibc_prebuilt_meta: "{{ codex_glibc_prebuilt_release.stdout | from_json }}"
+        codex_glibc_prebuilt_meta: >-
+          {{
+            lookup(
+              'pipe',
+              (ansible_playbook_python | quote)
+              ~ ' -m agsekit_cli.prebuilt resolve-codex-glibc-prebuilt --arch '
+              ~ (codex_prebuilt_arch | quote)
+            ) | from_json
+          }}
 
     - name: Set codex-glibc prebuilt download URL
       ansible.builtin.set_fact:

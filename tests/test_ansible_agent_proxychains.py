@@ -18,8 +18,10 @@ def test_proxychains_tasks_define_only_command_prefix():
 
     enable_task = tasks[0]
     enable_block = enable_task["block"]
+    task_names = [item["name"] for item in enable_block]
     prefix_task = next(item for item in enable_block if item["name"] == "Set proxychains command prefix")
 
+    assert "Install proxychains" not in task_names
     assert prefix_task["ansible.builtin.set_fact"]["proxychains_prefix"] == "proxychains4 -q -f /tmp/agsekit-proxychains.conf "
 
     disable_task = tasks[1]
@@ -134,10 +136,15 @@ def test_codex_glibc_prebuilt_installer_tasks_run_via_proxychains_prefix():
     verify_task = next(item for item in tasks if item["name"] == "Verify codex-glibc-prebuilt binary works")
 
     assert "ansible_architecture" in arch_task["ansible.builtin.set_fact"]["codex_prebuilt_arch"]
-    assert resolve_task["delegate_to"] == "localhost"
-    assert resolve_task["connection"] == "local"
-    assert resolve_task["vars"]["ansible_python_interpreter"] == "{{ ansible_playbook_python }}"
-    assert resolve_task["ansible.builtin.command"]["argv"][-2:] == ["--arch", "{{ codex_prebuilt_arch }}"]
+    assert "delegate_to" not in resolve_task
+    assert "connection" not in resolve_task
+    assert "ansible.builtin.command" not in resolve_task
+    resolve_fact = resolve_task["ansible.builtin.set_fact"]["codex_glibc_prebuilt_meta"]
+    assert "lookup(" in resolve_fact
+    assert "'pipe'" in resolve_fact
+    assert "agsekit_cli.prebuilt resolve-codex-glibc-prebuilt --arch" in resolve_fact
+    assert "ansible_playbook_python" in resolve_fact
+    assert "codex_prebuilt_arch" in resolve_fact
     assert download_task["ansible.builtin.command"].startswith("{{ proxychains_prefix }}curl ")
     assert "environment" not in download_task
     assert verify_task["ansible.builtin.command"] == "{{ codex_install_path }} --version"

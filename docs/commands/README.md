@@ -26,6 +26,7 @@ In this section, `agsekit` commands are grouped by scenario.
 ## Networking
 
 - [portforward / ssh / shell](networking.md)
+- [daemon](daemon.md)
 - [systemd](systemd.md)
 
 ## VM Lifecycle
