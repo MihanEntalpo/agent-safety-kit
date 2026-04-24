@@ -160,7 +160,6 @@ def test_run_command_starts_backup_and_agent(monkeypatch, tmp_path):
     monkeypatch.setattr(run_module, "run_in_vm", fake_run_in_vm)
     monkeypatch.setattr(run_module, "start_backup_process", fake_start_backup_process)
     monkeypatch.setattr(run_module, "backup_once", fake_backup_once)
-    monkeypatch.setattr(run_module, "ensure_agent_binary_available", lambda *_, **__: None)
 
     runner = CliRunner()
     result = runner.invoke(run_command, ["--config", str(config_path), "--workdir", str(source), "qwen", "--flag"])
@@ -194,7 +193,6 @@ def test_run_command_for_forgecode_forces_tracker_env(monkeypatch, tmp_path):
     monkeypatch.setattr(run_module, "_has_existing_backup", lambda *_: True)
     monkeypatch.setattr(run_module, "run_in_vm", fake_run_in_vm)
     monkeypatch.setattr(run_module, "start_backup_process", lambda *_, **__: None)
-    monkeypatch.setattr(run_module, "ensure_agent_binary_available", lambda *_, **__: None)
     monkeypatch.setattr(run_module, "backup_once", lambda *_, **__: None)
 
     runner = CliRunner()
@@ -243,7 +241,6 @@ def test_run_command_missing_workdir_can_use_temp_vm_dir_without_backups(monkeyp
         return 0
 
     monkeypatch.setattr(run_module, "run_in_vm", fake_run_in_vm)
-    monkeypatch.setattr(run_module, "ensure_agent_binary_available", lambda *_, **__: None)
     monkeypatch.setattr(run_module, "_create_temp_vm_workdir", lambda *_args, **_kwargs: temp_dir)
     monkeypatch.setattr(run_module, "backup_once", lambda *_, **__: backup_calls.append("once"))
     monkeypatch.setattr(run_module, "start_backup_process", lambda *_, **__: backup_calls.append("repeated"))
@@ -284,7 +281,6 @@ def test_run_command_does_not_set_proxy_for_agent(monkeypatch, tmp_path):
     monkeypatch.setattr(run_module, "_has_existing_backup", lambda *_: True)
     monkeypatch.setattr(run_module, "run_in_vm", fake_run_in_vm)
     monkeypatch.setattr(run_module, "start_backup_process", lambda *_, **__: None)
-    monkeypatch.setattr(run_module, "ensure_agent_binary_available", lambda *_, **__: None)
     monkeypatch.setattr(run_module, "backup_once", lambda *_, **__: None)
 
     runner = CliRunner()
@@ -305,7 +301,6 @@ def test_run_command_can_disable_backups(monkeypatch, tmp_path):
 
     monkeypatch.setattr(run_module, "_has_existing_backup", lambda *_: True)
     monkeypatch.setattr(run_module, "run_in_vm", fake_run_in_vm)
-    monkeypatch.setattr(run_module, "ensure_agent_binary_available", lambda *_, **__: None)
     monkeypatch.setattr(run_module, "backup_once", lambda *_, **__: None)
 
     started = []
@@ -355,7 +350,6 @@ def test_run_command_prints_debug_commands(monkeypatch, tmp_path):
     monkeypatch.setattr(run_module, "_has_existing_backup", lambda *_: True)
     monkeypatch.setattr(run_module, "run_in_vm", fake_run_in_vm)
     monkeypatch.setattr(run_module, "start_backup_process", fake_start_backup_process)
-    monkeypatch.setattr(run_module, "ensure_agent_binary_available", fake_ensure_agent_binary_available)
     monkeypatch.setattr(run_module, "backup_once", lambda *_, **__: None)
 
     runner = CliRunner()
@@ -382,7 +376,6 @@ def test_run_command_treats_run_like_options_after_agent_as_agent_args(monkeypat
     monkeypatch.setattr(run_module, "_has_existing_backup", lambda *_: True)
     monkeypatch.setattr(run_module, "run_in_vm", fake_run_in_vm)
     monkeypatch.setattr(run_module, "start_backup_process", lambda *_, **__: None)
-    monkeypatch.setattr(run_module, "ensure_agent_binary_available", lambda *_, **__: None)
     monkeypatch.setattr(run_module, "backup_once", lambda *_, **__: None)
 
     runner = CliRunner()
@@ -425,7 +418,6 @@ def test_run_command_resolves_relative_path_inside_mount(monkeypatch, tmp_path, 
     monkeypatch.setattr(run_module, "_has_existing_backup", lambda *_: True)
     monkeypatch.setattr(run_module, "run_in_vm", fake_run_in_vm)
     monkeypatch.setattr(run_module, "start_backup_process", fake_start_backup_process)
-    monkeypatch.setattr(run_module, "ensure_agent_binary_available", lambda *_, **__: None)
     monkeypatch.setattr(run_module, "backup_once", lambda *_, **__: None)
 
     runner = CliRunner()
@@ -463,7 +455,6 @@ def test_run_command_uses_current_directory_mount_when_source_not_passed(monkeyp
     monkeypatch.setattr(run_module, "_has_existing_backup", lambda *_: True)
     monkeypatch.setattr(run_module, "run_in_vm", fake_run_in_vm)
     monkeypatch.setattr(run_module, "start_backup_process", fake_start_backup_process)
-    monkeypatch.setattr(run_module, "ensure_agent_binary_available", lambda *_, **__: None)
     monkeypatch.setattr(run_module, "backup_once", lambda *_, **__: None)
 
     runner = CliRunner()
@@ -487,7 +478,6 @@ def test_run_command_warns_when_mounted_directory_is_empty_inside_vm(monkeypatch
     monkeypatch.setattr(run_module, "_has_existing_backup", lambda *_: True)
     monkeypatch.setattr(run_module, "run_in_vm", fake_run_in_vm)
     monkeypatch.setattr(run_module, "start_backup_process", lambda *_, **__: None)
-    monkeypatch.setattr(run_module, "ensure_agent_binary_available", lambda *_, **__: None)
     monkeypatch.setattr(run_module, "backup_once", lambda *_, **__: None)
     monkeypatch.setattr(
         run_module,
@@ -530,7 +520,6 @@ def test_run_command_warns_and_confirms_for_current_directory(monkeypatch, tmp_p
     monkeypatch.setattr(run_module, "_has_existing_backup", lambda *_: True)
     monkeypatch.setattr(run_module, "run_in_vm", fake_run_in_vm)
     monkeypatch.setattr(run_module, "start_backup_process", lambda *_, **__: None)
-    monkeypatch.setattr(run_module, "ensure_agent_binary_available", lambda *_, **__: None)
     monkeypatch.setattr(run_module, "backup_once", lambda *_, **__: None)
     monkeypatch.setattr(
         run_module,
@@ -573,7 +562,6 @@ def test_run_command_aborts_when_empty_vm_directory_warning_is_rejected(monkeypa
     monkeypatch.setattr(run_module, "_has_existing_backup", lambda *_: True)
     monkeypatch.setattr(run_module, "run_in_vm", fake_run_in_vm)
     monkeypatch.setattr(run_module, "start_backup_process", lambda *_, **__: None)
-    monkeypatch.setattr(run_module, "ensure_agent_binary_available", lambda *_, **__: None)
     monkeypatch.setattr(run_module, "backup_once", lambda *_, **__: None)
     monkeypatch.setattr(
         run_module,
@@ -608,7 +596,6 @@ def test_run_command_does_not_warn_for_unmounted_directory(monkeypatch, tmp_path
     monkeypatch.setattr(run_module, "_has_existing_backup", lambda *_: True)
     monkeypatch.setattr(run_module, "run_in_vm", fake_run_in_vm)
     monkeypatch.setattr(run_module, "start_backup_process", lambda *_, **__: None)
-    monkeypatch.setattr(run_module, "ensure_agent_binary_available", lambda *_, **__: None)
     monkeypatch.setattr(run_module, "backup_once", lambda *_, **__: None)
     monkeypatch.setattr(run_module, "load_multipass_mounts", lambda **_kwargs: {"agent": set()})
 
@@ -641,7 +628,6 @@ def test_run_command_prompts_to_mount_unmounted_directory_and_continues(monkeypa
     monkeypatch.setattr(run_module, "_has_existing_backup", lambda *_: True)
     monkeypatch.setattr(run_module, "run_in_vm", fake_run_in_vm)
     monkeypatch.setattr(run_module, "start_backup_process", lambda *_, **__: None)
-    monkeypatch.setattr(run_module, "ensure_agent_binary_available", lambda *_, **__: None)
     monkeypatch.setattr(run_module, "backup_once", lambda *_, **__: None)
     monkeypatch.setattr(run_module, "load_multipass_mounts", lambda **_kwargs: {"agent": set()})
     monkeypatch.setattr(run_module, "mount_directory", lambda mount: mount_calls.append(mount.source))
@@ -679,7 +665,6 @@ def test_run_command_stops_when_mount_prompt_is_rejected(monkeypatch, tmp_path):
     monkeypatch.setattr(run_module, "_has_existing_backup", lambda *_: True)
     monkeypatch.setattr(run_module, "run_in_vm", fake_run_in_vm)
     monkeypatch.setattr(run_module, "start_backup_process", lambda *_, **__: None)
-    monkeypatch.setattr(run_module, "ensure_agent_binary_available", lambda *_, **__: None)
     monkeypatch.setattr(run_module, "backup_once", lambda *_, **__: None)
     monkeypatch.setattr(run_module, "load_multipass_mounts", lambda **_kwargs: {"agent": set()})
     monkeypatch.setattr(run_module, "mount_directory", lambda mount: mount_calls.append("mount"))
@@ -715,7 +700,6 @@ def test_run_command_requires_mounted_directory_in_non_interactive_mode(monkeypa
     monkeypatch.setattr(run_module, "_has_existing_backup", lambda *_: True)
     monkeypatch.setattr(run_module, "run_in_vm", fake_run_in_vm)
     monkeypatch.setattr(run_module, "start_backup_process", lambda *_, **__: None)
-    monkeypatch.setattr(run_module, "ensure_agent_binary_available", lambda *_, **__: None)
     monkeypatch.setattr(run_module, "backup_once", lambda *_, **__: None)
     monkeypatch.setattr(run_module, "load_multipass_mounts", lambda **_kwargs: {"agent": set()})
 
@@ -749,7 +733,6 @@ def test_run_command_auto_mounts_without_prompt_in_interactive_mode(monkeypatch,
     monkeypatch.setattr(run_module, "_has_existing_backup", lambda *_: True)
     monkeypatch.setattr(run_module, "run_in_vm", fake_run_in_vm)
     monkeypatch.setattr(run_module, "start_backup_process", lambda *_, **__: None)
-    monkeypatch.setattr(run_module, "ensure_agent_binary_available", lambda *_, **__: None)
     monkeypatch.setattr(run_module, "backup_once", lambda *_, **__: None)
     monkeypatch.setattr(run_module, "load_multipass_mounts", lambda **_kwargs: {"agent": set()})
     monkeypatch.setattr(run_module, "mount_directory", lambda mount: mount_calls.append(mount.source))
@@ -786,7 +769,6 @@ def test_run_command_auto_mounts_in_non_interactive_mode(monkeypatch, tmp_path):
     monkeypatch.setattr(run_module, "_has_existing_backup", lambda *_: True)
     monkeypatch.setattr(run_module, "run_in_vm", fake_run_in_vm)
     monkeypatch.setattr(run_module, "start_backup_process", lambda *_, **__: None)
-    monkeypatch.setattr(run_module, "ensure_agent_binary_available", lambda *_, **__: None)
     monkeypatch.setattr(run_module, "backup_once", lambda *_, **__: None)
     monkeypatch.setattr(run_module, "load_multipass_mounts", lambda **_kwargs: {"agent": set()})
     monkeypatch.setattr(run_module, "mount_directory", lambda mount: mount_calls.append(mount.source))
@@ -817,7 +799,6 @@ def test_run_command_does_not_warn_for_empty_host_directory(monkeypatch, tmp_pat
     monkeypatch.setattr(run_module, "_has_existing_backup", lambda *_: True)
     monkeypatch.setattr(run_module, "run_in_vm", fake_run_in_vm)
     monkeypatch.setattr(run_module, "start_backup_process", lambda *_, **__: None)
-    monkeypatch.setattr(run_module, "ensure_agent_binary_available", lambda *_, **__: None)
     monkeypatch.setattr(run_module, "backup_once", lambda *_, **__: None)
     monkeypatch.setattr(
         run_module,
@@ -867,7 +848,6 @@ def test_run_command_without_workdir_can_use_temp_vm_dir_outside_mount(monkeypat
     monkeypatch.setattr(run_module, "run_in_vm", fake_run_in_vm)
     monkeypatch.setattr(run_module, "_create_temp_vm_workdir", lambda *_args, **_kwargs: temp_dir)
     monkeypatch.setattr(run_module, "start_backup_process", lambda *_, **__: backup_calls.append("repeated"))
-    monkeypatch.setattr(run_module, "ensure_agent_binary_available", lambda *_, **__: None)
     monkeypatch.setattr(run_module, "backup_once", lambda *_, **__: backup_calls.append("once"))
 
     runner = CliRunner()
@@ -893,7 +873,6 @@ def test_run_command_without_workdir_rejects_current_directory_outside_mount_in_
     monkeypatch.setattr(run_module, "_has_existing_backup", lambda *_: True)
     monkeypatch.setattr(run_module, "run_in_vm", lambda *_args, **_kwargs: 0)
     monkeypatch.setattr(run_module, "start_backup_process", lambda *_, **__: None)
-    monkeypatch.setattr(run_module, "ensure_agent_binary_available", lambda *_, **__: None)
     monkeypatch.setattr(run_module, "backup_once", lambda *_, **__: None)
 
     runner = CliRunner()
@@ -916,7 +895,6 @@ def test_run_command_passes_proxychains_override(monkeypatch, tmp_path):
     )
 
     calls: Dict[str, object] = {}
-    checks: Dict[str, object] = {}
 
     def fake_run_in_vm(vm_config, workdir, command, env_vars, proxychains=None, debug=False):
         calls.update({
@@ -928,13 +906,9 @@ def test_run_command_passes_proxychains_override(monkeypatch, tmp_path):
         })
         return 0
 
-    def fake_ensure_agent_binary_available(agent_command, vm_config, proxychains=None, debug=False):
-        checks["proxychains"] = proxychains
-
     monkeypatch.setattr(run_module, "_has_existing_backup", lambda *_: True)
     monkeypatch.setattr(run_module, "run_in_vm", fake_run_in_vm)
     monkeypatch.setattr(run_module, "start_backup_process", lambda *_, **__: None)
-    monkeypatch.setattr(run_module, "ensure_agent_binary_available", fake_ensure_agent_binary_available)
     monkeypatch.setattr(run_module, "backup_once", lambda *_, **__: None)
 
     runner = CliRunner()
@@ -945,17 +919,14 @@ def test_run_command_passes_proxychains_override(monkeypatch, tmp_path):
 
     assert result.exit_code == 0
     assert calls["proxychains"] == "http://10.0.0.5:3128"
-    assert checks["proxychains"] == "http://10.0.0.5:3128"
 
     calls.clear()
-    checks.clear()
     result = runner.invoke(
         run_command,
         ["--config", str(config_path), "--proxychains", "", "--workdir", str(source), "qwen"],
     )
     assert result.exit_code == 0
     assert calls["proxychains"] == ""
-    assert checks["proxychains"] == ""
 
 
 def test_run_command_uses_agent_proxychains_override(monkeypatch, tmp_path):
@@ -970,19 +941,14 @@ def test_run_command_uses_agent_proxychains_override(monkeypatch, tmp_path):
     )
 
     calls: Dict[str, object] = {}
-    checks: Dict[str, object] = {}
 
     def fake_run_in_vm(vm_config, workdir, command, env_vars, proxychains=None, debug=False):
         calls["proxychains"] = proxychains
         return 0
 
-    def fake_ensure_agent_binary_available(agent_command, vm_config, proxychains=None, debug=False):
-        checks["proxychains"] = proxychains
-
     monkeypatch.setattr(run_module, "_has_existing_backup", lambda *_: True)
     monkeypatch.setattr(run_module, "run_in_vm", fake_run_in_vm)
     monkeypatch.setattr(run_module, "start_backup_process", lambda *_, **__: None)
-    monkeypatch.setattr(run_module, "ensure_agent_binary_available", fake_ensure_agent_binary_available)
     monkeypatch.setattr(run_module, "backup_once", lambda *_, **__: None)
 
     runner = CliRunner()
@@ -993,7 +959,6 @@ def test_run_command_uses_agent_proxychains_override(monkeypatch, tmp_path):
 
     assert result.exit_code == 0
     assert calls["proxychains"] == "http://192.168.1.1:3128"
-    assert checks["proxychains"] == "http://192.168.1.1:3128"
 
 
 @pytest.mark.parametrize(("agent_type", "runtime_binary"), sorted(AGENT_RUNTIME_BINARIES.items()))
@@ -1008,21 +973,15 @@ def test_run_command_uses_runtime_binary(monkeypatch, tmp_path, agent_type: str,
     )
 
     calls: Dict[str, object] = {}
-    checks: Dict[str, object] = {}
 
     def fake_run_in_vm(vm_config, workdir, command, env_vars, proxychains=None, debug=False):
         calls["proxychains"] = proxychains
         calls["command"] = list(command)
         return 0
 
-    def fake_ensure_agent_binary_available(agent_command, vm_config, proxychains=None, debug=False):
-        checks["proxychains"] = proxychains
-        checks["command"] = list(agent_command)
-
     monkeypatch.setattr(run_module, "_has_existing_backup", lambda *_: True)
     monkeypatch.setattr(run_module, "run_in_vm", fake_run_in_vm)
     monkeypatch.setattr(run_module, "start_backup_process", lambda *_, **__: None)
-    monkeypatch.setattr(run_module, "ensure_agent_binary_available", fake_ensure_agent_binary_available)
     monkeypatch.setattr(run_module, "backup_once", lambda *_, **__: None)
 
     runner = CliRunner()
@@ -1033,9 +992,7 @@ def test_run_command_uses_runtime_binary(monkeypatch, tmp_path, agent_type: str,
 
     assert result.exit_code == 0
     assert calls["proxychains"] is None
-    assert checks["proxychains"] is None
     assert calls["command"][0] == runtime_binary
-    assert checks["command"][0] == runtime_binary
 
 
 def test_run_command_agent_empty_proxychains_disables_vm_proxy(monkeypatch, tmp_path):
@@ -1050,19 +1007,14 @@ def test_run_command_agent_empty_proxychains_disables_vm_proxy(monkeypatch, tmp_
     )
 
     calls: Dict[str, object] = {}
-    checks: Dict[str, object] = {}
 
     def fake_run_in_vm(vm_config, workdir, command, env_vars, proxychains=None, debug=False):
         calls["proxychains"] = proxychains
         return 0
 
-    def fake_ensure_agent_binary_available(agent_command, vm_config, proxychains=None, debug=False):
-        checks["proxychains"] = proxychains
-
     monkeypatch.setattr(run_module, "_has_existing_backup", lambda *_: True)
     monkeypatch.setattr(run_module, "run_in_vm", fake_run_in_vm)
     monkeypatch.setattr(run_module, "start_backup_process", lambda *_, **__: None)
-    monkeypatch.setattr(run_module, "ensure_agent_binary_available", fake_ensure_agent_binary_available)
     monkeypatch.setattr(run_module, "backup_once", lambda *_, **__: None)
 
     runner = CliRunner()
@@ -1073,7 +1025,6 @@ def test_run_command_agent_empty_proxychains_disables_vm_proxy(monkeypatch, tmp_
 
     assert result.exit_code == 0
     assert calls["proxychains"] == ""
-    assert checks["proxychains"] == ""
 
 
 def test_run_command_sets_direct_http_proxy_env(monkeypatch, tmp_path):
@@ -1092,12 +1043,8 @@ def test_run_command_sets_direct_http_proxy_env(monkeypatch, tmp_path):
         calls["proxychains"] = proxychains
         return 0
 
-    def fake_ensure_agent_binary_available(agent_command, vm_config, proxychains=None, debug=False):
-        calls["binary_check_proxychains"] = proxychains
-
     monkeypatch.setattr(run_module, "_has_existing_backup", lambda *_: True)
     monkeypatch.setattr(run_module, "run_in_vm", fake_run_in_vm)
-    monkeypatch.setattr(run_module, "ensure_agent_binary_available", fake_ensure_agent_binary_available)
     monkeypatch.setattr(run_module, "start_backup_process", lambda *_, **__: None)
     monkeypatch.setattr(run_module, "backup_once", lambda *_, **__: None)
 
@@ -1108,7 +1055,6 @@ def test_run_command_sets_direct_http_proxy_env(monkeypatch, tmp_path):
     assert calls["env"]["HTTP_PROXY"] == "http://127.0.0.1:18881"
     assert calls["env"]["http_proxy"] == "http://127.0.0.1:18881"
     assert calls["proxychains"] is None
-    assert calls["binary_check_proxychains"] is None
 
 
 def test_run_command_wraps_upstream_http_proxy(monkeypatch, tmp_path):
@@ -1140,12 +1086,8 @@ def test_run_command_wraps_upstream_http_proxy(monkeypatch, tmp_path):
         calls["env"] = env_vars
         return 0
 
-    def fake_ensure_agent_binary_available(agent_command, vm_config, proxychains=None, debug=False):
-        calls["binary_check_proxychains"] = proxychains
-
     monkeypatch.setattr(run_module, "_has_existing_backup", lambda *_: True)
     monkeypatch.setattr(run_module, "run_in_vm", fake_run_in_vm)
-    monkeypatch.setattr(run_module, "ensure_agent_binary_available", fake_ensure_agent_binary_available)
     monkeypatch.setattr(run_module, "start_backup_process", lambda *_, **__: None)
     monkeypatch.setattr(run_module, "backup_once", lambda *_, **__: None)
 
@@ -1154,7 +1096,6 @@ def test_run_command_wraps_upstream_http_proxy(monkeypatch, tmp_path):
 
     assert result.exit_code == 0
     assert calls["proxychains"] is None
-    assert calls["binary_check_proxychains"] is None
     assert calls["http_proxy"].upstream == "socks5://127.0.0.1:8181"
     assert calls["http_proxy"].listen == "127.0.0.1:8585"
     assert calls["http_proxy_port_pool"].start == 48100
@@ -1191,12 +1132,8 @@ def test_run_command_http_proxy_cli_override_wins_over_config(monkeypatch, tmp_p
         calls["env"] = env_vars
         return 0
 
-    def fake_ensure_agent_binary_available(agent_command, vm_config, proxychains=None, debug=False):
-        calls["binary_check_proxychains"] = proxychains
-
     monkeypatch.setattr(run_module, "_has_existing_backup", lambda *_: True)
     monkeypatch.setattr(run_module, "run_in_vm", fake_run_in_vm)
-    monkeypatch.setattr(run_module, "ensure_agent_binary_available", fake_ensure_agent_binary_available)
     monkeypatch.setattr(run_module, "start_backup_process", lambda *_, **__: None)
     monkeypatch.setattr(run_module, "backup_once", lambda *_, **__: None)
 
@@ -1216,7 +1153,6 @@ def test_run_command_http_proxy_cli_override_wins_over_config(monkeypatch, tmp_p
 
     assert result.exit_code == 0
     assert calls["proxychains"] is None
-    assert calls["binary_check_proxychains"] is None
     assert calls["http_proxy"].upstream == "socks5://127.0.0.1:8181"
     assert calls["http_proxy"].listen is None
     assert "HTTP_PROXY" not in calls["env"]
@@ -1250,7 +1186,6 @@ def test_run_command_http_proxy_cli_empty_disables_config(monkeypatch, tmp_path)
 
     monkeypatch.setattr(run_module, "_has_existing_backup", lambda *_: True)
     monkeypatch.setattr(run_module, "run_in_vm", fake_run_in_vm)
-    monkeypatch.setattr(run_module, "ensure_agent_binary_available", lambda *_, **__: None)
     monkeypatch.setattr(run_module, "start_backup_process", lambda *_, **__: None)
     monkeypatch.setattr(run_module, "backup_once", lambda *_, **__: None)
 
@@ -1277,7 +1212,6 @@ def test_run_command_rejects_http_proxy_cli_override_with_effective_proxychains(
     )
 
     monkeypatch.setattr(run_module, "_has_existing_backup", lambda *_: True)
-    monkeypatch.setattr(run_module, "ensure_agent_binary_available", lambda *_, **__: None)
     monkeypatch.setattr(run_module, "run_in_vm", lambda *_, **__: 0)
     monkeypatch.setattr(run_module, "start_backup_process", lambda *_, **__: None)
     monkeypatch.setattr(run_module, "backup_once", lambda *_, **__: None)
@@ -1312,7 +1246,6 @@ def test_run_command_rejects_http_proxy_with_effective_proxychains(monkeypatch, 
     )
 
     monkeypatch.setattr(run_module, "_has_existing_backup", lambda *_: True)
-    monkeypatch.setattr(run_module, "ensure_agent_binary_available", lambda *_, **__: None)
     monkeypatch.setattr(run_module, "run_in_vm", lambda *_, **__: 0)
     monkeypatch.setattr(run_module, "start_backup_process", lambda *_, **__: None)
     monkeypatch.setattr(run_module, "backup_once", lambda *_, **__: None)
@@ -1338,7 +1271,6 @@ def test_run_command_rejects_agent_outside_mount_allowed_agents(monkeypatch, tmp
     monkeypatch.setattr(run_module, "_has_existing_backup", lambda *_: True)
     monkeypatch.setattr(run_module, "run_in_vm", fake_run_in_vm)
     monkeypatch.setattr(run_module, "start_backup_process", lambda *_, **__: None)
-    monkeypatch.setattr(run_module, "ensure_agent_binary_available", lambda *_, **__: None)
     monkeypatch.setattr(run_module, "backup_once", lambda *_, **__: None)
 
     runner = CliRunner()
@@ -1363,7 +1295,6 @@ def test_run_command_allows_agent_from_mount_allowed_agents(monkeypatch, tmp_pat
     monkeypatch.setattr(run_module, "_has_existing_backup", lambda *_: True)
     monkeypatch.setattr(run_module, "run_in_vm", fake_run_in_vm)
     monkeypatch.setattr(run_module, "start_backup_process", lambda *_, **__: None)
-    monkeypatch.setattr(run_module, "ensure_agent_binary_available", lambda *_, **__: None)
     monkeypatch.setattr(run_module, "backup_once", lambda *_, **__: None)
 
     runner = CliRunner()
@@ -1383,7 +1314,6 @@ def test_run_command_rejects_agent_in_mount_subdirectory_when_not_allowed(monkey
     monkeypatch.setattr(run_module, "_has_existing_backup", lambda *_: True)
     monkeypatch.setattr(run_module, "run_in_vm", lambda *_args, **_kwargs: 0)
     monkeypatch.setattr(run_module, "start_backup_process", lambda *_, **__: None)
-    monkeypatch.setattr(run_module, "ensure_agent_binary_available", lambda *_, **__: None)
     monkeypatch.setattr(run_module, "backup_once", lambda *_, **__: None)
 
     runner = CliRunner()
@@ -1410,7 +1340,6 @@ def test_run_command_without_workdir_rejects_disallowed_agent_in_current_directo
     monkeypatch.setattr(run_module, "_has_existing_backup", lambda *_: True)
     monkeypatch.setattr(run_module, "run_in_vm", fake_run_in_vm)
     monkeypatch.setattr(run_module, "start_backup_process", lambda *_, **__: None)
-    monkeypatch.setattr(run_module, "ensure_agent_binary_available", lambda *_, **__: None)
     monkeypatch.setattr(run_module, "backup_once", lambda *_, **__: None)
 
     runner = CliRunner()
@@ -1435,7 +1364,6 @@ def test_run_command_rejects_agent_outside_vm_allowed_agents(monkeypatch, tmp_pa
     monkeypatch.setattr(run_module, "_has_existing_backup", lambda *_: True)
     monkeypatch.setattr(run_module, "run_in_vm", fake_run_in_vm)
     monkeypatch.setattr(run_module, "start_backup_process", lambda *_, **__: None)
-    monkeypatch.setattr(run_module, "ensure_agent_binary_available", lambda *_, **__: None)
     monkeypatch.setattr(run_module, "backup_once", lambda *_, **__: None)
 
     runner = CliRunner()
@@ -1461,7 +1389,6 @@ def test_run_command_allows_agent_from_vm_allowed_agents(monkeypatch, tmp_path):
     monkeypatch.setattr(run_module, "_has_existing_backup", lambda *_: True)
     monkeypatch.setattr(run_module, "run_in_vm", fake_run_in_vm)
     monkeypatch.setattr(run_module, "start_backup_process", lambda *_, **__: None)
-    monkeypatch.setattr(run_module, "ensure_agent_binary_available", lambda *_, **__: None)
     monkeypatch.setattr(run_module, "backup_once", lambda *_, **__: None)
 
     runner = CliRunner()
@@ -1491,7 +1418,6 @@ def test_run_command_prefers_mount_allowed_agents_over_vm_allowed_agents(monkeyp
     monkeypatch.setattr(run_module, "_has_existing_backup", lambda *_: True)
     monkeypatch.setattr(run_module, "run_in_vm", fake_run_in_vm)
     monkeypatch.setattr(run_module, "start_backup_process", lambda *_, **__: None)
-    monkeypatch.setattr(run_module, "ensure_agent_binary_available", lambda *_, **__: None)
     monkeypatch.setattr(run_module, "backup_once", lambda *_, **__: None)
 
     runner = CliRunner()
@@ -1513,7 +1439,6 @@ def test_run_command_without_mount_rejects_current_directory_even_before_vm_allo
     monkeypatch.setattr(run_module, "_has_existing_backup", lambda *_: True)
     monkeypatch.setattr(run_module, "run_in_vm", lambda *_args, **_kwargs: 0)
     monkeypatch.setattr(run_module, "start_backup_process", lambda *_, **__: None)
-    monkeypatch.setattr(run_module, "ensure_agent_binary_available", lambda *_, **__: None)
     monkeypatch.setattr(run_module, "backup_once", lambda *_, **__: None)
 
     runner = CliRunner()

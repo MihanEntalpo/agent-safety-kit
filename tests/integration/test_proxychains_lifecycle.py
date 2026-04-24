@@ -302,10 +302,10 @@ def _run_agent(config_path: Path, cli_proxychains_url: Optional[str] = None) -> 
         "--auto-mount",
         "--non-interactive",
         "--debug",
-        "qwen",
     ]
     if cli_proxychains_url is not None:
         args.extend(["--proxychains", cli_proxychains_url])
+    args.append("qwen")
     return _run_cli(args, check=False)
 
 

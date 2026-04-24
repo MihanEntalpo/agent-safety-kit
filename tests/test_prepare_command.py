@@ -529,12 +529,14 @@ def test_package_data_includes_http_proxy_runner_script():
     package_data = pyproject["tool"]["setuptools"]["package-data"]["agsekit_cli"]
 
     assert "run_with_http_proxy.sh" in package_data
+    assert "run_agent.sh" in package_data
 
 
 def test_manifest_includes_http_proxy_runner_script():
     manifest = Path("MANIFEST.in").read_text(encoding="utf-8")
 
     assert "include agsekit_cli/run_with_http_proxy.sh" in manifest
+    assert "include agsekit_cli/run_agent.sh" in manifest
 
 
 def test_install_multipass_arch_uses_yay(monkeypatch):
@@ -585,6 +587,12 @@ def test_prepare_vm_packages_installs_proxychains_runner_scripts():
     assert http_runner_copy["src"] == "{{ playbook_dir }}/../run_with_http_proxy.sh"
     assert http_runner_copy["dest"] == "/usr/bin/agsekit-run_with_http_proxy.sh"
     assert http_runner_copy["mode"] == "0755"
+
+    run_agent_task = next(item for item in tasks if item["name"] == "Install agsekit run wrapper script")
+    run_agent_copy = run_agent_task["ansible.builtin.copy"]
+    assert run_agent_copy["src"] == "{{ playbook_dir }}/../run_agent.sh"
+    assert run_agent_copy["dest"] == "/usr/bin/agsekit-run_agent.sh"
+    assert run_agent_copy["mode"] == "0755"
 
 
 def test_prepare_vm_ssh_playbook_manages_authorized_keys_and_known_hosts():

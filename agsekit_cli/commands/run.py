@@ -351,16 +351,6 @@ def run_command(
         except MultipassError:
             pass
 
-        try:
-            ensure_agent_binary_available(
-                agent_command,
-                vm_config,
-                proxychains=None if effective_http_proxy is not None else proxychains_override,
-                debug=debug,
-            )
-        except MultipassError as exc:
-            raise click.ClickException(str(exc))
-
         if workdir_in_vm is None:
             try:
                 workdir_in_vm = _create_temp_vm_workdir(vm_to_use, debug=debug)

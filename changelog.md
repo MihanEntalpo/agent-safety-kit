@@ -1,5 +1,10 @@
 # Agent-Safety-Kit versions history
 
+## 1.6.2 - Faster agent run startup
+
+* Sped up `agsekit run`: after host-side mount checks, agent binary validation and agent startup are now combined into one `multipass exec` through a VM-side run wrapper
+* Kept `agsekit run` compatible with VMs that do not have the new wrapper installed yet: in that case the same remote call falls back to the previous inline shell startup path
+
 ## 1.6.1 - Faster agent installation
 
 * Sped up `install-agents` when several agents are installed into the same VM: SSH key bootstrap is now cached per VM within one run and is not repeated for every agent installer
