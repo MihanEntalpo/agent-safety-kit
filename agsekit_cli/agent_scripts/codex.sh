@@ -32,11 +32,11 @@ resolve_latest_node_major() {
   local resolved_version
 
   resolved_version="$(
-    nvm ls-remote | awk "/^[[:space:]]*v${major//./\\.}\\./ { version=\\$1 } END { print version }"
+    nvm version-remote "$major" | tail -n 1
   )"
 
-  if [ -z "$resolved_version" ]; then
-    echo "Failed to resolve the latest Node.js ${major} release from nvm ls-remote." >&2
+  if [ -z "$resolved_version" ] || [ "$resolved_version" = "N/A" ]; then
+    echo "Failed to resolve the latest Node.js ${major} release from nvm version-remote." >&2
     return 1
   fi
 

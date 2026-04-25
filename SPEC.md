@@ -639,7 +639,7 @@
 - при успешном standalone-запуске печатает явное итоговое сообщение:
   - для одного target: что агент готов к работе в выбранной ВМ;
   - для нескольких target: общее сообщение об успешной установке.
-- для Node-based agent installers (`codex`, `qwen`, `opencode`, `cline`) при отсутствии `node` сначала резолвит через `nvm ls-remote` последнюю доступную patch-версию поддерживаемой major-ветки и только потом выполняет `nvm install <resolved_version>`, чтобы не зависеть от поддержки short-major form вроде `nvm install 24`.
+- для Node-based agent installers (`codex`, `qwen`, `opencode`, `cline`) при отсутствии `node` сначала резолвит через `nvm version-remote` последнюю доступную patch-версию поддерживаемой major-ветки и только потом выполняет `nvm install <resolved_version>`, чтобы не зависеть от поддержки short-major form вроде `nvm install 24`.
 - если в одном запуске `install-agents` несколько Node-based агентов ставятся в одну и ту же VM, после первого успешного Node-based installer run CLI запоминает эту VM в локальном in-memory cache и передаёт в следующие playbook extra vars `skip_nvm_install=true` и `skip_node_install=true`, чтобы повторно не делать `nvm`/Node bootstrap.
 - для Node-based agent installers проверка наличия `node` не ограничивается голым системным `PATH`: installer сначала пробует `command -v node`, а если бинарник не найден, явно загружает `{{ ansible_env.HOME }}/.nvm/nvm.sh`, делает `nvm use --silent default` и повторяет `node -v`; это предотвращает ложную переустановку Node, когда он уже установлен через `nvm`, но не виден не-login shell'у Ansible.
 
@@ -841,12 +841,12 @@ Dependency resolution выполняется кодом до запуска play
 
 ### 10.3 Agent installers
 - `aider.yml`: установка через официальный aider install script с последующей проверкой бинарника `aider`; сетевые шаги выполняются через `proxychains_prefix`.
-- `codex.yml`: установка `bubblewrap`, Node через nvm (с резолвом последнего доступного `v24.x.y` через `nvm ls-remote`) + `@openai/codex`.
+- `codex.yml`: установка `bubblewrap`, Node через nvm (с резолвом последнего доступного `v24.x.y` через `nvm version-remote`) + `@openai/codex`.
   - дополнительно ставится `logrotate` и конфиг `/etc/logrotate.d/codex-tui`, который ограничивает `~/.codex/log/codex-tui.log` политикой `size 100M`, `rotate 10`, `compress`, `delaycompress`, `missingok`, `notifempty`, `copytruncate`.
-- `qwen.yml`: установка Node через nvm (с резолвом последнего доступного `v24.x.y` через `nvm ls-remote`) + `@qwen-code/qwen-code`.
+- `qwen.yml`: установка Node через nvm (с резолвом последнего доступного `v24.x.y` через `nvm version-remote`) + `@qwen-code/qwen-code`.
 - `forgecode.yml`: установка через официальный Forge install script с последующей проверкой бинарника `forge`; сетевые шаги выполняются через `proxychains_prefix`.
-- `opencode.yml`: установка Node через nvm (с резолвом последнего доступного `v24.x.y` через `nvm ls-remote`) + `opencode-ai`.
-- `cline.yml`: установка Node через nvm (с резолвом последнего доступного `v24.x.y` через `nvm ls-remote`) + `cline`.
+- `opencode.yml`: установка Node через nvm (с резолвом последнего доступного `v24.x.y` через `nvm version-remote`) + `opencode-ai`.
+- `cline.yml`: установка Node через nvm (с резолвом последнего доступного `v24.x.y` через `nvm version-remote`) + `cline`.
 - Node-based installer playbooks проверяют наличие `node` сначала в текущем `PATH`, а затем через `nvm use --silent default`, чтобы установленный через `nvm` Node считался уже готовым даже в non-login shell'е Ansible.
 - `claude.yml`: установка через официальный install script; сетевые шаги выполняются через `proxychains_prefix`; если нативный post-install падает, применяется fallback-установка `claude` прямой загрузкой последнего release-бинарника по официальным `latest` + `manifest.json` с проверкой `sha256`, причём release-base динамически определяется через redirect c `https://claude.ai/install.sh`, без захардкоженного bucket URL.
 - `codex-glibc.yml`: установка `bubblewrap`, сборка из исходников `openai/codex`, управление swap при нехватке памяти, установка бинарника `codex-glibc`, post-build проверка.

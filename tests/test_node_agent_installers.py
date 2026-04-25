@@ -14,7 +14,8 @@ def test_node_agent_playbooks_resolve_latest_major_version() -> None:
 
     for playbook in playbooks:
         content = playbook.read_text(encoding="utf-8")
-        assert "nvm ls-remote" in content, playbook.name
+        assert "nvm version-remote" in content, playbook.name
+        assert "nvm ls-remote" not in content, playbook.name
         assert "nvm use --silent default" in content, playbook.name
         assert 'nvm install {{ node_version }}' not in content, playbook.name
         assert 'nvm alias default {{ node_version }}' not in content, playbook.name
@@ -30,5 +31,6 @@ def test_node_agent_shell_installers_resolve_latest_major_version() -> None:
     for script in scripts:
         content = script.read_text(encoding="utf-8")
         assert "resolve_latest_node_major" in content, script.name
-        assert "nvm ls-remote" in content, script.name
+        assert "nvm version-remote" in content, script.name
+        assert "nvm ls-remote" not in content, script.name
         assert "nvm install 24" not in content, script.name

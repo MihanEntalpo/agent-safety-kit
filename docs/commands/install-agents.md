@@ -45,7 +45,7 @@ agsekit install-agents claude --debug
 
 ## Notes
 
-For Node-based agents (`codex`, `qwen`, `opencode`, `cline`), if `node` is missing, the installer resolves the latest available patch release inside the supported Node 24 major line through `nvm ls-remote` and installs that exact version.
+For Node-based agents (`codex`, `qwen`, `opencode`, `cline`), if `node` is missing, the installer resolves the latest available patch release inside the supported Node 24 major line through `nvm version-remote` and installs that exact version.
 
 For the same Node-based agents, the installer checks for an existing Node.js both in the current `PATH` and through `nvm use --silent default`, so a Node version that is already installed through `nvm` does not trigger a redundant reinstall just because Ansible is running in a non-login shell. When multiple Node-based agents are installed into the same VM in one `install-agents` run, `agsekit` remembers after the first successful installer that `nvm` and Node.js are already ready in that VM and passes flags to later installer playbooks so they skip repeated `nvm`/Node preparation.
 

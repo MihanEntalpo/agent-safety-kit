@@ -77,9 +77,9 @@
       ansible.builtin.shell: |-
         {{ proxychains_prefix }}bash -lc '
         . {{ nvm_dir }}/nvm.sh
-        resolved_version="$(nvm ls-remote | awk '"'"'/^[[:space:]]*v{{ node_version | replace(".", "\\.") }}\\./ { version=$1 } END { print version }'"'"')"
-        if [ -z "$resolved_version" ]; then
-          echo "Failed to resolve the latest Node.js {{ node_version }} release from nvm ls-remote." >&2
+        resolved_version="$(nvm version-remote {{ node_version }} | tail -n 1)"
+        if [ -z "$resolved_version" ] || [ "$resolved_version" = "N/A" ]; then
+          echo "Failed to resolve the latest Node.js {{ node_version }} release from nvm version-remote." >&2
           exit 1
         fi
         nvm install "$resolved_version"

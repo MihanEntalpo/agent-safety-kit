@@ -1,5 +1,10 @@
 # Agent-Safety-Kit versions history
 
+## 1.6.3 - Windows Ansible rework and qwen installer fix
+
+* Reworked provisioning on native Windows: `create-vm`, `install-agents`, and `up` now prepare and use a VM-local Ansible control node inside the guest instead of relying on host-side Ansible execution
+* Fixed Node version resolution for Node-based agent installers, including `qwen`: fresh installs now resolve the latest supported Node 24 release through `nvm version-remote`, which avoids fragile parsing of `nvm ls-remote`
+
 ## 1.6.2 - Faster agent run startup
 
 * Sped up `agsekit run`: after host-side mount checks, agent binary validation and agent startup are now combined into one `multipass exec` through a VM-side run wrapper
