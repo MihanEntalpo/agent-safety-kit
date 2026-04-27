@@ -224,109 +224,115 @@ def run_command(
     non_interactive: bool,
 ) -> None:
     """Запускает интерактивную сессию агента в Multipass ВМ."""
-    resolved_path = resolve_config_path(Path(config_path) if config_path else None)
-    try:
-        config = load_config(resolved_path)
-        global_config = load_global_config(config)
-        agents_config = load_agents_config(config)
-        mounts = load_mounts_config(config)
-        vms = load_vms_config(config)
-    except ConfigError as exc:
-        raise click.ClickException(str(exc))
-
-    if agent_name not in agents_config:
-        available = ", ".join(sorted(agents_config.keys()))
-        if available:
-            raise click.ClickException(
-                tr("agents.agent_not_found_with_list", name=agent_name, available=available)
-            )
-        raise click.ClickException(tr("agents.agent_not_found_empty", name=agent_name))
-
-    agent = find_agent(agents_config, agent_name)
-    proxychains_override = proxychains
-    if proxychains_override is None and agent.proxychains_defined:
-        proxychains_override = agent.proxychains if agent.proxychains is not None else ""
-
-    mount_entry: Optional[MountConfig] = None
-    mount_relative_path: Optional[Path] = None
-
-    source_to_resolve = workdir or Path.cwd()
-    use_temp_vm_workdir = False
-    if source_to_resolve.is_dir():
-        candidate_mounts = [mount for mount in mounts if vm_name is None or mount.vm_name == vm_name]
-        try:
-            mount_entry = find_mount_by_path(candidate_mounts, source_to_resolve)
-        except ConfigError as exc:
-            raise click.ClickException(str(exc))
-        if mount_entry is None:
-            if non_interactive:
-                suffix = tr("agents.mount_not_found_vm_suffix", vm_name=vm_name) if vm_name else ""
-                raise click.ClickException(tr("agents.mount_not_found", path=normalize_path(source_to_resolve), suffix=suffix))
-            if not click.confirm(tr("run.unconfigured_workdir_temp_confirm"), default=False):
-                return
-            use_temp_vm_workdir = True
-        else:
-            mount_relative_path = normalize_path(source_to_resolve).relative_to(mount_entry.source)
-    else:
-        if non_interactive:
-            raise click.ClickException(tr("run.workdir_missing", path=normalize_path(source_to_resolve)))
-        if not click.confirm(tr("run.missing_workdir_temp_confirm"), default=False):
-            return
-        use_temp_vm_workdir = True
-
-    vm_to_use = resolve_vm(agent, mount_entry, vm_name, config)
-    ensure_vm_exists(vm_to_use, vms)
-    vm_config = vms[vm_to_use]
-    effective_http_proxy = resolve_http_proxy(agent, vm_config)
-    if http_proxy is not None:
-        try:
-            effective_http_proxy = _normalize_http_proxy(http_proxy, "run.--http-proxy")
-        except ConfigError as exc:
-            raise click.ClickException(str(exc))
-    effective_proxychains = resolve_effective_proxychains(vm_config, proxychains_override)
-
-    effective_allowed_agents = vm_config.allowed_agents
-    restricted_by_mount = False
-    if mount_entry and mount_entry.allowed_agents is not None:
-        effective_allowed_agents = mount_entry.allowed_agents
-        restricted_by_mount = True
-
-    if effective_allowed_agents is not None and agent.name not in effective_allowed_agents:
-        allowed_agents = ", ".join(effective_allowed_agents) if effective_allowed_agents else "-"
-        if restricted_by_mount and mount_entry is not None:
-            raise click.ClickException(
-                tr(
-                    "run.agent_not_allowed_for_mount",
-                    agent_name=agent.name,
-                    source=mount_entry.source,
-                    allowed_agents=allowed_agents,
-                )
-            )
-        raise click.ClickException(
-            tr(
-                "run.agent_not_allowed_for_vm",
-                agent_name=agent.name,
-                vm_name=vm_to_use,
-                allowed_agents=allowed_agents,
-            )
-        )
-
-    env_vars = build_agent_env(agent)
-    if effective_http_proxy is not None and effective_http_proxy.is_direct():
-        _apply_direct_http_proxy_env(env_vars, effective_http_proxy)
-    workdir_in_vm: Optional[Path]
-    if use_temp_vm_workdir:
-        workdir_in_vm = None
-    else:
-        if mount_entry is None:
-            raise click.ClickException(tr("run.workdir_missing", path=normalize_path(source_to_resolve)))
-        relative = mount_relative_path or Path(".")
-        workdir_in_vm = mount_entry.target if relative == Path(".") else mount_entry.target / relative
-
-    agent_command = agent_command_sequence(agent, agent_args, skip_default_args=skip_default_args)
-
     with debug_scope(debug):
         with StatusSpinner(enabled=not debug, spinner="dots") as status:
+            status.update(tr("run.progress_launch_prep"))
+
+            resolved_path = resolve_config_path(Path(config_path) if config_path else None)
+            try:
+                config = load_config(resolved_path)
+                global_config = load_global_config(config)
+                agents_config = load_agents_config(config)
+                mounts = load_mounts_config(config)
+                vms = load_vms_config(config)
+            except ConfigError as exc:
+                raise click.ClickException(str(exc))
+
+            if agent_name not in agents_config:
+                available = ", ".join(sorted(agents_config.keys()))
+                if available:
+                    raise click.ClickException(
+                        tr("agents.agent_not_found_with_list", name=agent_name, available=available)
+                    )
+                raise click.ClickException(tr("agents.agent_not_found_empty", name=agent_name))
+
+            agent = find_agent(agents_config, agent_name)
+            proxychains_override = proxychains
+            if proxychains_override is None and agent.proxychains_defined:
+                proxychains_override = agent.proxychains if agent.proxychains is not None else ""
+
+            mount_entry: Optional[MountConfig] = None
+            mount_relative_path: Optional[Path] = None
+
+            source_to_resolve = workdir or Path.cwd()
+            use_temp_vm_workdir = False
+            if source_to_resolve.is_dir():
+                candidate_mounts = [mount for mount in mounts if vm_name is None or mount.vm_name == vm_name]
+                try:
+                    mount_entry = find_mount_by_path(candidate_mounts, source_to_resolve)
+                except ConfigError as exc:
+                    raise click.ClickException(str(exc))
+                if mount_entry is None:
+                    if non_interactive:
+                        suffix = tr("agents.mount_not_found_vm_suffix", vm_name=vm_name) if vm_name else ""
+                        raise click.ClickException(
+                            tr("agents.mount_not_found", path=normalize_path(source_to_resolve), suffix=suffix)
+                        )
+                    with status.suspend():
+                        if not click.confirm(tr("run.unconfigured_workdir_temp_confirm"), default=False):
+                            return
+                    use_temp_vm_workdir = True
+                else:
+                    mount_relative_path = normalize_path(source_to_resolve).relative_to(mount_entry.source)
+            else:
+                if non_interactive:
+                    raise click.ClickException(tr("run.workdir_missing", path=normalize_path(source_to_resolve)))
+                with status.suspend():
+                    if not click.confirm(tr("run.missing_workdir_temp_confirm"), default=False):
+                        return
+                use_temp_vm_workdir = True
+
+            vm_to_use = resolve_vm(agent, mount_entry, vm_name, config)
+            ensure_vm_exists(vm_to_use, vms)
+            vm_config = vms[vm_to_use]
+            effective_http_proxy = resolve_http_proxy(agent, vm_config)
+            if http_proxy is not None:
+                try:
+                    effective_http_proxy = _normalize_http_proxy(http_proxy, "run.--http-proxy")
+                except ConfigError as exc:
+                    raise click.ClickException(str(exc))
+            effective_proxychains = resolve_effective_proxychains(vm_config, proxychains_override)
+
+            effective_allowed_agents = vm_config.allowed_agents
+            restricted_by_mount = False
+            if mount_entry and mount_entry.allowed_agents is not None:
+                effective_allowed_agents = mount_entry.allowed_agents
+                restricted_by_mount = True
+
+            if effective_allowed_agents is not None and agent.name not in effective_allowed_agents:
+                allowed_agents = ", ".join(effective_allowed_agents) if effective_allowed_agents else "-"
+                if restricted_by_mount and mount_entry is not None:
+                    raise click.ClickException(
+                        tr(
+                            "run.agent_not_allowed_for_mount",
+                            agent_name=agent.name,
+                            source=mount_entry.source,
+                            allowed_agents=allowed_agents,
+                        )
+                    )
+                raise click.ClickException(
+                    tr(
+                        "run.agent_not_allowed_for_vm",
+                        agent_name=agent.name,
+                        vm_name=vm_to_use,
+                        allowed_agents=allowed_agents,
+                    )
+                )
+
+            env_vars = build_agent_env(agent)
+            if effective_http_proxy is not None and effective_http_proxy.is_direct():
+                _apply_direct_http_proxy_env(env_vars, effective_http_proxy)
+            workdir_in_vm: Optional[Path]
+            if use_temp_vm_workdir:
+                workdir_in_vm = None
+            else:
+                if mount_entry is None:
+                    raise click.ClickException(tr("run.workdir_missing", path=normalize_path(source_to_resolve)))
+                relative = mount_relative_path or Path(".")
+                workdir_in_vm = mount_entry.target if relative == Path(".") else mount_entry.target / relative
+
+            agent_command = agent_command_sequence(agent, agent_args, skip_default_args=skip_default_args)
+
             if effective_http_proxy is not None and effective_proxychains is not None:
                 raise click.ClickException(tr("run.http_proxy_proxychains_conflict"))
 
@@ -427,7 +433,6 @@ def run_command(
                     run_in_vm_kwargs["http_proxy"] = effective_http_proxy
                     run_in_vm_kwargs["http_proxy_port_pool"] = global_config.http_proxy_port_pool
 
-                status.update(tr("run.progress_launch_prep"))
                 with status.suspend():
                     exit_code = run_in_vm(
                         vm_config,

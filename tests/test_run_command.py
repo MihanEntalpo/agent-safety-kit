@@ -643,13 +643,63 @@ def test_run_command_uses_dots_status_spinner_without_debug(monkeypatch, tmp_pat
     assert result.exit_code == 0
     assert spinner_inits == [(True, "dots")]
     assert spinner_updates == [
+        "Preparing agent launch",
         "Checking mount state",
         "Checking mount visibility inside the VM",
         "Running blocking pre-run backup",
         "Starting background backups",
-        "Preparing agent launch",
     ]
     assert spinner_suspends
+
+
+def test_run_command_starts_spinner_before_mount_checks(monkeypatch, tmp_path):
+    source = tmp_path / "project"
+    config_path = tmp_path / "config.yaml"
+    _write_config(config_path, source)
+
+    events = []
+
+    class FakeStatusSpinner:
+        def __init__(self, *, enabled: bool, spinner: str):
+            events.append(("init", enabled, spinner))
+
+        def __enter__(self):
+            return self
+
+        def __exit__(self, exc_type, exc, traceback):
+            return None
+
+        def update(self, message: str):
+            events.append(("update", message))
+
+        @contextmanager
+        def suspend(self):
+            events.append(("suspend",))
+            yield
+
+    def fake_ensure_mount_registered_for_run(*args, **kwargs):
+        del args, kwargs
+        events.append(("mount_check",))
+        return True
+
+    monkeypatch.setattr(run_module, "StatusSpinner", FakeStatusSpinner)
+    monkeypatch.setattr(run_module, "_ensure_mount_registered_for_run", fake_ensure_mount_registered_for_run)
+    monkeypatch.setattr(run_module, "_has_existing_backup", lambda *_: True)
+    monkeypatch.setattr(run_module, "run_in_vm", lambda *_, **__: 0)
+    monkeypatch.setattr(run_module, "start_backup_process", lambda *_, **__: None)
+    monkeypatch.setattr(run_module, "backup_once", lambda *_, **__: None)
+
+    runner = CliRunner()
+    result = runner.invoke(
+        run_command,
+        ["--config", str(config_path), "--workdir", str(source), "qwen"],
+        env={"AGSEKIT_LANG": "en"},
+    )
+
+    assert result.exit_code == 0
+    mount_check_index = events.index(("mount_check",))
+    first_update_index = events.index(("update", "Preparing agent launch"))
+    assert first_update_index < mount_check_index
 
 
 def test_run_command_treats_run_like_options_after_agent_as_agent_args(monkeypatch, tmp_path):
