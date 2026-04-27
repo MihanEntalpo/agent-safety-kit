@@ -2,6 +2,8 @@
 
 In this section, `agsekit` commands are grouped by scenario.
 
+When any command page lists `--debug`, debug records are prefixed with `[DEBUG]` and a local timestamp.
+
 ## Preparation
 
 - [prepare](prepare.md)

@@ -4,6 +4,8 @@
 
 * Changed `agsekit run` first-backup behavior: blocking pre-run snapshots are now enabled by default through `mounts[].first_backup` (default `true`), and the new CLI overrides `--first-backup` / `--no-first-backup` can force or skip that step for one run
 * Kept initial snapshots mandatory for empty backup chains and defined the interaction with `--disable-backups`: background repeated backups can be disabled while the initial/pre-run snapshot logic still follows the effective first-backup policy
+* Changed `--debug` output to include a local timestamp on every debug record, which makes slow external steps easier to spot
+* Added a `dots` spinner to `agsekit run` in the normal interactive non-debug mode for pre-launch checks and backup preparation
 
 ## 1.6.3 - Windows Ansible rework and qwen installer fix
 

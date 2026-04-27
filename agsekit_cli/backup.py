@@ -522,6 +522,7 @@ def backup_once(
     *,
     show_progress: bool = False,
     use_lock: bool = True,
+    announce_snapshot_created: bool = True,
 ) -> None:
     source_dir = source_dir.expanduser().resolve()
     dest_dir = dest_dir.expanduser().resolve()
@@ -534,10 +535,22 @@ def backup_once(
 
     lock_ctx = BackupLock(dest_dir, sleep_seconds=_backup_lock_sleep_seconds()) if use_lock else None
     if lock_ctx is None:
-        _backup_once_impl(source_dir, dest_dir, extra_excludes=extra_excludes, show_progress=show_progress)
+        _backup_once_impl(
+            source_dir,
+            dest_dir,
+            extra_excludes=extra_excludes,
+            show_progress=show_progress,
+            announce_snapshot_created=announce_snapshot_created,
+        )
         return
     with lock_ctx:
-        _backup_once_impl(source_dir, dest_dir, extra_excludes=extra_excludes, show_progress=show_progress)
+        _backup_once_impl(
+            source_dir,
+            dest_dir,
+            extra_excludes=extra_excludes,
+            show_progress=show_progress,
+            announce_snapshot_created=announce_snapshot_created,
+        )
 
 
 def _backup_once_impl(
@@ -546,6 +559,7 @@ def _backup_once_impl(
     extra_excludes: Optional[Iterable[str]],
     *,
     show_progress: bool,
+    announce_snapshot_created: bool,
 ) -> None:
         timestamp = datetime.now().strftime("%Y%m%d-%H%M%S")
         remove_inprogress_dirs(dest_dir)
@@ -593,7 +607,8 @@ def _backup_once_impl(
                 raise SystemExit(result.returncode)
 
         inprogress_dir.rename(final_dir)
-        print(tr("backup.snapshot_created", path=final_dir))
+        if announce_snapshot_created:
+            print(tr("backup.snapshot_created", path=final_dir))
         write_inode_snapshot(final_dir)
 
 

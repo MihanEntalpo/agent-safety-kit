@@ -3,6 +3,7 @@ from __future__ import annotations
 import os
 import shlex
 from contextlib import contextmanager
+from datetime import datetime
 from typing import Iterator, Optional, Sequence, Union
 
 import click
@@ -10,6 +11,7 @@ import click
 from .i18n import tr
 
 DEBUG_ENV_VAR = "AGSEKIT_DEBUG"
+DEBUG_TIMESTAMP_FORMAT = "%Y-%m-%d %H:%M:%S.%f"
 
 
 def is_debug_enabled(explicit: Optional[bool] = None) -> bool:
@@ -49,10 +51,18 @@ def _output_text(value: object) -> str:
     return str(value)
 
 
+def _debug_timestamp() -> str:
+    return datetime.now().strftime(DEBUG_TIMESTAMP_FORMAT)[:-3]
+
+
+def _debug_echo(message_key: str, **kwargs: object) -> None:
+    click.echo(tr(message_key, timestamp=_debug_timestamp(), **kwargs))
+
+
 def debug_log_command(command: Union[Sequence[str], str], *, enabled: Optional[bool] = None) -> None:
     if not is_debug_enabled(enabled):
         return
-    click.echo(tr("debug.command", command=_format_command(command)))
+    _debug_echo("debug.command", command=_format_command(command))
 
 
 def debug_log_result(result: object, *, enabled: Optional[bool] = None) -> None:
@@ -60,12 +70,12 @@ def debug_log_result(result: object, *, enabled: Optional[bool] = None) -> None:
         return
 
     returncode = getattr(result, "returncode", None)
-    click.echo(tr("debug.exit_code", code=returncode))
+    _debug_echo("debug.exit_code", code=returncode)
 
     stdout = _output_text(getattr(result, "stdout", None)).strip()
     stderr = _output_text(getattr(result, "stderr", None)).strip()
 
     if stdout:
-        click.echo(tr("debug.stdout", output=stdout))
+        _debug_echo("debug.stdout", output=stdout)
     if stderr:
-        click.echo(tr("debug.stderr", output=stderr))
+        _debug_echo("debug.stderr", output=stderr)

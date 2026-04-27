@@ -48,6 +48,7 @@ from ..mounts import (
     normalize_path,
     vm_path_has_entries,
 )
+from ..progress import StatusSpinner
 from . import debug_option, non_interactive_option
 
 
@@ -325,113 +326,129 @@ def run_command(
     agent_command = agent_command_sequence(agent, agent_args, skip_default_args=skip_default_args)
 
     with debug_scope(debug):
-        if effective_http_proxy is not None and effective_proxychains is not None:
-            raise click.ClickException(tr("run.http_proxy_proxychains_conflict"))
+        with StatusSpinner(enabled=not debug, spinner="dots") as status:
+            if effective_http_proxy is not None and effective_proxychains is not None:
+                raise click.ClickException(tr("run.http_proxy_proxychains_conflict"))
 
-        try:
-            should_continue = _ensure_mount_registered_for_run(
-                mount_entry,
-                debug=debug,
-                non_interactive=non_interactive,
-                auto_mount=auto_mount,
-            )
-        except MultipassError as exc:
-            raise click.ClickException(str(exc))
-        if not should_continue:
-            return
-
-        warning_source_dir = normalize_path(source_to_resolve) if mount_entry is not None and source_to_resolve is not None else None
-        try:
-            should_warn_about_empty_vm_dir = _vm_directory_is_empty_while_host_has_files(
-                mount_entry,
-                warning_source_dir,
-                workdir_in_vm,
-                debug=debug,
-            )
-            if should_warn_about_empty_vm_dir and warning_source_dir is not None:
-                click.echo(tr("run.mount_empty_warning", source_dir=warning_source_dir))
-                click.confirm(tr("run.mount_empty_confirm"), default=False, abort=True)
-        except MultipassError:
-            pass
-
-        if workdir_in_vm is None:
+            status.update(tr("run.progress_mount_check"))
             try:
-                workdir_in_vm = _create_temp_vm_workdir(vm_to_use, debug=debug)
+                should_continue = _ensure_mount_registered_for_run(
+                    mount_entry,
+                    debug=debug,
+                    non_interactive=non_interactive,
+                    auto_mount=auto_mount,
+                )
             except MultipassError as exc:
                 raise click.ClickException(str(exc))
-            click.echo(tr("run.temp_workdir_created", path=workdir_in_vm))
+            if not should_continue:
+                return
 
-        click.echo(
-            tr("run.starting_agent", agent=agent.name, vm_name=vm_to_use, workdir=workdir_in_vm)
-        )
-
-        backup_process = None
-        if mount_entry is not None:
-            skip_first_repeated_backup = False
-            existing_backup_exists = _has_existing_backup(mount_entry.backup)
-            effective_first_backup = (
-                mount_entry.first_backup if first_backup_override is None else first_backup_override
-            )
-            needs_blocking_backup = (not existing_backup_exists) or effective_first_backup
-            if needs_blocking_backup:
-                if existing_backup_exists:
-                    click.echo(tr("run.backup_before_start", mount_name=mount_entry.source.name))
-                else:
-                    click.echo(tr("run.first_backup", mount_name=mount_entry.source.name))
-                backup_once(mount_entry.source, mount_entry.backup, show_progress=True)
-                removed = clean_backups(
-                    mount_entry.backup,
-                    mount_entry.max_backups,
-                    mount_entry.backup_clean_method,
-                    interval_minutes=mount_entry.interval_minutes,
+            warning_source_dir = normalize_path(source_to_resolve) if mount_entry is not None and source_to_resolve is not None else None
+            try:
+                status.update(tr("run.progress_mount_visibility"))
+                should_warn_about_empty_vm_dir = _vm_directory_is_empty_while_host_has_files(
+                    mount_entry,
+                    warning_source_dir,
+                    workdir_in_vm,
+                    debug=debug,
                 )
-                for path in removed:
-                    click.echo(tr("backup_clean.removed_snapshot", path=path))
-                skip_first_repeated_backup = True
+                if should_warn_about_empty_vm_dir and warning_source_dir is not None:
+                    with status.suspend():
+                        click.echo(tr("run.mount_empty_warning", source_dir=warning_source_dir))
+                        click.confirm(tr("run.mount_empty_confirm"), default=False, abort=True)
+            except MultipassError:
+                pass
 
-            if not disable_backups:
-                click.echo(
-                    tr(
-                        "run.starting_background_backups",
-                        source=mount_entry.source,
-                        destination=mount_entry.backup,
-                    )
-                )
-                backup_process = start_backup_process(
-                    mount_entry, _cli_entry_path(), skip_first=skip_first_repeated_backup, debug=debug
-                )
-
-        exit_code = 0
-
-        try:
-            run_in_vm_kwargs = {
-                "proxychains": None if effective_http_proxy is not None else proxychains_override,
-                "debug": debug,
-            }
-            if effective_http_proxy is not None and not effective_http_proxy.is_direct():
-                run_in_vm_kwargs["http_proxy"] = effective_http_proxy
-                run_in_vm_kwargs["http_proxy_port_pool"] = global_config.http_proxy_port_pool
-
-            exit_code = run_in_vm(
-                vm_config,
-                workdir_in_vm,
-                agent_command,
-                env_vars,
-                **run_in_vm_kwargs,
-            )
-        except (ConfigError, MultipassError) as exc:
-            raise click.ClickException(str(exc))
-        finally:
-            if backup_process:
-                backup_process.terminate()
+            if workdir_in_vm is None:
+                status.update(tr("run.progress_temp_workdir"))
                 try:
-                    backup_process.wait(timeout=5)
-                except subprocess.TimeoutExpired:
-                    backup_process.kill()
+                    workdir_in_vm = _create_temp_vm_workdir(vm_to_use, debug=debug)
+                except MultipassError as exc:
+                    raise click.ClickException(str(exc))
+                with status.suspend():
+                    click.echo(tr("run.temp_workdir_created", path=workdir_in_vm))
 
-                log_file = getattr(backup_process, "log_file", None)
-                if log_file:
-                    log_file.close()
+            with status.suspend():
+                click.echo(
+                    tr("run.starting_agent", agent=agent.name, vm_name=vm_to_use, workdir=workdir_in_vm)
+                )
+
+            backup_process = None
+            if mount_entry is not None:
+                skip_first_repeated_backup = False
+                existing_backup_exists = _has_existing_backup(mount_entry.backup)
+                effective_first_backup = (
+                    mount_entry.first_backup if first_backup_override is None else first_backup_override
+                )
+                needs_blocking_backup = (not existing_backup_exists) or effective_first_backup
+                if needs_blocking_backup:
+                    status.update(tr("run.progress_blocking_backup"))
+                    with status.suspend():
+                        if existing_backup_exists:
+                            click.echo(tr("run.backup_before_start", mount_name=mount_entry.source.name))
+                        else:
+                            click.echo(tr("run.first_backup", mount_name=mount_entry.source.name))
+                        backup_once(
+                            mount_entry.source,
+                            mount_entry.backup,
+                            show_progress=True,
+                            announce_snapshot_created=False,
+                        )
+                    removed = clean_backups(
+                        mount_entry.backup,
+                        mount_entry.max_backups,
+                        mount_entry.backup_clean_method,
+                        interval_minutes=mount_entry.interval_minutes,
+                    )
+                    skip_first_repeated_backup = True
+
+                if not disable_backups:
+                    status.update(tr("run.progress_background_backups"))
+                    with status.suspend():
+                        click.echo(
+                            tr(
+                                "run.starting_background_backups",
+                                source=mount_entry.source,
+                                destination=mount_entry.backup,
+                            )
+                        )
+                    backup_process = start_backup_process(
+                        mount_entry, _cli_entry_path(), skip_first=skip_first_repeated_backup, debug=debug
+                    )
+
+            exit_code = 0
+
+            try:
+                run_in_vm_kwargs = {
+                    "proxychains": None if effective_http_proxy is not None else proxychains_override,
+                    "debug": debug,
+                }
+                if effective_http_proxy is not None and not effective_http_proxy.is_direct():
+                    run_in_vm_kwargs["http_proxy"] = effective_http_proxy
+                    run_in_vm_kwargs["http_proxy_port_pool"] = global_config.http_proxy_port_pool
+
+                status.update(tr("run.progress_launch_prep"))
+                with status.suspend():
+                    exit_code = run_in_vm(
+                        vm_config,
+                        workdir_in_vm,
+                        agent_command,
+                        env_vars,
+                        **run_in_vm_kwargs,
+                    )
+            except (ConfigError, MultipassError) as exc:
+                raise click.ClickException(str(exc))
+            finally:
+                if backup_process:
+                    backup_process.terminate()
+                    try:
+                        backup_process.wait(timeout=5)
+                    except subprocess.TimeoutExpired:
+                        backup_process.kill()
+
+                    log_file = getattr(backup_process, "log_file", None)
+                    if log_file:
+                        log_file.close()
 
     if exit_code != 0:
         click.echo(tr("run.error", cmd=agent_command))

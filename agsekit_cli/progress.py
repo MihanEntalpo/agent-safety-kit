@@ -12,6 +12,7 @@ from rich.progress import (
     TextColumn,
     TimeElapsedColumn,
 )
+from rich.status import Status
 
 
 class ProgressManager:
@@ -88,6 +89,55 @@ class ProgressManager:
             yield
         finally:
             self._progress.start()
+
+
+class StatusSpinner:
+    def __init__(self, *, enabled: bool = True, spinner: str = "dots") -> None:
+        self.console = Console()
+        self.enabled = enabled and bool(getattr(self.console, "is_terminal", False))
+        self.spinner = spinner
+        self._message = ""
+        self._status: Optional[Status] = None
+
+    def __bool__(self) -> bool:
+        return self.enabled
+
+    def __enter__(self) -> "StatusSpinner":
+        return self
+
+    def __exit__(self, exc_type, exc, traceback) -> None:
+        self.stop()
+
+    def update(self, message: str) -> None:
+        self._message = message
+        if not self.enabled:
+            return
+        if self._status is None:
+            self._status = self.console.status(message, spinner=self.spinner)
+            self._status.start()
+            return
+        self._status.update(message)
+
+    def stop(self) -> None:
+        if self._status is not None:
+            self._status.stop()
+            self._status = None
+
+    @contextmanager
+    def suspend(self) -> Iterable[None]:
+        if self._status is None:
+            yield
+            return
+
+        message = self._message
+        self._status.stop()
+        self._status = None
+        try:
+            yield
+        finally:
+            if self.enabled and message:
+                self._status = self.console.status(message, spinner=self.spinner)
+                self._status.start()
 
 
 class SingleTaskProgressProxy:

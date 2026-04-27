@@ -1,4 +1,5 @@
 import json
+from contextlib import contextmanager
 from pathlib import Path
 import sys
 from typing import Dict, Optional
@@ -159,8 +160,14 @@ def test_run_command_starts_backup_and_agent(monkeypatch, tmp_path):
 
     one_off_calls = []
 
-    def fake_backup_once(src, dst, show_progress=False, extra_excludes=None):
-        one_off_calls.append((src, dst, show_progress))
+    def fake_backup_once(
+        src,
+        dst,
+        show_progress=False,
+        extra_excludes=None,
+        announce_snapshot_created=True,
+    ):
+        one_off_calls.append((src, dst, show_progress, announce_snapshot_created))
 
     monkeypatch.setattr(run_module, "_has_existing_backup", lambda *_: False)
     monkeypatch.setattr(run_module, "run_in_vm", fake_run_in_vm)
@@ -176,7 +183,7 @@ def test_run_command_starts_backup_and_agent(monkeypatch, tmp_path):
     assert calls["command"] == ["qwen", "--flag"]
     assert calls["env"]["TOKEN"] == "abc"
     assert "ALL_PROXY" not in calls["env"]
-    assert one_off_calls == [(source.resolve(), (source.parent / "backups").resolve(), True)]
+    assert one_off_calls == [(source.resolve(), (source.parent / "backups").resolve(), True, False)]
     assert backups and backups[0][0] == source.resolve()
     assert backups[0][3] is True
     assert calls["proxychains"] is None
@@ -333,23 +340,35 @@ def test_run_command_first_backup_forces_blocking_backup_even_if_snapshots_exist
     _write_config(config_path, source)
 
     run_calls: list[str] = []
-    blocking_backups: list[tuple[Path, Path, bool]] = []
+    blocking_backups: list[tuple[Path, Path, bool, bool]] = []
     repeated_backups: list[tuple[Path, Path, bool]] = []
+    cleaned_backups: list[tuple[Path, int, str, int]] = []
 
     def fake_run_in_vm(vm_config, workdir, command, env_vars, proxychains=None, debug=False):
         run_calls.append(vm_config.name)
         return 0
 
-    def fake_backup_once(src, dst, show_progress=False, extra_excludes=None):
-        blocking_backups.append((src, dst, show_progress))
+    def fake_backup_once(
+        src,
+        dst,
+        show_progress=False,
+        extra_excludes=None,
+        announce_snapshot_created=True,
+    ):
+        blocking_backups.append((src, dst, show_progress, announce_snapshot_created))
 
     def fake_start_backup_process(mount, cli_path, skip_first=False, debug=False):
         repeated_backups.append((mount.source, mount.backup, skip_first))
         return None
 
+    def fake_clean_backups(path, max_backups, clean_method, interval_minutes):
+        cleaned_backups.append((path, max_backups, clean_method, interval_minutes))
+        return [path / "20260101-000000"]
+
     monkeypatch.setattr(run_module, "_has_existing_backup", lambda *_: True)
     monkeypatch.setattr(run_module, "run_in_vm", fake_run_in_vm)
     monkeypatch.setattr(run_module, "backup_once", fake_backup_once)
+    monkeypatch.setattr(run_module, "clean_backups", fake_clean_backups)
     monkeypatch.setattr(run_module, "start_backup_process", fake_start_backup_process)
 
     runner = CliRunner()
@@ -360,8 +379,10 @@ def test_run_command_first_backup_forces_blocking_backup_even_if_snapshots_exist
 
     assert result.exit_code == 0
     assert run_calls == ["agent"]
-    assert blocking_backups == [(source.resolve(), (source.parent / "backups").resolve(), True)]
+    assert blocking_backups == [(source.resolve(), (source.parent / "backups").resolve(), True, False)]
+    assert cleaned_backups == [((source.parent / "backups").resolve(), 100, "thin", 3)]
     assert repeated_backups == [(source.resolve(), (source.parent / "backups").resolve(), True)]
+    assert "20260101-000000" not in result.output
 
 
 def test_run_command_no_first_backup_skips_blocking_backup_when_snapshots_exist(monkeypatch, tmp_path):
@@ -370,15 +391,21 @@ def test_run_command_no_first_backup_skips_blocking_backup_when_snapshots_exist(
     _write_config(config_path, source)
 
     run_calls: list[str] = []
-    blocking_backups: list[tuple[Path, Path, bool]] = []
+    blocking_backups: list[tuple[Path, Path, bool, bool]] = []
     repeated_backups: list[tuple[Path, Path, bool]] = []
 
     def fake_run_in_vm(vm_config, workdir, command, env_vars, proxychains=None, debug=False):
         run_calls.append(vm_config.name)
         return 0
 
-    def fake_backup_once(src, dst, show_progress=False, extra_excludes=None):
-        blocking_backups.append((src, dst, show_progress))
+    def fake_backup_once(
+        src,
+        dst,
+        show_progress=False,
+        extra_excludes=None,
+        announce_snapshot_created=True,
+    ):
+        blocking_backups.append((src, dst, show_progress, announce_snapshot_created))
 
     def fake_start_backup_process(mount, cli_path, skip_first=False, debug=False):
         repeated_backups.append((mount.source, mount.backup, skip_first))
@@ -407,15 +434,21 @@ def test_run_command_mount_first_backup_false_skips_blocking_backup_without_over
     _write_config(config_path, source, mount_first_backup=False)
 
     run_calls: list[str] = []
-    blocking_backups: list[tuple[Path, Path, bool]] = []
+    blocking_backups: list[tuple[Path, Path, bool, bool]] = []
     repeated_backups: list[tuple[Path, Path, bool]] = []
 
     def fake_run_in_vm(vm_config, workdir, command, env_vars, proxychains=None, debug=False):
         run_calls.append(vm_config.name)
         return 0
 
-    def fake_backup_once(src, dst, show_progress=False, extra_excludes=None):
-        blocking_backups.append((src, dst, show_progress))
+    def fake_backup_once(
+        src,
+        dst,
+        show_progress=False,
+        extra_excludes=None,
+        announce_snapshot_created=True,
+    ):
+        blocking_backups.append((src, dst, show_progress, announce_snapshot_created))
 
     def fake_start_backup_process(mount, cli_path, skip_first=False, debug=False):
         repeated_backups.append((mount.source, mount.backup, skip_first))
@@ -444,15 +477,21 @@ def test_run_command_mount_first_backup_false_can_be_overridden_by_first_backup(
     _write_config(config_path, source, mount_first_backup=False)
 
     run_calls: list[str] = []
-    blocking_backups: list[tuple[Path, Path, bool]] = []
+    blocking_backups: list[tuple[Path, Path, bool, bool]] = []
     repeated_backups: list[tuple[Path, Path, bool]] = []
 
     def fake_run_in_vm(vm_config, workdir, command, env_vars, proxychains=None, debug=False):
         run_calls.append(vm_config.name)
         return 0
 
-    def fake_backup_once(src, dst, show_progress=False, extra_excludes=None):
-        blocking_backups.append((src, dst, show_progress))
+    def fake_backup_once(
+        src,
+        dst,
+        show_progress=False,
+        extra_excludes=None,
+        announce_snapshot_created=True,
+    ):
+        blocking_backups.append((src, dst, show_progress, announce_snapshot_created))
 
     def fake_start_backup_process(mount, cli_path, skip_first=False, debug=False):
         repeated_backups.append((mount.source, mount.backup, skip_first))
@@ -471,7 +510,7 @@ def test_run_command_mount_first_backup_false_can_be_overridden_by_first_backup(
 
     assert result.exit_code == 0
     assert run_calls == ["agent"]
-    assert blocking_backups == [(source.resolve(), (source.parent / "backups").resolve(), True)]
+    assert blocking_backups == [(source.resolve(), (source.parent / "backups").resolve(), True, False)]
     assert repeated_backups == [(source.resolve(), (source.parent / "backups").resolve(), True)]
 
 
@@ -481,15 +520,21 @@ def test_run_command_disable_backups_still_keeps_default_blocking_first_backup(m
     _write_config(config_path, source)
 
     run_calls: list[str] = []
-    blocking_backups: list[tuple[Path, Path, bool]] = []
+    blocking_backups: list[tuple[Path, Path, bool, bool]] = []
     repeated_backups: list[str] = []
 
     def fake_run_in_vm(vm_config, workdir, command, env_vars, proxychains=None, debug=False):
         run_calls.append(vm_config.name)
         return 0
 
-    def fake_backup_once(src, dst, show_progress=False, extra_excludes=None):
-        blocking_backups.append((src, dst, show_progress))
+    def fake_backup_once(
+        src,
+        dst,
+        show_progress=False,
+        extra_excludes=None,
+        announce_snapshot_created=True,
+    ):
+        blocking_backups.append((src, dst, show_progress, announce_snapshot_created))
 
     def fake_start_backup_process(mount, cli_path, skip_first=False, debug=False):
         repeated_backups.append("started")
@@ -508,7 +553,7 @@ def test_run_command_disable_backups_still_keeps_default_blocking_first_backup(m
 
     assert result.exit_code == 0
     assert run_calls == ["agent"]
-    assert blocking_backups == [(source.resolve(), (source.parent / "backups").resolve(), True)]
+    assert blocking_backups == [(source.resolve(), (source.parent / "backups").resolve(), True, False)]
     assert not repeated_backups
 
 
@@ -550,6 +595,61 @@ def test_run_command_prints_debug_commands(monkeypatch, tmp_path):
     )
 
     assert result.exit_code == 0
+
+
+def test_run_command_uses_dots_status_spinner_without_debug(monkeypatch, tmp_path):
+    source = tmp_path / "project"
+    config_path = tmp_path / "config.yaml"
+    _write_config(config_path, source)
+
+    spinner_inits = []
+    spinner_updates = []
+    spinner_suspends = []
+
+    class FakeStatusSpinner:
+        def __init__(self, *, enabled: bool, spinner: str):
+            spinner_inits.append((enabled, spinner))
+
+        def __enter__(self):
+            return self
+
+        def __exit__(self, exc_type, exc, traceback):
+            return None
+
+        def update(self, message: str):
+            spinner_updates.append(message)
+
+        @contextmanager
+        def suspend(self):
+            spinner_suspends.append("suspend")
+            yield
+
+    def fake_run_in_vm(vm_config, workdir, command, env_vars, proxychains=None, debug=False):
+        return 0
+
+    monkeypatch.setattr(run_module, "StatusSpinner", FakeStatusSpinner)
+    monkeypatch.setattr(run_module, "_has_existing_backup", lambda *_: True)
+    monkeypatch.setattr(run_module, "run_in_vm", fake_run_in_vm)
+    monkeypatch.setattr(run_module, "start_backup_process", lambda *_, **__: None)
+    monkeypatch.setattr(run_module, "backup_once", lambda *_, **__: None)
+
+    runner = CliRunner()
+    result = runner.invoke(
+        run_command,
+        ["--config", str(config_path), "--workdir", str(source), "qwen"],
+        env={"AGSEKIT_LANG": "en"},
+    )
+
+    assert result.exit_code == 0
+    assert spinner_inits == [(True, "dots")]
+    assert spinner_updates == [
+        "Checking mount state",
+        "Checking mount visibility inside the VM",
+        "Running blocking pre-run backup",
+        "Starting background backups",
+        "Preparing agent launch",
+    ]
+    assert spinner_suspends
 
 
 def test_run_command_treats_run_like_options_after_agent_as_agent_args(monkeypatch, tmp_path):

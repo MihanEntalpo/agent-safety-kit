@@ -1,5 +1,6 @@
 import sys
 import json
+import re
 from pathlib import Path
 from typing import Optional
 
@@ -174,9 +175,15 @@ def test_stop_vm_debug_output(monkeypatch, tmp_path):
     )
 
     assert result.exit_code == 0
-    assert "[DEBUG] command: multipass exec agent -- sudo poweroff" in result.output
-    assert "[DEBUG] command: multipass list --format json" in result.output
-    assert "[DEBUG] exit code: 0" in result.output
+    assert re.search(
+        r"\[DEBUG\] \d{4}-\d{2}-\d{2} \d{2}:\d{2}:\d{2}\.\d{3} command: multipass exec agent -- sudo poweroff",
+        result.output,
+    )
+    assert re.search(
+        r"\[DEBUG\] \d{4}-\d{2}-\d{2} \d{2}:\d{2}:\d{2}\.\d{3} command: multipass list --format json",
+        result.output,
+    )
+    assert re.search(r"\[DEBUG\] \d{4}-\d{2}-\d{2} \d{2}:\d{2}:\d{2}\.\d{3} exit code: 0", result.output)
 
 
 def test_stop_uses_force_if_vm_stays_running(monkeypatch, tmp_path):

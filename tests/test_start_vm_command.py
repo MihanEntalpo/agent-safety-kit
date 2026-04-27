@@ -1,3 +1,4 @@
+import re
 import sys
 from pathlib import Path
 
@@ -131,5 +132,8 @@ def test_start_vm_debug_output(monkeypatch, tmp_path):
     )
 
     assert result.exit_code == 0
-    assert "[DEBUG] command: multipass start agent" in result.output
-    assert "[DEBUG] exit code: 0" in result.output
+    assert re.search(
+        r"\[DEBUG\] \d{4}-\d{2}-\d{2} \d{2}:\d{2}:\d{2}\.\d{3} command: multipass start agent",
+        result.output,
+    )
+    assert re.search(r"\[DEBUG\] \d{4}-\d{2}-\d{2} \d{2}:\d{2}:\d{2}\.\d{3} exit code: 0", result.output)
