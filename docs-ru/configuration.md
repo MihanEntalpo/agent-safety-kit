@@ -94,7 +94,9 @@ mounts:
     # Каким методом очищать старые бэкапы: thin или tail. 
     # "thin" - лорагифмическое прореживание (давних бэкапов меньше, свежих больше), хранение на большую глубину
     # 'tail' - просто удалять с конца
-    backup_clean_method: thin  
+    backup_clean_method: thin
+    # Делать ли блокирующий pre-run snapshot перед стартом агента, если снапшоты уже существуют
+    first_backup: true
 
 # Конфигурация агентов
 agents:
@@ -256,6 +258,12 @@ agents:
   * `thin` логарифмически прореживает историю и сохраняет большую глубину
   * `tail` просто удаляет самые старые снапшоты
   * По умолчанию `thin`
+* `mounts[].first_backup`
+  * Делать ли для этого mount блокирующий pre-run snapshot в `agsekit run`, если backup-цепочка уже существует
+  * См. [run](commands/run.md) и [Бэкапы](backups.md)
+  * Для одного запуска можно переопределить через `agsekit run --first-backup <agent>` или `agsekit run --no-first-backup <agent>`
+  * Если backup-цепочки ещё нет, initial snapshot всё равно создаётся независимо от этого параметра
+  * По умолчанию `true`
 * `agents`
   * Набор профилей агентов
   * Имя профиля используется в команде `agsekit run <agent_name>`

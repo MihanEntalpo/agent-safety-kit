@@ -1,5 +1,10 @@
 # Agent-Safety-Kit versions history
 
+## 1.6.4 - Blocking pre-run backup option
+
+* Changed `agsekit run` first-backup behavior: blocking pre-run snapshots are now enabled by default through `mounts[].first_backup` (default `true`), and the new CLI overrides `--first-backup` / `--no-first-backup` can force or skip that step for one run
+* Kept initial snapshots mandatory for empty backup chains and defined the interaction with `--disable-backups`: background repeated backups can be disabled while the initial/pre-run snapshot logic still follows the effective first-backup policy
+
 ## 1.6.3 - Windows Ansible rework and qwen installer fix
 
 * Reworked provisioning on native Windows: `create-vm`, `install-agents`, and `up` now prepare and use a VM-local Ansible control node inside the guest instead of relying on host-side Ansible execution

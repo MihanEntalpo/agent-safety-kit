@@ -95,6 +95,8 @@ mounts:
     # "thin" - logarithmic thinning (fewer old backups, more fresh ones), storage for greater depth
     # 'tail' - simply delete from the end
     backup_clean_method: thin
+    # Whether to make a blocking pre-run snapshot before the agent starts when snapshots already exist
+    first_backup: true
 
 # Agent configuration
 agents:
@@ -256,6 +258,12 @@ agents:
   * `thin` logarithmically thins history and preserves greater depth
   * `tail` simply deletes the oldest snapshots
   * Default: `thin`
+* `mounts[].first_backup`
+  * Whether `agsekit run` should make a blocking pre-run snapshot for this mount when snapshots already exist
+  * See [run](commands/run.md) and [Backups](backups.md)
+  * Can be overridden for one launch by `agsekit run --first-backup <agent>` or `agsekit run --no-first-backup <agent>`
+  * If the backup chain does not exist yet, the initial snapshot is still created regardless of this setting
+  * Default: `true`
 * `agents`
   * Set of agent profiles
   * The profile name is used in the `agsekit run <agent_name>` command

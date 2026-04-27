@@ -25,6 +25,7 @@ def test_load_mounts_config_applies_defaults(tmp_path):
     assert entry.target == Path("/home/ubuntu") / source.name
     assert entry.backup == source.parent / f"backups-{source.name}"
     assert entry.interval_minutes == 5
+    assert entry.first_backup is True
     assert entry.vm_name == "agent"
 
 
@@ -85,6 +86,26 @@ def test_mount_accepts_allowed_agents_as_comma_separated_string():
 
     mounts = load_mounts_config(config)
     assert mounts[0].allowed_agents == ["qwen", "codex"]
+
+
+def test_mount_accepts_first_backup_override():
+    config = {
+        "vms": {"agent": {"cpu": 1, "ram": "1G", "disk": "5G"}},
+        "mounts": [{"source": "/data", "first_backup": False}],
+    }
+
+    mounts = load_mounts_config(config)
+    assert mounts[0].first_backup is False
+
+
+def test_mount_rejects_non_boolean_first_backup():
+    config = {
+        "vms": {"agent": {"cpu": 1, "ram": "1G", "disk": "5G"}},
+        "mounts": [{"source": "/data", "first_backup": "no"}],
+    }
+
+    with pytest.raises(ConfigError):
+        load_mounts_config(config)
 
 
 def test_mount_rejects_non_list_or_string_allowed_agents():

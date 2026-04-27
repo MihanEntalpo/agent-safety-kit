@@ -26,7 +26,7 @@ agsekit run <agent_name>
 Со всеми аргументами:
 
 ```bash
-agsekit run [--vm <vm_name>] [--config <path>] [--workdir <path>] [--proxychains <value>] [--http-proxy <value>] [--disable-backups] [--auto-mount] [--skip-default-args] [--debug] <agent_name> [<agent_args...>]
+agsekit run [--vm <vm_name>] [--config <path>] [--workdir <path>] [--proxychains <value>] [--http-proxy <value>] [--disable-backups] [--first-backup|--no-first-backup] [--auto-mount] [--skip-default-args] [--debug] <agent_name> [<agent_args...>]
 ```
 
 ## Важное правило разбора аргументов
@@ -61,7 +61,11 @@ agsekit run [--vm <vm_name>] [--config <path>] [--workdir <path>] [--proxychains
 `run` также умеет:
 
 - автоматически монтировать исходную директорию через `--auto-mount`;
+- использовать настройку mount `mounts[].first_backup`, чтобы решать, нужен ли блокирующий pre-run бэкап, когда снапшоты уже существуют;
+- принудительно включать этот блокирующий pre-run бэкап через `--first-backup`;
+- принудительно отключать его через `--no-first-backup`;
 - НЕ запускать repeated backups, если передан `--disable-backups`;
+- даже при `--disable-backups` всё равно делать initial/pre-run backup, если это требуется правилами; `--disable-backups` отключает только фоновые repeated backups;
 - применять agent default arguments, если не передан `--skip-default-args`;
 - оборачивать runtime через `proxychains` или `http_proxy`;
 - переопределять `proxychains` через `--proxychains <scheme://host:port>` или отключать его через `--proxychains ""`;

@@ -35,6 +35,7 @@ mounts:
     interval: 5                           # backup interval in minutes; default: 5
     max_backups: 100                      # number of snapshots to keep; default: 100
     backup_clean_method: thin             # cleanup method (tail or thin); default: thin
+    first_backup: true                    # make a blocking pre-run snapshot before agent start when snapshots already exist; default: true
     vm: agent-ubuntu # VM name; if omitted, the first VM from the config is used
 agents:
   qwen: # agent name; add as many as you need

@@ -26,7 +26,7 @@ agsekit run <agent_name>
 With all arguments:
 
 ```bash
-agsekit run [--vm <vm_name>] [--config <path>] [--workdir <path>] [--proxychains <value>] [--http-proxy <value>] [--disable-backups] [--auto-mount] [--skip-default-args] [--debug] <agent_name> [<agent_args...>]
+agsekit run [--vm <vm_name>] [--config <path>] [--workdir <path>] [--proxychains <value>] [--http-proxy <value>] [--disable-backups] [--first-backup|--no-first-backup] [--auto-mount] [--skip-default-args] [--debug] <agent_name> [<agent_args...>]
 ```
 
 ## Important Argument Parsing Rule
@@ -61,7 +61,11 @@ After mount checks, `run` starts the agent through one bundled VM-side wrapper s
 `run` can also:
 
 - automatically mount the source directory through `--auto-mount`;
+- use the mount setting `mounts[].first_backup` to decide whether a blocking pre-run backup should be made when snapshots already exist;
+- force that blocking pre-run backup through `--first-backup`;
+- skip that blocking pre-run backup through `--no-first-backup`;
 - NOT start repeated backups if `--disable-backups` is passed;
+- still make the initial/pre-run backup when rules require it even if `--disable-backups` is passed; `--disable-backups` only prevents background repeated backups;
 - apply agent default arguments if `--skip-default-args` is not passed;
 - wrap runtime through `proxychains` or `http_proxy`;
 - override `proxychains` through `--proxychains <scheme://host:port>` or disable it through `--proxychains ""`;

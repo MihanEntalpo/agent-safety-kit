@@ -34,13 +34,20 @@ More details about commands here: [Backup commands](commands/backups.md)
 
 If backups are enabled for the selected mount and `--disable-backups` was not passed:
 
-1. `agsekit` makes sure an initial snapshot exists;
+1. `agsekit` makes sure an initial snapshot exists, and by default also makes a blocking pre-run snapshot when snapshots already exist;
 2. the agent starts inside the VM;
 3. repeated backups keep running in the background for the whole session.
 
-If `agsekit run` is started either from a missing project folder or from an existing folder outside configured mounts, and the user agrees to a temporary workdir inside the VM, no mount is selected and backups are not started for that session.
+The effective pre-run backup policy is resolved like this:
 
-If `--disable-backups` is passed, the initial snapshot, background `backup-repeated`, and automatic cleanup inside `run` are not started.
+1. `--first-backup` forces the blocking pre-run snapshot.
+2. `--no-first-backup` disables it when snapshots already exist.
+3. If no CLI override was passed, `mounts[].first_backup` is used.
+4. If the backup chain does not exist yet, the initial snapshot is still created regardless.
+
+If `--disable-backups` is passed, background repeated backups are not started, but the initial/pre-run snapshot can still run according to the rules above.
+
+If `agsekit run` is started either from a missing project folder or from an existing folder outside configured mounts, and the user agrees to a temporary workdir inside the VM, no mount is selected and backups are not started for that session.
 
 ## Cleanup Policies
 

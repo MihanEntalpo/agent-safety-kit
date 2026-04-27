@@ -17,7 +17,7 @@
 
 ## Команды
 
-Команды с аргументом `--config` ищут mount в YAML-конфиге и берут оттуда часть параметров: `mounts[].source`, `mounts[].backup`, `mounts[].interval`, `mounts[].max_backups`, `mounts[].backup_clean_method`.
+Команды с аргументом `--config` ищут mount в YAML-конфиге и берут оттуда часть параметров: `mounts[].source`, `mounts[].backup`, `mounts[].interval`, `mounts[].max_backups`, `mounts[].backup_clean_method`, `mounts[].first_backup`.
 
 ## `backup-once`
 
@@ -97,7 +97,7 @@ agsekit backup-repeated-all [--config <path>]
 
 - `--config <path>` - путь к YAML-конфигу. Если не указан, используется `CONFIG_PATH` или `~/.config/agsekit/config.yaml`.
 
-Для каждой записи `mounts[]` используются её параметры `source`, `backup`, `interval`, `max_backups` и `backup_clean_method`.
+Для каждой записи `mounts[]` используются её параметры `source`, `backup`, `interval`, `max_backups`, `backup_clean_method` и `first_backup`.
 
 Cleanup запускается после каждого backup-цикла в каждом запущенном loop.
 
@@ -122,13 +122,17 @@ agsekit backup-clean <mount_source> [<keep>] [<method>] [--config <path>]
 
 Если `agsekit run` запущен из mount-папки и не передан аргумент `--disable-backups`:
 
-1. Если в `mounts[].backup` ещё нет снапшотов, `run` создаёт initial snapshot внутренним вызовом backup-логики, пока этот backup делается - пользователь вынужден подождать. 
-2. После initial snapshot сразу выполняется cleanup по `mounts[].max_backups` и `mounts[].backup_clean_method`.
-3. Затем `run` запускает фоновую CLI-команду `backup-repeated`.
-4. В `backup-repeated` передаются параметры выбранного mount из конфига: `mounts[].source`, `mounts[].backup`, `mounts[].interval`, `mounts[].max_backups`, `mounts[].backup_clean_method`.
-5. Если initial snapshot уже был создан, фоновый `backup-repeated` стартует с `--skip-first`.
+1. `run` определяет effective first-backup policy в таком порядке: CLI `--first-backup`, CLI `--no-first-backup`, затем `mounts[].first_backup` из конфига.
+2. Если в `mounts[].backup` ещё нет снапшотов, `run` создаёт initial snapshot внутренним вызовом backup-логики, пока этот backup делается - пользователь вынужден подождать.
+3. Если снапшоты уже есть и effective first-backup policy включена, `run` также делает один блокирующий pre-run snapshot до старта агента.
+4. После любого блокирующего snapshot сразу выполняется cleanup по `mounts[].max_backups` и `mounts[].backup_clean_method`.
+5. Затем `run` запускает фоновую CLI-команду `backup-repeated`.
+6. В `backup-repeated` передаются параметры выбранного mount из конфига: `mounts[].source`, `mounts[].backup`, `mounts[].interval`, `mounts[].max_backups`, `mounts[].backup_clean_method`.
+7. Если текущий `run` уже сделал блокирующий snapshot, фоновый `backup-repeated` стартует с `--skip-first`.
 
-Если `run` работает во временной непремонтированной папке или передан `--disable-backups`, backup-команды не запускаются.
+Если `run` работает во временной непремонтированной папке, backup-команды не запускаются.
+
+Если передан `--disable-backups`, фоновый `backup-repeated` не запускается. Initial/pre-run snapshot при этом всё равно подчиняется правилам выше.
 
 ## См. также
 

@@ -182,6 +182,8 @@ def _apply_direct_http_proxy_env(env_vars: dict, http_proxy: HttpProxyConfig) ->
     help=tr("config.option_path"),
 )
 @click.option("--disable-backups", is_flag=True, help=tr("run.option_disable_backups"))
+@click.option("--first-backup", "first_backup_override", flag_value=True, default=None, help=tr("run.option_first_backup"))
+@click.option("--no-first-backup", "first_backup_override", flag_value=False, help=tr("run.option_no_first_backup"))
 @click.option("--auto-mount", is_flag=True, help=tr("run.option_auto_mount"))
 @click.option(
     "--workdir",
@@ -209,6 +211,7 @@ def run_command(
     vm_name: Optional[str],
     config_path: Optional[str],
     disable_backups: bool,
+    first_backup_override: Optional[bool],
     auto_mount: bool,
     workdir: Optional[Path],
     debug: bool,
@@ -363,10 +366,18 @@ def run_command(
         )
 
         backup_process = None
-        if not disable_backups and mount_entry is not None:
+        if mount_entry is not None:
             skip_first_repeated_backup = False
-            if not _has_existing_backup(mount_entry.backup):
-                click.echo(tr("run.first_backup", mount_name=mount_entry.source.name))
+            existing_backup_exists = _has_existing_backup(mount_entry.backup)
+            effective_first_backup = (
+                mount_entry.first_backup if first_backup_override is None else first_backup_override
+            )
+            needs_blocking_backup = (not existing_backup_exists) or effective_first_backup
+            if needs_blocking_backup:
+                if existing_backup_exists:
+                    click.echo(tr("run.backup_before_start", mount_name=mount_entry.source.name))
+                else:
+                    click.echo(tr("run.first_backup", mount_name=mount_entry.source.name))
                 backup_once(mount_entry.source, mount_entry.backup, show_progress=True)
                 removed = clean_backups(
                     mount_entry.backup,
@@ -378,16 +389,17 @@ def run_command(
                     click.echo(tr("backup_clean.removed_snapshot", path=path))
                 skip_first_repeated_backup = True
 
-            click.echo(
-                tr(
-                    "run.starting_background_backups",
-                    source=mount_entry.source,
-                    destination=mount_entry.backup,
+            if not disable_backups:
+                click.echo(
+                    tr(
+                        "run.starting_background_backups",
+                        source=mount_entry.source,
+                        destination=mount_entry.backup,
+                    )
                 )
-            )
-            backup_process = start_backup_process(
-                mount_entry, _cli_entry_path(), skip_first=skip_first_repeated_backup, debug=debug
-            )
+                backup_process = start_backup_process(
+                    mount_entry, _cli_entry_path(), skip_first=skip_first_repeated_backup, debug=debug
+                )
 
         exit_code = 0
 

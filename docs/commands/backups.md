@@ -17,7 +17,7 @@ All backup commands take `.backupignore` files into account. They are structural
 
 ## Commands
 
-Commands with the `--config` argument search for a mount in the YAML config and take part of the parameters from it: `mounts[].source`, `mounts[].backup`, `mounts[].interval`, `mounts[].max_backups`, `mounts[].backup_clean_method`.
+Commands with the `--config` argument search for a mount in the YAML config and take part of the parameters from it: `mounts[].source`, `mounts[].backup`, `mounts[].interval`, `mounts[].max_backups`, `mounts[].backup_clean_method`, `mounts[].first_backup`.
 
 ## `backup-once`
 
@@ -97,7 +97,7 @@ Arguments:
 
 - `--config <path>` - path to the YAML config. If not specified, `CONFIG_PATH` or `~/.config/agsekit/config.yaml` is used.
 
-For each `mounts[]` entry, its `source`, `backup`, `interval`, `max_backups`, and `backup_clean_method` parameters are used.
+For each `mounts[]` entry, its `source`, `backup`, `interval`, `max_backups`, `backup_clean_method`, and `first_backup` parameters are used.
 
 Cleanup is started after each backup cycle in each started loop.
 
@@ -122,13 +122,17 @@ From the config, the command takes `mounts[].backup` for the found `mounts[].sou
 
 If `agsekit run` is started from a mount folder and the `--disable-backups` argument was not passed:
 
-1. If there are no snapshots yet in `mounts[].backup`, `run` creates an initial snapshot through an internal call to backup logic. While this backup is being made, the user has to wait.
-2. After the initial snapshot, cleanup is immediately performed according to `mounts[].max_backups` and `mounts[].backup_clean_method`.
-3. Then `run` starts the background CLI command `backup-repeated`.
-4. The selected mount parameters from the config are passed to `backup-repeated`: `mounts[].source`, `mounts[].backup`, `mounts[].interval`, `mounts[].max_backups`, `mounts[].backup_clean_method`.
-5. If the initial snapshot had already been created, background `backup-repeated` starts with `--skip-first`.
+1. `run` resolves the effective first-backup policy in this order: CLI `--first-backup`, CLI `--no-first-backup`, then `mounts[].first_backup` from the config.
+2. If there are no snapshots yet in `mounts[].backup`, `run` creates an initial snapshot through an internal call to backup logic. While this backup is being made, the user has to wait.
+3. If snapshots already exist and the effective first-backup policy is enabled, `run` also creates one blocking pre-run snapshot before starting the agent.
+4. After any blocking snapshot, cleanup is immediately performed according to `mounts[].max_backups` and `mounts[].backup_clean_method`.
+5. Then `run` starts the background CLI command `backup-repeated`.
+6. The selected mount parameters from the config are passed to `backup-repeated`: `mounts[].source`, `mounts[].backup`, `mounts[].interval`, `mounts[].max_backups`, `mounts[].backup_clean_method`.
+7. If the current `run` already made a blocking snapshot, background `backup-repeated` starts with `--skip-first`.
 
-If `run` works in a temporary unmounted folder or `--disable-backups` is passed, backup commands are not started.
+If `run` works in a temporary unmounted folder, backup commands are not started.
+
+If `--disable-backups` is passed, background `backup-repeated` is not started. The initial/pre-run snapshot still follows the rules above.
 
 ## See Also
 

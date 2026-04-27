@@ -39,6 +39,7 @@ class MountConfig:
     interval_minutes: int = 5
     max_backups: int = 100
     backup_clean_method: str = "thin"
+    first_backup: bool = True
     vm_name: str = ""
     allowed_agents: Optional[List[str]] = None
 
@@ -824,6 +825,14 @@ def _normalize_backup_clean_method(raw_value: Any, index: int) -> str:
     raise ConfigError(tr("config.mount_backup_clean_method_unknown", index=index, value=raw_value))
 
 
+def _normalize_first_backup(raw_value: Any, index: int) -> bool:
+    if raw_value is None:
+        return True
+    if isinstance(raw_value, bool):
+        return raw_value
+    raise ConfigError(tr("config.mount_first_backup_not_bool", index=index))
+
+
 def _normalize_allowed_agents(
     raw_value: Any,
     *,
@@ -947,6 +956,7 @@ def load_mounts_config(config: Dict[str, Any]) -> List[MountConfig]:
             interval_minutes = _normalize_interval(entry.get("interval"))
             max_backups = _normalize_max_backups(entry.get("max_backups"), index + 1)
             backup_clean_method = _normalize_backup_clean_method(entry.get("backup_clean_method"), index + 1)
+            first_backup = _normalize_first_backup(entry.get("first_backup"), index + 1)
             allowed_agents = _normalize_allowed_agents(
                 entry.get("allowed_agents"),
                 index=index + 1,
@@ -961,6 +971,7 @@ def load_mounts_config(config: Dict[str, Any]) -> List[MountConfig]:
                     interval_minutes=interval_minutes,
                     max_backups=max_backups,
                     backup_clean_method=backup_clean_method,
+                    first_backup=first_backup,
                     vm_name=str(vm_name),
                     allowed_agents=allowed_agents,
                 )

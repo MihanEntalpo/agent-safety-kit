@@ -208,6 +208,7 @@
 - `backup_clean_method` (optional, default `thin`, одно из `tail|thin`) — метод очистки:
   - `tail`: удалять самые старые снапшоты (хвост истории), оставляя последние `N`;
   - `thin`: логарифмическое прореживание (больше плотности в свежем диапазоне, меньше в старом, но старые точки во времени тоже сохраняются).
+- `first_backup` (optional, default `true`) — делать ли блокирующий pre-run snapshot перед стартом агента, если backup-цепочка уже существует.
 - `vm` (optional) — VM для этого mount; если не задан, используется первая VM из `vms`.
 - `allowed_agents` (optional) — список имён агентов из секции `agents` или строка имён, разделённых запятыми.
   - если поле задано, `run` из этого `source` (или любой подпапки) разрешён только для перечисленных агентов;
@@ -216,6 +217,7 @@
 Нормализация:
 - пути приводятся к абсолютным через `expanduser().resolve()`;
 - если путь в команде указывает на подпапку внутри `source`, выбирается наиболее специфичное совпадение (`longest-prefix`).
+- `first_backup` валидируется как булево значение.
 - `allowed_agents` валидируется как список непустых строк (из YAML-списка или строки `a, b, c`); каждое имя `strip`-ится и должно существовать в `agents`.
 - та же валидация `allowed_agents` применяется и для `vms.<vm>.allowed_agents`.
 
@@ -611,6 +613,7 @@
 Философский инвариант в текущей реализации:
 - для команды `run` резервное копирование по mount включено по умолчанию;
 - отключение возможно только явным флагом `--disable-backups` (осознанный opt-out).
+- блокирующий pre-run snapshot по умолчанию включён через `mount.first_backup=true`; CLI-флаги `--first-backup` / `--no-first-backup` могут переопределять это поведение для одного запуска.
 
 ### 8.7 Установка и запуск агентов
 
@@ -654,7 +657,7 @@
 1. определяет агента и VM;
    - при выборе VM действует порядок: `--vm` override -> VM выбранного mount -> первая VM из `agents.<name>.vm + agents.<name>.vms` -> первая VM из секции `vms`;
 2. определяет mount-контекст:
-   - опции команды (`--vm`, `--config`, `--workdir`, `--proxychains`, `--http-proxy`, `--disable-backups`, `--auto-mount`, `--skip-default-args`, `--debug`) должны быть указаны до `<agent_name>`;
+   - опции команды (`--vm`, `--config`, `--workdir`, `--proxychains`, `--http-proxy`, `--disable-backups`, `--first-backup`, `--no-first-backup`, `--auto-mount`, `--skip-default-args`, `--debug`) должны быть указаны до `<agent_name>`;
    - всё, что стоит после `<agent_name>`, передаётся агенту как `agent_args`, даже если токены выглядят как флаги `agsekit`;
    - host working directory определяется как `--workdir`, если он задан, иначе как текущая директория (`cwd`);
    - если выбранная рабочая директория не существует, в интерактивном режиме спрашивает `Папка проекта не найдена, вы хотите запустить агента во временной папке? [y/N]` / `Project folder was not found. Run the agent in a temporary folder? [y/N]`;
@@ -684,8 +687,15 @@
    - если host-папка не пустая, а VM-папка пустая/отсутствует, выводит warning с советом запустить `agsekit doctor`;
    - после warning в интерактивном режиме запрашивает подтверждение `Всё равно запустить агента? [y/N]` / `Start the agent anyway? [y/N]`;
    - ответ по умолчанию — `No`; при отказе запуск прерывается до старта агента;
-9. (если backups enabled) делает initial backup при необходимости;
-10. запускает фоновый `backup-repeated` и пишет лог в `backup.log` (если initial backup уже сделан, сообщения о занятом backup-lock подавляются);
+9. backup-логика перед стартом агента:
+   - effective `first_backup` определяется в порядке приоритета: `--first-backup` -> `--no-first-backup` -> `mount.first_backup` (default `true`);
+   - если backup-цепочки ещё нет, команда всегда делает initial backup до старта агента независимо от effective `first_backup`;
+   - если backup-цепочка уже существует и effective `first_backup=true`, команда делает один блокирующий `backup_once` до запуска агента;
+   - если backup-цепочка уже существует и effective `first_backup=false`, этот блокирующий pre-run snapshot пропускается;
+   - после любого выполненного блокирующего snapshot сразу выполняется cleanup по правилам mount;
+10. если не передан `--disable-backups`, запускает фоновый `backup-repeated` и пишет лог в `backup.log`;
+   - если blocking snapshot уже был сделан в этом запуске (из-за пустой backup-цепочки или effective `first_backup=true`), фоновый процесс стартует с `--skip-first`, чтобы не запускать немедленный повторный цикл;
+   - если передан `--disable-backups`, фоновый `backup-repeated` не стартует, но initial/pre-run snapshot по правилам выше всё равно может быть выполнен;
 11. запускает агента через один `multipass exec`, который внутри VM вызывает bundled wrapper `/usr/bin/agsekit-run_agent.sh`: wrapper проверяет наличие runtime-бинарника, при необходимости загружает `nvm`, выставляет env, подключает `proxychains`/`http_proxy` и затем делает `exec` агентного процесса;
 12. по завершении агента останавливает backup-процесс.
 
