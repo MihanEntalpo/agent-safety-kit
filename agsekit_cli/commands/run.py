@@ -1,11 +1,12 @@
 from __future__ import annotations
 
+from contextlib import nullcontext
 import shutil
 import secrets
 import subprocess
 import sys
 from pathlib import Path
-from typing import Optional, Sequence
+from typing import Callable, ContextManager, Optional, Sequence
 
 import click
 
@@ -120,6 +121,7 @@ def _ensure_mount_registered_for_run(
     debug: bool = False,
     non_interactive: bool = False,
     auto_mount: bool = False,
+    prompt_context: Optional[Callable[[], ContextManager[None]]] = None,
 ) -> bool:
     if mount_entry is None:
         return True
@@ -139,7 +141,8 @@ def _ensure_mount_registered_for_run(
                 tr("run.mount_confirm_required", source=mount_entry.source, vm_name=mount_entry.vm_name, target=mount_entry.target)
             )
     elif not auto_mount:
-        should_mount = click.confirm(tr("run.mount_confirm", source=normalize_path(mount_entry.source)), default=True)
+        with (prompt_context() if prompt_context is not None else nullcontext()):
+            should_mount = click.confirm(tr("run.mount_confirm", source=normalize_path(mount_entry.source)), default=True)
 
     if not should_mount:
         return False
@@ -343,6 +346,7 @@ def run_command(
                     debug=debug,
                     non_interactive=non_interactive,
                     auto_mount=auto_mount,
+                    prompt_context=status.suspend,
                 )
             except MultipassError as exc:
                 raise click.ClickException(str(exc))

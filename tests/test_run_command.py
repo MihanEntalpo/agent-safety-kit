@@ -274,6 +274,55 @@ def test_run_command_missing_workdir_can_use_temp_vm_dir_without_backups(monkeyp
     assert not backup_calls
 
 
+def test_run_command_suspends_spinner_for_missing_workdir_prompt(monkeypatch, tmp_path):
+    source = tmp_path / "missing"
+    config_path = tmp_path / "config.yaml"
+    _write_config(config_path, source, create_source=False)
+
+    events = []
+    temp_dir = Path("/tmp/run-missing")
+
+    class FakeStatusSpinner:
+        def __init__(self, *, enabled: bool, spinner: str):
+            events.append(("init", enabled, spinner))
+
+        def __enter__(self):
+            return self
+
+        def __exit__(self, exc_type, exc, traceback):
+            return None
+
+        def update(self, message: str):
+            events.append(("update", message))
+
+        @contextmanager
+        def suspend(self):
+            events.append(("suspend_enter",))
+            try:
+                yield
+            finally:
+                events.append(("suspend_exit",))
+
+    monkeypatch.setattr(run_module, "StatusSpinner", FakeStatusSpinner)
+    monkeypatch.setattr(run_module, "_create_temp_vm_workdir", lambda *_args, **_kwargs: temp_dir)
+    monkeypatch.setattr(run_module, "run_in_vm", lambda *_, **__: 0)
+    monkeypatch.setattr(run_module, "backup_once", lambda *_, **__: None)
+    monkeypatch.setattr(run_module, "start_backup_process", lambda *_, **__: None)
+
+    runner = CliRunner()
+    result = runner.invoke(
+        run_command,
+        ["--config", str(config_path), "--workdir", str(source), "qwen"],
+        env={"AGSEKIT_LANG": "en"},
+        input="y\n",
+    )
+
+    assert result.exit_code == 0
+    assert ("update", "Preparing agent launch") in events
+    assert ("suspend_enter",) in events
+    assert events.index(("update", "Preparing agent launch")) < events.index(("suspend_enter",))
+
+
 def test_run_command_does_not_set_proxy_for_agent(monkeypatch, tmp_path):
     source = tmp_path / "project"
     config_path = tmp_path / "config.yaml"
@@ -843,6 +892,58 @@ def test_run_command_warns_when_mounted_directory_is_empty_inside_vm(monkeypatch
     assert "Всё равно запустить агента? [y/N]: y" in result.output
 
 
+def test_run_command_suspends_spinner_for_empty_mount_warning_prompt(monkeypatch, tmp_path):
+    source = tmp_path / "project"
+    source.mkdir()
+    (source / "main.py").write_text("print('hi')", encoding="utf-8")
+    config_path = tmp_path / "config.yaml"
+    _write_config(config_path, source)
+
+    events = []
+
+    class FakeStatusSpinner:
+        def __init__(self, *, enabled: bool, spinner: str):
+            events.append(("init", enabled, spinner))
+
+        def __enter__(self):
+            return self
+
+        def __exit__(self, exc_type, exc, traceback):
+            return None
+
+        def update(self, message: str):
+            events.append(("update", message))
+
+        @contextmanager
+        def suspend(self):
+            events.append(("suspend_enter",))
+            try:
+                yield
+            finally:
+                events.append(("suspend_exit",))
+
+    monkeypatch.setattr(run_module, "StatusSpinner", FakeStatusSpinner)
+    monkeypatch.setattr(run_module, "_ensure_mount_registered_for_run", lambda *args, **kwargs: True)
+    monkeypatch.setattr(run_module, "_vm_directory_is_empty_while_host_has_files", lambda *args, **kwargs: True)
+    monkeypatch.setattr(run_module, "_has_existing_backup", lambda *_: True)
+    monkeypatch.setattr(run_module, "run_in_vm", lambda *_, **__: 0)
+    monkeypatch.setattr(run_module, "start_backup_process", lambda *_, **__: None)
+    monkeypatch.setattr(run_module, "backup_once", lambda *_, **__: None)
+
+    runner = CliRunner()
+    result = runner.invoke(
+        run_command,
+        ["--config", str(config_path), "--workdir", str(source), "qwen"],
+        env={"AGSEKIT_LANG": "en"},
+        input="y\n",
+    )
+
+    assert result.exit_code == 0
+    assert ("update", "Checking mount visibility inside the VM") in events
+    assert ("suspend_enter",) in events
+    assert events.index(("update", "Checking mount visibility inside the VM")) < events.index(("suspend_enter",))
+
+
 def test_run_command_warns_and_confirms_for_current_directory(monkeypatch, tmp_path):
     source = tmp_path / "project"
     source.mkdir()
@@ -986,6 +1087,59 @@ def test_run_command_prompts_to_mount_unmounted_directory_and_continues(monkeypa
     assert f"Смонтировано {source.resolve()} в agent:/home/ubuntu/project." in result.output
     assert mount_calls == [source.resolve()]
     assert run_calls == [Path("/home/ubuntu/project")]
+
+
+def test_run_command_suspends_spinner_for_mount_prompt(monkeypatch, tmp_path):
+    source = tmp_path / "project"
+    source.mkdir()
+    (source / "main.py").write_text("print('hi')", encoding="utf-8")
+    config_path = tmp_path / "config.yaml"
+    _write_config(config_path, source)
+
+    events = []
+
+    class FakeStatusSpinner:
+        def __init__(self, *, enabled: bool, spinner: str):
+            events.append(("init", enabled, spinner))
+
+        def __enter__(self):
+            return self
+
+        def __exit__(self, exc_type, exc, traceback):
+            return None
+
+        def update(self, message: str):
+            events.append(("update", message))
+
+        @contextmanager
+        def suspend(self):
+            events.append(("suspend_enter",))
+            try:
+                yield
+            finally:
+                events.append(("suspend_exit",))
+
+    monkeypatch.setattr(run_module, "StatusSpinner", FakeStatusSpinner)
+    monkeypatch.setattr(run_module, "_ensure_mount_registered_for_run", _REAL_ENSURE_MOUNT_REGISTERED_FOR_RUN)
+    monkeypatch.setattr(run_module, "_has_existing_backup", lambda *_: True)
+    monkeypatch.setattr(run_module, "run_in_vm", lambda *_, **__: 0)
+    monkeypatch.setattr(run_module, "start_backup_process", lambda *_, **__: None)
+    monkeypatch.setattr(run_module, "backup_once", lambda *_, **__: None)
+    monkeypatch.setattr(run_module, "load_multipass_mounts", lambda **_kwargs: {"agent": set()})
+    monkeypatch.setattr(run_module, "mount_directory", lambda mount: None)
+
+    runner = CliRunner()
+    result = runner.invoke(
+        run_command,
+        ["--config", str(config_path), "--workdir", str(source), "qwen"],
+        env={"AGSEKIT_LANG": "ru"},
+        input="y\n",
+    )
+
+    assert result.exit_code == 0
+    assert ("update", "Проверяем состояние mount") in events
+    assert ("suspend_enter",) in events
+    assert events.index(("update", "Проверяем состояние mount")) < events.index(("suspend_enter",))
 
 
 def test_run_command_stops_when_mount_prompt_is_rejected(monkeypatch, tmp_path):
@@ -1200,6 +1354,59 @@ def test_run_command_without_workdir_can_use_temp_vm_dir_outside_mount(monkeypat
     assert calls["workdir"] == temp_dir
     assert calls["command"] == ["qwen"]
     assert not backup_calls
+
+
+def test_run_command_suspends_spinner_for_unconfigured_workdir_prompt(monkeypatch, tmp_path):
+    source = tmp_path / "project"
+    source.mkdir()
+    outside_dir = tmp_path / "outside"
+    outside_dir.mkdir()
+    config_path = tmp_path / "config.yaml"
+    _write_config(config_path, source)
+
+    events = []
+    temp_dir = Path("/tmp/run-outside")
+
+    class FakeStatusSpinner:
+        def __init__(self, *, enabled: bool, spinner: str):
+            events.append(("init", enabled, spinner))
+
+        def __enter__(self):
+            return self
+
+        def __exit__(self, exc_type, exc, traceback):
+            return None
+
+        def update(self, message: str):
+            events.append(("update", message))
+
+        @contextmanager
+        def suspend(self):
+            events.append(("suspend_enter",))
+            try:
+                yield
+            finally:
+                events.append(("suspend_exit",))
+
+    monkeypatch.chdir(outside_dir)
+    monkeypatch.setattr(run_module, "StatusSpinner", FakeStatusSpinner)
+    monkeypatch.setattr(run_module, "_create_temp_vm_workdir", lambda *_args, **_kwargs: temp_dir)
+    monkeypatch.setattr(run_module, "run_in_vm", lambda *_, **__: 0)
+    monkeypatch.setattr(run_module, "start_backup_process", lambda *_, **__: None)
+    monkeypatch.setattr(run_module, "backup_once", lambda *_, **__: None)
+
+    runner = CliRunner()
+    result = runner.invoke(
+        run_command,
+        ["--config", str(config_path), "qwen"],
+        env={"AGSEKIT_LANG": "en"},
+        input="y\n",
+    )
+
+    assert result.exit_code == 0
+    assert ("update", "Preparing agent launch") in events
+    assert ("suspend_enter",) in events
+    assert events.index(("update", "Preparing agent launch")) < events.index(("suspend_enter",))
 
 
 def test_run_command_without_workdir_rejects_current_directory_outside_mount_in_non_interactive_mode(monkeypatch, tmp_path):
