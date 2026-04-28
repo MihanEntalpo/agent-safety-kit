@@ -8,6 +8,8 @@ $BinDir = Join-Path $env:USERPROFILE ".local\bin"
 $WrapperPath = Join-Path $BinDir "agsekit.cmd"
 $Package = if ($env:AGSEKIT_PACKAGE) { $env:AGSEKIT_PACKAGE } else { "agsekit" }
 $PythonDownloadsPageUrl = "https://www.python.org/downloads/windows/"
+$ManagedPythonInstallDir = Join-Path $env:LocalAppData "Programs\Python\agsekit-python"
+$ManagedPythonExe = Join-Path $ManagedPythonInstallDir "python.exe"
 
 function Die {
     param([string]$Message)
@@ -67,6 +69,10 @@ function Invoke-PythonProbe {
 
 function Get-KnownPythonCandidates {
     $candidates = New-Object System.Collections.Generic.List[string]
+
+    if (Test-Path $ManagedPythonExe) {
+        $candidates.Add($ManagedPythonExe)
+    }
 
     $python = Get-Command python -ErrorAction SilentlyContinue
     if ($python -and $python.Source) {
@@ -322,7 +328,8 @@ function Install-Python-FromOfficialSite {
             "PrependPath=1",
             "Include_pip=1",
             "Include_launcher=1",
-            "SimpleInstall=1"
+            "SimpleInstall=1",
+            "TargetDir=$ManagedPythonInstallDir"
         ) -Wait -PassThru
 
         if ($process.ExitCode -notin @(0, 3010)) {
@@ -335,6 +342,11 @@ function Install-Python-FromOfficialSite {
 
     $env:Path = Get-RefreshedPath
     Start-Sleep -Seconds 2
+    if (Test-Path $ManagedPythonExe) {
+        return $ManagedPythonExe
+    }
+
+    return $null
 }
 
 function Ensure-Python {
@@ -348,13 +360,23 @@ function Ensure-Python {
         Die "Python 3.9+ is required. Install Python first, then rerun this installer."
     }
 
+    $installedPython = $null
     if (-not (Install-Python-WithWinget)) {
-        Install-Python-FromOfficialSite
+        $installedPython = Install-Python-FromOfficialSite
     }
 
-    $pythonCommand = Wait-ForSupportedPython
+    if ($installedPython) {
+        $supportProbe = Invoke-PythonProbe $installedPython @("-c", "import sys; raise SystemExit(0 if sys.version_info >= (3, 9) else 1)")
+        if ($supportProbe.Success) {
+            $pythonCommand = $installedPython
+        }
+    }
+
     if (-not $pythonCommand) {
-        Die "Automatic Python installation completed, but Python 3.9+ could not be located afterwards. Check whether the installer actually finished and whether Python was installed under your user profile, then rerun this installer."
+        $pythonCommand = Wait-ForSupportedPython
+    }
+    if (-not $pythonCommand) {
+        Die "Automatic Python installation completed, but Python 3.9+ could not be located afterwards. Expected managed install path: $ManagedPythonExe"
     }
 
     return $pythonCommand
