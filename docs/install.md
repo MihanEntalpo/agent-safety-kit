@@ -17,7 +17,10 @@
 
 ### Installation:
 
-* Install python3.9 in any convenient way
+* Python 3.9+ is required. If it is missing, `install.sh` asks before installing it automatically.
+* On Debian/Ubuntu, `install.sh` installs `python3`, `python3-pip`, and `python3-venv`.
+* On Arch, `install.sh` installs `python` and `python-pip`.
+* If Python is already present on Linux but `venv` support is missing, `install.sh` automatically installs the required `pip`/`venv` packages and retries.
 * If you do not have a Deb/Arch-based distribution and/or snapd, install Multipass manually
 
 **1. Automatically:**
@@ -63,13 +66,15 @@ done
 
 ### Requirements:
 
-* macOS 13+ is the primary supported workflow, Homebrew is required
+* macOS 13+ is the primary supported workflow, Homebrew is required for automatic Python installation and for `agsekit prepare`
 * If you have an older OS and use `agsekit prepare`, it installs the pinned legacy Multipass 1.14.1 cask through Homebrew
 * If you install Multipass manually on an older OS, use an older Multipass; version 1.14.1 works on older macOS versions
 * If you do not have Homebrew but can install Multipass some other way, that is enough for operation
 
 ### Installation:
 
+* Python 3.9+ is required. If it is missing, `install.sh` asks before installing it automatically through Homebrew.
+* If Homebrew is missing, `install.sh` prints the official Homebrew page (`https://brew.sh/`) and exits.
 * Install Homebrew; if you cannot, install Multipass in any convenient way
 * If you have an old system (<13), `agsekit prepare` will use Multipass 1.14.1 when installing through Homebrew
 
@@ -117,13 +122,15 @@ done
 ### Requirements
 
 * Native Windows PowerShell is supported for installation and host-side tooling.
-* Python 3.9+ is required. The installer checks for it and asks you to install Python first if it is missing.
+* Python 3.9+ is required. If it is missing, the installer asks before installing it automatically.
+* When `winget` is available, `install.ps1` installs Python through `winget`.
+* When `winget` is unavailable, `install.ps1` downloads the latest official Windows installer from `python.org` and runs it.
 * Multipass for Windows must be installed: https://canonical.com/multipass/install
 * `agsekit prepare` can install MSYS2 through `winget` and then install `rsync` and `openssh` through MSYS2 `pacman`.
 
 ### Installation
 
-* Install Python 3.9+.
+* `install.ps1` can install Python 3.9+ for you after confirmation. Manual installation still requires you to install Python yourself.
 * Install Multipass for Windows.
 * Open PowerShell.
 

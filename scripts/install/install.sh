@@ -12,6 +12,66 @@ info() {
     printf '%s\n' "$*"
 }
 
+prompt_yes_no() {
+    PROMPT_MESSAGE=$1
+    DEFAULT_ANSWER=${2:-yes}
+
+    if [ ! -r /dev/tty ] || [ ! -w /dev/tty ]; then
+        die "An interactive terminal is required to confirm automatic Python installation. Install Python 3.9+ manually, then rerun this installer."
+    fi
+
+    while :; do
+        case "$DEFAULT_ANSWER" in
+            yes)
+                PROMPT_SUFFIX='[Y/n]'
+                ;;
+            no)
+                PROMPT_SUFFIX='[y/N]'
+                ;;
+            *)
+                die "Unsupported default answer for prompt: $DEFAULT_ANSWER"
+                ;;
+        esac
+
+        printf '%s %s ' "$PROMPT_MESSAGE" "$PROMPT_SUFFIX" > /dev/tty
+        if ! IFS= read -r PROMPT_ANSWER < /dev/tty; then
+            die "Could not read a response from the terminal."
+        fi
+
+        case "$PROMPT_ANSWER" in
+            '')
+                if [ "$DEFAULT_ANSWER" = yes ]; then
+                    return 0
+                fi
+                return 1
+                ;;
+            [Yy]|[Yy][Ee][Ss])
+                return 0
+                ;;
+            [Nn]|[Nn][Oo])
+                return 1
+                ;;
+            *)
+                info "Please answer y or n."
+                ;;
+        esac
+    done
+}
+
+run_elevated() {
+    if [ "$(id -u)" -eq 0 ]; then
+        "$@"
+        return
+    fi
+
+    if command -v sudo >/dev/null 2>&1; then
+        sudo "$@"
+        return
+    fi
+
+    die "Automatic Python installation requires root privileges. Re-run this installer as root or install sudo."
+}
+
 require_home() {
     if [ -z "${HOME:-}" ]; then
         die "HOME is not set."
@@ -55,23 +115,153 @@ detect_platform() {
 }
 
 find_python() {
-    if ! PYTHON_BIN=$(command -v python3 2>/dev/null); then
+    PYTHON_BIN=""
+    PYTHON_VERSION=""
+    FOUND_UNSUPPORTED_BIN=""
+    FOUND_UNSUPPORTED_VERSION=""
+
+    for PYTHON_CANDIDATE in python3 python; do
+        PYTHON_PATH=$(command -v "$PYTHON_CANDIDATE" 2>/dev/null || printf '')
+        if [ -z "$PYTHON_PATH" ]; then
+            continue
+        fi
+
+        CANDIDATE_VERSION=$("$PYTHON_PATH" -c 'import sys; print("%d.%d.%d" % sys.version_info[:3])' 2>/dev/null || printf '')
+        if [ -z "$CANDIDATE_VERSION" ]; then
+            continue
+        fi
+
+        if "$PYTHON_PATH" -c 'import sys; raise SystemExit(0 if sys.version_info >= (3, 9) else 1)' >/dev/null 2>&1; then
+            PYTHON_BIN=$PYTHON_PATH
+            PYTHON_VERSION=$CANDIDATE_VERSION
+            return 0
+        fi
+
+        if [ -z "$FOUND_UNSUPPORTED_BIN" ]; then
+            FOUND_UNSUPPORTED_BIN=$PYTHON_PATH
+            FOUND_UNSUPPORTED_VERSION=$CANDIDATE_VERSION
+        fi
+    done
+
+    if [ -n "$FOUND_UNSUPPORTED_BIN" ]; then
+        PYTHON_BIN=$FOUND_UNSUPPORTED_BIN
+        PYTHON_VERSION=$FOUND_UNSUPPORTED_VERSION
+        return 2
+    fi
+
+    return 1
+}
+
+install_linux_packages() {
+    if command -v apt-get >/dev/null 2>&1; then
+        run_elevated apt-get update
+        run_elevated apt-get install -y "$@"
+        return 0
+    fi
+
+    if command -v pacman >/dev/null 2>&1; then
+        run_elevated pacman -Sy --needed --noconfirm "$@"
+        return 0
+    fi
+
+    return 1
+}
+
+install_python_on_linux() {
+    if command -v apt-get >/dev/null 2>&1; then
+        info "Installing Python 3.9+ with apt..."
+        install_linux_packages --reinstall python3 python3-pip python3-venv
+        return 0
+    fi
+
+    if command -v pacman >/dev/null 2>&1; then
+        info "Installing Python 3.9+ with pacman..."
+        install_linux_packages python python-pip
+        return 0
+    fi
+
+    die "Automatic Python installation on Linux is supported only for Debian/Ubuntu (apt) and Arch (pacman). Install Python 3.9+ manually, then rerun this installer."
+}
+
+install_python_support_on_linux() {
+    if command -v apt-get >/dev/null 2>&1; then
+        info "Installing missing Python venv support with apt..."
+        install_linux_packages python3-pip python3-venv
+        return 0
+    fi
+
+    if command -v pacman >/dev/null 2>&1; then
+        info "Installing missing Python venv support with pacman..."
+        install_linux_packages python-pip
+        return 0
+    fi
+
+    return 1
+}
+
+install_python_on_macos() {
+    if ! command -v brew >/dev/null 2>&1; then
+        die "Homebrew is required to install Python automatically on macOS. Install Homebrew from https://brew.sh/ and rerun this installer."
+    fi
+
+    info "Installing Python 3.9+ with Homebrew..."
+    brew install python
+}
+
+ensure_python() {
+    if find_python; then
+        return 0
+    fi
+
+    FIND_PYTHON_STATUS=$?
+    if [ "$FIND_PYTHON_STATUS" -eq 2 ]; then
+        die "Python 3.9+ is required; found Python $PYTHON_VERSION at $PYTHON_BIN. Install Python 3.9 or newer first, then rerun this installer."
+    fi
+
+    if ! prompt_yes_no "Python 3.9+ was not found. Install it automatically now?" yes; then
         die "Python 3.9+ is required. Install Python 3.9 or newer first, then rerun this installer."
     fi
 
-    if ! PYTHON_VERSION=$("$PYTHON_BIN" -c 'import sys; print("%d.%d.%d" % sys.version_info[:3])' 2>/dev/null); then
-        die "Could not determine Python version. Install Python 3.9 or newer first, then rerun this installer."
+    case "$PLATFORM" in
+        linux|wsl)
+            install_python_on_linux
+            ;;
+        macos)
+            install_python_on_macos
+            ;;
+        *)
+            die "Automatic Python installation is not supported on platform: $PLATFORM"
+            ;;
+    esac
+
+    if find_python; then
+        return 0
     fi
 
-    if ! "$PYTHON_BIN" -c 'import sys; raise SystemExit(0 if sys.version_info >= (3, 9) else 1)' >/dev/null 2>&1; then
-        die "Python 3.9+ is required; found Python $PYTHON_VERSION. Install Python 3.9 or newer first, then rerun this installer."
+    FIND_PYTHON_STATUS=$?
+    if [ "$FIND_PYTHON_STATUS" -eq 2 ]; then
+        die "Automatic Python installation completed, but the detected Python version is still unsupported: $PYTHON_VERSION"
     fi
+
+    die "Automatic Python installation completed, but Python 3.9+ is still not available in PATH. Open a new shell and rerun this installer."
 }
 
 create_or_update_venv() {
     mkdir -p "$INSTALL_ROOT"
 
     if ! "$PYTHON_BIN" -m venv "$VENV_PATH"; then
+        if [ "$PLATFORM" = linux ] || [ "$PLATFORM" = wsl ]; then
+            if install_python_support_on_linux && "$PYTHON_BIN" -m venv "$VENV_PATH"; then
+                :
+            else
+                die "Failed to create venv at $VENV_PATH. Ensure Python venv support is installed for Python 3.9+."
+            fi
+        else
+            die "Failed to create venv at $VENV_PATH. Ensure Python venv support is installed for Python 3.9+."
+        fi
+    fi
+
+    if [ ! -d "$VENV_PATH" ]; then
         die "Failed to create venv at $VENV_PATH. Ensure Python venv support is installed for Python 3.9+."
     fi
 
@@ -255,7 +445,7 @@ print_summary() {
 main() {
     require_home
     detect_platform
-    find_python
+    ensure_python
 
     INSTALL_ROOT="$HOME/.local/share/agsekit"
     VENV_PATH="$INSTALL_ROOT/venv"

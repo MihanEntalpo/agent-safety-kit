@@ -1,12 +1,14 @@
 # Agent-Safety-Kit versions history
 
-## 1.6.6 - Dots spinner prompt visibility fix
+## 1.6.6 - Installer Python auto-install and prompt visibility fix
 
-* Fixed `agsekit run` so interactive confirmation prompts stay visible: the dots spinner now pauses while prompts are shown
+* Updated `scripts/install/install.sh`: when Python 3.9+ is missing, the installer now asks before installing it automatically on Debian/Ubuntu (`apt`), Arch (`pacman`), or macOS (`brew`); on Linux it also auto-installs missing `venv` support when Python exists but cannot create a virtual environment
+* Updated `scripts/install/install.ps1`: when Python 3.9+ is missing, the installer now asks before installing it automatically through `winget`, or by downloading and running the latest official Windows installer from `python.org` if `winget` is unavailable
 
 ## 1.6.5 - Added dots spinner on run
 
 * Added a `dots` spinner to `agsekit run` in the normal interactive non-debug mode for pre-launch checks and backup preparation
+* Fixed `agsekit run` so interactive confirmation prompts stay visible: the dots spinner now pauses while prompts are shown
 
 ## 1.6.4 - Blocking pre-run backup option
 

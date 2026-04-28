@@ -54,7 +54,7 @@ Of course, you need to do the initial setup, but it is much simpler than doing e
 
 ### 1. Installation
 
-You need **Python 3.9+.**
+You need **Python 3.9+.** The install scripts can offer to install it automatically if it is missing.
 
 * Deb/Arch Linux and macOS with Homebrew are fully supported.
 * Native Windows PowerShell is also supported

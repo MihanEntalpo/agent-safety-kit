@@ -7,7 +7,7 @@ $VenvPath = Join-Path $InstallRoot "venv"
 $BinDir = Join-Path $env:USERPROFILE ".local\bin"
 $WrapperPath = Join-Path $BinDir "agsekit.cmd"
 $Package = if ($env:AGSEKIT_PACKAGE) { $env:AGSEKIT_PACKAGE } else { "agsekit" }
-$PythonDownloadUrl = "https://www.python.org/downloads/windows/"
+$PythonDownloadsPageUrl = "https://www.python.org/downloads/windows/"
 
 function Die {
     param([string]$Message)
@@ -15,8 +15,33 @@ function Die {
     exit 1
 }
 
-function Find-Python {
+function Read-InstallerConfirmation {
+    param(
+        [string]$Prompt,
+        [bool]$DefaultYes = $true
+    )
+
+    while ($true) {
+        $suffix = if ($DefaultYes) { "[Y/n]" } else { "[y/N]" }
+        $answer = Read-Host "$Prompt $suffix"
+
+        if ([string]::IsNullOrWhiteSpace($answer)) {
+            return $DefaultYes
+        }
+        if ($answer -match '^(?i:y(?:es)?)$') {
+            return $true
+        }
+        if ($answer -match '^(?i:n(?:o)?)$') {
+            return $false
+        }
+
+        Write-Host "Please answer y or n."
+    }
+}
+
+function Find-SupportedPython {
     $candidates = @()
+    $unsupportedVersion = $null
 
     $python = Get-Command python -ErrorAction SilentlyContinue
     if ($python) {
@@ -41,6 +66,9 @@ function Find-Python {
             }
             if ($versionText) {
                 Write-Host "Found Python $versionText, but agsekit requires Python 3.9+."
+                if (-not $unsupportedVersion) {
+                    $unsupportedVersion = $versionText
+                }
             }
             continue
         }
@@ -56,15 +84,17 @@ function Find-Python {
         }
         if ($versionText) {
             Write-Host "Found Python $versionText, but agsekit requires Python 3.9+."
+            if (-not $unsupportedVersion) {
+                $unsupportedVersion = $versionText
+            }
         }
     }
 
-    Write-Host "Python 3.9+ is required. Install Python first, then rerun this installer."
-    $answer = Read-Host "Open the Python for Windows download page now? [Y/n]"
-    if ($answer -eq "" -or $answer -match "^[Yy]") {
-        Start-Process $PythonDownloadUrl
+    if ($unsupportedVersion) {
+        Die "Python 3.9+ is required; found Python $unsupportedVersion. Install Python 3.9 or newer first, then rerun this installer."
     }
-    exit 1
+
+    return $null
 }
 
 function Invoke-Python {
@@ -123,7 +153,132 @@ function Get-PathRefreshCommand {
     return '$env:Path = "$([Environment]::GetEnvironmentVariable(''Path'',''Machine''));$([Environment]::GetEnvironmentVariable(''Path'',''User''))"'
 }
 
-$PythonCommand = Find-Python
+function Get-PythonInstallerSuffix {
+    $arch = $env:PROCESSOR_ARCHITEW6432
+    if ([string]::IsNullOrWhiteSpace($arch)) {
+        $arch = $env:PROCESSOR_ARCHITECTURE
+    }
+    $normalized = if ($arch) { $arch.ToUpperInvariant() } else { "" }
+
+    if ($normalized -match "ARM64") {
+        return "arm64.exe"
+    }
+    if ([Environment]::Is64BitOperatingSystem) {
+        return "amd64.exe"
+    }
+    return "exe"
+}
+
+function Install-Python-WithWinget {
+    $winget = Get-Command winget -ErrorAction SilentlyContinue
+    if (-not $winget) {
+        return $false
+    }
+
+    Write-Host "Installing Python 3.9+ with winget..."
+    & $winget.Source install --id Python.Python.3 --exact --source winget --scope user --accept-package-agreements --accept-source-agreements
+    if ($LASTEXITCODE -ne 0) {
+        Die "winget failed to install Python."
+    }
+
+    $env:Path = Get-RefreshedPath
+    return $true
+}
+
+function Get-LatestPythonInstallerUrl {
+    $installerSuffix = Get-PythonInstallerSuffix
+    $response = Invoke-WebRequest -Uri $PythonDownloadsPageUrl -UseBasicParsing
+
+    if ($installerSuffix -eq "exe") {
+        $pattern = '(?:https://www\.python\.org)?/ftp/python/(?<version>\d+\.\d+\.\d+)/python-(?<fileversion>\d+\.\d+\.\d+)\.exe'
+    } else {
+        $escapedSuffix = [regex]::Escape($installerSuffix)
+        $pattern = "(?:https://www\.python\.org)?/ftp/python/(?<version>\d+\.\d+\.\d+)/python-(?<fileversion>\d+\.\d+\.\d+)-$escapedSuffix"
+    }
+
+    $matches = [regex]::Matches($response.Content, $pattern)
+    $candidates = foreach ($match in $matches) {
+        $versionText = $match.Groups["version"].Value
+        $fileVersionText = $match.Groups["fileversion"].Value
+        if ($versionText -ne $fileVersionText) {
+            continue
+        }
+
+        $url = $match.Value
+        if ($url -notmatch '^https://') {
+            $url = "https://www.python.org$url"
+        }
+
+        [pscustomobject]@{
+            Version = [version]$versionText
+            Url = $url
+        }
+    }
+
+    $latest = $candidates | Sort-Object Version -Descending | Select-Object -First 1
+    if (-not $latest) {
+        Die "Could not determine the latest official Python installer from $PythonDownloadsPageUrl."
+    }
+
+    return $latest.Url
+}
+
+function Install-Python-FromOfficialSite {
+    $installerUrl = Get-LatestPythonInstallerUrl
+    $tempDir = Join-Path ([System.IO.Path]::GetTempPath()) ("agsekit-python-" + [guid]::NewGuid().ToString("N"))
+    $installerPath = Join-Path $tempDir (Split-Path $installerUrl -Leaf)
+
+    New-Item -ItemType Directory -Force -Path $tempDir | Out-Null
+
+    try {
+        Write-Host "Downloading Python installer from $installerUrl"
+        Invoke-WebRequest -Uri $installerUrl -OutFile $installerPath -UseBasicParsing
+
+        Write-Host "Running Python installer..."
+        $process = Start-Process -FilePath $installerPath -ArgumentList @(
+            "/quiet",
+            "InstallAllUsers=0",
+            "PrependPath=1",
+            "Include_pip=1",
+            "Include_launcher=1",
+            "SimpleInstall=1"
+        ) -Wait -PassThru
+
+        if ($process.ExitCode -notin @(0, 3010)) {
+            Die "The official Python installer failed with exit code $($process.ExitCode)."
+        }
+    }
+    finally {
+        Remove-Item -Path $tempDir -Recurse -Force -ErrorAction SilentlyContinue
+    }
+
+    $env:Path = Get-RefreshedPath
+}
+
+function Ensure-Python {
+    $pythonCommand = Find-SupportedPython
+    if ($pythonCommand) {
+        return $pythonCommand
+    }
+
+    Write-Host "Python 3.9+ is required."
+    if (-not (Read-InstallerConfirmation "Python 3.9+ was not found. Install it automatically now?" $true)) {
+        Die "Python 3.9+ is required. Install Python first, then rerun this installer."
+    }
+
+    if (-not (Install-Python-WithWinget)) {
+        Install-Python-FromOfficialSite
+    }
+
+    $pythonCommand = Find-SupportedPython
+    if (-not $pythonCommand) {
+        Die "Automatic Python installation completed, but Python 3.9+ is still not available in PATH. Open a new PowerShell session and rerun this installer."
+    }
+
+    return $pythonCommand
+}
+
+$PythonCommand = Ensure-Python
 
 New-Item -ItemType Directory -Force -Path $InstallRoot | Out-Null
 New-Item -ItemType Directory -Force -Path $BinDir | Out-Null

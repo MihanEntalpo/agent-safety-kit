@@ -35,6 +35,9 @@ def test_windows_install_script_checks_python_before_installing() -> None:
 
     assert "Python 3.9+ is required" in script
     assert "https://www.python.org/downloads/windows/" in script
+    assert "winget" in script
+    assert "Python.Python.3" in script
+    assert "Get-LatestPythonInstallerUrl" in script
     assert "agsekit.cmd" in script
 
 
@@ -46,6 +49,16 @@ def test_windows_install_script_refreshes_path_from_machine_and_user_path() -> N
     assert "[Environment]::GetEnvironmentVariable(''Path'',''Machine'')" in script
     assert "[Environment]::GetEnvironmentVariable(''Path'',''User'')" in script
     assert '`$env:Path = `"$BinDir;`$env:Path`"' not in script
+
+
+def test_posix_install_script_can_install_python_automatically() -> None:
+    script = INSTALL_SCRIPT.read_text(encoding="utf-8")
+
+    assert "Python 3.9+ was not found. Install it automatically now?" in script
+    assert "install_linux_packages --reinstall python3 python3-pip python3-venv" in script
+    assert "install_linux_packages python python-pip" in script
+    assert "brew install python" in script
+    assert "https://brew.sh/" in script
 
 
 def test_wsl_multipass_symlink_is_idempotent(tmp_path: Path) -> None:
