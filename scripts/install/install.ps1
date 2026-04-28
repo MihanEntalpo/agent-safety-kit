@@ -39,47 +39,80 @@ function Read-InstallerConfirmation {
     }
 }
 
-function Find-SupportedPython {
-    $candidates = @()
-    $unsupportedVersion = $null
+function Invoke-PythonProbe {
+    param(
+        [string]$PythonCommand,
+        [string[]]$Arguments
+    )
+
+    try {
+        if ($PythonCommand -eq "py -3") {
+            $output = & py -3 @Arguments 2>$null
+        } else {
+            $output = & $PythonCommand @Arguments 2>$null
+        }
+    }
+    catch {
+        return [pscustomobject]@{
+            Success = $false
+            Output = $null
+        }
+    }
+
+    return [pscustomobject]@{
+        Success = $LASTEXITCODE -eq 0
+        Output = $output
+    }
+}
+
+function Get-KnownPythonCandidates {
+    $candidates = New-Object System.Collections.Generic.List[string]
 
     $python = Get-Command python -ErrorAction SilentlyContinue
-    if ($python) {
-        $candidates += @($python.Source)
+    if ($python -and $python.Source) {
+        $candidates.Add($python.Source)
     }
 
     $pyLauncher = Get-Command py -ErrorAction SilentlyContinue
     if ($pyLauncher) {
-        $candidates += @("py -3")
+        $candidates.Add("py -3")
     }
 
-    foreach ($candidate in $candidates) {
-        if ($candidate -eq "py -3") {
-            $versionText = & py -3 -c "import sys; print('%d.%d.%d' % sys.version_info[:3])" 2>$null
-            $isSupported = $LASTEXITCODE -eq 0
-            if ($isSupported) {
-                & py -3 -c "import sys; raise SystemExit(0 if sys.version_info >= (3, 9) else 1)" 2>$null
-                $isSupported = $LASTEXITCODE -eq 0
-            }
-            if ($isSupported) {
-                return "py -3"
-            }
-            if ($versionText) {
-                Write-Host "Found Python $versionText, but agsekit requires Python 3.9+."
-                if (-not $unsupportedVersion) {
-                    $unsupportedVersion = $versionText
-                }
-            }
+    $searchRoots = @(
+        (Join-Path $env:LocalAppData "Programs\Python"),
+        $env:ProgramFiles,
+        ${env:ProgramFiles(x86)}
+    ) | Where-Object { -not [string]::IsNullOrWhiteSpace($_) }
+
+    foreach ($root in $searchRoots) {
+        if (-not (Test-Path $root)) {
             continue
         }
 
-        $versionText = & $candidate -c "import sys; print('%d.%d.%d' % sys.version_info[:3])" 2>$null
-        $isSupported = $LASTEXITCODE -eq 0
-        if ($isSupported) {
-            & $candidate -c "import sys; raise SystemExit(0 if sys.version_info >= (3, 9) else 1)" 2>$null
-            $isSupported = $LASTEXITCODE -eq 0
+        Get-ChildItem -Path $root -Directory -ErrorAction SilentlyContinue | ForEach-Object {
+            $pythonExe = Join-Path $_.FullName "python.exe"
+            if (Test-Path $pythonExe) {
+                $candidates.Add($pythonExe)
+            }
         }
-        if ($isSupported) {
+    }
+
+    return $candidates | Select-Object -Unique
+}
+
+function Find-SupportedPython {
+    $candidates = Get-KnownPythonCandidates
+    $unsupportedVersion = $null
+
+    foreach ($candidate in $candidates) {
+        $versionProbe = Invoke-PythonProbe $candidate @("-c", "import sys; print('%d.%d.%d' % sys.version_info[:3])")
+        $versionText = $versionProbe.Output
+        if (-not $versionProbe.Success) {
+            continue
+        }
+
+        $supportProbe = Invoke-PythonProbe $candidate @("-c", "import sys; raise SystemExit(0 if sys.version_info >= (3, 9) else 1)")
+        if ($supportProbe.Success) {
             return $candidate
         }
         if ($versionText) {
@@ -178,7 +211,8 @@ function Install-Python-WithWinget {
     Write-Host "Installing Python 3.9+ with winget..."
     & $winget.Source install --id Python.Python.3 --exact --source winget --scope user --accept-package-agreements --accept-source-agreements
     if ($LASTEXITCODE -ne 0) {
-        Die "winget failed to install Python."
+        Write-Host "winget failed to install Python. Falling back to the official installer."
+        return $false
     }
 
     $env:Path = Get-RefreshedPath
@@ -253,6 +287,7 @@ function Install-Python-FromOfficialSite {
     }
 
     $env:Path = Get-RefreshedPath
+    Start-Sleep -Seconds 2
 }
 
 function Ensure-Python {

@@ -35,7 +35,10 @@ def test_windows_install_script_checks_python_before_installing() -> None:
 
     assert "Python 3.9+ is required" in script
     assert "https://www.python.org/downloads/windows/" in script
+    assert "Invoke-PythonProbe" in script
+    assert "Get-KnownPythonCandidates" in script
     assert "winget" in script
+    assert "Falling back to the official installer." in script
     assert "Python.Python.3" in script
     assert "Get-LatestPythonInstallerUrl" in script
     assert "agsekit.cmd" in script
