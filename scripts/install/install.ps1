@@ -78,6 +78,35 @@ function Get-KnownPythonCandidates {
         $candidates.Add("py -3")
     }
 
+    $registryRoots = @(
+        "HKCU:\Software\Python\PythonCore",
+        "HKLM:\Software\Python\PythonCore",
+        "HKLM:\Software\WOW6432Node\Python\PythonCore"
+    )
+
+    foreach ($registryRoot in $registryRoots) {
+        if (-not (Test-Path $registryRoot)) {
+            continue
+        }
+
+        Get-ChildItem -Path $registryRoot -ErrorAction SilentlyContinue | ForEach-Object {
+            $installPathKey = Join-Path $_.PSPath "InstallPath"
+            if (-not (Test-Path $installPathKey)) {
+                return
+            }
+
+            $installPath = (Get-ItemProperty -Path $installPathKey -ErrorAction SilentlyContinue).'(default)'
+            if ([string]::IsNullOrWhiteSpace($installPath)) {
+                return
+            }
+
+            $pythonExe = Join-Path $installPath "python.exe"
+            if (Test-Path $pythonExe) {
+                $candidates.Add($pythonExe)
+            }
+        }
+    }
+
     $searchRoots = @(
         (Join-Path $env:LocalAppData "Programs\Python"),
         $env:ProgramFiles,
@@ -98,6 +127,24 @@ function Get-KnownPythonCandidates {
     }
 
     return $candidates | Select-Object -Unique
+}
+
+function Wait-ForSupportedPython {
+    param(
+        [int]$TimeoutSeconds = 20
+    )
+
+    $deadline = (Get-Date).AddSeconds($TimeoutSeconds)
+    do {
+        $pythonCommand = Find-SupportedPython
+        if ($pythonCommand) {
+            return $pythonCommand
+        }
+
+        Start-Sleep -Seconds 2
+    } while ((Get-Date) -lt $deadline)
+
+    return $null
 }
 
 function Find-SupportedPython {
@@ -305,9 +352,9 @@ function Ensure-Python {
         Install-Python-FromOfficialSite
     }
 
-    $pythonCommand = Find-SupportedPython
+    $pythonCommand = Wait-ForSupportedPython
     if (-not $pythonCommand) {
-        Die "Automatic Python installation completed, but Python 3.9+ is still not available in PATH. Open a new PowerShell session and rerun this installer."
+        Die "Automatic Python installation completed, but Python 3.9+ could not be located afterwards. Check whether the installer actually finished and whether Python was installed under your user profile, then rerun this installer."
     }
 
     return $pythonCommand
