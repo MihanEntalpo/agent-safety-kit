@@ -118,7 +118,7 @@ def test_run_ansible_playbook_rejects_native_windows(monkeypatch, tmp_path):
     with pytest.raises(click.ClickException) as exc_info:
         run_ansible_playbook(["ansible-playbook", str(playbook)], playbook_path=playbook)
 
-    assert "does not support Windows control nodes" in str(exc_info.value)
+    assert "tried to run native host-side Ansible on Windows" in str(exc_info.value)
 
 
 def test_run_ansible_playbook_collects_hidden_output_tail(monkeypatch, tmp_path):

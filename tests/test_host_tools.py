@@ -1,3 +1,5 @@
+import subprocess
+
 import agsekit_cli.host_tools as host_tools
 
 
@@ -37,3 +39,36 @@ def test_host_tool_command_keeps_plain_name_when_missing(monkeypatch):
 
     assert host_tools.multipass_command() == "multipass"
     assert host_tools.host_tool_exists("multipass") is False
+
+
+def test_run_multipass_subprocess_decodes_windows_output(monkeypatch):
+    monkeypatch.setattr(host_tools.platform, "system", lambda: "Windows")
+    monkeypatch.setattr(host_tools, "windows_output_encodings", lambda: ("cp866",))
+
+    def fake_run(command, check=False, capture_output=False, text=False):
+        del check, capture_output, text
+        return subprocess.CompletedProcess(
+            command,
+            1,
+            stdout="",
+            stderr="Не удалось запустить виртуальную машину".encode("cp866"),
+        )
+
+    monkeypatch.setattr(host_tools.subprocess, "run", fake_run)
+
+    result = host_tools.run_multipass_subprocess(["multipass", "launch"], check=False, capture_output=True)
+
+    assert result.stderr == "Не удалось запустить виртуальную машину"
+
+
+def test_run_multipass_subprocess_uses_plain_text_mode_outside_windows(monkeypatch):
+    monkeypatch.setattr(host_tools.platform, "system", lambda: "Linux")
+
+    def fake_run(command, check=False, capture_output=False, text=True):
+        return subprocess.CompletedProcess(command, 0, stdout="ok", stderr="")
+
+    monkeypatch.setattr(host_tools.subprocess, "run", fake_run)
+
+    result = host_tools.run_multipass_subprocess(["multipass", "list"], check=False, capture_output=True)
+
+    assert result.stdout == "ok"

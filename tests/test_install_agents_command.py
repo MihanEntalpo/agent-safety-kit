@@ -170,6 +170,52 @@ def test_run_install_playbook_bootstraps_keys_then_uses_ssh(monkeypatch, tmp_pat
     assert payload["ansible_ssh_private_key_file"] == str(private_key.resolve())
 
 
+def test_run_install_playbook_uses_windows_provision_handler(monkeypatch, tmp_path):
+    playbook_path = tmp_path / "qwen.yml"
+    playbook_path.write_text("- hosts: all\n  tasks: []\n", encoding="utf-8")
+    vm = install_agents_module.VmConfig(
+        name="agent",
+        cpu=1,
+        ram="1G",
+        disk="5G",
+        cloud_init={},
+        port_forwarding=[],
+    )
+    calls = []
+
+    class DummyHandler:
+        def install_agent(self, *args, **kwargs):
+            calls.append((args, kwargs))
+            return "prepared"
+
+    monkeypatch.setattr(install_agents_module, "is_windows", lambda: True)
+    monkeypatch.setattr(install_agents_module, "choose_provision_handler", lambda: DummyHandler())
+
+    def fail_run_ansible_playbook(*_args, **_kwargs):
+        raise AssertionError("host-side run_ansible_playbook must not be used on Windows")
+
+    monkeypatch.setattr(install_agents_module, "run_ansible_playbook", fail_run_ansible_playbook)
+
+    result = install_agents_module._run_install_playbook(
+        vm,
+        playbook_path,
+        ssh_keys_folder=tmp_path,
+        proxychains="https://proxy.example",
+        debug=True,
+        label="Install agent",
+    )
+
+    assert result == "prepared"
+    assert len(calls) == 1
+    args, kwargs = calls[0]
+    assert args[0] == vm
+    assert args[1] == playbook_path
+    assert args[2] == tmp_path
+    assert args[3] == "https://proxy.example"
+    assert kwargs["debug"] is True
+    assert kwargs["label"] == "Install agent"
+
+
 def test_install_agents_uses_cline_playbook(monkeypatch, tmp_path):
     config_path = tmp_path / "config.yaml"
     _write_config(config_path, [("cline_main", "cline")])

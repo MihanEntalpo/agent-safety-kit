@@ -23,7 +23,7 @@ def test_start_single_vm(monkeypatch, tmp_path):
 
     calls: list[list[str]] = []
 
-    def fake_run(command, check=False, capture_output=False, text=False):
+    def fake_run(command, check=False, capture_output=False):
         calls.append(command)
 
         class Result:
@@ -34,7 +34,7 @@ def test_start_single_vm(monkeypatch, tmp_path):
         return Result()
 
     monkeypatch.setattr(start_module, "ensure_multipass_available", lambda: None)
-    monkeypatch.setattr(start_module.subprocess, "run", fake_run)
+    monkeypatch.setattr(start_module, "run_multipass_subprocess", fake_run)
 
     runner = CliRunner()
     result = runner.invoke(start_vm_command, ["agent", "--config", str(config_path)])
@@ -49,7 +49,7 @@ def test_start_defaults_to_single_vm(monkeypatch, tmp_path):
 
     calls: list[list[str]] = []
 
-    def fake_run(command, check=False, capture_output=False, text=False):
+    def fake_run(command, check=False, capture_output=False):
         calls.append(command)
 
         class Result:
@@ -60,7 +60,7 @@ def test_start_defaults_to_single_vm(monkeypatch, tmp_path):
         return Result()
 
     monkeypatch.setattr(start_module, "ensure_multipass_available", lambda: None)
-    monkeypatch.setattr(start_module.subprocess, "run", fake_run)
+    monkeypatch.setattr(start_module, "run_multipass_subprocess", fake_run)
 
     runner = CliRunner()
     result = runner.invoke(start_vm_command, ["--config", str(config_path)])
@@ -75,7 +75,7 @@ def test_start_all_vms(monkeypatch, tmp_path):
 
     calls: list[list[str]] = []
 
-    def fake_run(command, check=False, capture_output=False, text=False):
+    def fake_run(command, check=False, capture_output=False):
         calls.append(command)
 
         class Result:
@@ -86,7 +86,7 @@ def test_start_all_vms(monkeypatch, tmp_path):
         return Result()
 
     monkeypatch.setattr(start_module, "ensure_multipass_available", lambda: None)
-    monkeypatch.setattr(start_module.subprocess, "run", fake_run)
+    monkeypatch.setattr(start_module, "run_multipass_subprocess", fake_run)
 
     runner = CliRunner()
     result = runner.invoke(start_vm_command, ["--all-vms", "--config", str(config_path)])
@@ -113,7 +113,7 @@ def test_start_vm_debug_output(monkeypatch, tmp_path):
     config_path = tmp_path / "config.yaml"
     _write_config(config_path, ["agent"])
 
-    def fake_run(command, check=False, capture_output=False, text=False):
+    def fake_run(command, check=False, capture_output=False):
         class Result:
             returncode = 0
             stderr = ""
@@ -122,7 +122,7 @@ def test_start_vm_debug_output(monkeypatch, tmp_path):
         return Result()
 
     monkeypatch.setattr(start_module, "ensure_multipass_available", lambda: None)
-    monkeypatch.setattr(start_module.subprocess, "run", fake_run)
+    monkeypatch.setattr(start_module, "run_multipass_subprocess", fake_run)
 
     runner = CliRunner()
     result = runner.invoke(

@@ -10,7 +10,7 @@ import click
 
 from ..config import ConfigError, MountConfig, load_config, load_mounts_config, load_vms_config, resolve_config_path
 from ..debug import debug_log_command, debug_log_result, debug_scope
-from ..host_tools import multipass_command
+from ..host_tools import multipass_command, run_multipass_subprocess
 from ..i18n import tr
 from ..mounts import is_mount_registered, load_multipass_mounts, umount_directory
 from ..vm import MultipassError, ensure_multipass_available
@@ -21,7 +21,7 @@ STOP_VM_GRACEFUL_TIMEOUT_SECONDS = 30
 
 def _run_multipass_command(command: list[str], *, debug: bool = False) -> subprocess.CompletedProcess[str]:
     debug_log_command(command, enabled=debug)
-    result = subprocess.run(command, check=False, capture_output=True, text=True)
+    result = run_multipass_subprocess(command, check=False, capture_output=True)
     debug_log_result(result, enabled=debug)
     return result
 

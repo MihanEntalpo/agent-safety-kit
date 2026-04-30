@@ -14,7 +14,7 @@ import yaml
 
 from .config import ConfigError, PortForwardingRule, VmConfig, load_config, load_vms_config
 from .debug import debug_log_command, debug_log_result
-from .host_tools import host_tool_exists, multipass_command
+from .host_tools import host_tool_exists, is_windows, multipass_command, run_multipass_subprocess
 from .i18n import tr
 
 SIZE_MAP: Dict[str, int] = {
@@ -47,6 +47,8 @@ class MultipassError(RuntimeError):
 
 
 def to_bytes(value: Optional[object]) -> Optional[int]:
+    """Convert a human-readable size like ``1G`` or ``512MiB`` into bytes."""
+
     if value is None:
         return None
     if isinstance(value, (int, float)):
@@ -64,6 +66,8 @@ def to_bytes(value: Optional[object]) -> Optional[int]:
 
 
 def load_existing_entry(raw: str, name: str) -> Optional[Dict[str, object]]:
+    """Extract one VM entry from ``multipass list --format json`` output."""
+
     if not raw.strip():
         return None
     try:
@@ -77,6 +81,8 @@ def load_existing_entry(raw: str, name: str) -> Optional[Dict[str, object]]:
 
 
 def _to_bytes_deep(value: object) -> Optional[int]:
+    """Parse a size value recursively from nested Multipass JSON structures."""
+
     direct = to_bytes(value)
     if direct is not None:
         return direct
@@ -102,9 +108,11 @@ def _to_bytes_deep(value: object) -> Optional[int]:
 
 
 def _fetch_runtime_info_entry(name: str) -> Optional[Dict[str, object]]:
+    """Load the detailed ``multipass info`` entry for one VM when available."""
+
     command = [multipass_command(), "info", name, "--format", "json"]
     debug_log_command(command)
-    result = subprocess.run(command, check=False, capture_output=True, text=True)
+    result = run_multipass_subprocess(command, check=False, capture_output=True)
     debug_log_result(result)
     if result.returncode != 0:
         return None
@@ -124,6 +132,8 @@ def _fetch_runtime_info_entry(name: str) -> Optional[Dict[str, object]]:
 
 
 def _extract_cpu_count(list_entry: Dict[str, object], info_entry: Optional[Dict[str, object]]) -> Optional[str]:
+    """Read the effective CPU count from list/info payloads with loose schema handling."""
+
     for source in (list_entry, info_entry):
         if not source:
             continue
@@ -144,6 +154,8 @@ def _extract_cpu_count(list_entry: Dict[str, object], info_entry: Optional[Dict[
 
 
 def _extract_ram_bytes(list_entry: Dict[str, object], info_entry: Optional[Dict[str, object]]) -> Optional[int]:
+    """Read the effective RAM size in bytes from list/info payloads."""
+
     candidates: List[object] = [
         list_entry.get("mem"),
         list_entry.get("memory"),
@@ -170,6 +182,8 @@ def _extract_ram_bytes(list_entry: Dict[str, object], info_entry: Optional[Dict[
 
 
 def _extract_disk_bytes(list_entry: Dict[str, object], info_entry: Optional[Dict[str, object]]) -> Optional[int]:
+    """Read the effective disk size in bytes from list/info payloads."""
+
     candidates: List[object] = [
         list_entry.get("disk"),
         list_entry.get("disk_total"),
@@ -194,6 +208,8 @@ def _extract_disk_bytes(list_entry: Dict[str, object], info_entry: Optional[Dict
 
 
 def _resource_size_matches(actual: Optional[int], expected: Optional[int]) -> bool:
+    """Compare resource sizes with tolerance for Multipass-adjusted effective values."""
+
     if actual is None or expected is None:
         return True
     if actual == expected:
@@ -212,6 +228,8 @@ def compare_vm(
     expected_disk_raw: str,
     runtime_info: Optional[Dict[str, object]] = None,
 ) -> str:
+    """Compare an existing VM against requested resources and return a compact status string."""
+
     entry = load_existing_entry(raw_info, name)
     if entry is None:
         return "absent"
@@ -239,11 +257,15 @@ def compare_vm(
 
 
 def ensure_multipass_available() -> None:
+    """Fail fast with a translated error if the Multipass CLI is not installed."""
+
     if not host_tool_exists("multipass"):
         raise MultipassError(tr("vm.multipass_missing"))
 
 
 def fetch_existing_info() -> str:
+    """Return raw ``multipass list --format json`` output for later comparisons."""
+
     command = [
         multipass_command(),
         "list",
@@ -251,7 +273,7 @@ def fetch_existing_info() -> str:
         "json",
     ]
     debug_log_command(command)
-    result = subprocess.run(command, check=False, capture_output=True, text=True)
+    result = run_multipass_subprocess(command, check=False, capture_output=True)
     debug_log_result(result)
     if result.returncode != 0:
         raise MultipassError(result.stderr.strip() or tr("vm.list_failed"))
@@ -259,6 +281,8 @@ def fetch_existing_info() -> str:
 
 
 def _system_cpu_count() -> int:
+    """Read the host CPU count used by resource admission checks."""
+
     cpu_count = os.cpu_count()
     if cpu_count is None:
         raise MultipassError(tr("vm.cpu_count_failed"))
@@ -266,6 +290,8 @@ def _system_cpu_count() -> int:
 
 
 def _system_memory_bytes() -> int:
+    """Read total host memory in bytes using OS sysconf first and psutil as fallback."""
+
     try:
         page_size = os.sysconf("SC_PAGE_SIZE")  # type: ignore[arg-type]
         page_count = os.sysconf("SC_PHYS_PAGES")  # type: ignore[arg-type]
@@ -280,6 +306,8 @@ def _system_memory_bytes() -> int:
 
 
 def _sum_existing_allocations(raw_info: str) -> tuple[int, int]:
+    """Estimate CPU and RAM already allocated to existing Multipass VMs."""
+
     allocated_cpus = 0
     allocated_mem = 0
 
@@ -303,6 +331,8 @@ def _sum_existing_allocations(raw_info: str) -> tuple[int, int]:
 
 
 def _planned_resources(vms: Iterable[VmConfig]) -> tuple[int, int]:
+    """Sum CPU and RAM requested by the VMs we are about to create."""
+
     cpus = 0
     mem = 0
     for vm in vms:
@@ -315,6 +345,8 @@ def _planned_resources(vms: Iterable[VmConfig]) -> tuple[int, int]:
 
 
 def ensure_resources_available(existing_info: str, planned: Iterable[VmConfig]) -> None:
+    """Reject a launch plan that would leave the host with too few free resources."""
+
     planned_cpus, planned_mem = _planned_resources(planned)
     existing_cpus, existing_mem = _sum_existing_allocations(existing_info)
 
@@ -329,6 +361,8 @@ def ensure_resources_available(existing_info: str, planned: Iterable[VmConfig]) 
 
 
 def _format_mismatch_details(details: str) -> str:
+    """Turn an internal mismatch code list into translated user-facing labels."""
+
     if not details:
         return ""
     mapping = {
@@ -346,6 +380,8 @@ def _format_mismatch_details(details: str) -> str:
 
 
 def _dump_cloud_init(data: Dict[str, object]) -> Optional[Path]:
+    """Write cloud-init data to a temporary YAML file for ``multipass launch``."""
+
     if not data:
         return None
 
@@ -359,6 +395,8 @@ def _dump_cloud_init(data: Dict[str, object]) -> Optional[Path]:
 
 
 def resolve_multipass_launch_timeout_seconds() -> Optional[int]:
+    """Parse the optional launch timeout override from the environment."""
+
     raw_value = os.environ.get(MULTIPASS_LAUNCH_TIMEOUT_ENV_VAR)
     if raw_value is None:
         return None
@@ -388,6 +426,8 @@ def _build_launch_command(
     *,
     launch_timeout_seconds: Optional[int] = None,
 ) -> List[str]:
+    """Build the exact ``multipass launch`` command for one VM config."""
+
     command = [
         multipass_command(),
         "launch",
@@ -411,22 +451,91 @@ def _build_launch_command(
 
 
 def _is_transient_launch_error(stderr: str) -> bool:
+    """Detect retryable catalog/network launch errors reported by Multipass."""
+
     normalized = stderr.lower()
     return "remote" in normalized and "unknown or unreachable" in normalized
 
 
+def _extract_hyperv_vm_name(stderr: str) -> Optional[str]:
+    """Extract the VM name from a ``Start-VM`` error so we can inspect Hyper-V logs."""
+
+    match = re.search(r'Start-VM\s*:\s*"([^"]+)"', stderr, re.IGNORECASE)
+    if match:
+        return match.group(1)
+    return None
+
+
+def _lookup_recent_hyperv_vmms_event_ids(vm_name: str) -> List[str]:
+    """Fetch recent Hyper-V VMMS event IDs for one VM to classify Windows launch failures."""
+
+    if not is_windows():
+        return []
+
+    quoted_vm_name = json.dumps(vm_name)
+    command = [
+        "powershell.exe",
+        "-NoProfile",
+        "-Command",
+        (
+            "$ErrorActionPreference='Stop'; "
+            "$cutoff=(Get-Date).AddMinutes(-2); "
+            f"$vmName={quoted_vm_name}; "
+            "Get-WinEvent -LogName 'Microsoft-Windows-Hyper-V-VMMS-Admin' -MaxEvents 20 | "
+            "Where-Object { $_.TimeCreated -ge $cutoff -and $_.Message -like ('*\"' + $vmName + '\"*') } | "
+            "Select-Object -ExpandProperty Id"
+        ),
+    ]
+    try:
+        result = subprocess.run(command, check=False, capture_output=True, text=True)
+    except OSError:
+        return []
+
+    if result.returncode != 0:
+        return []
+    return [line.strip() for line in result.stdout.splitlines() if line.strip()]
+
+
+def wrap_multipass_hyperv_error(stderr: str) -> Optional[str]:
+    """Replace raw Hyper-V startup failures with a more user-friendly, classified message."""
+
+    normalized = stderr.casefold()
+    is_start_vm_error = (
+        "microsoft.hyperv.powershell.commands.startvm" in normalized
+        or ("start-vm" in normalized and "virtualizationexception" in normalized)
+    )
+    if not is_start_vm_error:
+        return None
+
+    is_known_components_error = (
+        "one of the hyper-v components is not running" in normalized
+        or ("один из компонентов hyper-v" in normalized and "не запущ" in normalized)
+    )
+    if is_known_components_error:
+        return tr("vm.hyperv_components_not_running", details=stderr.strip())
+
+    vm_name = _extract_hyperv_vm_name(stderr)
+    if vm_name and "20144" in _lookup_recent_hyperv_vmms_event_ids(vm_name):
+        return tr("vm.hyperv_components_not_running", details=stderr.strip())
+    return tr("vm.hyperv_start_problem", details=stderr.strip())
+
+
 def _warm_multipass_catalog() -> None:
+    """Warm the local Multipass image catalog before retrying a transient launch error."""
+
     command = [multipass_command(), "find"]
     debug_log_command(command)
-    result = subprocess.run(command, check=False, capture_output=True, text=True)
+    result = run_multipass_subprocess(command, check=False, capture_output=True)
     debug_log_result(result)
 
 
 def _launch_with_retries(launch_cmd: List[str], max_attempts: int = 3) -> subprocess.CompletedProcess[str]:
+    """Run ``multipass launch`` with a small retry loop for transient remote/catalog failures."""
+
     last_result: Optional[subprocess.CompletedProcess[str]] = None
     for attempt in range(1, max_attempts + 1):
         debug_log_command(launch_cmd)
-        result = subprocess.run(launch_cmd, check=False, capture_output=True, text=True)
+        result = run_multipass_subprocess(launch_cmd, check=False, capture_output=True)
         debug_log_result(result)
         last_result = result
         if result.returncode == 0:
@@ -449,6 +558,8 @@ def do_launch(
     *,
     launch_timeout_seconds: Optional[int] = None,
 ) -> str:
+    """Create one VM when absent, or raise a translated error when launch is not possible."""
+
     comparison_result = compare_vm(
         existing_info,
         vm_config.name,
@@ -487,11 +598,14 @@ def do_launch(
                 pass
 
     if launch_result.returncode != 0:
-        raise MultipassError(launch_result.stderr.strip() or tr("vm.create_failed"))
+        stderr = launch_result.stderr.strip()
+        raise MultipassError(wrap_multipass_hyperv_error(stderr) or stderr or tr("vm.create_failed"))
     return tr("vm.created", vm_name=vm_config.name)
 
 
 def build_port_forwarding_args(rules: Iterable[PortForwardingRule]) -> List[str]:
+    """Convert port-forwarding rules from config into SSH CLI arguments."""
+
     args: List[str] = []
     for rule in rules:
         if rule.type == "local":
@@ -509,6 +623,8 @@ RUN_AGENT_RUNNER_PATH = "/usr/bin/agsekit-run_agent.sh"
 
 
 def resolve_proxychains(vm: VmConfig, override: Optional[str]) -> Optional[str]:
+    """Resolve the effective proxychains profile, honoring a CLI override when provided."""
+
     if override is None:
         return vm.proxychains
 
@@ -519,6 +635,8 @@ def resolve_proxychains(vm: VmConfig, override: Optional[str]) -> Optional[str]:
 
 
 def _load_vms(path: Optional[str] = None) -> Dict[str, VmConfig]:
+    """Load and parse only the VM section from the project config file."""
+
     config = load_config(Path(path) if path else None)
     return load_vms_config(config)
 
@@ -529,6 +647,8 @@ def create_vm_from_config(
     *,
     launch_timeout_seconds: Optional[int] = None,
 ) -> tuple[str, Optional[str]]:
+    """Create one configured VM and return the main status plus an optional warning."""
+
     vms = _load_vms(path)
     if vm_name not in vms:
         raise ConfigError(tr("vm.missing_in_config", vm_name=vm_name))
@@ -565,6 +685,8 @@ def create_all_vms_from_config(
     *,
     launch_timeout_seconds: Optional[int] = None,
 ) -> tuple[List[str], List[str], Dict[str, str]]:
+    """Create all configured VMs and return created/mismatch status summaries."""
+
     vms = _load_vms(path)
 
     ensure_multipass_available()

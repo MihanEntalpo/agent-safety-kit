@@ -27,7 +27,7 @@ from ..config import (
     resolve_config_path,
 )
 from ..debug import debug_log_command, debug_log_result, debug_scope
-from ..host_tools import multipass_command
+from ..host_tools import multipass_command, run_multipass_subprocess
 from ..i18n import tr
 from ..vm import RESOURCE_SIZE_RELATIVE_TOLERANCE, fetch_existing_info, to_bytes
 
@@ -88,12 +88,7 @@ def _load_multipass_entries() -> tuple[Dict[str, Dict[str, object]], Optional[st
 def _load_multipass_info_entries() -> tuple[Dict[str, Dict[str, object]], Optional[str]]:
     command = [multipass_command(), "info", "--format", "json"]
     debug_log_command(command)
-    result = subprocess.run(
-        command,
-        check=False,
-        capture_output=True,
-        text=True,
-    )
+    result = run_multipass_subprocess(command, check=False, capture_output=True)
     debug_log_result(result)
     if result.returncode != 0:
         return {}, result.stderr.strip() or tr("status.multipass_parse_failed")

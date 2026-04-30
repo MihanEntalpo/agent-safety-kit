@@ -171,3 +171,29 @@ def test_create_vm_uses_ssh_keys_folder_from_main_config(monkeypatch, tmp_path):
     assert result.exit_code == 0
     assert ensure_kwargs["ssh_dir"] == ssh_dir.resolve()
     assert ensure_kwargs["verbose"] is False
+
+
+def test_prepare_vm_delegates_to_windows_provision_handler(monkeypatch, tmp_path):
+    calls = []
+
+    class DummyHandler:
+        def prepare_vm(self, *args, **kwargs):
+            calls.append((args, kwargs))
+
+    monkeypatch.setattr(create_vm_module, "choose_provision_handler", lambda: DummyHandler())
+
+    create_vm_module.prepare_vm(
+        "agent",
+        tmp_path / "id_rsa",
+        tmp_path / "id_rsa.pub",
+        ["base"],
+        debug=True,
+    )
+
+    assert len(calls) == 1
+    args, kwargs = calls[0]
+    assert args[0] == "agent"
+    assert args[1] == tmp_path / "id_rsa"
+    assert args[2] == tmp_path / "id_rsa.pub"
+    assert args[3] == ["base"]
+    assert kwargs["debug"] is True

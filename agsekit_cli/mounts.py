@@ -8,7 +8,7 @@ from typing import Dict, Iterable, List, Optional, Set, Tuple, Union
 
 from .config import ConfigError, MountConfig, load_config, load_mounts_config, resolve_config_path
 from .debug import debug_log_command, debug_log_result
-from .host_tools import multipass_command
+from .host_tools import multipass_command, run_multipass_subprocess
 from .i18n import tr
 from .vm import MultipassError, ensure_multipass_available
 
@@ -134,7 +134,7 @@ def load_multipass_mounts(*, debug: bool = False) -> Dict[str, Set[RegisteredMou
     ensure_multipass_available()
     command = [multipass_command(), "info", "--format", "json"]
     debug_log_command(command, enabled=debug)
-    result = subprocess.run(command, check=False, capture_output=True, text=True)
+    result = run_multipass_subprocess(command, check=False, capture_output=True)
     debug_log_result(result, enabled=debug)
     if result.returncode != 0:
         details = result.stderr.strip() or result.stdout.strip()
@@ -191,7 +191,7 @@ def vm_path_has_entries(vm_name: str, path: Path, *, debug: bool = False) -> boo
     )
     command = [multipass_command(), "exec", vm_name, "--", "bash", "-lc", script]
     debug_log_command(command, enabled=debug)
-    result = subprocess.run(command, check=False, capture_output=True, text=True)
+    result = run_multipass_subprocess(command, check=False, capture_output=True)
     debug_log_result(result, enabled=debug)
     if result.returncode != 0:
         details = result.stderr.strip() or result.stdout.strip()
@@ -208,7 +208,7 @@ def vm_path_has_entries(vm_name: str, path: Path, *, debug: bool = False) -> boo
 def _run_multipass(command: list[str], error_message: str, *, allow_already_mounted: bool = False) -> None:
     ensure_multipass_available()
     debug_log_command(command)
-    result = subprocess.run(command, check=False, capture_output=True, text=True)
+    result = run_multipass_subprocess(command, check=False, capture_output=True)
     debug_log_result(result)
     if result.returncode != 0:
         stderr = result.stderr.strip()

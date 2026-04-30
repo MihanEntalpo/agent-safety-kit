@@ -1,6 +1,4 @@
 from __future__ import annotations
-
-import subprocess
 from pathlib import Path
 from typing import Optional
 
@@ -8,19 +6,20 @@ import click
 
 from ..config import ConfigError, load_config, load_vms_config, resolve_config_path
 from ..debug import debug_log_command, debug_log_result, debug_scope
-from ..host_tools import multipass_command
+from ..host_tools import multipass_command, run_multipass_subprocess
 from ..i18n import tr
-from ..vm import MultipassError, ensure_multipass_available
+from ..vm import MultipassError, ensure_multipass_available, wrap_multipass_hyperv_error
 from . import debug_option, non_interactive_option
 
 
 def _start_vm(vm_name: str, *, debug: bool = False) -> None:
     command = [multipass_command(), "start", vm_name]
     debug_log_command(command, enabled=debug)
-    result = subprocess.run(command, check=False, capture_output=True, text=True)
+    result = run_multipass_subprocess(command, check=False, capture_output=True)
     debug_log_result(result, enabled=debug)
     if result.returncode != 0:
         stderr = result.stderr.strip() or result.stdout.strip()
+        stderr = wrap_multipass_hyperv_error(stderr) or stderr
         details = f": {stderr}" if stderr else ""
         raise MultipassError(tr("start_vm.start_failed", vm_name=vm_name, details=details))
 

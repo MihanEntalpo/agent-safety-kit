@@ -125,3 +125,75 @@ def test_do_launch_uses_timeout_from_env(monkeypatch):
             "600",
         ]
     ]
+
+
+def test_do_launch_wraps_known_hyperv_components_error(monkeypatch):
+    monkeypatch.setattr(vm_module, "compare_vm", lambda *_args: "absent")
+    monkeypatch.setattr(vm_module, "_dump_cloud_init", lambda _data: None)
+
+    stderr = "\n".join(
+        [
+            'Start-VM : "agent-vm": Не удалось запустить виртуальную машину.',
+            'Не удалось запустить виртуальную машину "agent-vm", потому что не запущен один из компонентов Hyper-V.',
+            'FullyQualifiedErrorId : OperationFailed,Microsoft.HyperV.PowerShell.Commands.StartVM',
+        ]
+    )
+
+    monkeypatch.setattr(
+        vm_module,
+        "_launch_with_retries",
+        lambda _command: subprocess.CompletedProcess(["multipass", "launch"], 1, stdout="", stderr=stderr),
+    )
+
+    with pytest.raises(vm_module.MultipassError) as exc_info:
+        vm_module.do_launch(_sample_vm(), "{}")
+
+    message = str(exc_info.value)
+    assert "nested virtualization" in message
+    assert "Hyper-V" in message
+    assert "Start-VM" not in message
+
+
+def test_do_launch_wraps_unknown_hyperv_start_error_generically(monkeypatch):
+    monkeypatch.setattr(vm_module, "compare_vm", lambda *_args: "absent")
+    monkeypatch.setattr(vm_module, "_dump_cloud_init", lambda _data: None)
+
+    stderr = "\n".join(
+        [
+            'Start-VM : "agent-vm": Unexpected failure.',
+            "VirtualizationException",
+            "FullyQualifiedErrorId : OperationFailed,Microsoft.HyperV.PowerShell.Commands.StartVM",
+        ]
+    )
+
+    monkeypatch.setattr(
+        vm_module,
+        "_launch_with_retries",
+        lambda _command: subprocess.CompletedProcess(["multipass", "launch"], 1, stdout="", stderr=stderr),
+    )
+
+    with pytest.raises(vm_module.MultipassError) as exc_info:
+        vm_module.do_launch(_sample_vm(), "{}")
+
+    message = str(exc_info.value)
+    assert "Hyper-V startup problem" in message
+    assert "Unexpected failure." not in message
+
+
+def test_wrap_multipass_hyperv_error_uses_windows_vmms_event_ids_for_garbled_output(monkeypatch):
+    monkeypatch.setattr(vm_module, "is_windows", lambda: True)
+    monkeypatch.setattr(vm_module, "_lookup_recent_hyperv_vmms_event_ids", lambda _vm_name: ["15130", "20144"])
+
+    stderr = "\n".join(
+        [
+            'launch failed: Start-VM : "agent-vm": ?? ??????? ?????????.',
+            '?? ??????? ????????? ??????????? ?????? "agent-vm", ??? ??? ?? ???????? ???? ?? ??????????? Hyper-V.',
+            "FullyQualifiedErrorId : OperationFailed,Microsoft.HyperV.PowerShell.Commands.StartVM",
+        ]
+    )
+
+    message = vm_module.wrap_multipass_hyperv_error(stderr)
+
+    assert message is not None
+    assert "nested virtualization" in message
+    assert "Start-VM" not in message

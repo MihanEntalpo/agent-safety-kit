@@ -17,7 +17,7 @@ from .ansible_utils import (
     run_ansible_playbook,
 )
 from .debug import debug_log_command, debug_log_result
-from .host_tools import multipass_command, ssh_command, ssh_keygen_command
+from .host_tools import multipass_command, run_multipass_subprocess, ssh_command, ssh_keygen_command
 from .i18n import tr
 from .progress import ProgressManager
 from .vm_bundles import ResolvedBundle, resolve_bundles
@@ -67,7 +67,7 @@ def _run_multipass(
         if debug:
             click.echo(message)
     debug_log_command(command)
-    result = subprocess.run(command, check=False, capture_output=capture_output, text=True)
+    result = run_multipass_subprocess(command, check=False, capture_output=capture_output)
     debug_log_result(result)
     return result
 

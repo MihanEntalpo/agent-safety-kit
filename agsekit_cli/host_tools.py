@@ -1,10 +1,13 @@
 from __future__ import annotations
 
+import locale
 import os
 import platform
 import shutil
+import subprocess
+from functools import lru_cache
 from pathlib import Path
-from typing import Iterable, Optional
+from typing import Iterable, Optional, Sequence
 
 MULTIPASS_WINDOWS_INSTALL_URL = "https://canonical.com/multipass/install"
 
@@ -80,3 +83,100 @@ def ssh_command() -> str:
 
 def ssh_keygen_command() -> str:
     return host_tool_command("ssh-keygen")
+
+
+def _windows_code_page_name(getter_name: str) -> Optional[str]:
+    try:
+        import ctypes
+
+        kernel32 = ctypes.windll.kernel32
+        getter = getattr(kernel32, getter_name, None)
+        if getter is None:
+            return None
+
+        code_page = int(getter())
+    except (AttributeError, OSError, ValueError):
+        return None
+
+    if code_page <= 0:
+        return None
+    return f"cp{code_page}"
+
+
+def _windows_registry_code_pages() -> tuple[str, ...]:
+    try:
+        import winreg
+    except ImportError:
+        return ()
+
+    try:
+        with winreg.OpenKey(winreg.HKEY_LOCAL_MACHINE, r"SYSTEM\CurrentControlSet\Control\Nls\CodePage") as key:
+            values = []
+            for name in ("ACP", "OEMCP", "MACCP"):
+                raw_value, _value_type = winreg.QueryValueEx(key, name)
+                if not raw_value:
+                    continue
+                code_page = f"cp{str(raw_value).strip()}"
+                if code_page not in values:
+                    values.append(code_page)
+    except OSError:
+        return ()
+
+    return tuple(values)
+
+
+@lru_cache(maxsize=1)
+def windows_output_encodings() -> tuple[str, ...]:
+    encodings: list[str] = ["utf-8"]
+
+    for getter_name in ("GetConsoleOutputCP", "GetOEMCP", "GetACP"):
+        code_page = _windows_code_page_name(getter_name)
+        if code_page and code_page not in encodings:
+            encodings.append(code_page)
+
+    for code_page in _windows_registry_code_pages():
+        if code_page not in encodings:
+            encodings.append(code_page)
+
+    preferred = locale.getpreferredencoding(False)
+    if preferred and preferred not in encodings:
+        encodings.append(preferred)
+
+    if "mbcs" not in encodings:
+        encodings.append("mbcs")
+
+    return tuple(encodings)
+
+
+def decode_windows_output(data: bytes) -> str:
+    if not data:
+        return ""
+
+    for encoding in windows_output_encodings():
+        try:
+            return data.decode(encoding)
+        except UnicodeDecodeError:
+            continue
+
+    return data.decode(windows_output_encodings()[-1], errors="replace")
+
+
+def run_multipass_subprocess(
+    command: Sequence[str],
+    *,
+    check: bool = False,
+    capture_output: bool = False,
+) -> subprocess.CompletedProcess[str]:
+    if not is_windows() or not capture_output:
+        return subprocess.run(command, check=check, capture_output=capture_output, text=True)
+
+    raw_result = subprocess.run(command, check=False, capture_output=True, text=False)
+    result = subprocess.CompletedProcess(
+        raw_result.args,
+        raw_result.returncode,
+        decode_windows_output(raw_result.stdout or b""),
+        decode_windows_output(raw_result.stderr or b""),
+    )
+    if check:
+        result.check_returncode()
+    return result
