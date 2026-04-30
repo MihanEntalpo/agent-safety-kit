@@ -14,4 +14,4 @@ dist/
 agsekit.egg-info/
 .tmp-agent-*
 .aider*
-
+.agents.md

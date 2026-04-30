@@ -1,5 +1,10 @@
 # Agent-Safety-Kit versions history
 
+## 1.6.7 - Windows installer reliability fixes
+
+* Fixed `scripts/install/install.ps1` end-to-end on clean Windows hosts: Python auto-install now reliably falls back from `winget` to the latest official installer from `python.org`, waits for the installed interpreter to become discoverable, and keeps the installer log when post-install detection fails
+* Fixed Windows Python detection and wrapper setup in `scripts/install/install.ps1`: the installer now ignores broken/stub Python launchers, uses a deterministic managed Python install path, writes an additional `agsekit.cmd` shim into the managed Python `Scripts` directory, and gives clearer PATH refresh guidance for already running terminal sessions
+
 ## 1.6.6 - Installer Python auto-install and prompt visibility fix
 
 * Updated `scripts/install/install.sh`: when Python 3.9+ is missing, the installer now asks before installing it automatically on Debian/Ubuntu (`apt`), Arch (`pacman`), or macOS (`brew`); on Linux it also auto-installs missing `venv` support when Python exists but cannot create a virtual environment
