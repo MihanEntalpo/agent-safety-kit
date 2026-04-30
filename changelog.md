@@ -1,5 +1,9 @@
 # Agent-Safety-Kit versions history
 
+## 1.6.8 - Windows pip-upgrade fix
+
+* Now pip-upgrade is working fine on windows
+
 ## 1.6.7 - Windows installer reliability fixes
 
 * Fixed `scripts/install/install.ps1` end-to-end on clean Windows hosts: Python auto-install now reliably falls back from `winget` to the latest official installer from `python.org`, waits for the installed interpreter to become discoverable, and keeps the installer log when post-install detection fails

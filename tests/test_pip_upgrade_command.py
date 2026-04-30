@@ -1,3 +1,5 @@
+import base64
+
 from click.testing import CliRunner
 
 from agsekit_cli.commands import pip_upgrade as pip_upgrade_module
@@ -88,33 +90,32 @@ def test_pip_upgrade_not_installed(monkeypatch):
 def test_pip_upgrade_windows_reexecs_under_python_before_install(monkeypatch):
     monkeypatch.setattr(pip_upgrade_module, "_detect_env_path", lambda: r"C:\Users\natalia\.local\share\agsekit\venv")
     monkeypatch.setattr(pip_upgrade_module, "_is_windows", lambda: True)
-    monkeypatch.setattr(pip_upgrade_module.sys, "executable", r"C:\Users\natalia\.local\share\agsekit\venv\Scripts\python.exe")
+    monkeypatch.setattr(
+        pip_upgrade_module,
+        "_windows_python_executable",
+        lambda: r"C:\Users\natalia\.local\share\agsekit\venv\Scripts\python.exe",
+    )
 
     def fake_run(command, check=False, capture_output=False, text=False):
-        del check, capture_output, text
         if command[-2:] == ["show", "agsekit"]:
             return _result(stdout="Name: agsekit\nVersion: 1.5.16\n")
+        if command[:2] == [r"C:\Users\natalia\.local\share\agsekit\venv\Scripts\python.exe", "-c"]:
+            fake_run.last_command = command
+            assert check is False
+            assert capture_output is True
+            assert text is True
+            return _result()
         raise AssertionError(f"Unexpected command: {command}")
 
-    execv_call = {}
-
-    def fake_execv(executable, args):
-        execv_call["executable"] = executable
-        execv_call["args"] = args
-        raise SystemExit(0)
-
     monkeypatch.setattr(pip_upgrade_module.subprocess, "run", fake_run)
-    monkeypatch.setattr(pip_upgrade_module.os, "execv", fake_execv)
 
     runner = CliRunner()
     result = runner.invoke(pip_upgrade_module.pip_upgrade_command, [], env={"AGSEKIT_LANG": "en"})
 
     assert result.exit_code == 0
     assert r"Using Python environment: C:\Users\natalia\.local\share\agsekit\venv" in result.output
-    assert execv_call["executable"] == r"C:\Users\natalia\.local\share\agsekit\venv\Scripts\python.exe"
-    assert execv_call["args"][:2] == [
-        r"C:\Users\natalia\.local\share\agsekit\venv\Scripts\python.exe",
-        "-c",
-    ]
-    assert '"install", "agsekit", "--upgrade"' in execv_call["args"][2]
-    assert '"show", "agsekit"' in execv_call["args"][2]
+    launcher = fake_run.last_command[2]
+    encoded_payload = launcher.split("b64decode(", 1)[1].split(")", 1)[0]
+    decoded = base64.b64decode(eval(encoded_payload)).decode("utf-8")
+    assert '"install", "agsekit", "--upgrade"' in decoded
+    assert '"show", "agsekit"' in decoded

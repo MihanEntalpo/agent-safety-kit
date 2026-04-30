@@ -1,9 +1,11 @@
 from __future__ import annotations
 
+import base64
 import os
 import platform
 import subprocess
 import sys
+from pathlib import Path
 from typing import Optional
 
 import click
@@ -31,6 +33,25 @@ def _extract_version_from_pip_show(output: str) -> Optional[str]:
 
 def _is_windows() -> bool:
     return platform.system() == "Windows"
+
+
+def _windows_python_executable() -> str:
+    executable = Path(sys.executable)
+    candidate = executable.with_name("python.exe")
+    if candidate.exists():
+        return str(candidate)
+
+    env_path = os.environ.get("VIRTUAL_ENV")
+    if env_path:
+        venv_python = Path(env_path) / "Scripts" / "python.exe"
+        if venv_python.exists():
+            return str(venv_python)
+
+    prefix_python = Path(sys.prefix) / "Scripts" / "python.exe"
+    if prefix_python.exists():
+        return str(prefix_python)
+
+    return str(executable)
 
 
 def _build_windows_upgrade_reexec_code(old_version: str) -> str:
@@ -79,8 +100,27 @@ else:
 
 def _exec_windows_pip_upgrade(old_version: str) -> None:
     code = _build_windows_upgrade_reexec_code(old_version)
-    os.execv(sys.executable, [sys.executable, "-c", code])
-    raise RuntimeError("os.execv returned unexpectedly")
+    encoded = base64.b64encode(code.encode("utf-8")).decode("ascii")
+    launcher = (
+        "import base64;"
+        "exec(base64.b64decode("
+        f"{encoded!r}"
+        ").decode('utf-8'))"
+    )
+    python_executable = _windows_python_executable()
+    result = subprocess.run(
+        [python_executable, "-c", launcher],
+        check=False,
+        capture_output=True,
+        text=True,
+    )
+    if result.stdout:
+        sys.stdout.write(result.stdout)
+        sys.stdout.flush()
+    if result.stderr:
+        sys.stderr.write(result.stderr)
+        sys.stderr.flush()
+    raise SystemExit(result.returncode)
 
 
 @click.command(name="pip-upgrade", help=tr("pip_upgrade.command_help"))
