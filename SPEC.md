@@ -379,16 +379,36 @@
 - создать конфиг через мастер, без ручного редактирования YAML на старте.
 
 Что делает:
-- интерактивно сначала собирает `global`;
-  - `global.ssh_keys_folder`;
-  - `global.systemd_env_folder` (для Linux backend);
-  - `global.portforward_config_check_interval_sec`;
-  - `global.http_proxy_port_pool.start/end`;
-- затем собирает `vms`, `mounts`, `agents`;
-- для каждой VM запрашивает optional `allowed_agents`, optional `proxychains` и optional `http_proxy`;
-- для агента запрашивает `type`, default `vm`, `env`, optional `proxychains` и optional `http_proxy`;
-  - если для agent `proxychains` введено буквально `""`, в YAML сохраняется явная пустая строка (`proxychains: ""`);
-- спрашивает путь сохранения;
+- требует реальный интерактивный TTY; при `--non-interactive` или запуске без TTY завершает команду ошибкой.
+- сначала обязательно собирает хотя бы одну VM и не задаёт вопроса «создавать ли первую VM»:
+  - `name`, `cpu`, `ram`, `disk`;
+  - `install` как multi-select checkbox по доступным bundle names без версий;
+  - optional `proxychains`;
+  - optional `http_proxy`;
+  - optional `port-forwarding`, где пользователь может выбрать `local`, `remote`, `socks5` или `Cancel`; после каждого добавленного правила мастер спрашивает, нужно ли добавить ещё одно правило, и сохраняет список правил в `vms.<name>.port-forwarding`.
+- имена VM внутри одного прогона должны быть уникальными:
+  - default name для первой VM — `agent-ubuntu`;
+  - для следующих VM мастер предлагает первый свободный вариант `agent-ubuntu`, `agent-ubuntu-2`, `agent-ubuntu-3`, ...;
+  - если пользователь вручную вводит уже занятое имя, мастер печатает ошибку и повторно спрашивает имя.
+- после первой VM спрашивает, нужно ли добавить ещё одну VM; default `No`.
+- затем переходит к агентам:
+  - показывает navigable список поддерживаемых agent types плюс `Cancel`;
+  - `Cancel` на первом же выборе позволяет сохранить конфиг без секции `agents`;
+  - `name` по умолчанию берётся из runtime binary агента, а для `codex-glibc` и `codex-glibc-prebuilt` default name = `codex`;
+  - имена агентов внутри одного прогона тоже должны быть уникальными: если base name уже занят, мастер предлагает `name-2`, `name-3`, ...; ручной ввод дубликата печатает ошибку и повторно спрашивает имя;
+  - optional `env` вводится построчно как `KEY=VALUE` до пустой строки;
+  - optional `default-args` вводятся одной строкой и сохраняются как список токенов, разделённых пробелами;
+  - если VM больше одной, агенту предлагается checkbox-выбор целевых VM, по умолчанию отмечены все и требуется оставить хотя бы одну;
+  - optional `proxychains` и `http_proxy` можно переопределить на уровне агента; пустой ввод означает «не переопределять», а буквальное `""` записывается как явная пустая строка в YAML.
+- после агентной секции, если VM больше одной, автоматически синтезирует `vms.<name>.allowed_agents` из agent-to-VM assignments: VM получают списки только тех агентов, которые явно назначены именно им.
+- затем спрашивает, нужно ли настраивать mounts; default `No`.
+  - каждый mount собирает `source`, `target` (default `/home/ubuntu/<basename(source)>`), `backup` (default `<source_parent>/backups-<basename(source)>`);
+  - если VM одна, `mount.vm` выбирается автоматически; если VM несколько, пользователь выбирает одну VM из списка;
+  - если агенты уже заданы, `allowed_agents` выбираются checkbox-списком с дополнительным пунктом `No restrictions`; сочетать `No restrictions` с конкретными агентами нельзя;
+  - при согласии пользователя создаётся default `.backupignore` в source directory, если файл ещё не существует.
+- в самом конце спрашивает, нужно ли переопределять `global`; default `No`.
+  - при согласии собирает `global.ssh_keys_folder`, `global.systemd_env_folder`, `global.portforward_config_check_interval_sec`, `global.http_proxy_port_pool.start/end`.
+- после всех секций спрашивает путь сохранения;
 - без `--overwrite` не перезаписывает существующий файл.
 
 #### `agsekit pip-upgrade`
@@ -541,14 +561,25 @@
 - добавить mount entry в YAML безопасно и без ручного редактирования.
 
 Что делает:
-- запрашивает/вычисляет default значения;
+- сначала загружает текущий YAML-конфиг и валидирует секции `vms`, `mounts`, `agents`, чтобы интерактивные вопросы сразу опирались на актуальные VM и агентные имена;
+- запрашивает/вычисляет default значения для:
+  - `source`;
+  - `target`;
+  - `backup`;
+  - `interval`;
+  - `max_backups`;
+  - `backup_clean_method`;
 - поддерживает выбор VM для новой записи:
   - non-interactive: через `--vm <name>`;
   - interactive: при нескольких VM предлагает выбрать VM;
   - если в конфиге ровно одна VM, выбирает её автоматически;
 - поддерживает установку `allowed_agents`:
   - non-interactive: через `--allowed-agents qwen,codex`;
-  - interactive: предлагает либо «без ограничений», либо выбрать разрешённых агентов из уже настроенных в конфиге;
+  - interactive: показывает checkbox-список с пунктом «без ограничений» и именами уже настроенных агентов;
+- в интерактивном режиме предлагает создать default `.backupignore` в `source`, если пользователь согласен;
+- не позволяет сохранить конфликтующие mount entries:
+  - если `source + vm` уже существуют в конфиге, новая запись отклоняется;
+  - если `target + vm` уже существуют в конфиге, новая запись отклоняется, потому что в одной VM нельзя иметь несколько mount'ов на один и тот же target path;
 - показывает summary;
 - в интерактивном режиме спрашивает подтверждение;
 - делает timestamp backup конфига;

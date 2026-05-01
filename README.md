@@ -84,6 +84,8 @@ Through the interactive setup wizard:
 agsekit config-gen
 ```
 
+The wizard starts with the first VM, then offers agents, mounts, and optional global overrides.
+
 If you want, you can copy the config template and edit it manually:
 
 ```shell

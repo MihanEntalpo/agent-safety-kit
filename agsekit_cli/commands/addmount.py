@@ -6,6 +6,7 @@ import shutil
 from typing import Optional
 
 import click
+import questionary
 from ruamel.yaml import YAML
 from ruamel.yaml.comments import CommentedMap, CommentedSeq
 from ruamel.yaml.error import YAMLError
@@ -24,16 +25,34 @@ from ..config import (
 from ..i18n import tr
 from ..interactive import is_interactive_terminal
 from ..mounts import MountAlreadyMountedError, mount_directory, normalize_path
+from ..tui_prompts import (
+    DEFAULT_BACKUPIGNORE_LINES,
+    NO_RESTRICTIONS_VALUE,
+    ask_checkbox,
+    ask_choice,
+    ask_confirm,
+    ask_path,
+    ask_text,
+    make_positive_int_validator,
+    make_required_validator,
+    parse_positive_int,
+    require_non_empty_selection,
+)
 from ..vm import MultipassError
 from ..debug import debug_scope
 
 
 def _prompt_positive_int(message: str, default: int, error_key: str) -> int:
-    while True:
-        value = click.prompt(message, default=default, type=int)
-        if value > 0:
-            return value
-        click.echo(tr(error_key))
+    return parse_positive_int(
+        ask_text(
+            message,
+            default=str(default),
+            validate=make_positive_int_validator(
+                tr("config_gen.value_required"),
+                tr(error_key),
+            ),
+        )
+    )
 
 
 def _parse_interval(raw_value: Optional[str]) -> int:
@@ -61,10 +80,10 @@ def _parse_max_backups(raw_value: Optional[int]) -> int:
 
 
 def _prompt_backup_clean_method(default: str) -> str:
-    return click.prompt(
+    return ask_choice(
         tr("addmount.backup_clean_method_prompt"),
+        choices=["tail", "thin"],
         default=default,
-        type=click.Choice(["tail", "thin"], case_sensitive=False),
     )
 
 
@@ -79,10 +98,11 @@ def _resolve_vm_name(raw_vm_name: Optional[str], vms: dict[str, object], interac
         return vm_names[0]
 
     if interactive:
-        selected = click.prompt(
+        selected = ask_choice(
             tr("addmount.vm_prompt"),
             default=vm_names[0],
-            type=click.Choice(vm_names, case_sensitive=True),
+            choices=vm_names,
+            case_sensitive=True,
         )
         return str(selected)
 
@@ -120,22 +140,103 @@ def _resolve_allowed_agents(
         click.echo(tr("addmount.allowed_agents_no_configured"))
         return None
 
-    enable_restrictions = click.confirm(tr("addmount.allowed_agents_enable_prompt"), default=False)
-    if not enable_restrictions:
+    choices: list[object] = [
+        questionary.Choice(tr("config_gen.no_restrictions"), value=NO_RESTRICTIONS_VALUE, checked=True)
+    ]
+    choices.extend(questionary.Choice(name, value=name) for name in available_agents)
+    selected = ask_checkbox(
+        tr("addmount.allowed_agents_prompt"),
+        choices=choices,
+        validate=_validate_mount_allowed_agents,
+        instruction=tr("config_gen.checkbox_instruction_optional"),
+    )
+    if NO_RESTRICTIONS_VALUE in selected:
         return None
+    return [str(item) for item in selected]
+
+
+def _validate_mount_allowed_agents(values: list[object]) -> object:
+    if not values:
+        return require_non_empty_selection(values, tr("config_gen.select_at_least_one"))
+    if NO_RESTRICTIONS_VALUE in values and len(values) > 1:
+        return tr("addmount.allowed_agents_conflict")
+    return True
+
+
+def _create_default_backupignore(source: Path) -> None:
+    ignore_path = source / ".backupignore"
+    if ignore_path.exists():
+        click.echo(tr("addmount.backupignore_exists", path=ignore_path))
+        return
+    source.mkdir(parents=True, exist_ok=True)
+    ignore_path.write_text("\n".join(DEFAULT_BACKUPIGNORE_LINES) + "\n", encoding="utf-8")
+    click.echo(tr("addmount.backupignore_created", path=ignore_path))
+
+
+def _has_source_conflict(existing_mounts: list[MountConfig], source: Path, vm_name: str) -> bool:
+    return any(mount.source == source and mount.vm_name == vm_name for mount in existing_mounts)
+
+
+def _has_target_conflict(existing_mounts: list[MountConfig], target: Path, vm_name: str) -> bool:
+    return any(mount.target == target and mount.vm_name == vm_name for mount in existing_mounts)
+
+
+def _resolve_target_and_vm(
+    *,
+    source_dir: Path,
+    target_dir: Optional[Path],
+    raw_vm_name: Optional[str],
+    interactive: bool,
+    vms: dict[str, object],
+    existing_mounts: list[MountConfig],
+) -> tuple[Path, str]:
+    vm_names = list(vms.keys())
+    if raw_vm_name is not None and raw_vm_name not in vms:
+        raise click.ClickException(tr("addmount.vm_missing", vm_name=raw_vm_name))
+
+    chosen_target = target_dir
+    chosen_vm = raw_vm_name
+    can_retry_target = interactive and target_dir is None
+    can_retry_vm = interactive and raw_vm_name is None and len(vm_names) > 1
 
     while True:
-        selected: list[str] = []
-        for agent_name in available_agents:
-            keep = click.confirm(tr("addmount.allowed_agents_keep_prompt", name=agent_name), default=True)
-            if keep:
-                selected.append(agent_name)
-        if selected:
-            return selected
+        if chosen_target is None:
+            default_target = default_mount_target(source_dir)
+            if interactive:
+                target_prompt = ask_text(
+                    tr("addmount.target_prompt"),
+                    default=str(default_target),
+                    validate=make_required_validator(tr("config_gen.value_required")),
+                )
+                chosen_target = Path(target_prompt).expanduser().resolve()
+            else:
+                chosen_target = default_target.resolve()
+        else:
+            chosen_target = chosen_target.expanduser().resolve()
 
-        click.echo(tr("addmount.allowed_agents_empty_selection"))
-        if click.confirm(tr("addmount.allowed_agents_disable_after_empty"), default=True):
-            return None
+        if chosen_vm is None:
+            chosen_vm = _resolve_vm_name(None, vms, interactive)
+
+        if _has_source_conflict(existing_mounts, source_dir, chosen_vm):
+            message = tr("addmount.mount_exists", source=source_dir, vm_name=chosen_vm)
+            if not can_retry_vm:
+                raise click.ClickException(message)
+            click.echo(message)
+            chosen_vm = None
+            continue
+
+        if _has_target_conflict(existing_mounts, chosen_target, chosen_vm):
+            message = tr("addmount.target_exists", target=chosen_target, vm_name=chosen_vm)
+            if not can_retry_target and not can_retry_vm:
+                raise click.ClickException(message)
+            click.echo(message)
+            if can_retry_target:
+                chosen_target = None
+            if can_retry_vm:
+                chosen_vm = None
+            continue
+
+        return chosen_target, chosen_vm
 
 
 def _load_config_with_comments(config_path: Path) -> tuple[YAML, CommentedMap]:
@@ -235,32 +336,55 @@ def addmount_command(
     interactive = is_interactive_terminal() and not non_interactive
 
     with debug_scope(debug):
+        resolved_config_path = resolve_config_path(Path(config_path) if config_path else None)
+        if not resolved_config_path.exists():
+            raise click.ClickException(tr("config.file_not_found", path=resolved_config_path))
+
+        yaml, config_data = _load_config_with_comments(resolved_config_path)
+
+        try:
+            vms = load_vms_config(config_data)
+        except ConfigError as exc:
+            raise click.ClickException(str(exc))
+
+        try:
+            existing_mounts = load_mounts_config(config_data)
+        except ConfigError as exc:
+            raise click.ClickException(str(exc))
+        try:
+            available_agents = list(load_agents_config(config_data).keys())
+        except ConfigError as exc:
+            raise click.ClickException(str(exc))
+
         if source_dir is None:
             if not interactive:
                 raise click.ClickException(tr("addmount.source_required"))
-            source_prompt = click.prompt(tr("addmount.source_prompt"), default=str(Path.cwd()))
+            source_prompt = ask_path(
+                tr("addmount.source_prompt"),
+                default="",
+                validate=make_required_validator(tr("config_gen.value_required")),
+            )
             source_dir = Path(source_prompt).expanduser()
 
         source_dir = normalize_path(source_dir)
 
-        if target_dir is None:
-            default_target = default_mount_target(source_dir)
-            if interactive:
-                target_prompt = click.prompt(tr("addmount.target_prompt"), default=str(default_target))
-                target_dir = Path(target_prompt).expanduser()
-            else:
-                target_dir = default_target
-
         if backup_dir is None:
             default_backup = default_mount_backup(source_dir)
             if interactive:
-                backup_prompt = click.prompt(tr("addmount.backup_prompt"), default=str(default_backup))
+                backup_prompt = ask_path(tr("addmount.backup_prompt"), default=str(default_backup))
                 backup_dir = Path(backup_prompt).expanduser()
             else:
                 backup_dir = default_backup
 
-        target_dir = target_dir.expanduser().resolve()
         backup_dir = backup_dir.expanduser().resolve()
+        target_dir, selected_vm = _resolve_target_and_vm(
+            source_dir=source_dir,
+            target_dir=target_dir,
+            raw_vm_name=vm_name,
+            interactive=interactive,
+            vms=vms,
+            existing_mounts=existing_mounts,
+        )
 
         if interval is None and interactive:
             interval_minutes = _prompt_positive_int(
@@ -284,33 +408,6 @@ def addmount_command(
             backup_clean_method_value = _prompt_backup_clean_method("thin")
         else:
             backup_clean_method_value = (backup_clean_method or "thin").lower()
-
-        resolved_config_path = resolve_config_path(Path(config_path) if config_path else None)
-        if not resolved_config_path.exists():
-            raise click.ClickException(tr("config.file_not_found", path=resolved_config_path))
-
-        yaml, config_data = _load_config_with_comments(resolved_config_path)
-
-        try:
-            vms = load_vms_config(config_data)
-        except ConfigError as exc:
-            raise click.ClickException(str(exc))
-
-        try:
-            existing_mounts = load_mounts_config(config_data)
-        except ConfigError as exc:
-            raise click.ClickException(str(exc))
-        try:
-            available_agents = list(load_agents_config(config_data).keys())
-        except ConfigError as exc:
-            raise click.ClickException(str(exc))
-
-        selected_vm = _resolve_vm_name(vm_name, vms, interactive)
-        has_matching_mount = any(
-            mount.source == source_dir and mount.vm_name == selected_vm for mount in existing_mounts
-        )
-        if has_matching_mount:
-            raise click.ClickException(tr("addmount.mount_exists", source=source_dir, vm_name=selected_vm))
 
         allowed_agents_value = _resolve_allowed_agents(allowed_agents, interactive, available_agents)
         allowed_agents_text = ", ".join(allowed_agents_value) if allowed_agents_value else tr("addmount.allowed_agents_none")
@@ -363,8 +460,11 @@ def addmount_command(
         click.echo(tr("addmount.backup_created", path=config_backup_path))
         click.echo(tr("addmount.added", path=resolved_config_path))
 
+        if interactive and ask_confirm(tr("addmount.backupignore_prompt"), default=True):
+            _create_default_backupignore(source_dir)
+
         if interactive and not mount_now:
-            mount_now = click.confirm(tr("addmount.mount_now_prompt"), default=True)
+            mount_now = ask_confirm(tr("addmount.mount_now_prompt"), default=True)
 
         if mount_now:
             try:

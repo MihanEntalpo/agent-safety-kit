@@ -99,7 +99,7 @@ agsekit addmount [SOURCE_DIR] [TARGET_DIR] [BACKUP_DIR] [INTERVAL] [--vm <vm_nam
 
 Positional arguments:
 
-- `SOURCE_DIR` - host folder to add to `mounts[].source`. In interactive mode, if not specified, a prompt asks with the current folder as default. In non-interactive mode it is required.
+- `SOURCE_DIR` - host folder to add to `mounts[].source`. In interactive mode, if not specified, the wizard asks for it explicitly. In non-interactive mode it is required.
 - `TARGET_DIR` - path inside the VM for `mounts[].target`. If not specified, `/home/ubuntu/<SOURCE_DIR name>` is used.
 - `BACKUP_DIR` - folder on the host for `mounts[].backup`. If not specified, `<SOURCE_DIR parent>/backups-<SOURCE_DIR name>` is used.
 - `INTERVAL` - value of `mounts[].interval`, backup interval in minutes. If not specified, the default is `5`; in interactive mode a prompt asks for it.
@@ -127,7 +127,13 @@ What is written to the config:
 - `backup_clean_method`
 - `allowed_agents`, if it was specified or selected interactively
 
-Before writing, the command shows a summary, checks that there is no such `source + vm` yet, creates a timestamp backup of the YAML file next to the config, and saves the file while preserving comments.
+Interactive behavior is intentionally close to the mount step in `config-gen`:
+
+- asks for `source`, `target`, `backup`, target VM, `interval`, `max_backups`, and `backup_clean_method`
+- when agents are configured, shows a checkbox list with `No restrictions` and the configured agent names
+- offers to create a default `.backupignore` file in the source directory
+
+Before writing, the command shows a summary, checks that there is no such `source + vm` yet, checks that the same `target + vm` is not already used by another mount entry, creates a timestamp backup of the YAML file next to the config, and saves the file while preserving comments.
 
 If `--mount` was not passed, but the command is running interactively, after saving there will be a question: `Mount the folder immediately? [Y/n]`. The default answer is yes.
 

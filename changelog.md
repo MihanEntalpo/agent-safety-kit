@@ -1,5 +1,11 @@
 # Agent-Safety-Kit versions history
 
+## 1.6.9 - Improved config-gen wizard
+
+* Reworked `agsekit config-gen` into a more practical interactive wizard: the first VM is now mandatory, optional sections are asked in a clearer order, install bundles and agent restrictions use checkbox selection, and port-forwarding / proxy prompts better match the resulting YAML structure
+* Reworked `agsekit addmount` to be more useful
+* Added end-to-end `pexpect` coverage for `config-gen`, including VM creation, agent assignment, mounts, proxy overrides, backupignore creation, port-forwarding branches, and optional global overrides
+
 ## 1.6.8 - Windows pip-upgrade fix
 
 * Now pip-upgrade is working fine on windows
