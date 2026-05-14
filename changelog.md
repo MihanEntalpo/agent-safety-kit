@@ -1,6 +1,6 @@
 # Agent-Safety-Kit versions history
 
-## 0.0.1 - Stable Node LTS and doctor cleanup
+## 1.6.11 - Stable Node LTS and doctor cleanup
 
 * Changed VM Node.js bootstrap so `nodejs` without an explicit version installs the current LTS once, pins `nvm default` to that exact resolved version, and does not auto-upgrade it on later `up` / `create-vms` runs when a newer LTS appears
 * Changed Node-based agent installers (`codex`, `qwen`, `opencode`, `cline`) to resolve the current Node.js LTS only when `node` is missing, and to keep the already installed Node.js version otherwise
