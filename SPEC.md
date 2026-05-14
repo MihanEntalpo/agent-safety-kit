@@ -225,7 +225,7 @@ Behavior:
   - `type=local`: открыть порт на хосте и пробросить в VM (`ssh -L host:vm`).
   - `type=remote`: открыть порт в VM и пробросить на хост (`ssh -R vm:host`).
   - `type=socks5`: поднять SOCKS5-порт в VM (`ssh -D vm`).
-- `install` (optional) — список install bundles (`python`, `nodejs:20`, `docker`, ...), которые выполняются на этапе `create-vm/create-vms`.
+- `install` (optional) — список install bundles (`python`, `nodejs`, `nodejs:20`, `docker`, ...), которые выполняются на этапе `create-vm/create-vms`.
 - `allowed_agents` (optional) — список имён агентов из секции `agents` или строка имён, разделённых запятыми.
   - если поле задано, `run` в этой VM разрешён только для перечисленных агентов в случаях, когда mount-ограничение не задано;
   - если поле отсутствует, для VM ограничение не применяется (разрешены все агенты, если не ограничены mount-ом).
@@ -510,24 +510,36 @@ Behavior:
 
 Что делает:
 1. Показывает путь реально использованного конфига.
-2. Загружает все `mounts` из конфига.
+2. Загружает `mounts`, `vms` и `agents` из конфига.
 3. Для каждого mount:
    - если `source` на хосте отсутствует или пустой, пропускает запись;
    - если целевая ВМ не `running`, пропускает запись;
    - если mount сейчас не зарегистрирован в Multipass, пропускает запись;
    - если `source` на хосте не пустой, а `target` внутри VM пустой/отсутствует, помечает mount как проблемный.
-4. Если проблемные mount'ы найдены:
-   - в интерактивном режиме запрашивает подтверждение на `sudo snap restart multipass`;
+4. Для каждой `running` VM дополнительно проверяет Node-based agent runtime:
+   - смотрит версии в `~/.nvm/versions/node/*`;
+   - учитывает только те версии, где в `bin/` найден хотя бы один Node-based agent binary (`codex`, `qwen`, `opencode`, `cline`);
+   - если таких agent-bearing версий больше одной, помечает ВМ как проблемную;
+   - версии Node.js без найденных агентов не считаются проблемой и не удаляются автоматически.
+5. Если найдены исправимые проблемы:
+   - в интерактивном режиме запрашивает общее подтверждение на применение исправлений;
    - при `-y` выполняет рестарт без вопроса;
    - в non-interactive режиме без `-y` завершает команду ошибкой о необходимости подтверждения.
-5. После рестарта повторно проверяет только проблемные mount'ы:
+6. Для проблемных mount'ов:
+   - выполняет `sudo snap restart multipass`;
    - при необходимости кратко ждёт, пока `multipass list` и чтение списка mount'ов снова станут доступны после перезапуска демона;
    - после этого ещё некоторое время повторяет проверку проблемных mount'ов, чтобы дождаться фактического восстановления содержимого внутри VM, а не делать один мгновенный снимок;
    - если `target` снова не пустой, mount считается repaired;
    - если mount остаётся пустым/отсутствующим, команда завершается ошибкой.
+7. Для ВМ с несколькими agent-bearing Node.js-версиями:
+   - выбирает самую новую из таких версий;
+   - делает её `nvm alias default`;
+   - удаляет остальные agent-bearing версии через `nvm uninstall`;
+   - версии Node.js без агентов оставляет как есть;
+   - после cleanup переустанавливает только те агент-имена из конфига, чьи runtime-бинарники реально были обнаружены в этой ВМ до ремонта.
 
 Особенности:
-- текущая реализация покрывает только первый известный класс поломки: «директория зарегистрирована в Multipass как mounted, но непустой host-path внутри VM выглядит пустым»;
+- текущая реализация покрывает два класса поломок: broken Multipass mounts и «несколько nvm-версий Node.js с разными уже установленными Node-based агентами»;
 - команда не пытается чинить пустые проектные папки на хосте, потому что это может быть штатным состоянием;
 - команда не стартует выключенные VM автоматически.
 
@@ -707,7 +719,7 @@ Behavior:
 - при успешном standalone-запуске печатает явное итоговое сообщение:
   - для одного target: что агент готов к работе в выбранной ВМ;
   - для нескольких target: общее сообщение об успешной установке.
-- для Node-based agent installers (`codex`, `qwen`, `opencode`, `cline`) при отсутствии `node` сначала резолвит через `nvm version-remote` последнюю доступную patch-версию поддерживаемой major-ветки и только потом выполняет `nvm install <resolved_version>`, чтобы не зависеть от поддержки short-major form вроде `nvm install 24`.
+- для Node-based agent installers (`codex`, `qwen`, `opencode`, `cline`) при отсутствии `node` сначала резолвит через `nvm version-remote --lts` текущую LTS-версию Node.js и ставит именно её как exact version; при повторных прогонах, если `node` уже найден, installer не обновляет Node даже если в nvm уже появилась более новая LTS.
 - если в одном запуске `install-agents` несколько Node-based агентов ставятся в одну и ту же VM, после первого успешного Node-based installer run CLI запоминает эту VM в локальном in-memory cache и передаёт в следующие playbook extra vars `skip_nvm_install=true` и `skip_node_install=true`, чтобы повторно не делать `nvm`/Node bootstrap.
 - для Node-based agent installers проверка наличия `node` не ограничивается голым системным `PATH`: installer сначала пробует `command -v node`, а если бинарник не найден, явно загружает `{{ ansible_env.HOME }}/.nvm/nvm.sh`, делает `nvm use --silent default` и повторяет `node -v`; это предотвращает ложную переустановку Node, когда он уже установлен через `nvm`, но не виден не-login shell'у Ansible.
 
@@ -915,15 +927,16 @@ Dependency resolution выполняется кодом до запуска play
 
 Особенности идемпотентности:
 - `pyenv` и `python` bundles определяют наличие pyenv по маркеру `~/.pyenv/bin/pyenv` (а не по `command -v pyenv`), чтобы повторные прогоны не зависели от shell PATH.
+- `nodejs` bundle без явной версии ставит текущую LTS-версию Node.js через `nvm version-remote --lts`, фиксирует `nvm alias default` на exact resolved version и при повторных прогонах пропускает установку, если `node` уже найден; это исключает незаметное обновление до новой LTS при очередном `up`/`create-vms`.
 
 ### 10.3 Agent installers
 - `aider.yml`: установка через официальный aider install script с последующей проверкой бинарника `aider`; сетевые шаги выполняются через `proxychains_prefix`.
-- `codex.yml`: установка `bubblewrap`, Node через nvm (с резолвом последнего доступного `v24.x.y` через `nvm version-remote`) + `@openai/codex`.
+- `codex.yml`: установка `bubblewrap`, Node через nvm (с резолвом текущей LTS через `nvm version-remote --lts`, только если `node` ещё отсутствует) + `@openai/codex`.
   - дополнительно ставится `logrotate` и конфиг `/etc/logrotate.d/codex-tui`, который ограничивает `~/.codex/log/codex-tui.log` политикой `size 100M`, `rotate 10`, `compress`, `delaycompress`, `missingok`, `notifempty`, `copytruncate`.
-- `qwen.yml`: установка Node через nvm (с резолвом последнего доступного `v24.x.y` через `nvm version-remote`) + `@qwen-code/qwen-code`.
+- `qwen.yml`: установка Node через nvm (с резолвом текущей LTS через `nvm version-remote --lts`, только если `node` ещё отсутствует) + `@qwen-code/qwen-code`.
 - `forgecode.yml`: установка через официальный Forge install script с последующей проверкой бинарника `forge`; сетевые шаги выполняются через `proxychains_prefix`.
-- `opencode.yml`: установка Node через nvm (с резолвом последнего доступного `v24.x.y` через `nvm version-remote`) + `opencode-ai`.
-- `cline.yml`: установка Node через nvm (с резолвом последнего доступного `v24.x.y` через `nvm version-remote`) + `cline`.
+- `opencode.yml`: установка Node через nvm (с резолвом текущей LTS через `nvm version-remote --lts`, только если `node` ещё отсутствует) + `opencode-ai`.
+- `cline.yml`: установка Node через nvm (с резолвом текущей LTS через `nvm version-remote --lts`, только если `node` ещё отсутствует) + `cline`.
 - Node-based installer playbooks проверяют наличие `node` сначала в текущем `PATH`, а затем через `nvm use --silent default`, чтобы установленный через `nvm` Node считался уже готовым даже в non-login shell'е Ansible.
 - `claude.yml`: установка через официальный install script; сетевые шаги выполняются через `proxychains_prefix`; если нативный post-install падает, применяется fallback-установка `claude` прямой загрузкой последнего release-бинарника по официальным `latest` + `manifest.json` с проверкой `sha256`, причём release-base динамически определяется через redirect c `https://claude.ai/install.sh`, без захардкоженного bucket URL.
 - `codex-glibc.yml`: установка `bubblewrap`, сборка из исходников `openai/codex`, управление swap при нехватке памяти, установка бинарника `codex-glibc`, post-build проверка.

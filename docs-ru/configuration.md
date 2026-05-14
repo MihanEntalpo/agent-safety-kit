@@ -247,7 +247,7 @@ agents:
     * `pyenv` - устанавливает pyenv и зависимости для сборки Python
     * `nvm` - устанавливает nvm и shell-init hooks
     * `python` - устанавливает pyenv и Python; поддерживает версию, например `python:3.12.2`
-    * `nodejs` - устанавливает nvm и Node.js; поддерживает версию, например `nodejs:20`
+    * `nodejs` - устанавливает nvm и Node.js; без явной версии один раз ставит текущую LTS и сохраняет её при следующих запусках; поддерживает override версии, например `nodejs:20`
     * `rust` - устанавливает rustup и Rust toolchain
     * `golang` - устанавливает Go toolchain через apt
     * `docker` - устанавливает Docker Engine и Docker Compose через apt-репозиторий Docker

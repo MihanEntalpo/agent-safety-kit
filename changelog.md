@@ -1,5 +1,12 @@
 # Agent-Safety-Kit versions history
 
+## 0.0.1 - Stable Node LTS and doctor cleanup
+
+* Changed VM Node.js bootstrap so `nodejs` without an explicit version installs the current LTS once, pins `nvm default` to that exact resolved version, and does not auto-upgrade it on later `up` / `create-vms` runs when a newer LTS appears
+* Changed Node-based agent installers (`codex`, `qwen`, `opencode`, `cline`) to resolve the current Node.js LTS only when `node` is missing, and to keep the already installed Node.js version otherwise
+* Added a new `agsekit doctor` repair path for VMs where Node-based agents ended up scattered across multiple `nvm` Node.js versions: doctor now keeps the newest agent-bearing Node.js version, removes the other agent-bearing versions, leaves user Node.js versions without agents untouched, and reinstalls only the configured agents that were actually detected in that VM
+* Added host integration coverage for both behaviors: keeping an already installed older LTS during `create-vms` / `install-agents`, and consolidating scattered Node-based agents through `agsekit doctor`
+
 ## 1.6.10 - Internal state and version checks
 
 * Added an internal generated state file, `~/.config/agsekit/state.yaml` by default, with configurable path via `global.state_file`; agsekit now sanitizes this file through a Pydantic model, rewrites invalid or incomplete state to defaults, and keeps `current_version` / `last_Version` in sync

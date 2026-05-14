@@ -27,16 +27,15 @@ load_nvm() {
   return 1
 }
 
-resolve_latest_node_major() {
-  local major="$1"
+resolve_current_lts_node() {
   local resolved_version
 
   resolved_version="$(
-    nvm version-remote "$major" | tail -n 1
+    nvm version-remote --lts | tail -n 1
   )"
 
   if [ -z "$resolved_version" ] || [ "$resolved_version" = "N/A" ]; then
-    echo "Failed to resolve the latest Node.js ${major} release from nvm version-remote." >&2
+    echo "Failed to resolve the current LTS Node.js release from nvm version-remote --lts." >&2
     return 1
   fi
 
@@ -54,7 +53,7 @@ if ! command -v node >/dev/null 2>&1; then
     exit 1
   fi
 
-  RESOLVED_NODE_VERSION="$(resolve_latest_node_major 24)"
+  RESOLVED_NODE_VERSION="$(resolve_current_lts_node)"
   run_with_proxychains bash -lc "source \"$NVM_DIR/nvm.sh\"; nvm install \"$RESOLVED_NODE_VERSION\"; nvm alias default \"$RESOLVED_NODE_VERSION\""
   load_nvm >/dev/null 2>&1 || true
   nvm use "$RESOLVED_NODE_VERSION" >/dev/null 2>&1 || true

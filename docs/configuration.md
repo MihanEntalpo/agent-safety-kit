@@ -247,7 +247,7 @@ Behavior:
     * `pyenv` - installs pyenv and dependencies for building Python
     * `nvm` - installs nvm and shell-init hooks
     * `python` - installs pyenv and Python; supports a version, for example `python:3.12.2`
-    * `nodejs` - installs nvm and Node.js; supports a version, for example `nodejs:20`
+    * `nodejs` - installs nvm and Node.js; without an explicit version it installs the current LTS once and keeps it on later runs; supports a version override, for example `nodejs:20`
     * `rust` - installs rustup and Rust toolchain
     * `golang` - installs Go toolchain through apt
     * `docker` - installs Docker Engine and Docker Compose through Docker's apt repository

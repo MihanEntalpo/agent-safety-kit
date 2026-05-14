@@ -20,13 +20,19 @@ agsekit doctor [--config <path>] [-y] [--debug]
 
 ## Current Scope
 
-Right now the command mostly focuses on known Multipass failures, especially stale or broken mount visibility.
+The command currently covers two repairable issue classes:
+
+- broken Multipass mount visibility, when a non-empty host folder looks empty inside the VM;
+- scattered Node-based agents across multiple `nvm` Node.js versions in the same VM.
 
 ## Behavior
 
 - analyzes configured mounts;
 - checks whether a non-empty host directory looks empty inside the VM;
-- for a known error type, can suggest restarting the Multipass daemon.
+- checks `~/.nvm/versions/node/*` inside running VMs and looks for Node-based agents (`codex`, `qwen`, `opencode`, `cline`) inside each version;
+- if several `nvm` Node.js versions contain agents, offers to keep the newest such version as default, remove the other agent-bearing versions, and reinstall only the agent names from the config that were actually detected in that VM;
+- Node.js versions without detected agents are left untouched;
+- for broken mounts, can suggest restarting the Multipass daemon.
 
 ## Examples
 

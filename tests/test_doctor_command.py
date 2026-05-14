@@ -28,6 +28,33 @@ mounts:
     )
 
 
+def _write_config_with_node_agents(config_path: Path, source_dir: Path) -> None:
+    config_path.write_text(
+        f"""
+vms:
+  agent:
+    cpu: 1
+    ram: 1G
+    disk: 5G
+mounts:
+  - source: {source_dir}
+    target: /home/ubuntu/project
+    vm: agent
+agents:
+  qwen_main:
+    type: qwen
+    vm: agent
+  cline_main:
+    type: cline
+    vm: agent
+  codex_main:
+    type: codex
+    vm: agent
+""",
+        encoding="utf-8",
+    )
+
+
 def test_doctor_restarts_multipass_and_repairs_broken_mount(monkeypatch, tmp_path):
     source_dir = tmp_path / "project"
     source_dir.mkdir()
@@ -63,8 +90,8 @@ def test_doctor_restarts_multipass_and_repairs_broken_mount(monkeypatch, tmp_pat
 
     assert result.exit_code == 0
     assert restart_calls == ["restart"]
-    assert "Restart Multipass now?" in result.output
-    assert "Running sudo snap restart multipass..." in result.output
+    assert "Apply fixes now?" in result.output
+    assert "Detected 1 repairable issue(s). Applying fixes..." in result.output
     assert "Doctor repaired all detected issues." in result.output
 
 
@@ -311,4 +338,117 @@ def test_doctor_waits_for_mounts_to_reappear_after_restart(monkeypatch, tmp_path
 
     assert result.exit_code == 0
     assert sleep_calls == [doctor_module.DOCTOR_RESTART_RECOVERY_POLL_SECONDS, doctor_module.DOCTOR_RESTART_RECOVERY_POLL_SECONDS]
+
+
+def test_doctor_repairs_scattered_node_agents_without_touching_absent_agent_types(monkeypatch, tmp_path):
+    source_dir = tmp_path / "project"
+    source_dir.mkdir()
+    (source_dir / "file.txt").write_text("hello", encoding="utf-8")
+    config_path = tmp_path / "config.yaml"
+    _write_config_with_node_agents(config_path, source_dir)
+
+    monkeypatch.setattr(doctor_module, "ensure_multipass_available", lambda: None)
+    monkeypatch.setattr(
+        doctor_module,
+        "fetch_existing_info",
+        lambda: '{"list":[{"name":"agent","state":"Running"}]}',
+    )
+    monkeypatch.setattr(
+        doctor_module,
+        "load_multipass_mounts",
+        lambda **_kwargs: {
+            "agent": {(source_dir.resolve(), Path("/home/ubuntu/project"))},
+        },
+    )
+    monkeypatch.setattr(doctor_module, "vm_path_has_entries", lambda *_args, **_kwargs: True)
+    monkeypatch.setattr(
+        doctor_module,
+        "_collect_node_version_issues",
+        lambda **_kwargs: [
+            doctor_module.NodeVersionIssue(
+                vm_name="agent",
+                versions_with_agents={
+                    "v20.18.0": ["qwen"],
+                    "v22.15.0": ["cline"],
+                },
+                selected_version="v22.15.0",
+                reinstall_agent_names=["cline_main", "qwen_main"],
+            )
+        ],
+    )
+
+    repaired: list[doctor_module.NodeVersionIssue] = []
+    monkeypatch.setattr(
+        doctor_module,
+        "_repair_node_version_issue",
+        lambda issue, **_kwargs: repaired.append(issue),
+    )
+
+    runner = CliRunner()
+    result = runner.invoke(
+        doctor_command,
+        ["--config", str(config_path)],
+        input="y\n",
+        env={"AGSEKIT_LANG": "en"},
+    )
+
+    assert result.exit_code == 0
+    assert len(repaired) == 1
+    assert repaired[0].reinstall_agent_names == ["cline_main", "qwen_main"]
+    assert "codex_main" not in result.output
+    assert "v20.18.0 (qwen), v22.15.0 (cline)" in result.output
+    assert "Doctor repaired all detected issues." in result.output
+
+
+def test_doctor_with_no_mounts_still_checks_node_version_issues(monkeypatch, tmp_path):
+    config_path = tmp_path / "config.yaml"
+    config_path.write_text(
+        """
+vms:
+  agent:
+    cpu: 1
+    ram: 1G
+    disk: 5G
+agents:
+  qwen_main:
+    type: qwen
+    vm: agent
+""",
+        encoding="utf-8",
+    )
+
+    monkeypatch.setattr(doctor_module, "ensure_multipass_available", lambda: None)
+    monkeypatch.setattr(
+        doctor_module,
+        "fetch_existing_info",
+        lambda: '{"list":[{"name":"agent","state":"Running"}]}',
+    )
+    monkeypatch.setattr(doctor_module, "load_multipass_mounts", lambda **_kwargs: {})
+    monkeypatch.setattr(
+        doctor_module,
+        "_collect_node_version_issues",
+        lambda **_kwargs: [
+            doctor_module.NodeVersionIssue(
+                vm_name="agent",
+                versions_with_agents={
+                    "v20.18.0": ["qwen"],
+                    "v22.15.0": ["qwen"],
+                },
+                selected_version="v22.15.0",
+                reinstall_agent_names=["qwen_main"],
+            )
+        ],
+    )
+    monkeypatch.setattr(doctor_module, "_repair_node_version_issue", lambda *_args, **_kwargs: None)
+
+    runner = CliRunner()
+    result = runner.invoke(
+        doctor_command,
+        ["--config", str(config_path), "-y"],
+        env={"AGSEKIT_LANG": "en"},
+    )
+
+    assert result.exit_code == 0
+    assert "No configured diagnostics targets found." in result.output
+    assert "multiple nvm-managed Node.js versions with agents" in result.output
     assert "Doctor repaired all detected issues." in result.output

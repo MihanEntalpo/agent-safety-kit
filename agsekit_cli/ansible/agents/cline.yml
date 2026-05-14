@@ -16,7 +16,6 @@
   gather_facts: true
   vars:
     nvm_dir: "{{ ansible_env.HOME }}/.nvm"
-    node_version: "24"
     skip_nvm_install: false
     skip_node_install: false
   tasks:
@@ -72,9 +71,9 @@
       ansible.builtin.shell: |-
         {{ proxychains_prefix }}bash -lc '
         . {{ nvm_dir }}/nvm.sh
-        resolved_version="$(nvm version-remote {{ node_version }} | tail -n 1)"
+        resolved_version="$(nvm version-remote --lts | tail -n 1)"
         if [ -z "$resolved_version" ] || [ "$resolved_version" = "N/A" ]; then
-          echo "Failed to resolve the latest Node.js {{ node_version }} release from nvm version-remote." >&2
+          echo "Failed to resolve the current LTS Node.js release from nvm version-remote --lts." >&2
           exit 1
         fi
         nvm install "$resolved_version"

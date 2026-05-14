@@ -15,7 +15,7 @@
   hosts: "{{ vm_name }}"
   gather_facts: true
   vars:
-    node_version: "{{ bundle_version | default('latest') }}"
+    node_version: "{{ bundle_version | default('lts') }}"
     nvm_dir: "{{ ansible_env.HOME }}/.nvm"
   tasks:
     - name: Ensure nvm is available
@@ -28,16 +28,35 @@
         msg: "nvm is not installed. Install the nvm bundle first."
       when: not nvm_stat.stat.exists
 
+    - name: Check for node
+      ansible.builtin.shell: >-
+        bash -lc "if command -v node >/dev/null 2>&1; then
+        node -v;
+        elif [ -s '{{ nvm_dir }}/nvm.sh' ]; then
+        . '{{ nvm_dir }}/nvm.sh' && nvm use --silent default >/dev/null && node -v;
+        else
+        exit 1;
+        fi"
+      register: node_check
+      changed_when: false
+      failed_when: false
+
     - name: Install Node.js version
       ansible.builtin.shell: |
         set -euo pipefail
         . "{{ nvm_dir }}/nvm.sh"
-        if [ "{{ node_version }}" = "latest" ]; then
-          nvm install --lts
-          nvm alias default "lts/*"
+        if [ "{{ node_version }}" = "lts" ]; then
+          resolved_version="$(nvm version-remote --lts | tail -n 1)"
+          if [ -z "$resolved_version" ] || [ "$resolved_version" = "N/A" ]; then
+            echo "Failed to resolve the current LTS Node.js release from nvm version-remote --lts." >&2
+            exit 1
+          fi
+          nvm install "$resolved_version"
+          nvm alias default "$resolved_version"
         else
           nvm install "{{ node_version }}"
           nvm alias default "{{ node_version }}"
         fi
       args:
         executable: /bin/bash
+      when: (node_version != "lts") or node_check.rc != 0
