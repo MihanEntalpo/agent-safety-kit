@@ -70,6 +70,8 @@ agsekit run [--vm <vm_name>] [--config <path>] [--workdir <path>] [--proxychains
 - оборачивать runtime через `proxychains` или `http_proxy`;
 - переопределять `proxychains` через `--proxychains <scheme://host:port>` или отключать его через `--proxychains ""`;
 - переопределять `http_proxy` в upstream-режиме через `--http-proxy <scheme://host:port>` или отключать его через `--http-proxy ""`.
+- запускать daemon-поток, который периодически выполняет `agsekit check-new-version`, если включён `global.check_new_version`;
+- печатать уведомление при старте, если во внутреннем state уже записано, что вышла более новая версия agsekit.
 
 В обычном интерактивном режиме без `--debug` команда `run` также показывает `dots`-spinner во время pre-launch проверок и подготовки бэкапов. Перед prompt'ами и обычным текстовым выводом spinner ставится на паузу, а перед передачей терминала интерактивной сессии агента полностью останавливается.
 

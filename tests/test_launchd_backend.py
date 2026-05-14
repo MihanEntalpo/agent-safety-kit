@@ -3,6 +3,7 @@ import subprocess
 from pathlib import Path
 
 from agsekit_cli.daemon_backends import LAUNCHD_LABEL, LaunchdDaemonBackend
+from agsekit_cli.state import VERSION_CHECK_DAEMON_ENV_VAR
 
 
 def test_launchd_install_writes_plist_and_uses_expected_commands(monkeypatch, tmp_path):
@@ -25,6 +26,7 @@ def test_launchd_install_writes_plist_and_uses_expected_commands(monkeypatch, tm
     plist_data = plistlib.loads(plist_path.read_bytes())
     assert plist_data["Label"] == LAUNCHD_LABEL
     assert plist_data["ProgramArguments"] == ["/opt/agsekit/bin/agsekit", "portforward", "--config", str(config_path.resolve())]
+    assert plist_data["EnvironmentVariables"][VERSION_CHECK_DAEMON_ENV_VAR] == "1"
     assert plist_data["StandardOutPath"] == str(logs_dir / "daemon.stdout.log")
     assert plist_data["StandardErrorPath"] == str(logs_dir / "daemon.stderr.log")
     assert calls == [

@@ -12,6 +12,7 @@ import click
 from . import cli_entry
 from .config import DEFAULT_SYSTEMD_ENV_DIR, load_global_config_from_path, resolve_config_path
 from .i18n import tr
+from .state import VERSION_CHECK_DAEMON_ENV_VAR
 
 ENV_FILENAME = "systemd.env"
 SERVICE_NAME = "agsekit-portforward"
@@ -105,6 +106,7 @@ def write_systemd_env(config_path: Optional[Path], *, project_dir: Optional[Path
         f"AGSEKIT_BIN={agsekit_bin}\n"
         f"AGSEKIT_CONFIG={resolved_config}\n"
         f"AGSEKIT_PROJECT_DIR={resolved_project_dir}\n"
+        f"{VERSION_CHECK_DAEMON_ENV_VAR}=1\n"
     )
     env_path.write_text(env_contents, encoding="utf-8")
     if env_path != compatibility_env_path:

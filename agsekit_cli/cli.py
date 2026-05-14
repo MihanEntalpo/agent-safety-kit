@@ -22,6 +22,7 @@ from .commands.shell import shell_command
 from .commands.up import up_command
 from .commands.daemon import daemon_group
 from .commands.systemd import systemd_group
+from .commands.check_new_version import check_new_version_command
 from .commands.ssh import ssh_command
 from .commands.status import status_command
 from .commands.install_agents import install_agents_command
@@ -38,6 +39,7 @@ from .commands.version import version_command
 from .config import resolve_config_path
 from .i18n import set_language, tr
 from .interactive import is_interactive_terminal, run_interactive
+from .state import initialize_state
 
 COMMANDS_REQUIRING_CONFIG = {
     "backup-repeated-all",
@@ -139,6 +141,7 @@ def main() -> None:
         config_gen_command,
         config_example_command,
         pip_upgrade_command,
+        check_new_version_command,
         version_command,
         status_command,
         doctor_command,
@@ -155,6 +158,7 @@ def main() -> None:
     command = _extract_command(filtered_args)
     explicit_config_path = _extract_config_argument(filtered_args)
     resolved_config_path = resolve_config_path(explicit_config_path)
+    initialize_state(resolved_config_path if resolved_config_path.exists() else explicit_config_path)
 
     if is_interactive_terminal() and not non_interactive:
         if not args:

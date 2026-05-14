@@ -1,7 +1,10 @@
 global: # global agsekit settings
   ssh_keys_folder: null # if set, overrides the folder with SSH keys used to connect to VMs; default: ~/.config/agsekit/ssh
   systemd_env_folder: null # if set, overrides the folder where agsekit writes systemd.env; default: ~/.config/agsekit
+  state_file: null # if set, overrides the agsekit internal state file path; default: ~/.config/agsekit/state.yaml
   portforward_config_check_interval_sec: 10 # how often portforward reloads the config and reconciles tunnels
+  check_new_version: true # whether agsekit should periodically check PyPI for a newer version
+  check_new_version_interval_sec: 600 # how often agsekit should check PyPI for a newer version
   http_proxy_port_pool: # automatic listen port range for VM-local HTTP proxy helper
     start: 48000
     end: 49000

@@ -14,6 +14,8 @@ from ..config import (
     DEFAULT_HTTP_PROXY_PORT_POOL_END,
     DEFAULT_HTTP_PROXY_PORT_POOL_START,
     DEFAULT_PORTFORWARD_CONFIG_CHECK_INTERVAL_SEC,
+    DEFAULT_STATE_FILE_PATH,
+    DEFAULT_VERSION_CHECK_INTERVAL_SEC,
     agent_runtime_binary,
     resolve_config_path,
 )
@@ -100,8 +102,8 @@ def _prompt_positive_int(message: str, default: int) -> int:
     return _parse_positive_int(ask_text(message, default=str(default), validate=_validate_positive_int))
 
 
-def _prompt_optional_path(message: str) -> Optional[str]:
-    value = ask_path(message, default="")
+def _prompt_optional_path(message: str, *, default: str = "") -> Optional[str]:
+    value = ask_path(message, default=default)
     if not value:
         return None
     return str(Path(value).expanduser())
@@ -407,14 +409,28 @@ def _prompt_global() -> Dict[str, object]:
     global_config: Dict[str, object] = {}
     ssh_keys_folder = _prompt_optional_path(tr("config_gen.global_ssh_keys_folder"))
     systemd_env_folder = _prompt_optional_path(tr("config_gen.global_systemd_env_folder"))
+    state_file = _prompt_optional_path(
+        tr("config_gen.global_state_file"),
+        default=str(DEFAULT_STATE_FILE_PATH),
+    )
     if ssh_keys_folder:
         global_config["ssh_keys_folder"] = ssh_keys_folder
     if systemd_env_folder:
         global_config["systemd_env_folder"] = systemd_env_folder
+    if state_file and Path(state_file).expanduser() != DEFAULT_STATE_FILE_PATH:
+        global_config["state_file"] = state_file
 
     global_config["portforward_config_check_interval_sec"] = _prompt_positive_int(
         tr("config_gen.global_portforward_interval"),
         default=DEFAULT_PORTFORWARD_CONFIG_CHECK_INTERVAL_SEC,
+    )
+    global_config["check_new_version"] = ask_confirm(
+        tr("config_gen.global_check_new_version"),
+        default=True,
+    )
+    global_config["check_new_version_interval_sec"] = _prompt_positive_int(
+        tr("config_gen.global_check_new_version_interval"),
+        default=DEFAULT_VERSION_CHECK_INTERVAL_SEC,
     )
     global_config["http_proxy_port_pool"] = {
         "start": _prompt_positive_int(

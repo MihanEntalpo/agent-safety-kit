@@ -43,6 +43,16 @@ Wizard flow:
 5. Optionally override global settings.
 6. Choose the destination path and save the YAML.
 
+Global overrides currently include:
+
+- `ssh_keys_folder`
+- `systemd_env_folder`
+- `state_file`
+- `portforward_config_check_interval_sec`
+- `check_new_version`
+- `check_new_version_interval_sec`
+- `http_proxy_port_pool`
+
 Notes:
 
 - Install bundles are chosen with checkboxes and may be left empty.

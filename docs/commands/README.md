@@ -10,7 +10,7 @@ When any command page lists `--debug`, debug records are prefixed with `[DEBUG]`
 - [config-example / config-gen](config.md)
 - [up](up.md)
 - [doctor](doctor.md)
-- [pip-upgrade](pip-upgrade.md)
+- [pip-upgrade / check-new-version](pip-upgrade.md)
 
 ## VM and Agent Preparation
 

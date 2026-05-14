@@ -202,6 +202,10 @@ def build_pip_upgrade(_: InteractiveSession) -> List[str]:
     return ["pip-upgrade"]
 
 
+def build_check_new_version(session: InteractiveSession) -> List[str]:
+    return ["check-new-version", *session.config_option()]
+
+
 def build_create_vm(session: InteractiveSession) -> List[str]:
     vms = session.load_vms()
     vm_choices = [questionary.Choice(name, value=name) for name in vms]
@@ -503,6 +507,7 @@ def _command_builders() -> Dict[str, CommandBuilder]:
         "config-example": build_config_example,
         "config-gen": build_config_gen,
         "pip-upgrade": build_pip_upgrade,
+        "check-new-version": build_check_new_version,
         "create-vm": build_create_vm,
         "create-vms": build_create_vms,
         "addmount": build_addmount,
@@ -581,7 +586,7 @@ def _select_command(cli: click.Group, builders: Dict[str, CommandBuilder], prese
     sections = [
         (
             tr("interactive.section_init_config"),
-            ["up", "prepare", "config-example", "config-gen", "pip-upgrade", "status"],
+            ["up", "prepare", "config-example", "config-gen", "pip-upgrade", "check-new-version", "status"],
         ),
         (
             tr("interactive.section_virtual_machines"),

@@ -58,6 +58,8 @@ agsekit daemon status [--debug]
 
 В обоих случаях демон сохраняет абсолютный путь к текущему CLI `agsekit`, а `portforward` использует ту же установку и для дочерних `ssh`-процессов, не полагаясь на `PATH`.
 
+Daemon backend явно включает периодическую проверку новых версий для управляемого им процесса `portforward`: если включён `global.check_new_version`, этот daemon-managed процесс периодически запускает `agsekit check-new-version` с интервалом из `global.check_new_version_interval_sec`.
+
 ## `status`
 
 Вывод зависит от платформы.

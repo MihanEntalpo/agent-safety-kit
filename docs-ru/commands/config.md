@@ -43,6 +43,16 @@
 5. При необходимости override глобальных настроек.
 6. Выбор пути сохранения и запись YAML.
 
+Сейчас в глобальных override настраиваются:
+
+- `ssh_keys_folder`
+- `systemd_env_folder`
+- `state_file`
+- `portforward_config_check_interval_sec`
+- `check_new_version`
+- `check_new_version_interval_sec`
+- `http_proxy_port_pool`
+
 Примечания:
 
 - Install bundles выбираются чекбоксами и могут остаться пустыми.

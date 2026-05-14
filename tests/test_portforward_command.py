@@ -17,3 +17,15 @@ def test_resolve_agsekit_command_falls_back_to_current_python(monkeypatch):
     monkeypatch.setattr(portforward_module.cli_entry, "resolve_agsekit_script_path", lambda: None)
 
     assert portforward_module._resolve_agsekit_command() == [cli_entry.sys.executable, "-m", "agsekit_cli.cli"]
+
+
+def test_daemon_version_check_is_disabled_by_default(monkeypatch):
+    monkeypatch.delenv(portforward_module.VERSION_CHECK_DAEMON_ENV_VAR, raising=False)
+
+    assert portforward_module._daemon_version_check_enabled() is False
+
+
+def test_daemon_version_check_is_enabled_only_for_daemon_env(monkeypatch):
+    monkeypatch.setenv(portforward_module.VERSION_CHECK_DAEMON_ENV_VAR, "1")
+
+    assert portforward_module._daemon_version_check_enabled() is True

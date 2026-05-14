@@ -21,8 +21,14 @@ global:
   ssh_keys_folder: null
   # Override the env variables folder for the systemd service (used in linux)
   systemd_env_folder: null
+  # Override the generated internal state file, default ~/.config/agsekit/state.yaml
+  state_file: null
   # How often the port forwarding daemon checks configuration, by default every 10 seconds
   portforward_config_check_interval_sec: 10
+  # Whether agsekit should periodically check for new versions through pip
+  check_new_version: true
+  # How often agsekit should check for new versions, in seconds
+  check_new_version_interval_sec: 600
   # Port range for dynamic allocation when launching a proxy server, default from 48000 to 49000
   http_proxy_port_pool:
     start: 48000
@@ -142,15 +148,45 @@ agents:
   * This setting only affects Linux; macOS `launchd` does not use it
   * See [daemon](commands/daemon.md)
   * Default: ~/.config/agsekit
+* `global.state_file`
+  * Specifies the path to agsekit's generated internal state file
+  * The file is not meant to be edited by hand; agsekit writes it automatically and keeps a warning comment at the top
+  * The state currently stores the running version (`current_version`) and the latest known version discovered through `pip` (`last_Version`)
+  * Default: `~/.config/agsekit/state.yaml`
 * `global.portforward_config_check_interval_sec`
   * How often the configuration should be reread so that when the port list changes, SSH tunnels are changed
   * The `agsekit portforward` command and the daemon started through `agsekit daemon start` perform port forwarding, and when the configuration changes, dynamically update ports
   * See [Port Forwarding](networking.md#port-forwarding) and [portforward](commands/networking.md)
+* `global.check_new_version`
+  * Enables or disables periodic `pip`-based checks for newer agsekit versions
+  * Used by `agsekit run` and by the daemon-managed background portforward process
+  * Default: `true`
+* `global.check_new_version_interval_sec`
+  * How often agsekit should check for a newer version in background loops
+  * Used by `agsekit run` and by the daemon-managed background portforward process
+  * Default: `600`
 * `global.http_proxy_port_pool`
   * Port range from which a port is selected when launching a proxy server
   * The `agsekit run <agent>` command can launch a proxy server if this is set in the configuration or command-line argument, and if it has no listen port, a random one is taken from the range
   * See [HTTP_PROXY](networking.md#http_proxy)
   * Default: `{"start": 48000, "end": 49000}`
+
+## Internal State File
+
+In addition to the user-editable config, agsekit keeps an internal state file, by default at `~/.config/agsekit/state.yaml`.
+
+Current fields:
+
+- `current_version` — the version of the currently running agsekit CLI
+- `last_Version` — the latest version last discovered through `agsekit check-new-version` or a background check
+
+Behavior:
+
+- the file is created automatically;
+- agsekit sanitizes it on load through a Pydantic model;
+- unknown keys are removed;
+- missing or invalid values are replaced with defaults;
+- every state change is immediately written back to YAML.
 * `vms`
   * Set of virtual machines; there can be any number of virtual machines, but at least one
 * `vms.<vm_name>`

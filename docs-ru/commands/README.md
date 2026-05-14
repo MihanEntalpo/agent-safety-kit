@@ -10,7 +10,7 @@
 - [config-example / config-gen](config.md)
 - [up](up.md)
 - [doctor](doctor.md)
-- [pip-upgrade](pip-upgrade.md)
+- [pip-upgrade / check-new-version](pip-upgrade.md)
 
 ## Подготовка VM и агентов
 

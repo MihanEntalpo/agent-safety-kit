@@ -6,6 +6,7 @@ import signal
 import subprocess
 import time
 from pathlib import Path
+import os
 from typing import Dict, List, Optional, Sequence
 
 import click
@@ -21,6 +22,11 @@ from ..config import (
     resolve_config_path,
 )
 from ..i18n import tr
+from ..state import (
+    VERSION_CHECK_DAEMON_ENV_VAR,
+    initialize_state,
+    start_periodic_version_check_thread,
+)
 from ..vm import MultipassError, build_port_forwarding_args, ensure_multipass_available
 from . import debug_option, non_interactive_option
 
@@ -42,6 +48,11 @@ def _resolve_agsekit_command() -> List[str]:
 
 def _format_command(command: List[str]) -> str:
     return " ".join(shlex.quote(part) for part in command)
+
+
+def _daemon_version_check_enabled() -> bool:
+    """Return whether this portforward process was launched by the daemon backend."""
+    return os.environ.get(VERSION_CHECK_DAEMON_ENV_VAR) == "1"
 
 
 def _find_privileged_remote_ports(rules: Sequence[PortForwardingRule]) -> List[int]:
@@ -245,6 +256,7 @@ def portforward_command(config_path: Optional[str], debug: bool, non_interactive
     resolved_path = resolve_config_path(Path(config_path) if config_path else None)
     try:
         runtime_config = _load_portforward_runtime(resolved_path)
+        initialize_state(resolved_path)
     except ConfigError as exc:
         raise click.ClickException(str(exc))
 
@@ -259,6 +271,11 @@ def portforward_command(config_path: Optional[str], debug: bool, non_interactive
     processes: Dict[str, subprocess.Popen] = {}
     stop_requested = False
     last_reload_warning: Optional[str] = None
+    version_check_stop_event = (
+        start_periodic_version_check_thread(resolved_path, debug=debug)
+        if _daemon_version_check_enabled()
+        else None
+    )
 
     def _handle_signal(signum: int, frame: object) -> None:
         nonlocal stop_requested
@@ -317,4 +334,6 @@ def portforward_command(config_path: Optional[str], debug: bool, non_interactive
                 )
             time.sleep(1)
     finally:
+        if version_check_stop_event is not None:
+            version_check_stop_event.set()
         _terminate_processes(processes)

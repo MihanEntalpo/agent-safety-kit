@@ -14,6 +14,7 @@ import click
 from . import cli_entry, systemd_backend
 from .config import resolve_config_path
 from .i18n import tr
+from .state import VERSION_CHECK_DAEMON_ENV_VAR
 
 LAUNCHD_LABEL = "org.agsekit.portforward"
 STATUS_LOG_LINES = 10
@@ -227,6 +228,7 @@ class LaunchdDaemonBackend(DaemonBackend):
                 "AGSEKIT_BIN": str(agsekit_bin),
                 "AGSEKIT_CONFIG": str(config_path),
                 "AGSEKIT_PROJECT_DIR": str(project_dir),
+                VERSION_CHECK_DAEMON_ENV_VAR: "1",
             },
         }
 

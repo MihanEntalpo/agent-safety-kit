@@ -21,8 +21,14 @@ global:
   ssh_keys_folder: null
   # Переопределение папки env-переменных для systemd-службы (используется в linux)
   systemd_env_folder: null
+  # Переопределение пути к генерируемому внутреннему state-файлу, по умолчанию ~/.config/agsekit/state.yaml
+  state_file: null
   # Частота проверки конфигурации демоном проброса портов, по умолчанию каждые 10 секунд
   portforward_config_check_interval_sec: 10 
+  # Нужно ли периодически проверять новые версии agsekit через pip
+  check_new_version: true
+  # Как часто agsekit должен проверять новые версии, в секундах
+  check_new_version_interval_sec: 600
   # Диапазон портов для динамического выделения при запуске proxy-сервера, по умолчанию от 48000 до 49000
   http_proxy_port_pool:
     start: 48000
@@ -142,15 +148,45 @@ agents:
   * Эта настройка влияет только на Linux; macOS `launchd` её не использует
   * См. [daemon](commands/daemon.md)
   * По умолчанию ~/.config/agsekit
+* `global.state_file`
+  * Указывает путь к генерируемому внутреннему state-файлу agsekit
+  * Этот файл не предназначен для ручного редактирования; agsekit сам записывает его и всегда добавляет предупреждающий комментарий в начало
+  * Сейчас state хранит версию запущенного CLI (`current_version`) и последнюю известную версию, найденную через `pip` (`last_Version`)
+  * По умолчанию `~/.config/agsekit/state.yaml`
 * `global.portforward_config_check_interval_sec`
   * Как часто нужно перечитывать конфигурацию, чтобы, при изменении списка портов, менять ssh-туннели
   * Команда `agsekit portforward`, а также демон, запускаемый через `agsekit daemon start`, выполняют проброс портов, и при изменении конфигурации динамически обновляют порты
   * См. [Port Forwarding](networking.md#port-forwarding) и [portforward](commands/networking.md)
+* `global.check_new_version`
+  * Включает или отключает периодическую проверку новых версий agsekit через `pip`
+  * Используется командой `agsekit run` и daemon-managed background-процессом `portforward`
+  * По умолчанию `true`
+* `global.check_new_version_interval_sec`
+  * Как часто agsekit должен проверять новую версию в фоновых циклах
+  * Используется командой `agsekit run` и daemon-managed background-процессом `portforward`
+  * По умолчанию `600`
 * `global.http_proxy_port_pool` 
   * Диапазон портов, из которых выбирается порт при запуске прокси-сервера
   * Команда `agsekit run <agent>` может запускать прокси-сервер, если это задано в конфигурации или аргументе командной строки, и если у него не задан listen-порт - берётся случайный из диапазона
   * См. [HTTP_PROXY](networking.md#http_proxy)
   * По умолчанию `{"start": 48000, "end": 49000}`
+
+## Внутренний state-файл
+
+Помимо редактируемого пользователем config-файла, agsekit ведёт внутренний state-файл, по умолчанию `~/.config/agsekit/state.yaml`.
+
+Текущие поля:
+
+- `current_version` — версия текущего запущенного CLI agsekit
+- `last_Version` — последняя версия, найденная через `agsekit check-new-version` или фоновую проверку
+
+Поведение:
+
+- файл создаётся автоматически;
+- agsekit санитизирует его при загрузке через Pydantic-модель;
+- неизвестные ключи удаляются;
+- отсутствующие или некорректные значения заменяются дефолтами;
+- любое изменение state сразу записывается обратно в YAML.
 * `vms` 
   * Набор виртуальных машин, виртуальных машин может бысть сколько угодно, но не менее одной
 * `vms.<vm_name>`

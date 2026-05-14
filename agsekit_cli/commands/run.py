@@ -50,6 +50,7 @@ from ..mounts import (
     vm_path_has_entries,
 )
 from ..progress import StatusSpinner
+from ..state import CHANGELOG_URL, get_state_manager, initialize_state, start_periodic_version_check_thread
 from . import debug_option, non_interactive_option
 
 
@@ -227,6 +228,7 @@ def run_command(
     non_interactive: bool,
 ) -> None:
     """Запускает интерактивную сессию агента в Multipass ВМ."""
+    version_check_stop_event = None
     with debug_scope(debug):
         with StatusSpinner(enabled=not debug, spinner="dots") as status:
             status.update(tr("run.progress_launch_prep"))
@@ -235,11 +237,24 @@ def run_command(
             try:
                 config = load_config(resolved_path)
                 global_config = load_global_config(config)
+                initialize_state(resolved_path)
                 agents_config = load_agents_config(config)
                 mounts = load_mounts_config(config)
                 vms = load_vms_config(config)
             except ConfigError as exc:
                 raise click.ClickException(str(exc))
+
+            state_manager = get_state_manager()
+            if state_manager.has_newer_version():
+                with status.suspend():
+                    click.echo(
+                        tr(
+                            "run.new_version_available",
+                            current=state_manager.current_version,
+                            latest=state_manager.last_version,
+                            changelog_url=CHANGELOG_URL,
+                        )
+                    )
 
             if agent_name not in agents_config:
                 available = ", ".join(sorted(agents_config.keys()))
@@ -427,6 +442,7 @@ def run_command(
                     )
 
             exit_code = 0
+            version_check_stop_event = start_periodic_version_check_thread(resolved_path, debug=debug)
 
             try:
                 run_in_vm_kwargs = {
@@ -448,6 +464,8 @@ def run_command(
             except (ConfigError, MultipassError) as exc:
                 raise click.ClickException(str(exc))
             finally:
+                if version_check_stop_event is not None:
+                    version_check_stop_event.set()
                 if backup_process:
                     backup_process.terminate()
                     try:

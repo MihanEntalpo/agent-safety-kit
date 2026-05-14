@@ -451,6 +451,7 @@ class TestConfigGenCommand:
         config_path = tmp_path / "config.yaml"
         ssh_dir = tmp_path / "ssh"
         env_dir = tmp_path / "env"
+        state_file = tmp_path / "state.yaml"
         wizard = self._spawn(config_path)
 
         _fill_vm_minimal(wizard)
@@ -459,7 +460,10 @@ class TestConfigGenCommand:
         wizard.confirm("Customize global agsekit settings?", True)
         wizard.text("SSH keys folder override", str(ssh_dir))
         wizard.text("systemd.env folder override", str(env_dir))
+        wizard.text("State file override", str(state_file), clear_default=True)
         wizard.text("How often should portforward reload the config", "21", clear_default=True)
+        wizard.confirm("Enable periodic new-version checks?", False)
+        wizard.text("How often should agsekit check for new versions", "900", clear_default=True)
         wizard.text("HTTP proxy auto-port pool start", "48100", clear_default=True)
         wizard.text("HTTP proxy auto-port pool end", "48200", clear_default=True)
         wizard.text("Where should the config be saved?", "")
@@ -469,7 +473,10 @@ class TestConfigGenCommand:
         assert config["global"] == {
             "ssh_keys_folder": str(ssh_dir),
             "systemd_env_folder": str(env_dir),
+            "state_file": str(state_file),
             "portforward_config_check_interval_sec": 21,
+            "check_new_version": False,
+            "check_new_version_interval_sec": 900,
             "http_proxy_port_pool": {"start": 48100, "end": 48200},
         }
 

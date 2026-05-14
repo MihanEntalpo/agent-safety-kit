@@ -1,5 +1,11 @@
 # Agent-Safety-Kit versions history
 
+## 1.6.10 - Internal state and version checks
+
+* Added an internal generated state file, `~/.config/agsekit/state.yaml` by default, with configurable path via `global.state_file`; agsekit now sanitizes this file through a Pydantic model, rewrites invalid or incomplete state to defaults, and keeps `current_version` / `last_Version` in sync
+* Added `agsekit check-new-version`, which checks the latest published agsekit version through `pip`, updates the internal state file, and reports whether a newer version is available
+* Changed periodic version checks so they run in `agsekit run` and only in daemon-managed `portforward` processes; manual `agsekit portforward` no longer starts background version-check threads on its own
+
 ## 1.6.9 - Improved config-gen wizard
 
 * Reworked `agsekit config-gen` into a more practical interactive wizard: the first VM is now mandatory, optional sections are asked in a clearer order, install bundles and agent restrictions use checkbox selection, and port-forwarding / proxy prompts better match the resulting YAML structure

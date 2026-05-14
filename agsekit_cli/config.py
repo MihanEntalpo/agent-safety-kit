@@ -18,9 +18,12 @@ DEFAULT_CONFIG_PATH = Path.home() / ".config" / "agsekit" / "config.yaml"
 DEFAULT_AGSEKIT_DIR = DEFAULT_CONFIG_PATH.parent
 DEFAULT_SSH_KEYS_DIR = DEFAULT_AGSEKIT_DIR / "ssh"
 DEFAULT_SYSTEMD_ENV_DIR = DEFAULT_AGSEKIT_DIR
+DEFAULT_STATE_FILE_PATH = DEFAULT_AGSEKIT_DIR / "state.yaml"
 DEFAULT_PORTFORWARD_CONFIG_CHECK_INTERVAL_SEC = 10
 DEFAULT_HTTP_PROXY_PORT_POOL_START = 48000
 DEFAULT_HTTP_PROXY_PORT_POOL_END = 49000
+DEFAULT_VERSION_CHECK_ENABLED = True
+DEFAULT_VERSION_CHECK_INTERVAL_SEC = 600
 ALLOWED_AGENT_TYPES = {agent_type: agent_type for agent_type in SUPPORTED_AGENT_TYPES}
 
 
@@ -95,7 +98,10 @@ class HttpProxyPortPoolConfig:
 class GlobalConfig:
     ssh_keys_folder: Path = DEFAULT_SSH_KEYS_DIR
     systemd_env_folder: Path = DEFAULT_SYSTEMD_ENV_DIR
+    state_file: Path = DEFAULT_STATE_FILE_PATH
     portforward_config_check_interval_sec: int = DEFAULT_PORTFORWARD_CONFIG_CHECK_INTERVAL_SEC
+    check_new_version: bool = DEFAULT_VERSION_CHECK_ENABLED
+    check_new_version_interval_sec: int = DEFAULT_VERSION_CHECK_INTERVAL_SEC
     http_proxy_port_pool: HttpProxyPortPoolConfig = HttpProxyPortPoolConfig()
 
 
@@ -246,7 +252,10 @@ def load_global_config(config: Dict[str, Any]) -> GlobalConfig:
 
     ssh_keys_folder_raw = raw_global.get("ssh_keys_folder")
     systemd_env_folder_raw = raw_global.get("systemd_env_folder")
+    state_file_raw = raw_global.get("state_file")
     portforward_interval_raw = raw_global.get("portforward_config_check_interval_sec")
+    check_new_version_raw = raw_global.get("check_new_version")
+    check_new_version_interval_raw = raw_global.get("check_new_version_interval_sec")
     http_proxy_port_pool_raw = raw_global.get("http_proxy_port_pool")
 
     ssh_keys_folder = (
@@ -259,12 +268,30 @@ def load_global_config(config: Dict[str, Any]) -> GlobalConfig:
         if systemd_env_folder_raw is None
         else _ensure_path(systemd_env_folder_raw, "global.systemd_env_folder")
     )
+    state_file = (
+        DEFAULT_STATE_FILE_PATH
+        if state_file_raw is None
+        else _ensure_path(state_file_raw, "global.state_file")
+    )
     portforward_config_check_interval_sec = (
         DEFAULT_PORTFORWARD_CONFIG_CHECK_INTERVAL_SEC
         if portforward_interval_raw is None
         else _require_positive_int(
             portforward_interval_raw,
             "global.portforward_config_check_interval_sec",
+        )
+    )
+    check_new_version = (
+        DEFAULT_VERSION_CHECK_ENABLED
+        if check_new_version_raw is None
+        else _require_bool(check_new_version_raw, "global.check_new_version")
+    )
+    check_new_version_interval_sec = (
+        DEFAULT_VERSION_CHECK_INTERVAL_SEC
+        if check_new_version_interval_raw is None
+        else _require_positive_int(
+            check_new_version_interval_raw,
+            "global.check_new_version_interval_sec",
         )
     )
     http_proxy_port_pool = _normalize_http_proxy_port_pool(
@@ -275,7 +302,10 @@ def load_global_config(config: Dict[str, Any]) -> GlobalConfig:
     return GlobalConfig(
         ssh_keys_folder=ssh_keys_folder,
         systemd_env_folder=systemd_env_folder,
+        state_file=state_file,
         portforward_config_check_interval_sec=portforward_config_check_interval_sec,
+        check_new_version=check_new_version,
+        check_new_version_interval_sec=check_new_version_interval_sec,
         http_proxy_port_pool=http_proxy_port_pool,
     )
 
@@ -296,6 +326,12 @@ def _require_positive_int(value: Any, field_name: str) -> int:
     if result <= 0:
         raise ConfigError(tr("config.field_not_positive", field_name=field_name))
     return result
+
+
+def _require_bool(value: Any, field_name: str) -> bool:
+    if isinstance(value, bool):
+        return value
+    raise ConfigError(tr("config.field_not_bool", field_name=field_name))
 
 
 def _validate_size_field(value: Any, field_name: str) -> str:

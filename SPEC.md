@@ -103,6 +103,15 @@
   - загрузка YAML;
   - dataclass-модели (`VmConfig`, `MountConfig`, `AgentConfig`, `PortForwardingRule`);
   - валидация/нормализация.
+- `agsekit_cli/state.py`
+  - загрузка и санитизация внутреннего `state.yaml`;
+  - pydantic-модель runtime-state;
+  - запись состояния обратно на диск при изменениях;
+  - фоновая periodic-проверка новых версий.
+- `agsekit_cli/versioning.py`
+  - определение текущей версии CLI;
+  - сравнение версий;
+  - проверка самой новой версии через `pip`.
 - `agsekit_cli/vm.py`
   - проверка Multipass;
   - сравнение существующих VM и проверка ресурсов хоста;
@@ -171,6 +180,29 @@
   - применяется и при ручном запуске `agsekit portforward`, и в daemon-режиме, потому что backend запускает ту же CLI-команду.
 - `http_proxy_port_pool.start` / `http_proxy_port_pool.end` (optional, defaults `48000..49000`) — диапазон auto-port для временного локального HTTP proxy helper внутри VM.
   - используется только в `run`, когда effective `http_proxy` задан в upstream-режиме и `listen` явно не указан.
+- `state_file` (optional, default `~/.config/agsekit/state.yaml`) — путь к внутреннему state-файлу `agsekit`.
+  - этот файл генерируется только самим `agsekit`;
+  - в начале файла всегда пишется предупреждающий комментарий на английском;
+  - при старте CLI state считывается, валидируется и санитизируется: неизвестные поля удаляются, отсутствующие поля заполняются дефолтами, некорректные значения заменяются дефолтными.
+- `check_new_version` (optional, default `true`) — включать ли периодическую проверку новых версий `agsekit` через `pip`.
+  - используется в `run` и в daemon-managed background portforward backend;
+  - если выключено, фоновые проверки новой версии не запускаются.
+- `check_new_version_interval_sec` (optional, default `600`, >0) — период фоновой проверки новых версий `agsekit`.
+  - применяется в `run` и в daemon-managed background portforward backend.
+
+### 6.3.1 Внутренний `state.yaml`
+
+Помимо пользовательского config-файла, `agsekit` использует внутренний state-файл (по умолчанию `~/.config/agsekit/state.yaml`), который хранит runtime-метаданные и не предназначен для ручного редактирования.
+
+Текущая структура:
+- `current_version` — версия реально запущенного `agsekit`; обновляется при старте CLI и после `pip-upgrade`.
+- `last_Version` — последняя известная актуальная версия, найденная через `pip`; обновляется командой `check-new-version` и фоновыми periodic-проверками.
+
+Behavior:
+- файл создаётся автоматически при первом запуске;
+- все записи в нём происходят только из `agsekit`;
+- при любом изменении state сериализуется обратно в YAML;
+- alias persisted field `last_Version` сохраняется именно в таком виде для совместимости текущего формата.
 
 ### 6.4 Секция `vms`
 Каждая VM:
@@ -258,6 +290,7 @@
 Это список команд, которые могут работать без чтения project-конфига:
 - `prepare`
 - `up`
+- `check-new-version`
 - `backup-once`
 - `backup-repeated`
 - `config-example`

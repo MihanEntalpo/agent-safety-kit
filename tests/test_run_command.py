@@ -1,6 +1,7 @@
 import json
 from contextlib import contextmanager
 from pathlib import Path
+from types import SimpleNamespace
 import sys
 from typing import Dict, Optional
 
@@ -23,6 +24,20 @@ _REAL_ENSURE_MOUNT_REGISTERED_FOR_RUN = run_module._ensure_mount_registered_for_
 @pytest.fixture(autouse=True)
 def bypass_mount_registration_prompt(monkeypatch):
     monkeypatch.setattr(run_module, "_ensure_mount_registered_for_run", lambda *args, **kwargs: True)
+
+
+@pytest.fixture(autouse=True)
+def bypass_version_state(monkeypatch):
+    stop_event = SimpleNamespace(set=lambda: None)
+    state = SimpleNamespace(
+        current_version="1.6.9",
+        last_version="1.6.9",
+        has_newer_version=lambda: False,
+    )
+    monkeypatch.setattr(run_module, "initialize_state", lambda *_args, **_kwargs: None)
+    monkeypatch.setattr(run_module, "get_state_manager", lambda: state)
+    monkeypatch.setattr(run_module, "start_periodic_version_check_thread", lambda *_args, **_kwargs: stop_event)
+    return stop_event
 
 
 def _write_config(
@@ -187,6 +202,41 @@ def test_run_command_starts_backup_and_agent(monkeypatch, tmp_path):
     assert backups and backups[0][0] == source.resolve()
     assert backups[0][3] is True
     assert calls["proxychains"] is None
+
+
+def test_run_command_announces_newer_version_and_stops_background_checker(monkeypatch, tmp_path):
+    source = tmp_path / "project"
+    config_path = tmp_path / "config.yaml"
+    _write_config(config_path, source)
+
+    stop_calls = []
+    monkeypatch.setattr(
+        run_module,
+        "get_state_manager",
+        lambda: SimpleNamespace(
+            current_version="1.6.9",
+            last_version="1.7.0",
+            has_newer_version=lambda: True,
+        ),
+    )
+    monkeypatch.setattr(run_module, "initialize_state", lambda *_args, **_kwargs: None)
+    monkeypatch.setattr(
+        run_module,
+        "start_periodic_version_check_thread",
+        lambda *_args, **_kwargs: SimpleNamespace(set=lambda: stop_calls.append("stopped")),
+    )
+    monkeypatch.setattr(run_module, "_has_existing_backup", lambda *_: True)
+    monkeypatch.setattr(run_module, "start_backup_process", lambda *_, **__: None)
+    monkeypatch.setattr(run_module, "backup_once", lambda *_, **__: None)
+    monkeypatch.setattr(run_module, "run_in_vm", lambda *_, **__: 0)
+
+    runner = CliRunner()
+    result = runner.invoke(run_command, ["--config", str(config_path), "--workdir", str(source), "qwen"])
+
+    assert result.exit_code == 0
+    assert "A newer agsekit version is available: 1.7.0 (current: 1.6.9)." in result.output
+    assert run_module.CHANGELOG_URL in result.output
+    assert stop_calls == ["stopped"]
 
 
 def test_run_command_for_forgecode_forces_tracker_env(monkeypatch, tmp_path):

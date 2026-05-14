@@ -8,6 +8,7 @@ from click.testing import CliRunner
 from agsekit_cli import cli_entry, systemd_backend
 import agsekit_cli.commands.daemon as daemon_module
 import agsekit_cli.commands.systemd as systemd_alias_module
+from agsekit_cli.state import VERSION_CHECK_DAEMON_ENV_VAR
 
 
 def test_packaged_systemd_unit_uses_shell_wrapper_for_env_expansion():
@@ -79,6 +80,7 @@ def test_install_portforward_service_relinks_existing_unit_to_current_installati
     assert "AGSEKIT_BIN=/opt/new-agsekit/bin/agsekit" in written_env
     assert f"AGSEKIT_CONFIG={config_path.resolve()}" in written_env
     assert f"AGSEKIT_PROJECT_DIR={current_project.resolve()}" in written_env
+    assert f"{VERSION_CHECK_DAEMON_ENV_VAR}=1" in written_env
     compatibility_env = compatibility_env_dir / systemd_backend.ENV_FILENAME
     assert compatibility_env.is_symlink()
     assert compatibility_env.resolve() == (env_dir / systemd_backend.ENV_FILENAME).resolve()

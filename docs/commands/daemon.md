@@ -58,6 +58,8 @@ On macOS:
 
 In both cases, the daemon stores the absolute path to the current `agsekit` CLI, and `portforward` reuses that same installation for child `ssh` tunnel processes instead of depending on `PATH`.
 
+The daemon backend explicitly enables the periodic new-version checker for its managed `portforward` process: when `global.check_new_version` is enabled, that daemon-managed process periodically launches `agsekit check-new-version` using `global.check_new_version_interval_sec`.
+
 ## `status`
 
 The output is platform-specific.

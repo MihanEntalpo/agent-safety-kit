@@ -70,6 +70,8 @@ After mount checks, `run` starts the agent through one bundled VM-side wrapper s
 - wrap runtime through `proxychains` or `http_proxy`;
 - override `proxychains` through `--proxychains <scheme://host:port>` or disable it through `--proxychains ""`;
 - override `http_proxy` in upstream mode through `--http-proxy <scheme://host:port>` or disable it through `--http-proxy ""`.
+- start a daemon background thread that periodically runs `agsekit check-new-version` when `global.check_new_version` is enabled;
+- print a startup notice when the internal state file already knows about a newer agsekit version.
 
 ## Restrictions
 
