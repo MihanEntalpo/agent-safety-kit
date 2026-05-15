@@ -777,6 +777,7 @@ def test_run_command_uses_dots_status_spinner_without_debug(monkeypatch, tmp_pat
         "Checking mount visibility inside the VM",
         "Running blocking pre-run backup",
         "Starting background backups",
+        "Launching qwen",
     ]
     assert spinner_suspends
 

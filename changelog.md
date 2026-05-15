@@ -1,5 +1,10 @@
 # Agent-Safety-Kit versions history
 
+## 1.7.0 - Clearer run launch messaging
+
+* Changed `agsekit run` launch messaging so users now see the planned VM/workdir/backup destination before startup, a concise confirmation when background backups have already started, and a separate explicit `Launching ...` step before control is handed to the agent
+* Fixed the non-debug `agsekit run` dots spinner so it no longer keeps showing `Starting background backups` while the agent itself is already being launched
+
 ## 1.6.12 - Agent version pinning and default update-disable env
 
 * Added version-aware agent installation: every agent profile can now declare `agents.<name>.version`, omitted versions resolve to pinned tested defaults, `install-agents` verifies already installed binaries and reinstalls them on mismatch, and `codex-glibc` / `codex-glibc-prebuilt` now resolve exact Git tags/releases instead of following moving latest targets

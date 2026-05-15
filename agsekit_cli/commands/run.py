@@ -393,12 +393,24 @@ def run_command(
                 with status.suspend():
                     click.echo(tr("run.temp_workdir_created", path=workdir_in_vm))
 
-            with status.suspend():
-                click.echo(
-                    tr("run.starting_agent", agent=agent.name, vm_name=vm_to_use, workdir=workdir_in_vm)
-                )
-
             backup_process = None
+            backup_destination: Optional[Path] = mount_entry.backup if mount_entry is not None else None
+            with status.suspend():
+                if backup_destination is not None:
+                    click.echo(
+                        tr(
+                            "run.starting_agent_with_backup",
+                            agent=agent.name,
+                            vm_name=vm_to_use,
+                            workdir=workdir_in_vm,
+                            backup=backup_destination,
+                        )
+                    )
+                else:
+                    click.echo(
+                        tr("run.starting_agent", agent=agent.name, vm_name=vm_to_use, workdir=workdir_in_vm)
+                    )
+
             if mount_entry is not None:
                 skip_first_repeated_backup = False
                 existing_backup_exists = _has_existing_backup(mount_entry.backup)
@@ -453,7 +465,9 @@ def run_command(
                     run_in_vm_kwargs["http_proxy"] = effective_http_proxy
                     run_in_vm_kwargs["http_proxy_port_pool"] = global_config.http_proxy_port_pool
 
+                status.update(tr("run.progress_launching_agent", agent=agent.name))
                 with status.suspend():
+                    click.echo(tr("run.launching_agent", agent=agent.name))
                     exit_code = run_in_vm(
                         vm_config,
                         workdir_in_vm,
