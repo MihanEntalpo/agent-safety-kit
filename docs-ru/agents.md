@@ -28,12 +28,17 @@
 
 Команда `install-agents` выбирает Ansible playbook для нужного типа и устанавливает соответствующий runtime в целевую VM.
 
+По умолчанию для каждого типа агента используется зафиксированная проверенная версия. При необходимости её можно переопределить через `agents.<name>.version`. 
+
+Такая фиксация сделана намеренно: она снижает риск случайных поломок и ограничивает supply-chain drift от свежих upstream-релизов.
+
 Основные паттерны:
 
-- npm CLI для `codex`, `qwen`, `opencode` и `cline`
-- официальные установщики для `aider`, `forgecode` и `claude`
+- точные npm-версии для `codex`, `qwen`, `opencode`, `claude` и `cline`
+- точная версия Python-пакета для `aider`
+- точная release-версия для `forgecode`
 - локальная сборка из исходников для `codex-glibc`
-- скачивание release asset для `codex-glibc-prebuilt`
+- скачивание точного release asset для `codex-glibc-prebuilt`
 
 ## Модель запуска
 
@@ -51,9 +56,11 @@
 
 ## Заметки
 
-- runtime `forgecode` всегда получает `FORGE_TRACKER=false`, так как forgecode иначе отправит "для статистики" ваши данные, включая email и имя из .gitconfig
+- некоторые агенты получают встроенные default env-переменные до применения пользовательского `agents.<name>.env` из конфига; при необходимости пользовательский конфиг всё ещё может их переопределить
+- сейчас встроенные default env такие: `forgecode -> FORGE_TRACKER=false`, `aider -> AIDER_CHECK_UPDATE=false`, `opencode -> OPENCODE_DISABLE_AUTOUPDATE=true`, `claude -> DISABLE_AUTOUPDATER=1`, `cline -> CLINE_NO_AUTO_UPDATE=1`
 - `codex-glibc` и `codex-glibc-prebuilt` это отдельные бинарники и могут сосуществовать с `codex`.
 - источник релизов для `codex-glibc-prebuilt` можно переопределить через host environment variables.
+- если `install-agents` видит уже установленный бинарник с другой версией, агент переустанавливается до версии, указанной в конфиге.
 
 ## См. также
 

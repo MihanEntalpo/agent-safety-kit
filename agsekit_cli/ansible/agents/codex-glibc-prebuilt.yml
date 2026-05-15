@@ -17,6 +17,8 @@
   hosts: "{{ vm_name }}"
   gather_facts: true
   vars:
+    requested_agent_version: "{{ agent_version }}"
+    reinstall_requested: "{{ force_reinstall | default(false) | bool }}"
     codex_binary_name: codex-glibc-prebuilt
     codex_system_path: /usr/local/bin/codex-glibc-prebuilt
     codex_user_path: "{{ ansible_env.HOME }}/.local/bin/codex-glibc-prebuilt"
@@ -50,6 +52,8 @@
               (ansible_playbook_python | quote)
               ~ ' -m agsekit_cli.prebuilt resolve-codex-glibc-prebuilt --arch '
               ~ (codex_prebuilt_arch | quote)
+              ~ ' --tag '
+              ~ ('codex-glibc-rust-v' ~ requested_agent_version | quote)
             ) | from_json
           }}
 
@@ -90,6 +94,12 @@
           {%- endif -%}
         codex_install_path: >-
           {{ codex_system_path if codex_system_stat.stat.exists or (not codex_user_stat.stat.exists and sudo_check.rc == 0) else codex_user_path }}
+
+    - name: Remove existing codex-glibc-prebuilt before reinstall
+      ansible.builtin.command: >-
+        {{ 'sudo ' if codex_install_mode == 'system' else '' }}rm -f {{ codex_install_path }}
+      when: reinstall_requested
+      changed_when: true
 
     - name: Download codex-glibc prebuilt archive
       ansible.builtin.command: >-

@@ -28,8 +28,8 @@ from ..config import (
     load_vms_config,
     resolve_config_path,
 )
-from ..debug import debug_scope
-from ..host_tools import is_windows
+from ..debug import debug_log_command, debug_log_result, debug_scope
+from ..host_tools import is_windows, multipass_command
 from ..interactive import is_interactive_terminal
 from ..i18n import tr
 from ..progress import ProgressManager
@@ -159,6 +159,26 @@ def _run_install_playbook(
         )
         raise MultipassError(tr("install_agents.install_failed", vm_name=vm.name, code=result.returncode))
     return prepared_ssh
+
+
+def _installed_agent_version(agent: AgentConfig, vm: VmConfig, *, debug: bool) -> Optional[str]:
+    agent_cls = get_agent_class(agent.type)
+    command = [
+        multipass_command(),
+        "exec",
+        vm.name,
+        "--",
+        "bash",
+        "-lc",
+        agent_cls.build_version_command(),
+    ]
+    debug_log_command(command, enabled=debug)
+    result = subprocess.run(command, check=False, capture_output=True, text=True)
+    debug_log_result(result, enabled=debug)
+    if result.returncode != 0:
+        return None
+    output = "\n".join(part for part in (result.stdout, result.stderr) if part).strip()
+    return agent_cls.extract_version(output)
 
 
 def _default_vms(agent: AgentConfig, available: Iterable[str]) -> List[str]:
@@ -329,6 +349,42 @@ def _run_install_targets(
         agent = find_agent(agents_config, target_agent_name)
         agent_cls = get_agent_class(agent.type)
         playbook_path = _playbook_for(agent)
+        installed_version = _installed_agent_version(agent, target_vm, debug=debug)
+        if installed_version == agent.version:
+            click.echo(
+                tr(
+                    "install_agents.version_ok",
+                    agent_name=agent.name,
+                    agent_type=agent.type,
+                    vm_name=target_vm.name,
+                    version=agent.version,
+                )
+            )
+            if overall_task is not None:
+                progress.advance(overall_task)
+            continue
+        force_reinstall = installed_version is not None
+        if installed_version is None:
+            click.echo(
+                tr(
+                    "install_agents.version_missing",
+                    agent_name=agent.name,
+                    agent_type=agent.type,
+                    vm_name=target_vm.name,
+                    version=agent.version,
+                )
+            )
+        else:
+            click.echo(
+                tr(
+                    "install_agents.version_mismatch",
+                    agent_name=agent.name,
+                    agent_type=agent.type,
+                    vm_name=target_vm.name,
+                    current_version=installed_version,
+                    required_version=agent.version,
+                )
+            )
         if debug:
             click.echo(
                 tr(
@@ -336,6 +392,7 @@ def _run_install_targets(
                     agent_name=agent.name,
                     agent_type=agent.type,
                     vm_name=target_vm.name,
+                    version=agent.version,
                     script=playbook_path.name,
                 )
             )
@@ -351,7 +408,10 @@ def _run_install_targets(
             )
             if overall_task is not None:
                 progress.update(overall_task, description=install_label)
-            extra_vars_overrides: Dict[str, object] = {}
+            extra_vars_overrides: Dict[str, object] = {
+                "agent_version": agent.version,
+                "force_reinstall": force_reinstall,
+            }
             if agent_cls.needs_nvm() and target_vm.name in node_ready_vms:
                 extra_vars_overrides["skip_nvm_install"] = True
                 extra_vars_overrides["skip_node_install"] = True

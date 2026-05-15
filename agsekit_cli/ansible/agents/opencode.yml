@@ -15,6 +15,8 @@
   hosts: "{{ vm_name }}"
   gather_facts: true
   vars:
+    requested_agent_version: "{{ agent_version }}"
+    reinstall_requested: "{{ force_reinstall | default(false) | bool }}"
     nvm_dir: "{{ ansible_env.HOME }}/.nvm"
     skip_nvm_install: false
     skip_node_install: false
@@ -88,17 +90,18 @@
       changed_when: false
       failed_when: npm_check.rc != 0
 
-    - name: Check OpenCode CLI installation
+    - name: Remove existing OpenCode CLI before reinstall
       ansible.builtin.command: >-
-        bash -lc ". {{ nvm_dir }}/nvm.sh && nvm use --silent default >/dev/null && npm list -g --depth=0 opencode-ai"
-      register: opencode_check
-      changed_when: false
+        bash -lc ". {{ nvm_dir }}/nvm.sh && nvm use --silent default >/dev/null && npm uninstall -g opencode-ai"
+      register: opencode_uninstall
+      changed_when: opencode_uninstall.rc == 0
       failed_when: false
+      when: reinstall_requested
 
     - name: Install OpenCode CLI
       ansible.builtin.command: >-
-        {{ proxychains_prefix }}bash -lc ". {{ nvm_dir }}/nvm.sh && nvm use --silent default >/dev/null && npm install -g opencode-ai@latest"
-      when: opencode_check.rc != 0
+        {{ proxychains_prefix }}bash -lc ". {{ nvm_dir }}/nvm.sh && nvm use --silent default >/dev/null && npm install -g opencode-ai@{{ requested_agent_version }}"
+      changed_when: true
 
     - name: Verify OpenCode CLI after installation
       ansible.builtin.command: >-

@@ -110,6 +110,8 @@ agents:
   qwen:
     # Тип агента - один из поддерживаемых: qwen, codex, claude, cline, aider, forgecode, opencode, codex-glibc, codex-glibc-prebuilt
     type: qwen
+    # Необязательная точная версия; если не указать, agsekit возьмёт свою зафиксированную версию qwen по умолчанию
+    version: 0.15.11
     # Переменные окружения для агента
     env:
       # Здесь, например, задаётся self-hosted модель.      
@@ -125,6 +127,7 @@ agents:
   codex:
     # codex-glibc-prebuilt - это собранный вручную агент codex, поддерживающий работу через proxychains
     type: codex-glibc-prebuilt
+    version: 0.130.0
     # Агенту можно передать аргуметы командной строки по умолчанию
     default-args:
       - "--sandbox=danger-full-access"  
@@ -312,6 +315,10 @@ agents:
   * См. [Поддерживаемые агенты](agents.md)
   * Поддерживаемые значения: `aider`, `qwen`, `forgecode`, `codex`, `opencode`, `codex-glibc`, `codex-glibc-prebuilt`, `claude`, `cline`
   * Обязательный параметр
+* `agents.<agent_name>.version`
+  * Точная версия агента для установки
+  * Если поле не задано, agsekit использует свою зафиксированную версию по умолчанию для данного типа агента
+  * Такая фиксация сделана намеренно и служит защитой от незаметных upstream/supply-chain изменений
 * `agents.<agent_name>.env`
   * Переменные окружения, которые будут переданы процессу агента
   * Значения приводятся к строкам; `null` превращается в пустую строку

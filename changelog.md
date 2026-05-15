@@ -1,5 +1,11 @@
 # Agent-Safety-Kit versions history
 
+## 1.6.12 - Agent version pinning and default update-disable env
+
+* Added version-aware agent installation: every agent profile can now declare `agents.<name>.version`, omitted versions resolve to pinned tested defaults, `install-agents` verifies already installed binaries and reinstalls them on mismatch, and `codex-glibc` / `codex-glibc-prebuilt` now resolve exact Git tags/releases instead of following moving latest targets
+* Added agent-specific default runtime env variables for update/telemetry control: `forgecode` now uses the same generic default-env mechanism as other agents, and `aider`, `opencode`, `claude`, and `cline` now start with built-in update-disable env defaults
+* Fixed `aider` installation on newer Ubuntu guests where `python3` is already `3.13+`: the installer now follows the upstream `aider-install` approach and installs exact `aider-chat` versions through `uv tool install --python 3.12 ...`
+
 ## 1.6.11 - Stable Node LTS and doctor cleanup
 
 * Changed VM Node.js bootstrap so `nodejs` without an explicit version installs the current LTS once, pins `nvm default` to that exact resolved version, and does not auto-upgrade it on later `up` / `create-vms` runs when a newer LTS appears

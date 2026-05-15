@@ -110,6 +110,8 @@ agents:
   qwen:
     # Agent type - one of supported: qwen, codex, claude, cline, aider, forgecode, opencode, codex-glibc, codex-glibc-prebuilt
     type: qwen
+    # Optional exact version; if omitted, agsekit uses its pinned default version for qwen
+    version: 0.15.11
     # Environment variables for the agent
     env:
       # Here, for example, a self-hosted model is configured.
@@ -125,6 +127,7 @@ agents:
   codex:
     # codex-glibc-prebuilt is a manually built codex agent that supports working through proxychains
     type: codex-glibc-prebuilt
+    version: 0.130.0
     # The agent can receive default command-line arguments
     default-args:
       - "--sandbox=danger-full-access"
@@ -312,6 +315,10 @@ Behavior:
   * See [Supported agents](agents.md)
   * Supported values: `aider`, `qwen`, `forgecode`, `codex`, `opencode`, `codex-glibc`, `codex-glibc-prebuilt`, `claude`, `cline`
   * Required parameter
+* `agents.<agent_name>.version`
+  * Exact agent version to install
+  * If omitted, agsekit uses its pinned default version for this agent type
+  * This pinning is intentional and acts as a safety rail against unnoticed upstream/supply-chain changes
 * `agents.<agent_name>.env`
   * Environment variables that will be passed to the agent process
   * Values are converted to strings; `null` turns into an empty string

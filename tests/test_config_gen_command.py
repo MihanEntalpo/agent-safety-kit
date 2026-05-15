@@ -10,6 +10,7 @@ import yaml
 pexpect = pytest.importorskip("pexpect")
 
 from agsekit_cli.agents_modules import SUPPORTED_AGENT_TYPES
+from agsekit_cli.config import default_agent_version
 from agsekit_cli.vm_bundle_definitions import BUNDLE_DEFINITIONS
 
 ROOT = Path(__file__).resolve().parent.parent
@@ -192,6 +193,7 @@ class TestConfigGenCommand:
 
         config = yaml.safe_load(config_path.read_text(encoding="utf-8"))
         assert config["agents"]["qwen"]["vms"] == ["agent-ubuntu"]
+        assert config["agents"]["qwen"]["version"] == default_agent_version("qwen")
         assert config["vms"]["agent-ubuntu"]["allowed_agents"] == ["qwen"]
         assert "allowed_agents" not in config["vms"]["vm-2"]
 
@@ -254,6 +256,7 @@ class TestConfigGenCommand:
         wizard.finish()
 
         agent = yaml.safe_load(config_path.read_text(encoding="utf-8"))["agents"]["qwen"]
+        assert agent["version"] == default_agent_version("qwen")
         assert agent["env"] == {"OPENAI_API_KEY": "abc", "EMPTY": ""}
         assert agent["default-args"] == [
             "--model",
@@ -351,6 +354,7 @@ class TestConfigGenCommand:
         wizard.text("Agent name", "qwen", clear_default=True)
         wizard.expect("Agent name `qwen` is already used. Enter a different name.")
         wizard.text("Agent name", "qwen-alt", clear_default=True)
+        wizard.text("Agent version", "")
         wizard.confirm("Define environment variables for this agent?", False)
         wizard.confirm("Define default CLI arguments for this agent?", False)
         wizard.text("Agent proxychains URL", "")
@@ -590,6 +594,7 @@ def _add_agent(
     *,
     agent_type: str,
     name: str,
+    version: str = "",
     env_lines: Optional[List[str]] = None,
     default_args: Optional[str] = None,
     vm_toggles: Optional[List[int]] = None,
@@ -600,6 +605,7 @@ def _add_agent(
     assert agent_type in agent_order
     wizard.select("Agent type", index=agent_order.index(agent_type), ready_text=agent_order[-1])
     wizard.text("Agent name", name, clear_default=bool(name))
+    wizard.text("Agent version", version)
     if env_lines:
         wizard.confirm("Define environment variables for this agent?", True)
         for line in env_lines:

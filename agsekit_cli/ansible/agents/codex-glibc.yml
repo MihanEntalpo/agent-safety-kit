@@ -15,6 +15,8 @@
   hosts: "{{ vm_name }}"
   gather_facts: true
   vars:
+    requested_agent_version: "{{ agent_version }}"
+    reinstall_requested: "{{ force_reinstall | default(false) | bool }}"
     codex_build_root: /tmp/codex-src
     codex_binary_name: codex-glibc
     codex_system_path: /usr/local/bin/codex-glibc
@@ -50,28 +52,21 @@
         path: "{{ codex_user_path }}"
       register: codex_user_stat
 
-    - name: Set codex-glibc installation status
-      ansible.builtin.set_fact:
-        codex_glibc_installed: "{{ codex_system_stat.stat.exists or codex_user_stat.stat.exists }}"
-
     - name: Check sudo availability
       ansible.builtin.command: sudo -n true
       register: sudo_check
       changed_when: false
       failed_when: false
-      when: not codex_glibc_installed
 
     - name: Check available memory
       ansible.builtin.shell: "awk '/MemAvailable:/ {mem=$2} /SwapFree:/ {swap=$2} END {print mem+swap}' /proc/meminfo"
       register: free_kb
       changed_when: false
-      when: not codex_glibc_installed
 
     - name: Determine swap requirements
       ansible.builtin.set_fact:
         swap_required_kb: "{{ codex_required_free_kb - (free_kb.stdout | int) }}"
         swap_required_effective_kb: "{{ [codex_required_free_kb - (free_kb.stdout | int), codex_min_swap_kb] | max }}"
-      when: not codex_glibc_installed
 
     - name: Create swap file when needed
       ansible.builtin.shell: |
@@ -80,7 +75,7 @@
         echo "$SWAP_FILE"
       register: swap_file
       changed_when: true
-      when: not codex_glibc_installed and swap_required_kb | int > 0
+      when: swap_required_kb | int > 0
       args:
         executable: /bin/bash
 
@@ -90,62 +85,81 @@
         swap_bytes=$(({{ swap_required_effective_kb | int }} * 1024))
         swap_mb=$((({{ swap_required_effective_kb | int }} + 1023) / 1024))
         if command -v fallocate >/dev/null 2>&1; then
-          sudo fallocate -l "$swap_bytes" "{{ swap_file.stdout }}"
+        sudo fallocate -l "$swap_bytes" "{{ swap_file.stdout }}"
         else
           sudo dd if=/dev/zero of="{{ swap_file.stdout }}" bs=1M count="$swap_mb" status=none
         fi
         sudo chmod 600 "{{ swap_file.stdout }}"
         sudo mkswap "{{ swap_file.stdout }}" >/dev/null
         sudo swapon "{{ swap_file.stdout }}"
-      when: not codex_glibc_installed and swap_required_kb | int > 0
+      when: swap_required_kb | int > 0
       args:
         executable: /bin/bash
+
+    - name: Fail when system codex-glibc exists but sudo is unavailable
+      ansible.builtin.fail:
+        msg: >-
+          codex-glibc already exists at {{ codex_system_path }}, but sudo is unavailable,
+          so agsekit cannot replace the installed binary.
+      when: codex_system_stat.stat.exists and sudo_check.rc != 0
+
+    - name: Determine codex-glibc install target
+      ansible.builtin.set_fact:
+        codex_install_mode: >-
+          {{ 'system' if codex_system_stat.stat.exists or (not codex_user_stat.stat.exists and sudo_check.rc == 0) else 'user' }}
+        codex_install_path: >-
+          {{ codex_system_path if codex_system_stat.stat.exists or (not codex_user_stat.stat.exists and sudo_check.rc == 0) else codex_user_path }}
+
+    - name: Remove existing codex-glibc before reinstall
+      ansible.builtin.command: >-
+        {{ 'sudo ' if codex_install_mode == 'system' else '' }}rm -f {{ codex_install_path }}
+      when: reinstall_requested
+      changed_when: true
+
+    - name: Remove previous codex build root
+      ansible.builtin.file:
+        path: "{{ codex_build_root }}"
+        state: absent
 
     - name: Check rustup availability
       ansible.builtin.shell: "bash -lc 'command -v rustup'"
       register: rustup_check
       changed_when: false
       failed_when: false
-      when: not codex_glibc_installed
 
     - name: Download rustup installer
       ansible.builtin.command: "{{ proxychains_prefix }}curl --proto '=https' --tlsv1.2 -fL https://sh.rustup.rs -o /tmp/rustup-init.sh"
-      when: not codex_glibc_installed and rustup_check.rc != 0
+      when: rustup_check.rc != 0
 
     - name: Install rustup
       ansible.builtin.command: /bin/sh /tmp/rustup-init.sh -y --no-modify-path
       environment:
         RUSTUP_INIT_SKIP_PATH_CHECK: "yes"
-      when: not codex_glibc_installed and rustup_check.rc != 0
+      when: rustup_check.rc != 0
 
     - name: Ensure cargo bin directory
       ansible.builtin.set_fact:
         cargo_bin: "{{ ansible_env.HOME }}/.cargo/bin"
-      when: not codex_glibc_installed
 
     - name: Resolve host target
       ansible.builtin.shell: "{{ cargo_bin }}/rustc -Vv | awk '/^host:/ {print $2}'"
       register: rustc_info
       changed_when: false
       failed_when: false
-      when: not codex_glibc_installed
       args:
         executable: /bin/bash
 
     - name: Set host target
       ansible.builtin.set_fact:
         host_target: "{{ rustc_info.stdout | trim | default(ansible_architecture ~ '-unknown-linux-gnu', true) }}"
-      when: not codex_glibc_installed
 
     - name: Add rust target
       ansible.builtin.command: "{{ cargo_bin }}/rustup target add {{ host_target }}"
-      when: not codex_glibc_installed
 
     - name: Clone codex repository
-      ansible.builtin.command: "{{ proxychains_prefix }}git clone --depth 1 https://github.com/openai/codex.git {{ codex_build_root }}/codex"
-      args:
-        creates: "{{ codex_build_root }}/codex"
-      when: not codex_glibc_installed
+      ansible.builtin.command: >-
+        {{ proxychains_prefix }}git clone --branch rust-v{{ requested_agent_version }} --depth 1 https://github.com/openai/codex.git {{ codex_build_root }}/codex
+      changed_when: true
 
     - name: Locate Cargo manifest
       ansible.builtin.shell: |
@@ -184,7 +198,6 @@
         PYCODE
       register: manifest_path
       changed_when: false
-      when: not codex_glibc_installed
       args:
         executable: /bin/bash
 
@@ -198,12 +211,12 @@
         export CARGO_PROFILE_RELEASE_CODEGEN_UNITS=1;
         export CARGO_PROFILE_RELEASE_DEBUG=false;
         cargo build --release --target {{ host_target }} --manifest-path {{ manifest_path.stdout }}"
-      when: not codex_glibc_installed
+      changed_when: true
 
     - name: Install codex-glibc system-wide
       ansible.builtin.command: >-
         sudo install -m 0755 {{ ansible_env.HOME }}/.tmp/build-codex-glibc/target/{{ host_target }}/release/codex {{ codex_system_path }}
-      when: not codex_glibc_installed and sudo_check.rc == 0
+      when: codex_install_mode == "system"
       register: codex_install_system
       failed_when: codex_install_system.rc != 0
 
@@ -212,31 +225,29 @@
         path: "{{ ansible_env.HOME }}/.local/bin"
         state: directory
         mode: "0755"
-      when: not codex_glibc_installed and sudo_check.rc != 0
+      when: codex_install_mode == "user"
 
     - name: Install codex-glibc to user bin
       ansible.builtin.command: >-
         install -m 0755 {{ ansible_env.HOME }}/.tmp/build-codex-glibc/target/{{ host_target }}/release/codex {{ codex_user_path }}
-      when: not codex_glibc_installed and sudo_check.rc != 0
+      when: codex_install_mode == "user"
 
     - name: Ensure user bin in PATH
       ansible.builtin.lineinfile:
         path: "{{ ansible_env.HOME }}/.profile"
         line: 'export PATH="$HOME/.local/bin:$PATH"'
         create: true
-      when: not codex_glibc_installed and sudo_check.rc != 0
+      when: codex_install_mode == "user"
 
     - name: Verify codex-glibc binary exists
       ansible.builtin.stat:
-        path: "{{ codex_system_path if sudo_check.rc == 0 else codex_user_path }}"
+        path: "{{ codex_install_path }}"
       register: installed_codex_stat
-      when: not codex_glibc_installed
 
     - name: Verify codex-glibc binary works
-      ansible.builtin.command: "{{ codex_system_path if sudo_check.rc == 0 else codex_user_path }} --version"
+      ansible.builtin.command: "{{ codex_install_path }} --version"
       register: codex_version_check
       changed_when: false
-      when: not codex_glibc_installed
 
     - name: Cleanup rust and cargo toolchains used for build
       ansible.builtin.shell: |

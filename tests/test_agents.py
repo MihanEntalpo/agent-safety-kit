@@ -104,6 +104,7 @@ def test_agent_command_sequence_skips_overridden_equals_args():
     agent = AgentConfig(
         name="qwen",
         type="qwen",
+        version="0.15.11",
         env={},
         default_args=["--openai-api-key=default", "--flag"],
         vm_name=None,
@@ -121,6 +122,7 @@ def test_agent_command_sequence_skips_overridden_split_args():
     agent = AgentConfig(
         name="qwen",
         type="qwen",
+        version="0.15.11",
         env={},
         default_args=["--base-url", "https://default", "--mode", "fast"],
         vm_name=None,
@@ -138,6 +140,7 @@ def test_agent_command_sequence_skips_overridden_flag_args():
     agent = AgentConfig(
         name="qwen",
         type="qwen",
+        version="0.15.11",
         env={},
         default_args=["--trace", "--other"],
         vm_name=None,
@@ -152,6 +155,7 @@ def test_agent_command_sequence_skips_overridden_inline_space_args():
     agent = AgentConfig(
         name="qwen",
         type="qwen",
+        version="0.15.11",
         env={},
         default_args=["--region eu-west-1", "--mode", "fast"],
         vm_name=None,
@@ -162,10 +166,11 @@ def test_agent_command_sequence_skips_overridden_inline_space_args():
     assert command == ["qwen", "--mode", "fast", "--region", "us-east-1"]
 
 
-def test_build_agent_env_for_forgecode_forces_tracker_false():
+def test_build_agent_env_merges_agent_defaults_with_configured_env():
     agent = AgentConfig(
         name="forgecode-main",
         type="forgecode",
+        version="2.12.14",
         env={"TOKEN": "abc", "FORGE_TRACKER": "true"},
         vm_name=None,
     )
@@ -174,8 +179,28 @@ def test_build_agent_env_for_forgecode_forces_tracker_false():
 
     assert env == {
         "TOKEN": "abc",
-        "FORGE_TRACKER": "false",
+        "FORGE_TRACKER": "true",
     }
+
+
+def test_build_agent_env_sets_auto_update_env_defaults():
+    aider_env = agents.build_agent_env(
+        AgentConfig(name="aider", type="aider", version="0.86.2", env={}, vm_name=None)
+    )
+    opencode_env = agents.build_agent_env(
+        AgentConfig(name="opencode", type="opencode", version="1.14.50", env={}, vm_name=None)
+    )
+    claude_env = agents.build_agent_env(
+        AgentConfig(name="claude", type="claude", version="2.1.141", env={}, vm_name=None)
+    )
+    cline_env = agents.build_agent_env(
+        AgentConfig(name="cline", type="cline", version="2.17.0", env={}, vm_name=None)
+    )
+
+    assert aider_env["AIDER_CHECK_UPDATE"] == "false"
+    assert opencode_env["OPENCODE_DISABLE_AUTOUPDATE"] == "true"
+    assert claude_env["DISABLE_AUTOUPDATER"] == "1"
+    assert cline_env["CLINE_NO_AUTO_UPDATE"] == "1"
 
 
 @pytest.mark.parametrize(("agent_type", "runtime_binary"), sorted(AGENT_RUNTIME_BINARIES.items()))
@@ -183,6 +208,7 @@ def test_agent_command_sequence_uses_runtime_binary(agent_type: str, runtime_bin
     agent = AgentConfig(
         name=f"{agent_type}-main",
         type=agent_type,
+        version="1.0.0",
         env={},
         default_args=["--verbose"],
         vm_name=None,

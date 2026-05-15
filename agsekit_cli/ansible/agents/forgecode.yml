@@ -14,57 +14,49 @@
 - name: Install CodeForge CLI
   hosts: "{{ vm_name }}"
   gather_facts: false
+  vars:
+    requested_agent_version: "{{ agent_version }}"
+    reinstall_requested: "{{ force_reinstall | default(false) | bool }}"
   tasks:
     - name: Configure proxychains
       ansible.builtin.include_tasks: "{{ playbook_dir }}/proxychains.yml"
 
-    - name: Check for CodeForge CLI
-      ansible.builtin.command: forge --version
-      register: forgecode_check
-      changed_when: false
-      failed_when: false
-
     - name: Download CodeForge installer
       ansible.builtin.command: "{{ proxychains_prefix }}curl -fsSL https://forgecode.dev/cli -o /tmp/forgecode-install.sh"
-      when: forgecode_check.rc != 0
+
+    - name: Remove existing Forge binary before reinstall
+      ansible.builtin.shell: |
+        set -euo pipefail
+        sudo rm -f /usr/local/bin/forge
+        rm -f "$HOME/.local/bin/forge"
+      args:
+        executable: /bin/bash
+      when: reinstall_requested
 
     - name: Run CodeForge installer
-      ansible.builtin.command: "{{ proxychains_prefix }}bash /tmp/forgecode-install.sh"
-      register: forgecode_install
-      changed_when: forgecode_install.rc == 0
-      when: forgecode_check.rc != 0
+      ansible.builtin.command: >-
+        {{ proxychains_prefix }}bash /tmp/forgecode-install.sh {{ requested_agent_version }}
+      changed_when: true
 
     - name: Publish Forge binary into VM PATH
       ansible.builtin.shell: |
         set -euo pipefail
-        if command -v forge >/dev/null 2>&1; then
-          exit 0
-        fi
-
         if [ ! -x "$HOME/.local/bin/forge" ]; then
-          echo "Forge binary not found in PATH or at $HOME/.local/bin/forge" >&2
+          echo "Forge binary not found at $HOME/.local/bin/forge" >&2
           exit 1
         fi
-
-        if [ -x /usr/local/bin/forge ] && cmp -s "$HOME/.local/bin/forge" /usr/local/bin/forge; then
-          exit 0
-        fi
-
         sudo install -m 0755 "$HOME/.local/bin/forge" /usr/local/bin/forge
         echo installed
       args:
         executable: /bin/bash
       register: forgecode_path_publish
       changed_when: "'installed' in forgecode_path_publish.stdout"
-      when: forgecode_check.rc != 0
 
     - name: Verify CodeForge CLI after installation
       ansible.builtin.command: forge --version
       changed_when: false
-      when: forgecode_check.rc != 0
 
     - name: Remove CodeForge installer
       ansible.builtin.file:
         path: /tmp/forgecode-install.sh
         state: absent
-      when: forgecode_check.rc != 0

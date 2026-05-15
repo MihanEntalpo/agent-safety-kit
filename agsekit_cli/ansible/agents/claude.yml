@@ -13,108 +13,116 @@
 
 - name: Install Claude Code CLI
   hosts: "{{ vm_name }}"
-  gather_facts: false
+  gather_facts: true
+  vars:
+    requested_agent_version: "{{ agent_version }}"
+    reinstall_requested: "{{ force_reinstall | default(false) | bool }}"
+    nvm_dir: "{{ ansible_env.HOME }}/.nvm"
+    skip_nvm_install: false
+    skip_node_install: false
   tasks:
     - name: Configure proxychains
       ansible.builtin.include_tasks: "{{ playbook_dir }}/proxychains.yml"
 
-    - name: Check for Claude CLI
-      ansible.builtin.command: claude --version
-      register: claude_check
+    - name: Install Claude Code dependencies
+      ansible.builtin.apt:
+        update_cache: true
+        name: curl
+      become: true
+
+    - name: Assume Node.js and nvm are already prepared when requested
+      ansible.builtin.set_fact:
+        node_check:
+          rc: 0
+        nvm_stat:
+          stat:
+            exists: true
+      when: (skip_nvm_install | bool) or (skip_node_install | bool)
+
+    - name: Check for node
+      ansible.builtin.shell: >-
+        bash -lc "if command -v node >/dev/null 2>&1; then
+        node -v;
+        elif [ -s '{{ nvm_dir }}/nvm.sh' ]; then
+        . '{{ nvm_dir }}/nvm.sh' && nvm use --silent default >/dev/null && node -v;
+        else
+        exit 1;
+        fi"
+      register: node_check
       changed_when: false
       failed_when: false
+      when: not (skip_node_install | bool)
 
-    - name: Download Claude Code installer
-      ansible.builtin.command: "{{ proxychains_prefix }}curl -fsSL https://claude.ai/install.sh -o /tmp/claude-install.sh"
-      when: claude_check.rc != 0
+    - name: Check for nvm
+      ansible.builtin.stat:
+        path: "{{ nvm_dir }}/nvm.sh"
+      register: nvm_stat
+      when: not (skip_nvm_install | bool)
 
-    - name: Run Claude Code installer
-      ansible.builtin.command: "{{ proxychains_prefix }}bash /tmp/claude-install.sh"
-      register: claude_install
-      changed_when: claude_install.rc == 0
-      failed_when: false
-      when: claude_check.rc != 0
+    - name: Download nvm installer
+      ansible.builtin.command: "{{ proxychains_prefix }}curl -o /tmp/nvm-install.sh https://raw.githubusercontent.com/nvm-sh/nvm/v0.40.3/install.sh"
+      when: (not (skip_nvm_install | bool)) and not nvm_stat.stat.exists
 
-    - name: Fallback install Claude binary from latest release
-      ansible.builtin.shell: |
-        set -euo pipefail
-
-        install_entrypoint="https://claude.ai/install.sh"
-        manifest_path="/tmp/claude-manifest.json"
-        binary_path="/tmp/claude"
-        trap 'rm -f "$manifest_path" "$binary_path"' EXIT
-
-        case "$(uname -m)" in
-          x86_64|amd64) arch="x64" ;;
-          arm64|aarch64) arch="arm64" ;;
-          *)
-            echo "Unsupported architecture: $(uname -m)" >&2
-            exit 1
-            ;;
-        esac
-
-        if [ -f /lib/libc.musl-x86_64.so.1 ] || [ -f /lib/libc.musl-aarch64.so.1 ] || ldd /bin/ls 2>&1 | grep -q musl; then
-          platform="linux-${arch}-musl"
-        else
-          platform="linux-${arch}"
-        fi
-
-        bootstrap_url="$({{ proxychains_prefix }}curl -fsSLI -o /dev/null -w '%{url_effective}' "$install_entrypoint")"
-        release_base="${bootstrap_url%/bootstrap.sh}"
-        if [ -z "$bootstrap_url" ] || [ "$release_base" = "$bootstrap_url" ]; then
-          echo "Unable to resolve Claude release base from $install_entrypoint" >&2
-          exit 1
-        fi
-
-        version="$({{ proxychains_prefix }}curl -fsSL "$release_base/latest")"
-        {{ proxychains_prefix }}curl -fsSL "$release_base/$version/manifest.json" -o "$manifest_path"
-
-        checksum="$(python3 - "$manifest_path" "$platform" <<'PY'
-        import json
-        import sys
-
-        manifest_path, platform_name = sys.argv[1], sys.argv[2]
-        with open(manifest_path, "r", encoding="utf-8") as handle:
-            manifest = json.load(handle)
-
-        platforms = manifest.get("platforms", {})
-        entry = platforms.get(platform_name, {})
-        checksum = entry.get("checksum", "")
-        if isinstance(checksum, str):
-            print(checksum)
-        PY
-        )"
-
-        if [ -z "$checksum" ]; then
-          echo "Checksum for platform $platform not found in Claude manifest" >&2
-          exit 1
-        fi
-
-        {{ proxychains_prefix }}curl -fsSL "$release_base/$version/$platform/claude" -o "$binary_path"
-        actual_checksum="$(sha256sum "$binary_path" | cut -d' ' -f1)"
-        if [ "$actual_checksum" != "$checksum" ]; then
-          echo "Checksum verification failed for Claude binary" >&2
-          exit 1
-        fi
-
-        chmod 0755 "$binary_path"
-        sudo install -m 0755 "$binary_path" /usr/local/bin/claude
-        echo installed
+    - name: Install nvm
+      ansible.builtin.command: "{{ proxychains_prefix }}bash /tmp/nvm-install.sh"
+      when: (not (skip_nvm_install | bool)) and not nvm_stat.stat.exists
       args:
-        executable: /bin/bash
-      register: claude_fallback_install
-      changed_when: "'installed' in claude_fallback_install.stdout"
-      when:
-        - claude_check.rc != 0
-        - claude_install.rc != 0
+        creates: "{{ nvm_dir }}/nvm.sh"
+
+    - name: Install Node.js
+      ansible.builtin.shell: |-
+        {{ proxychains_prefix }}bash -lc '
+        . {{ nvm_dir }}/nvm.sh
+        resolved_version="$(nvm version-remote --lts | tail -n 1)"
+        if [ -z "$resolved_version" ] || [ "$resolved_version" = "N/A" ]; then
+          echo "Failed to resolve the current LTS Node.js release from nvm version-remote --lts." >&2
+          exit 1
+        fi
+        nvm install "$resolved_version"
+        nvm alias default "$resolved_version"
+        '
+      when: (not (skip_node_install | bool)) and node_check.rc != 0
+
+    - name: Verify npm
+      ansible.builtin.command: >-
+        bash -lc ". {{ nvm_dir }}/nvm.sh && nvm use --silent default >/dev/null && npm -v"
+      register: npm_check
+      changed_when: false
+      failed_when: npm_check.rc != 0
+
+    - name: Remove existing Claude Code CLI before reinstall
+      ansible.builtin.command: >-
+        bash -lc ". {{ nvm_dir }}/nvm.sh && nvm use --silent default >/dev/null && npm uninstall -g @anthropic-ai/claude-code"
+      register: claude_uninstall
+      changed_when: claude_uninstall.rc == 0
+      failed_when: false
+      when: reinstall_requested
+
+    - name: Install Claude Code CLI
+      ansible.builtin.command: >-
+        {{ proxychains_prefix }}bash -lc ". {{ nvm_dir }}/nvm.sh && nvm use --silent default >/dev/null && npm install -g @anthropic-ai/claude-code@{{ requested_agent_version }}"
+      changed_when: true
 
     - name: Verify Claude CLI after installation
-      ansible.builtin.command: claude --version
+      ansible.builtin.command: >-
+        bash -lc ". {{ nvm_dir }}/nvm.sh && nvm use --silent default >/dev/null && claude --version"
       changed_when: false
-      when: claude_check.rc != 0
 
-    - name: Remove Claude installer
+    - name: Ensure nvm lines in shell profiles
+      ansible.builtin.lineinfile:
+        path: "{{ item.path }}"
+        line: "{{ item.line }}"
+        create: true
+      loop:
+        - { path: "{{ ansible_env.HOME }}/.profile", line: "export NVM_DIR=\"{{ nvm_dir }}\"" }
+        - { path: "{{ ansible_env.HOME }}/.profile", line: "[ -s \"{{ nvm_dir }}/nvm.sh\" ] && . \"{{ nvm_dir }}/nvm.sh\"" }
+        - { path: "{{ ansible_env.HOME }}/.bashrc", line: "export NVM_DIR=\"{{ nvm_dir }}\"" }
+        - { path: "{{ ansible_env.HOME }}/.bashrc", line: "[ -s \"{{ nvm_dir }}/nvm.sh\" ] && . \"{{ nvm_dir }}/nvm.sh\"" }
+        - { path: "{{ ansible_env.HOME }}/.bash_profile", line: "export NVM_DIR=\"{{ nvm_dir }}\"" }
+        - { path: "{{ ansible_env.HOME }}/.bash_profile", line: "[ -s \"{{ nvm_dir }}/nvm.sh\" ] && . \"{{ nvm_dir }}/nvm.sh\"" }
+
+    - name: Remove nvm installer
       ansible.builtin.file:
-        path: /tmp/claude-install.sh
+        path: /tmp/nvm-install.sh
         state: absent
-      when: claude_check.rc != 0
+      when: (not (skip_nvm_install | bool)) and not nvm_stat.stat.exists

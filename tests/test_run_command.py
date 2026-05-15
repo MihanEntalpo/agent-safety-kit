@@ -239,7 +239,7 @@ def test_run_command_announces_newer_version_and_stops_background_checker(monkey
     assert stop_calls == ["stopped"]
 
 
-def test_run_command_for_forgecode_forces_tracker_env(monkeypatch, tmp_path):
+def test_run_command_for_forgecode_adds_default_tracker_env(monkeypatch, tmp_path):
     source = tmp_path / "project"
     config_path = tmp_path / "config.yaml"
     _write_config(config_path, source, agent_type="forgecode")
@@ -266,6 +266,36 @@ def test_run_command_for_forgecode_forces_tracker_env(monkeypatch, tmp_path):
     assert calls["env"] == {
         "TOKEN": "abc",
         "FORGE_TRACKER": "false",
+    }
+
+
+def test_run_command_for_aider_adds_default_update_env(monkeypatch, tmp_path):
+    source = tmp_path / "project"
+    config_path = tmp_path / "config.yaml"
+    _write_config(config_path, source, agent_type="aider")
+
+    calls: Dict[str, object] = {}
+
+    def fake_run_in_vm(vm_config, workdir, command, env_vars, proxychains=None, debug=False):
+        calls.update({
+            "command": command,
+            "env": env_vars,
+        })
+        return 0
+
+    monkeypatch.setattr(run_module, "_has_existing_backup", lambda *_: True)
+    monkeypatch.setattr(run_module, "run_in_vm", fake_run_in_vm)
+    monkeypatch.setattr(run_module, "start_backup_process", lambda *_, **__: None)
+    monkeypatch.setattr(run_module, "backup_once", lambda *_, **__: None)
+
+    runner = CliRunner()
+    result = runner.invoke(run_command, ["--config", str(config_path), "--workdir", str(source), "qwen"])
+
+    assert result.exit_code == 0
+    assert calls["command"] == ["aider"]
+    assert calls["env"] == {
+        "TOKEN": "abc",
+        "AIDER_CHECK_UPDATE": "false",
     }
 
 

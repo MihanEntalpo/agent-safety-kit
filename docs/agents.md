@@ -28,12 +28,17 @@ Agents are essentially binaries from various vendors, such as claude-code, codex
 
 The `install-agents` command selects the Ansible playbook for the required type and installs the corresponding runtime into the target VM.
 
+By default, every agent type is pinned to a known-good tested version. You can override it per profile through `agents.<name>.version` when you explicitly need a different upstream release. 
+
+The default pinning is intentional: it reduces accidental breakage and narrows supply-chain drift from newly published releases.
+
 Main patterns:
 
-- npm CLI for `codex`, `qwen`, `opencode`, and `cline`
-- official installers for `aider`, `forgecode`, and `claude`
+- exact npm CLI versions for `codex`, `qwen`, `opencode`, `claude`, and `cline`
+- exact Python package version for `aider`
+- exact release version for `forgecode`
 - local build from source for `codex-glibc`
-- release asset download for `codex-glibc-prebuilt`
+- exact release asset download for `codex-glibc-prebuilt`
 
 ## Runtime Model
 
@@ -51,9 +56,11 @@ Unfortunately, every agent is configured in its own way, so you need to look in 
 
 ## Notes
 
-- runtime `forgecode` always receives `FORGE_TRACKER=false`, because otherwise forgecode sends your data "for statistics", including email and name from `.gitconfig`
+- some agents receive built-in default environment variables at runtime before `agents.<name>.env` from the config is applied; user config can still override them if needed
+- current built-in defaults are: `forgecode -> FORGE_TRACKER=false`, `aider -> AIDER_CHECK_UPDATE=false`, `opencode -> OPENCODE_DISABLE_AUTOUPDATE=true`, `claude -> DISABLE_AUTOUPDATER=1`, `cline -> CLINE_NO_AUTO_UPDATE=1`
 - `codex-glibc` and `codex-glibc-prebuilt` are separate binaries and can coexist with `codex`.
 - the release source for `codex-glibc-prebuilt` can be overridden through host environment variables.
+- when `install-agents` sees an already installed binary with a different version, it reinstalls that agent to reach the requested version from the config.
 
 ## See Also
 

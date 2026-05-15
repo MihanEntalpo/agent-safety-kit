@@ -21,6 +21,21 @@ def test_node_agent_playbooks_resolve_current_lts_version() -> None:
         assert 'nvm alias default "$resolved_version"' in content, playbook.name
         assert "ansible.builtin.command: node -v" not in content, playbook.name
         assert 'node_version: "24"' not in content, playbook.name
+        assert "@latest" not in content, playbook.name
+
+
+def test_agent_playbooks_do_not_define_hardcoded_default_versions() -> None:
+    agents_dir = ROOT / "agsekit_cli" / "ansible" / "agents"
+    agent_playbooks = sorted(
+        playbook
+        for playbook in agents_dir.glob("*.yml")
+        if playbook.name not in {"proxychains.yml", "codex_logrotate.yml"}
+    )
+
+    for playbook in agent_playbooks:
+        content = playbook.read_text(encoding="utf-8")
+        assert "default_agent_version" not in content, playbook.name
+        assert 'requested_agent_version: "{{ agent_version }}"' in content, playbook.name
 
 
 def test_node_agent_shell_installers_resolve_current_lts_version() -> None:

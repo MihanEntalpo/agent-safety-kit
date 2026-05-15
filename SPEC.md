@@ -258,10 +258,14 @@ Behavior:
 - `type` (обязателен) — тип агента: `aider`, `qwen`, `forgecode`, `codex`, `opencode`, `codex-glibc`, `codex-glibc-prebuilt`, `claude`, `cline`.
   - поддерживаемые типы и runtime-бинарники задаются registry классов в `agsekit_cli/agents_modules/`.
   - runtime-бинарники сейчас такие: `aider -> aider`, `qwen -> qwen`, `forgecode -> forge`, `codex -> codex`, `opencode -> opencode`, `codex-glibc -> codex-glibc`, `codex-glibc-prebuilt -> codex-glibc-prebuilt`, `claude -> claude`, `cline -> cline`.
+  - для каждого типа в registry также хранится pinned default version; `cline` намеренно pinned на `2.17.0`, а не на latest upstream.
   - `aider` — установка через официальный aider installer; runtime-бинарник `aider`.
-  - `forgecode` — установка через официальный Forge installer; при `run` CLI всегда дополнительно задаёт `FORGE_TRACKER=false`, чтобы отключить телеметрию.
+  - `forgecode` — установка через официальный Forge installer; по умолчанию при `run` получает `FORGE_TRACKER=false`, чтобы отключить телеметрию.
   - `codex-glibc` — установка/сборка codex из исходников с установкой бинарника `codex-glibc`.
-  - `codex-glibc-prebuilt` — установка заранее собранного `codex-glibc` (glibc-compatible) из GitHub Releases проекта; по умолчанию берётся свежий тег вида `codex-glibc-rust-v<major>.<minor>.<patch>`, источник можно переопределить через `AGSEKIT_CODEX_GLIBC_PREBUILT_REPO`, `AGSEKIT_CODEX_GLIBC_PREBUILT_TAG`, `AGSEKIT_CODEX_GLIBC_PREBUILT_ASSET`; если имя ассета не задано явно, оно определяется по архитектуре VM (`codex-glibc-linux-amd64.gz` для `x86_64`, `codex-glibc-linux-arm64.gz` для `aarch64`/`arm64`); бинарник устанавливается отдельно под именем `codex-glibc-prebuilt` и может сосуществовать с `codex-glibc`.
+  - `codex-glibc-prebuilt` — установка заранее собранного `codex-glibc` (glibc-compatible) из GitHub Releases проекта; по умолчанию берётся release tag, соответствующий requested/default version в формате `codex-glibc-rust-v<version>`, источник можно переопределить через `AGSEKIT_CODEX_GLIBC_PREBUILT_REPO`, `AGSEKIT_CODEX_GLIBC_PREBUILT_TAG`, `AGSEKIT_CODEX_GLIBC_PREBUILT_ASSET`; если имя ассета не задано явно, оно определяется по архитектуре VM (`codex-glibc-linux-amd64.gz` для `x86_64`, `codex-glibc-linux-arm64.gz` для `aarch64`/`arm64`); бинарник устанавливается отдельно под именем `codex-glibc-prebuilt` и может сосуществовать с `codex-glibc`.
+- `version` (optional) — точная версия агента для установки.
+  - если поле не задано, используется pinned default version этого agent type;
+  - pinned defaults намеренно зафиксированы на проверенных рабочих значениях как защита от незаметных upstream/supply-chain изменений.
 - `env` (optional) — mapping переменных окружения, передаваемых агенту при запуске.
   - значение приводится к строке (`null` -> пустая строка).
 - `default-args` (optional) — список аргументов CLI по умолчанию.
@@ -428,6 +432,7 @@ Behavior:
   - показывает navigable список поддерживаемых agent types плюс `Cancel`;
   - `Cancel` на первом же выборе позволяет сохранить конфиг без секции `agents`;
   - `name` по умолчанию берётся из runtime binary агента, а для `codex-glibc` и `codex-glibc-prebuilt` default name = `codex`;
+  - после выбора типа мастер спрашивает `version`; default value = pinned default version этого типа;
   - имена агентов внутри одного прогона тоже должны быть уникальными: если base name уже занят, мастер предлагает `name-2`, `name-3`, ...; ручной ввод дубликата печатает ошибку и повторно спрашивает имя;
   - optional `env` вводится построчно как `KEY=VALUE` до пустой строки;
   - optional `default-args` вводятся одной строкой и сохраняются как список токенов, разделённых пробелами;
@@ -702,6 +707,7 @@ Behavior:
 - выбирает агента(ов) и VM(ы);
 - если `--all-vms` не задан и позиционный `<vm>` не передан, целевые VM берутся из `agents.<name>.vm + agents.<name>.vms` (если оба поля пустые — во все VM из секции `vms`);
 - определяет playbook по `agents.<name>.type`;
+- определяет required agent version по `agents.<name>.version`, а если поле не задано — по pinned default version;
 - перед installer playbook идемпотентно проверяет SSH key bootstrap через Multipass-host helpers;
 - в рамках одного запуска `install-agents` кэширует результат SSH-подготовки по VM: после первого успешного bootstrap следующие installer playbook'и для той же VM повторно используют уже подготовленный доступ;
 - на Linux и macOS запускает Ansible installer через общий host-side runner и стандартный Ansible SSH transport;
@@ -714,12 +720,16 @@ Behavior:
 - без `--debug` показывает `rich` progress установки агентов;
 - при `--debug` Rich progress тоже отключается, чтобы вывод установки оставался обычным потоковым логом;
 - поддерживает proxychains override на один запуск (`--proxychains`).
+- перед installer playbook пытается спросить у уже установленного runtime-бинарника его версию;
+  - если версия уже совпадает с required version, target пропускается;
+  - если бинарник найден, но версия отличается, агент переустанавливается до требуемой версии с явным сообщением;
+  - если указанная версия не существует upstream, команда падает явной ошибкой и не делает fallback на `latest`;
 - при запуске без аргументов в интерактивном TTY запрашивает выбор агента и цели установки;
 - при запуске без аргументов в non-interactive режиме требует явный выбор агента (ошибка `agent_required`).
 - при успешном standalone-запуске печатает явное итоговое сообщение:
   - для одного target: что агент готов к работе в выбранной ВМ;
   - для нескольких target: общее сообщение об успешной установке.
-- для Node-based agent installers (`codex`, `qwen`, `opencode`, `cline`) при отсутствии `node` сначала резолвит через `nvm version-remote --lts` текущую LTS-версию Node.js и ставит именно её как exact version; при повторных прогонах, если `node` уже найден, installer не обновляет Node даже если в nvm уже появилась более новая LTS.
+- для Node-based agent installers (`codex`, `qwen`, `opencode`, `claude`, `cline`) при отсутствии `node` сначала резолвит через `nvm version-remote --lts` текущую LTS-версию Node.js и ставит именно её как exact version; при повторных прогонах, если `node` уже найден, installer не обновляет Node даже если в nvm уже появилась более новая LTS.
 - если в одном запуске `install-agents` несколько Node-based агентов ставятся в одну и ту же VM, после первого успешного Node-based installer run CLI запоминает эту VM в локальном in-memory cache и передаёт в следующие playbook extra vars `skip_nvm_install=true` и `skip_node_install=true`, чтобы повторно не делать `nvm`/Node bootstrap.
 - для Node-based agent installers проверка наличия `node` не ограничивается голым системным `PATH`: installer сначала пробует `command -v node`, а если бинарник не найден, явно загружает `{{ ansible_env.HOME }}/.nvm/nvm.sh`, делает `nvm use --silent default` и повторяет `node -v`; это предотвращает ложную переустановку Node, когда он уже установлен через `nvm`, но не виден не-login shell'у Ansible.
 
@@ -757,7 +767,8 @@ Behavior:
 5. строит runtime-адаптер агента через registry `agsekit_cli/agents_modules/`;
 6. собирает env агента через `agent.build_env()`;
    - базово берёт `agents.<name>.env`;
-   - agent-specific правила (например `forgecode -> FORGE_TRACKER=false`) задаются в соответствующем классе агента;
+   - agent-specific default env задаются в соответствующем классе агента и применяются перед пользовательским `agents.<name>.env`;
+   - сейчас это используется как минимум для `forgecode -> FORGE_TRACKER=false`, `aider -> AIDER_CHECK_UPDATE=false`, `opencode -> OPENCODE_DISABLE_AUTOUPDATE=true`, `claude -> DISABLE_AUTOUPDATER=1`, `cline -> CLINE_NO_AUTO_UPDATE=1`;
 7. проверяет effective `allowed_agents`;
 8. если mount-контекст найден и этот mount реально зарегистрирован в Multipass:
    - сравнивает выбранную host-папку (`--workdir` или `cwd`) с соответствующей директорией внутри VM;
@@ -930,18 +941,18 @@ Dependency resolution выполняется кодом до запуска play
 - `nodejs` bundle без явной версии ставит текущую LTS-версию Node.js через `nvm version-remote --lts`, фиксирует `nvm alias default` на exact resolved version и при повторных прогонах пропускает установку, если `node` уже найден; это исключает незаметное обновление до новой LTS при очередном `up`/`create-vms`.
 
 ### 10.3 Agent installers
-- `aider.yml`: установка через официальный aider install script с последующей проверкой бинарника `aider`; сетевые шаги выполняются через `proxychains_prefix`.
-- `codex.yml`: установка `bubblewrap`, Node через nvm (с резолвом текущей LTS через `nvm version-remote --lts`, только если `node` ещё отсутствует) + `@openai/codex`.
+- `aider.yml`: установка точной версии `aider-chat==<version>` через `uv tool install --python 3.12 ...` с последующей проверкой бинарника `aider`; это повторяет актуальный upstream aider-install workflow и не зависит от unsupported system Python `3.13+`; сетевые шаги выполняются через `proxychains_prefix`.
+- `codex.yml`: установка `bubblewrap`, Node через nvm (с резолвом текущей LTS через `nvm version-remote --lts`, только если `node` ещё отсутствует) + exact npm version `@openai/codex@<version>`.
   - дополнительно ставится `logrotate` и конфиг `/etc/logrotate.d/codex-tui`, который ограничивает `~/.codex/log/codex-tui.log` политикой `size 100M`, `rotate 10`, `compress`, `delaycompress`, `missingok`, `notifempty`, `copytruncate`.
-- `qwen.yml`: установка Node через nvm (с резолвом текущей LTS через `nvm version-remote --lts`, только если `node` ещё отсутствует) + `@qwen-code/qwen-code`.
-- `forgecode.yml`: установка через официальный Forge install script с последующей проверкой бинарника `forge`; сетевые шаги выполняются через `proxychains_prefix`.
-- `opencode.yml`: установка Node через nvm (с резолвом текущей LTS через `nvm version-remote --lts`, только если `node` ещё отсутствует) + `opencode-ai`.
-- `cline.yml`: установка Node через nvm (с резолвом текущей LTS через `nvm version-remote --lts`, только если `node` ещё отсутствует) + `cline`.
+- `qwen.yml`: установка Node через nvm (с резолвом текущей LTS через `nvm version-remote --lts`, только если `node` ещё отсутствует) + exact npm version `@qwen-code/qwen-code@<version>`.
+- `forgecode.yml`: установка через официальный Forge install script с exact version argument и последующей проверкой бинарника `forge`; сетевые шаги выполняются через `proxychains_prefix`.
+- `opencode.yml`: установка Node через nvm (с резолвом текущей LTS через `nvm version-remote --lts`, только если `node` ещё отсутствует) + exact npm version `opencode-ai@<version>`.
+- `cline.yml`: установка Node через nvm (с резолвом текущей LTS через `nvm version-remote --lts`, только если `node` ещё отсутствует) + exact npm version `cline@<version>`.
 - Node-based installer playbooks проверяют наличие `node` сначала в текущем `PATH`, а затем через `nvm use --silent default`, чтобы установленный через `nvm` Node считался уже готовым даже в non-login shell'е Ansible.
-- `claude.yml`: установка через официальный install script; сетевые шаги выполняются через `proxychains_prefix`; если нативный post-install падает, применяется fallback-установка `claude` прямой загрузкой последнего release-бинарника по официальным `latest` + `manifest.json` с проверкой `sha256`, причём release-base динамически определяется через redirect c `https://claude.ai/install.sh`, без захардкоженного bucket URL.
-- `codex-glibc.yml`: установка `bubblewrap`, сборка из исходников `openai/codex`, управление swap при нехватке памяти, установка бинарника `codex-glibc`, post-build проверка.
+- `claude.yml`: установка Node через nvm (с резолвом текущей LTS через `nvm version-remote --lts`, только если `node` ещё отсутствует) + exact npm version `@anthropic-ai/claude-code@<version>`.
+- `codex-glibc.yml`: установка `bubblewrap`, сборка из исходников `openai/codex` по точному Git tag `rust-v<version>`, управление swap при нехватке памяти, установка бинарника `codex-glibc`, post-build проверка.
   - дополнительно ставится тот же `logrotate`-конфиг для `~/.codex/log/codex-tui.log`.
-- `codex-glibc-prebuilt.yml`: установка `bubblewrap`, разрешение подходящего GitHub Release проекта с выбором ассета по архитектуре целевой VM (`amd64`/`arm64`) и установка опубликованного `codex-glibc` бинарника под именем `codex-glibc-prebuilt` без сборки в VM; release metadata резолвится controller-side через `ansible_playbook_python -m agsekit_cli.prebuilt ...` внутри `lookup('pipe', ...)`, чтобы этот шаг не наследовал remote SSH vars из playbook extra vars.
+- `codex-glibc-prebuilt.yml`: установка `bubblewrap`, разрешение подходящего GitHub Release проекта с выбором ассета по архитектуре целевой VM (`amd64`/`arm64`) и по точному release tag `codex-glibc-rust-v<version>`, затем установка опубликованного `codex-glibc` бинарника под именем `codex-glibc-prebuilt` без сборки в VM; release metadata резолвится controller-side через `ansible_playbook_python -m agsekit_cli.prebuilt ...` внутри `lookup('pipe', ...)`, чтобы этот шаг не наследовал remote SSH vars из playbook extra vars.
   - дополнительно ставится тот же `logrotate`-конфиг для `~/.codex/log/codex-tui.log`.
 
 ## 11. Локализация

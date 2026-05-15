@@ -32,6 +32,9 @@ SUPPORTED_AGENT_TYPES: Tuple[str, ...] = tuple(AGENT_CLASS_BY_TYPE.keys())
 AGENT_RUNTIME_BINARIES: Dict[str, str] = {
     agent_cls.type_name: agent_cls.runtime_binary for agent_cls in AGENT_CLASSES
 }
+DEFAULT_AGENT_VERSIONS: Dict[str, str] = {
+    agent_cls.type_name: agent_cls.default_version for agent_cls in AGENT_CLASSES
+}
 
 
 def get_agent_class(agent_type: str) -> Type[BaseAgent]:

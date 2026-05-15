@@ -3,6 +3,7 @@ import sys
 from pathlib import Path
 from typing import Dict, Optional
 
+import pytest
 from typing import cast
 
 import click
@@ -16,6 +17,11 @@ import agsekit_cli.commands.install_agents as install_agents_module
 from agsekit_cli.ansible_utils import AnsiblePlaybookResult
 from agsekit_cli.commands.install_agents import install_agents_command
 from agsekit_cli.i18n import tr
+
+
+@pytest.fixture(autouse=True)
+def _default_installed_agent_version(monkeypatch):
+    monkeypatch.setattr(install_agents_module, "_installed_agent_version", lambda *_args, **_kwargs: None)
 
 
 def _write_config(
@@ -82,6 +88,48 @@ def test_install_agents_defaults_to_single_agent(monkeypatch, tmp_path):
     assert calls and calls[0][0] == "agent"
     assert calls[0][1] == "qwen.yml"
     assert calls[0][2] is None
+
+
+def test_install_agents_skips_reinstall_when_required_version_is_already_installed(monkeypatch, tmp_path):
+    config_path = tmp_path / "config.yaml"
+    _write_config(config_path, [("qwen", "qwen")])
+    calls = []
+
+    monkeypatch.setattr(install_agents_module, "_installed_agent_version", lambda *_args, **_kwargs: "0.15.11")
+    monkeypatch.setattr(install_agents_module, "_run_install_playbook", lambda *args, **kwargs: calls.append((args, kwargs)))
+
+    runner = CliRunner()
+    result = _invoke_command(runner, install_agents_command, ["--config", str(config_path)])
+
+    assert result.exit_code == 0
+    assert calls == []
+    assert "already has the required version 0.15.11" in result.output
+
+
+def test_install_agents_reinstalls_when_version_mismatch(monkeypatch, tmp_path):
+    config_path = tmp_path / "config.yaml"
+    _write_config(config_path, [("qwen", "qwen")])
+    calls = []
+
+    monkeypatch.setattr(install_agents_module, "_installed_agent_version", lambda *_args, **_kwargs: "0.15.10")
+
+    def fake_run_install_playbook(vm, playbook_path: Path, proxychains=None, **kwargs) -> None:
+        calls.append((vm.name, playbook_path.name, kwargs.get("extra_vars_overrides")))
+
+    monkeypatch.setattr(install_agents_module, "_run_install_playbook", fake_run_install_playbook)
+
+    runner = CliRunner()
+    result = _invoke_command(runner, install_agents_command, ["--config", str(config_path)])
+
+    assert result.exit_code == 0
+    assert calls == [
+        (
+            "agent",
+            "qwen.yml",
+            {"agent_version": "0.15.11", "force_reinstall": True},
+        )
+    ]
+    assert "has version 0.15.10, expected 0.15.11" in result.output
 
 
 def test_install_agents_passes_configured_ssh_keys_folder(monkeypatch, tmp_path):
@@ -676,8 +724,18 @@ def test_install_agents_reuses_node_setup_per_vm_within_one_run(monkeypatch, tmp
 
     assert result.exit_code == 0
     assert calls == [
-        ("agent", "codex.yml", None, None),
-        ("agent", "qwen.yml", None, {"skip_nvm_install": True, "skip_node_install": True}),
+        ("agent", "codex.yml", None, {"agent_version": "0.130.0", "force_reinstall": False}),
+        (
+            "agent",
+            "qwen.yml",
+            None,
+            {
+                "agent_version": "0.15.11",
+                "force_reinstall": False,
+                "skip_nvm_install": True,
+                "skip_node_install": True,
+            },
+        ),
     ]
 
 

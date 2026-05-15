@@ -14,6 +14,8 @@
 
 Перед запуском installer playbook `agsekit` проверяет, что в VM добавлен host SSH key. Bootstrap ключа выполняется через Multipass. На Linux и macOS сам installer запускается через Ansible по SSH с ключом из `global.ssh_keys_folder`, а на native Windows PowerShell он запускается внутри целевой ВМ против `localhost` через VM-local control node.
 
+Версия агента берётся из `agents.<name>.version`. Если поле не задано, `agsekit` ставит зафиксированную версию по умолчанию для данного типа агента.
+
 ## Команды
 
 ```bash
@@ -45,9 +47,15 @@ agsekit install-agents claude --debug
 
 ## Примечания
 
-Для Node-based агентов (`codex`, `qwen`, `opencode`, `cline`), если `node` отсутствует, installer сначала резолвит текущую LTS-версию Node.js через `nvm version-remote --lts` и ставит именно её точное значение. Если Node.js уже найден, installer сохраняет существующую версию и не обновляет её автоматически только потому, что появилась более новая LTS.
+Перед запуском playbook `agsekit` спрашивает у уже существующего бинарника его версию. Если она уже совпадает с требуемой, шаг установки пропускается. Если бинарник есть, но версия отличается, `agsekit` переустанавливает агента до версии, объявленной в конфиге.
+
+Для Node-based агентов (`codex`, `qwen`, `opencode`, `claude`, `cline`), если `node` отсутствует, installer сначала резолвит текущую LTS-версию Node.js через `nvm version-remote --lts` и ставит именно её точное значение. Если Node.js уже найден, installer сохраняет существующую версию и не обновляет её автоматически только потому, что появилась более новая LTS.
 
 Для тех же Node-based агентов installer проверяет уже установленный Node.js и в текущем `PATH`, и через `nvm use --silent default`, так что версия Node, уже установленная через `nvm`, не приводит к лишней переустановке только из-за того, что Ansible работает в non-login shell. Если в одном запуске `install-agents` несколько Node-based агентов ставятся в одну и ту же ВМ, `agsekit` после первого успешного installer run запоминает, что `nvm` и Node.js там уже готовы, и передаёт в следующие playbook дополнительные флаги для пропуска повторной подготовки `nvm`/Node.
+
+Для `codex-glibc-prebuilt` agsekit резолвит точный GitHub release tag, соответствующий запрошенной версии. Для `codex-glibc` перед сборкой клонируется точный matching Git tag.
+
+Если запрошенной версии upstream не существует, установка завершается явной ошибкой, а не молча скатывается на `latest`.
 
 Для `codex`, `codex-glibc` и `codex-glibc-prebuilt` installer также настраивает внутри VM `logrotate` для `~/.codex/log/codex-tui.log` с политикой `size 100M`, `rotate 10`, `compress`, `delaycompress`, `missingok`, `notifempty` и `copytruncate`.
 

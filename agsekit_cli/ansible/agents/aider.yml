@@ -14,57 +14,54 @@
 - name: Install aider CLI
   hosts: "{{ vm_name }}"
   gather_facts: false
+  vars:
+    requested_agent_version: "{{ agent_version }}"
+    reinstall_requested: "{{ force_reinstall | default(false) | bool }}"
   tasks:
     - name: Configure proxychains
       ansible.builtin.include_tasks: "{{ playbook_dir }}/proxychains.yml"
 
-    - name: Check for aider CLI
-      ansible.builtin.command: aider --version
-      register: aider_check
-      changed_when: false
-      failed_when: false
+    - name: Install aider dependencies
+      ansible.builtin.apt:
+        update_cache: true
+        name:
+          - python3-pip
+      become: true
 
-    - name: Download aider installer
-      ansible.builtin.command: "{{ proxychains_prefix }}curl -fsSL https://aider.chat/install.sh -o /tmp/aider-install.sh"
-      when: aider_check.rc != 0
+    - name: Install uv for aider
+      ansible.builtin.command: >-
+        {{ proxychains_prefix }}bash -lc "python3 -m pip install --user --break-system-packages uv"
+      changed_when: true
 
-    - name: Run aider installer
-      ansible.builtin.command: "{{ proxychains_prefix }}bash /tmp/aider-install.sh"
-      register: aider_install
-      changed_when: aider_install.rc == 0
-      when: aider_check.rc != 0
+    - name: Remove existing aider installation before reinstall
+      ansible.builtin.shell: |
+        set -euo pipefail
+        "$HOME/.local/bin/uv" tool uninstall aider >/dev/null 2>&1 || true
+        rm -f "$HOME/.local/bin/aider"
+        sudo rm -f /usr/local/bin/aider
+      args:
+        executable: /bin/bash
+      when: reinstall_requested
+
+    - name: Install aider CLI
+      ansible.builtin.command: >-
+        {{ proxychains_prefix }}bash -lc "$HOME/.local/bin/uv tool install --python 3.12 aider-chat=={{ requested_agent_version }}"
+      changed_when: true
 
     - name: Publish aider binary into VM PATH
       ansible.builtin.shell: |
         set -euo pipefail
-        if command -v aider >/dev/null 2>&1; then
-          exit 0
-        fi
-
         if [ ! -x "$HOME/.local/bin/aider" ]; then
-          echo "aider binary not found in PATH or at $HOME/.local/bin/aider" >&2
+          echo "aider binary not found at $HOME/.local/bin/aider" >&2
           exit 1
         fi
-
-        if [ -x /usr/local/bin/aider ] && cmp -s "$HOME/.local/bin/aider" /usr/local/bin/aider; then
-          exit 0
-        fi
-
         sudo install -m 0755 "$HOME/.local/bin/aider" /usr/local/bin/aider
         echo installed
       args:
         executable: /bin/bash
       register: aider_path_publish
       changed_when: "'installed' in aider_path_publish.stdout"
-      when: aider_check.rc != 0
 
     - name: Verify aider CLI after installation
       ansible.builtin.command: aider --version
       changed_when: false
-      when: aider_check.rc != 0
-
-    - name: Remove aider installer
-      ansible.builtin.file:
-        path: /tmp/aider-install.sh
-        state: absent
-      when: aider_check.rc != 0

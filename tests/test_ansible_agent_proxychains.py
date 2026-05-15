@@ -33,29 +33,13 @@ def test_claude_installer_tasks_run_via_proxychains_prefix():
     playbook = _load_yaml(Path("agsekit_cli/ansible/agents/claude.yml"))
     tasks = playbook[1]["tasks"]
 
-    download_task = next(item for item in tasks if item["name"] == "Download Claude Code installer")
-    run_task = next(item for item in tasks if item["name"] == "Run Claude Code installer")
-    fallback_task = next(item for item in tasks if item["name"] == "Fallback install Claude binary from latest release")
+    install_task = next(item for item in tasks if item["name"] == "Install Claude Code CLI")
     verify_task = next(item for item in tasks if item["name"] == "Verify Claude CLI after installation")
 
-    assert download_task["ansible.builtin.command"].startswith("{{ proxychains_prefix }}curl ")
-    assert run_task["ansible.builtin.command"] == "{{ proxychains_prefix }}bash /tmp/claude-install.sh"
-    assert 'install_entrypoint="https://claude.ai/install.sh"' in fallback_task["ansible.builtin.shell"]
-    assert "{{ proxychains_prefix }}curl -fsSLI -o /dev/null -w '%{url_effective}' \"$install_entrypoint\"" in fallback_task["ansible.builtin.shell"]
-    assert 'release_base="${bootstrap_url%/bootstrap.sh}"' in fallback_task["ansible.builtin.shell"]
-    assert "{{ proxychains_prefix }}curl -fsSL \"$release_base/latest\"" in fallback_task["ansible.builtin.shell"]
-    assert "\"$release_base/$version/manifest.json\"" in fallback_task["ansible.builtin.shell"]
-    assert "\"$release_base/$version/$platform/claude\"" in fallback_task["ansible.builtin.shell"]
-    assert "python3 - \"$manifest_path\" \"$platform\"" in fallback_task["ansible.builtin.shell"]
-    assert "sha256sum \"$binary_path\"" in fallback_task["ansible.builtin.shell"]
-    assert "sudo install -m 0755 \"$binary_path\" /usr/local/bin/claude" in fallback_task["ansible.builtin.shell"]
-    assert "environment" not in download_task
-    assert "environment" not in run_task
-    assert run_task["failed_when"] is False
-    assert fallback_task["register"] == "claude_fallback_install"
-    assert fallback_task["changed_when"] == "'installed' in claude_fallback_install.stdout"
-    assert "claude_install.rc != 0" in fallback_task["when"]
-    assert verify_task["ansible.builtin.command"] == "claude --version"
+    assert install_task["ansible.builtin.command"].startswith("{{ proxychains_prefix }}bash -lc ")
+    assert "@anthropic-ai/claude-code@{{ requested_agent_version }}" in install_task["ansible.builtin.command"]
+    assert "environment" not in install_task
+    assert "claude --version" in verify_task["ansible.builtin.command"]
 
 
 def test_cline_installer_tasks_run_via_proxychains_prefix():
@@ -63,12 +47,12 @@ def test_cline_installer_tasks_run_via_proxychains_prefix():
     tasks = playbook[1]["tasks"]
 
     install_task = next(item for item in tasks if item["name"] == "Install cline CLI")
-    check_task = next(item for item in tasks if item["name"] == "Check cline CLI installation")
+    uninstall_task = next(item for item in tasks if item["name"] == "Remove existing cline CLI before reinstall")
 
     assert install_task["ansible.builtin.command"].startswith("{{ proxychains_prefix }}bash -lc ")
-    assert "npm install -g cline@latest" in install_task["ansible.builtin.command"]
+    assert "npm install -g cline@{{ requested_agent_version }}" in install_task["ansible.builtin.command"]
     assert "environment" not in install_task
-    assert "npm list -g --depth=0 cline" in check_task["ansible.builtin.command"]
+    assert "npm uninstall -g cline" in uninstall_task["ansible.builtin.command"]
 
 
 def test_opencode_installer_tasks_run_via_proxychains_prefix():
@@ -76,13 +60,13 @@ def test_opencode_installer_tasks_run_via_proxychains_prefix():
     tasks = playbook[1]["tasks"]
 
     install_task = next(item for item in tasks if item["name"] == "Install OpenCode CLI")
-    check_task = next(item for item in tasks if item["name"] == "Check OpenCode CLI installation")
+    uninstall_task = next(item for item in tasks if item["name"] == "Remove existing OpenCode CLI before reinstall")
     verify_task = next(item for item in tasks if item["name"] == "Verify OpenCode CLI after installation")
 
     assert install_task["ansible.builtin.command"].startswith("{{ proxychains_prefix }}bash -lc ")
-    assert "npm install -g opencode-ai@latest" in install_task["ansible.builtin.command"]
+    assert "npm install -g opencode-ai@{{ requested_agent_version }}" in install_task["ansible.builtin.command"]
     assert "environment" not in install_task
-    assert "npm list -g --depth=0 opencode-ai" in check_task["ansible.builtin.command"]
+    assert "npm uninstall -g opencode-ai" in uninstall_task["ansible.builtin.command"]
     assert "opencode --version" in verify_task["ansible.builtin.command"]
 
 
@@ -96,7 +80,7 @@ def test_forgecode_installer_tasks_run_via_proxychains_prefix():
     verify_task = next(item for item in tasks if item["name"] == "Verify CodeForge CLI after installation")
 
     assert download_task["ansible.builtin.command"].startswith("{{ proxychains_prefix }}curl ")
-    assert run_task["ansible.builtin.command"] == "{{ proxychains_prefix }}bash /tmp/forgecode-install.sh"
+    assert run_task["ansible.builtin.command"] == "{{ proxychains_prefix }}bash /tmp/forgecode-install.sh {{ requested_agent_version }}"
     assert "environment" not in download_task
     assert "environment" not in run_task
     assert publish_task["ansible.builtin.shell"].strip().startswith("set -euo pipefail")
@@ -109,15 +93,19 @@ def test_aider_installer_tasks_run_via_proxychains_prefix():
     playbook = _load_yaml(Path("agsekit_cli/ansible/agents/aider.yml"))
     tasks = playbook[1]["tasks"]
 
-    download_task = next(item for item in tasks if item["name"] == "Download aider installer")
-    run_task = next(item for item in tasks if item["name"] == "Run aider installer")
+    uv_task = next(item for item in tasks if item["name"] == "Install uv for aider")
+    run_task = next(item for item in tasks if item["name"] == "Install aider CLI")
+    uninstall_task = next(item for item in tasks if item["name"] == "Remove existing aider installation before reinstall")
     publish_task = next(item for item in tasks if item["name"] == "Publish aider binary into VM PATH")
     verify_task = next(item for item in tasks if item["name"] == "Verify aider CLI after installation")
 
-    assert download_task["ansible.builtin.command"].startswith("{{ proxychains_prefix }}curl ")
-    assert run_task["ansible.builtin.command"] == "{{ proxychains_prefix }}bash /tmp/aider-install.sh"
-    assert "environment" not in download_task
+    assert uv_task["ansible.builtin.command"].startswith("{{ proxychains_prefix }}bash -lc ")
+    assert "python3 -m pip install --user --break-system-packages uv" in uv_task["ansible.builtin.command"]
+    assert run_task["ansible.builtin.command"].startswith("{{ proxychains_prefix }}bash -lc ")
+    assert "$HOME/.local/bin/uv tool install --python 3.12" in run_task["ansible.builtin.command"]
+    assert "aider-chat=={{ requested_agent_version }}" in run_task["ansible.builtin.command"]
     assert "environment" not in run_task
+    assert '"$HOME/.local/bin/uv" tool uninstall aider' in uninstall_task["ansible.builtin.shell"]
     assert publish_task["ansible.builtin.shell"].strip().startswith("set -euo pipefail")
     assert "$HOME/.local/bin/aider" in publish_task["ansible.builtin.shell"]
     assert "/usr/local/bin/aider" in publish_task["ansible.builtin.shell"]
@@ -143,6 +131,7 @@ def test_codex_glibc_prebuilt_installer_tasks_run_via_proxychains_prefix():
     assert "lookup(" in resolve_fact
     assert "'pipe'" in resolve_fact
     assert "agsekit_cli.prebuilt resolve-codex-glibc-prebuilt --arch" in resolve_fact
+    assert "--tag" in resolve_fact
     assert "ansible_playbook_python" in resolve_fact
     assert "codex_prebuilt_arch" in resolve_fact
     assert download_task["ansible.builtin.command"].startswith("{{ proxychains_prefix }}curl ")

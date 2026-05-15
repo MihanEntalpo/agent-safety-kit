@@ -9,7 +9,7 @@ from urllib.parse import urlparse
 
 import yaml
 
-from .agents_modules import AGENT_RUNTIME_BINARIES, SUPPORTED_AGENT_TYPES, get_agent_class
+from .agents_modules import AGENT_RUNTIME_BINARIES, DEFAULT_AGENT_VERSIONS, SUPPORTED_AGENT_TYPES, get_agent_class
 from .i18n import tr
 from .vm_bundles import normalize_install_bundles
 
@@ -32,6 +32,13 @@ def agent_runtime_binary(agent_type: str) -> str:
         return get_agent_class(agent_type).runtime_binary
     except KeyError:
         return agent_type
+
+
+def default_agent_version(agent_type: str) -> str:
+    try:
+        return DEFAULT_AGENT_VERSIONS[agent_type]
+    except KeyError:
+        return ""
 
 
 @dataclass
@@ -65,6 +72,7 @@ class VmConfig:
 class AgentConfig:
     name: str
     type: str
+    version: str
     env: Dict[str, str]
     default_args: List[str] = field(default_factory=list)
     vm_name: Optional[str] = None
@@ -691,6 +699,17 @@ def _normalize_default_args(value: Any) -> List[str]:
     return normalized
 
 
+def _normalize_agent_version(value: Any, *, agent_type: str) -> str:
+    if value is None:
+        return default_agent_version(agent_type)
+    if not isinstance(value, str) or not value.strip():
+        raise ConfigError(tr("config.agent_version_invalid", agent_type=agent_type))
+    try:
+        return get_agent_class(agent_type).normalize_version(value)
+    except ValueError:
+        raise ConfigError(tr("config.agent_version_invalid", agent_type=agent_type))
+
+
 def _normalize_agent_vms(
     raw_vm: Any,
     raw_vms: Any,
@@ -780,6 +799,7 @@ def load_agents_config(config: Dict[str, Any]) -> Dict[str, AgentConfig]:
 
             raw_agent_type = raw_entry.get("type")
             agent_type = _normalize_agent_type(raw_agent_type)
+            version = _normalize_agent_version(raw_entry.get("version"), agent_type=agent_type)
             env_vars = _normalize_env_vars(raw_entry.get("env"))
             default_args = _normalize_default_args(raw_entry.get("default-args"))
             vm_names = _normalize_agent_vms(
@@ -805,6 +825,7 @@ def load_agents_config(config: Dict[str, Any]) -> Dict[str, AgentConfig]:
             agents[agent_name] = AgentConfig(
                 name=str(agent_name),
                 type=agent_type,
+                version=version,
                 env=env_vars,
                 default_args=default_args,
                 vm_name=vm_name,

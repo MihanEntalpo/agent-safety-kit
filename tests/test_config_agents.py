@@ -25,6 +25,7 @@ def test_load_agents_config_defaults(tmp_path):
     agent = agents["qwen"]
 
     assert agent.type == "qwen"
+    assert agent.version == "0.15.11"
     assert agent.env == {"TOKEN": "123"}
     assert agent.vm_name is None
     assert agent.vm_names is None
@@ -52,6 +53,22 @@ def test_load_agents_config_accepts_single_vm():
 
     assert agent.vm_name == "agent-2"
     assert agent.vm_names == ["agent-2"]
+
+
+def test_load_agents_config_accepts_explicit_version():
+    config = {
+        "vms": {"agent": {"cpu": 1, "ram": "1G", "disk": "5G"}},
+        "agents": {
+            "qwen": {
+                "type": "qwen",
+                "version": "v0.15.10",
+            }
+        },
+    }
+
+    agent = load_agents_config(config)["qwen"]
+
+    assert agent.version == "0.15.10"
 
 
 def test_load_agents_config_accepts_multi_vms_from_string():
@@ -232,6 +249,13 @@ def test_load_agents_config_validates_type():
 
 def test_load_agents_config_rejects_bad_env():
     config = {"agents": {"demo": {"type": "qwen", "env": "oops"}}}
+
+    with pytest.raises(ConfigError):
+        load_agents_config(config)
+
+
+def test_load_agents_config_rejects_bad_version():
+    config = {"agents": {"demo": {"type": "qwen", "version": "latest"}}}
 
     with pytest.raises(ConfigError):
         load_agents_config(config)

@@ -29,6 +29,7 @@ Wizard flow:
 3. Configure agents:
    - choose an agent type from a TUI list
    - choose a name
+   - choose an agent version; the default value is the pinned tested version for that type
    - optionally add `env`
    - optionally add `default-args`
    - when more than one VM exists, assign the agent to one or more VMs
@@ -59,6 +60,7 @@ Notes:
 - Port-forwarding rules can be added one by one; after each rule the wizard asks whether you want to add another one for the same VM.
 - VM names must be unique within one wizard run. The wizard starts from `agent-ubuntu` and then proposes `agent-ubuntu-2`, `agent-ubuntu-3`, and so on when needed.
 - Agent names must also be unique. If the default binary-based name is already used, the wizard proposes `name-2`, `name-3`, and so on.
+- Agent versions are written into YAML explicitly, even when you accept the pinned default.
 - Agent `default-args` are stored as a YAML list split by spaces.
 - Entering literal `""` for an agent proxy override writes an explicit empty string to YAML; pressing Enter leaves the value inherited.
 - When an agent is assigned to specific VMs, the wizard also fills `vms.<name>.allowed_agents` so those VM restrictions stay consistent with the agent assignments.
