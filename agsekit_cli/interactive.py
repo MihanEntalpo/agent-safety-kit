@@ -224,7 +224,7 @@ def build_create_vms(session: InteractiveSession) -> List[str]:
     return ["create-vms", *session.config_option()]
 
 
-def _select_mount_choice(session: InteractiveSession, action: str) -> List[str]:
+def _select_mount_choice(session: InteractiveSession, action: str) -> object:
     mounts = session.load_mounts()
     if not mounts:
         raise click.ClickException(tr("interactive.no_mounts"))
@@ -237,14 +237,17 @@ def _select_mount_choice(session: InteractiveSession, action: str) -> List[str]:
 
     selection = _select_from_list(tr("interactive.mount_action_prompt", action=action), choices)
     if selection == "__all__":
-        return [f"--all"]
+        return selection
     assert isinstance(selection, MountConfig)
-    return ["--source-dir", str(selection.source)]
+    return selection
 
 
 def build_mount(session: InteractiveSession) -> List[str]:
     selection = _select_mount_choice(session, tr("interactive.mount_action_mount"))
-    return ["mount", *selection, *session.config_option()]
+    if selection == "__all__":
+        return ["mount", "--all", *session.config_option()]
+    assert isinstance(selection, MountConfig)
+    return ["mount", str(selection.source), *session.config_option()]
 
 
 def build_addmount(_: InteractiveSession) -> List[str]:
@@ -257,7 +260,10 @@ def build_removemount(_: InteractiveSession) -> List[str]:
 
 def build_umount(session: InteractiveSession) -> List[str]:
     selection = _select_mount_choice(session, tr("interactive.mount_action_umount"))
-    return ["umount", *selection, *session.config_option()]
+    if selection == "__all__":
+        return ["umount", "--all", *session.config_option()]
+    assert isinstance(selection, MountConfig)
+    return ["umount", str(selection.source), *session.config_option()]
 
 
 def build_install_agents(session: InteractiveSession) -> List[str]:

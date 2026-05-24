@@ -1,5 +1,10 @@
 # Agent-Safety-Kit versions history
 
+## 1.7.1 - TUI command generation validation
+
+* Fixed interactive TUI command generation for `mount` and `umount`: the preview and execution now use the real positional `SOURCE_DIR` argument instead of a nonexistent `--source-dir` flag
+* Added interactive-menu coverage that validates every TUI action against the real Click CLI parser, so builder/CLI signature mismatches are caught automatically by tests
+
 ## 1.7.0 - Clearer run launch messaging
 
 * Changed `agsekit run` launch messaging so users now see the planned VM/workdir/backup destination before startup, a concise confirmation when background backups have already started, and a separate explicit `Launching ...` step before control is handed to the agent

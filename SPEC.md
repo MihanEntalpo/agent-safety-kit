@@ -99,6 +99,9 @@
   - регистрация команд;
   - логика интерактивного fallback;
   - глобальный вход `main()`.
+- `agsekit_cli/interactive.py`
+  - интерактивное меню и сборка CLI argv для каждого TUI-действия;
+  - перед выполнением показывает exact preview запускаемой команды.
 - `agsekit_cli/config.py`
   - загрузка YAML;
   - dataclass-модели (`VmConfig`, `MountConfig`, `AgentConfig`, `PortForwardingRule`);

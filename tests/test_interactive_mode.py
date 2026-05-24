@@ -33,6 +33,93 @@ class DummyQuestionary:
         return DummyPrompt(True)
 
 
+def _register_cli_commands() -> None:
+    for command in (
+        cli_module.prepare_command,
+        cli_module.up_command,
+        cli_module.create_vm_command,
+        cli_module.create_vms_command,
+        cli_module.backup_once_command,
+        cli_module.backup_clean_command,
+        cli_module.backup_repeated_command,
+        cli_module.backup_repeated_mount_command,
+        cli_module.backup_repeated_all_command,
+        cli_module.addmount_command,
+        cli_module.removemount_command,
+        cli_module.mount_command,
+        cli_module.umount_command,
+        cli_module.install_agents_command,
+        cli_module.list_bundles_command,
+        cli_module.restart_vm_command,
+        cli_module.start_vm_command,
+        cli_module.stop_vm_command,
+        cli_module.run_command,
+        cli_module.shell_command,
+        cli_module.ssh_command,
+        cli_module.portforward_command,
+        cli_module.config_gen_command,
+        cli_module.config_example_command,
+        cli_module.pip_upgrade_command,
+        cli_module.check_new_version_command,
+        cli_module.version_command,
+        cli_module.status_command,
+        cli_module.doctor_command,
+        cli_module.down_command,
+        cli_module.daemon_group,
+        cli_module.systemd_group,
+        cli_module.destroy_vm_command,
+    ):
+        if command.name not in cli_module.cli.commands:
+            cli_module.cli.add_command(command)
+
+
+def _validate_cli_args(monkeypatch: pytest.MonkeyPatch, args: list[str]) -> None:
+    _register_cli_commands()
+
+    def noop(*_args: Any, **_kwargs: Any) -> None:
+        return None
+
+    def patch_callbacks(command: click.Command) -> None:
+        monkeypatch.setattr(command, "callback", noop)
+        if isinstance(command, click.Group):
+            for subcommand in command.commands.values():
+                patch_callbacks(subcommand)
+
+    patch_callbacks(cli_module.cli)
+    cli_module.cli.main(args=args, prog_name="agsekit", standalone_mode=False)
+
+
+class InteractiveTestSession:
+    def __init__(self, tmp_path: Path) -> None:
+        self.config_path = tmp_path / "config.yaml"
+        self.mount = MountConfig(
+            source=tmp_path / "project",
+            target=Path("/home/ubuntu/project"),
+            backup=tmp_path / "backups",
+            interval_minutes=5,
+            vm_name="agent-vm",
+        )
+        self.agent = AgentConfig(name="qwen", type="qwen", version="0.15.11", env={}, vm_name=None)
+        self.vms = {"agent-vm": object(), "agent-vm-2": object()}
+        self._prompted_config_path = tmp_path / "custom-config.yaml"
+
+    def load_mounts(self):
+        return [self.mount]
+
+    def load_vms(self):
+        return self.vms
+
+    def load_agents(self):
+        return {"qwen": self.agent}
+
+    def config_option(self):
+        return ["--config", str(self.config_path)]
+
+    def _prompt_config_path(self):
+        self.config_path = self._prompted_config_path
+        return self.config_path
+
+
 @pytest.fixture(autouse=True)
 def restore_sys_argv(monkeypatch):
     original = sys.argv[:]
@@ -266,6 +353,139 @@ def test_build_daemon_entries(monkeypatch):
     assert interactive.build_daemon_stop(session) == ["daemon", "stop"]
     assert interactive.build_daemon_restart(session) == ["daemon", "restart"]
     assert interactive.build_daemon_status(session) == ["daemon", "status"]
+
+
+def test_build_mount_uses_positional_source(monkeypatch, tmp_path):
+    session = InteractiveTestSession(tmp_path)
+    monkeypatch.setattr(interactive, "_select_from_list", lambda *_args, **_kwargs: session.mount)
+
+    args = interactive.build_mount(session)
+
+    assert args == ["mount", str(session.mount.source), "--config", str(session.config_path)]
+
+
+def test_build_umount_uses_positional_source(monkeypatch, tmp_path):
+    session = InteractiveTestSession(tmp_path)
+    monkeypatch.setattr(interactive, "_select_from_list", lambda *_args, **_kwargs: session.mount)
+
+    args = interactive.build_umount(session)
+
+    assert args == ["umount", str(session.mount.source), "--config", str(session.config_path)]
+
+
+@pytest.mark.parametrize(
+    ("command_name", "expected_args"),
+    [
+        ("addmount", ["addmount"]),
+        ("backup-clean", None),
+        ("backup-once", None),
+        ("backup-repeated", None),
+        ("backup-repeated-all", None),
+        ("backup-repeated-mount", None),
+        ("check-new-version", None),
+        ("config-example", ["config-example"]),
+        ("config-gen", ["config-gen"]),
+        ("create-vm", None),
+        ("create-vms", None),
+        ("daemon-install", None),
+        ("daemon-restart", ["daemon", "restart"]),
+        ("daemon-start", ["daemon", "start"]),
+        ("daemon-status", ["daemon", "status"]),
+        ("daemon-stop", ["daemon", "stop"]),
+        ("daemon-uninstall", ["daemon", "uninstall"]),
+        ("destroy-vm", None),
+        ("down", None),
+        ("install-agents", None),
+        ("mount", None),
+        ("pip-upgrade", ["pip-upgrade"]),
+        ("portforward", None),
+        ("prepare", ["prepare"]),
+        ("removemount", ["removemount"]),
+        ("restart-vm", None),
+        ("run", None),
+        ("shell", None),
+        ("ssh", None),
+        ("start-vm", None),
+        ("status", None),
+        ("stop-vm", None),
+        ("umount", None),
+        ("up", None),
+    ],
+)
+def test_interactive_builders_generate_valid_cli_commands(monkeypatch, tmp_path, command_name, expected_args):
+    session = InteractiveTestSession(tmp_path)
+    builders = interactive._command_builders()
+
+    select_answers = {
+        "backup-clean": [session.mount, "thin"],
+        "backup-repeated-mount": [session.mount],
+        "create-vm": ["agent-vm"],
+        "destroy-vm": ["agent-vm"],
+        "install-agents": ["qwen", "__default__"],
+        "mount": [session.mount],
+        "restart-vm": ["agent-vm"],
+        "run": [session.agent, session.mount, "__auto_vm__"],
+        "shell": ["agent-vm"],
+        "ssh": ["agent-vm"],
+        "start-vm": ["agent-vm"],
+        "stop-vm": ["agent-vm"],
+        "umount": [session.mount],
+    }
+    directory_answers = {
+        "backup-once": [tmp_path / "src", tmp_path / "dst"],
+        "backup-repeated": [tmp_path / "src", tmp_path / "dst"],
+    }
+    confirm_answers = {
+        "backup-once": [False],
+        "backup-repeated": [False],
+        "run": [False],
+    }
+    text_answers = {
+        "backup-clean": ["50"],
+        "backup-repeated": ["5"],
+        "run": [""],
+        "ssh": [""],
+    }
+
+    select_queue = list(select_answers.get(command_name, []))
+    directory_queue = list(directory_answers.get(command_name, []))
+    confirm_queue = list(confirm_answers.get(command_name, []))
+    text_queue = list(text_answers.get(command_name, []))
+
+    monkeypatch.setattr(
+        interactive,
+        "_select_from_list",
+        lambda *_args, **_kwargs: select_queue.pop(0),
+    )
+    monkeypatch.setattr(
+        interactive,
+        "_select_directory",
+        lambda *_args, **_kwargs: directory_queue.pop(0),
+    )
+
+    class FakeQuestionary:
+        Choice = interactive.questionary.Choice
+        Separator = interactive.questionary.Separator
+
+        @staticmethod
+        def confirm(*_args: Any, **_kwargs: Any) -> DummyPrompt:
+            return DummyPrompt(confirm_queue.pop(0))
+
+        @staticmethod
+        def text(*_args: Any, **_kwargs: Any) -> DummyPrompt:
+            return DummyPrompt(text_queue.pop(0))
+
+    monkeypatch.setattr(interactive, "questionary", FakeQuestionary)
+
+    args = builders[command_name](session)
+
+    if expected_args is not None:
+        assert args == expected_args or args == [*expected_args, "--config", str(session.config_path)]
+    _validate_cli_args(monkeypatch, args)
+    assert not select_queue
+    assert not directory_queue
+    assert not confirm_queue
+    assert not text_queue
 
 
 def test_select_command_places_up_before_prepare_and_lists_daemon_actions(monkeypatch):
