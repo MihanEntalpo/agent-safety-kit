@@ -44,6 +44,12 @@ Main patterns:
 
 `agsekit run` resolves the agent profile, applies default arguments, env, mount/VM restrictions, and network settings, then launches the agent inside the VM.
 
+Each configured agent profile gets its own runtime home inside the VM at `/home/ubuntu/.agent-homes/<agent_name>`. `agsekit run` sets `HOME`, `XDG_CONFIG_HOME`, `XDG_DATA_HOME`, `XDG_CACHE_HOME`, and `XDG_STATE_HOME` to that profile-specific tree and creates the directories before starting the agent.
+
+Where supported by the agent runtime, `agsekit` also sets the agent-specific config variable: `CODEX_HOME` for Codex variants, `QWEN_HOME` for Qwen Code, `FORGE_CONFIG` for ForgeCode, `OPENCODE_CONFIG_DIR` for OpenCode, `CLAUDE_CONFIG_DIR` for Claude Code, and `CLINE_DATA_DIR` for Cline. For `aider`, isolation relies on `HOME` and `XDG_*`. User-defined `agents.<name>.env` values are applied last, so they can override these defaults.
+
+On the first launch of a profile whose per-agent home does not exist yet, the VM-side wrapper can bootstrap it from the legacy shared `/home/ubuntu` home. The CLI passes an agent-class allowlist of relative paths to the wrapper, and only those paths are copied. Existing per-agent homes are never overwritten.
+
 ## OpenAI-Compatible API and Other Settings
 
 Specific runtime flags depend on the agent CLI. The usual pattern is:
@@ -58,6 +64,7 @@ Unfortunately, every agent is configured in its own way, so you need to look in 
 
 - some agents receive built-in default environment variables at runtime before `agents.<name>.env` from the config is applied; user config can still override them if needed
 - current built-in defaults are: `forgecode -> FORGE_TRACKER=false`, `aider -> AIDER_CHECK_UPDATE=false`, `opencode -> OPENCODE_DISABLE_AUTOUPDATE=true`, `claude -> DISABLE_AUTOUPDATER=1`, `cline -> CLINE_NO_AUTO_UPDATE=1`
+- Node-based agents still use the shared VM-level `NVM_DIR=/home/ubuntu/.nvm`, so profile-specific `HOME` does not force a separate Node installation.
 - `codex-glibc` and `codex-glibc-prebuilt` are separate binaries and can coexist with `codex`.
 - the release source for `codex-glibc-prebuilt` can be overridden through host environment variables.
 - when `install-agents` sees an already installed binary with a different version, it reinstalls that agent to reach the requested version from the config.

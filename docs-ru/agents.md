@@ -44,6 +44,12 @@
 
 `agsekit run` резолвит профиль агента, применяет default arguments, env, ограничения mount/VM и сетевые настройки, а затем запускает агента внутри VM.
 
+Каждый настроенный профиль агента получает собственный runtime home внутри VM: `/home/ubuntu/.agent-homes/<agent_name>`. `agsekit run` задаёт `HOME`, `XDG_CONFIG_HOME`, `XDG_DATA_HOME`, `XDG_CACHE_HOME` и `XDG_STATE_HOME` в это дерево профиля и создаёт каталоги перед запуском агента.
+
+Там, где runtime агента поддерживает отдельную переменную для конфигурации, `agsekit` также задаёт её: `CODEX_HOME` для вариантов Codex, `QWEN_HOME` для Qwen Code, `FORGE_CONFIG` для ForgeCode, `OPENCODE_CONFIG_DIR` для OpenCode, `CLAUDE_CONFIG_DIR` для Claude Code и `CLINE_DATA_DIR` для Cline. Для `aider` изоляция делается через `HOME` и `XDG_*`. Пользовательские значения `agents.<name>.env` применяются последними, поэтому могут переопределить эти defaults.
+
+При первом запуске профиля, у которого ещё нет per-agent home, VM-side wrapper может bootstrap'нуть его из старой общей home-директории `/home/ubuntu`. CLI передаёт wrapper-у allowlist относительных путей из класса агента, и копируются только эти пути. Уже существующие per-agent homes не перезаписываются.
+
 ## OpenAI-compatible API и другие настройки
 
 Конкретные runtime flags зависят от CLI агента. Обычный паттерн такой:
@@ -58,6 +64,7 @@
 
 - некоторые агенты получают встроенные default env-переменные до применения пользовательского `agents.<name>.env` из конфига; при необходимости пользовательский конфиг всё ещё может их переопределить
 - сейчас встроенные default env такие: `forgecode -> FORGE_TRACKER=false`, `aider -> AIDER_CHECK_UPDATE=false`, `opencode -> OPENCODE_DISABLE_AUTOUPDATE=true`, `claude -> DISABLE_AUTOUPDATER=1`, `cline -> CLINE_NO_AUTO_UPDATE=1`
+- Node-based агенты всё равно используют общий VM-level `NVM_DIR=/home/ubuntu/.nvm`, поэтому profile-specific `HOME` не приводит к отдельной установке Node.
 - `codex-glibc` и `codex-glibc-prebuilt` это отдельные бинарники и могут сосуществовать с `codex`.
 - источник релизов для `codex-glibc-prebuilt` можно переопределить через host environment variables.
 - если `install-agents` видит уже установленный бинарник с другой версией, агент переустанавливается до версии, указанной в конфиге.

@@ -5,7 +5,7 @@ set -euo pipefail
 usage() {
   cat <<'EOF' 1>&2
 Usage:
-  ./run_agent.sh --workdir <path> --binary <name> [--load-nvm] [--env KEY=VALUE ...] [--proxychains <scheme://host:port>] [--http-proxy-url <http://host:port> | --http-proxy-upstream <scheme://host:port> [--http-proxy-listen <host:port|port>] --http-proxy-pool-start <port> --http-proxy-pool-end <port>] -- <program> [args...]
+  ./run_agent.sh --workdir <path> --binary <name> [--load-nvm] [--allow-home-path <relative-path> ...] [--env KEY=VALUE ...] [--proxychains <scheme://host:port>] [--http-proxy-url <http://host:port> | --http-proxy-upstream <scheme://host:port> [--http-proxy-listen <host:port|port>] --http-proxy-pool-start <port> --http-proxy-pool-end <port>] -- <program> [args...]
 
 Checks that the agent binary is available inside the VM, prepares the runtime environment, and then executes the provided command.
 EOF
@@ -22,6 +22,8 @@ http_proxy_listen=""
 http_proxy_pool_start=""
 http_proxy_pool_end=""
 declare -a env_exports=()
+declare -a env_dirs=()
+declare -a allow_home_paths=()
 
 while [[ $# -gt 0 ]]; do
   case "$1" in
@@ -45,6 +47,12 @@ while [[ $# -gt 0 ]]; do
       shift
       [[ $# -gt 0 ]] || usage
       env_exports+=("$1")
+      shift
+      ;;
+    --allow-home-path)
+      shift
+      [[ $# -gt 0 ]] || usage
+      allow_home_paths+=("$1")
       shift
       ;;
     --proxychains)
@@ -114,10 +122,65 @@ if [[ -n "$http_proxy_upstream" ]]; then
   [[ -n "$http_proxy_pool_start" && -n "$http_proxy_pool_end" ]] || usage
 fi
 
-export PATH="/usr/local/bin:$HOME/.local/bin:$PATH"
+original_home="${HOME:-/home/ubuntu}"
+export PATH="/usr/local/bin:${original_home}/.local/bin:$PATH"
+
+for entry in "${env_exports[@]}"; do
+  case "$entry" in
+    *=*)
+      key="${entry%%=*}"
+      value="${entry#*=}"
+      case "$key" in
+        HOME|XDG_CONFIG_HOME|XDG_DATA_HOME|XDG_CACHE_HOME|XDG_STATE_HOME|CODEX_HOME|QWEN_HOME|FORGE_CONFIG|OPENCODE_CONFIG_DIR|CLAUDE_CONFIG_DIR|CLINE_DATA_DIR)
+          if [[ "$value" = /* ]]; then
+            env_dirs+=("$value")
+          fi
+          ;;
+      esac
+      export "$entry"
+      ;;
+    *)
+      echo "Invalid environment assignment: $entry" >&2
+      exit 2
+      ;;
+  esac
+done
+
+migrate_legacy_home_path() {
+  local rel="$1"
+
+  case "$rel" in
+    ""|/*|.|..|../*|*/../*|*/..)
+      return 0
+      ;;
+  esac
+
+  local src="${original_home}/${rel}"
+  local dst="${HOME}/${rel}"
+
+  [[ -e "$src" ]] || return 0
+  [[ ! -e "$dst" ]] || return 0
+
+  mkdir -p "$(dirname "$dst")"
+  cp -a "$src" "$dst"
+}
+
+if [[ "${HOME:-}" == "${original_home}/.agent-homes/"* && ! -e "$HOME" && -d "$original_home" ]]; then
+  mkdir -p "$HOME"
+  for rel_path in "${allow_home_paths[@]}"; do
+    migrate_legacy_home_path "$rel_path"
+  done
+  touch "$HOME/.agsekit-migrated-from-legacy-home"
+fi
+
+if [[ "${#env_dirs[@]}" -gt 0 ]]; then
+  mkdir -p "${env_dirs[@]}"
+fi
+
+export PATH="/usr/local/bin:$HOME/.local/bin:${original_home}/.local/bin:$PATH"
 
 if [[ "$load_nvm" -eq 1 ]]; then
-  export NVM_DIR=${NVM_DIR:-$HOME/.nvm}
+  export NVM_DIR=${NVM_DIR:-${original_home}/.nvm}
   if [[ -s "$NVM_DIR/nvm.sh" ]]; then
     # shellcheck disable=SC1090
     . "$NVM_DIR/nvm.sh"
@@ -131,18 +194,6 @@ if ! command -v "$binary" >/dev/null 2>&1; then
   echo "Agent binary not found: $binary" >&2
   exit 127
 fi
-
-for entry in "${env_exports[@]}"; do
-  case "$entry" in
-    *=*)
-      export "$entry"
-      ;;
-    *)
-      echo "Invalid environment assignment: $entry" >&2
-      exit 2
-      ;;
-  esac
-done
 
 if [[ ! -d "$workdir" ]]; then
   echo "Workdir does not exist inside the VM: $workdir" >&2

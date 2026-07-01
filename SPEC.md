@@ -271,6 +271,7 @@ Behavior:
   - pinned defaults намеренно зафиксированы на проверенных рабочих значениях как защита от незаметных upstream/supply-chain изменений.
 - `env` (optional) — mapping переменных окружения, передаваемых агенту при запуске.
   - значение приводится к строке (`null` -> пустая строка).
+  - пользовательские значения применяются после встроенных runtime defaults, поэтому могут переопределить автоматические `HOME`, `XDG_*` и agent-specific переменные.
 - `default-args` (optional) — список аргументов CLI по умолчанию.
   - при `run` одноимённые пользовательские опции переопределяют default-опции.
 - `vm` (optional) — одна целевая VM для агента.
@@ -769,8 +770,13 @@ Behavior:
    - иначе ограничений нет;
 5. строит runtime-адаптер агента через registry `agsekit_cli/agents_modules/`;
 6. собирает env агента через `agent.build_env()`;
-   - базово берёт `agents.<name>.env`;
+   - для каждого agent profile автоматически задаёт отдельный runtime home внутри VM: `/home/ubuntu/.agent-homes/<agent_name>`;
+   - также задаёт `HOME`, `XDG_CONFIG_HOME`, `XDG_DATA_HOME`, `XDG_CACHE_HOME`, `XDG_STATE_HOME`, чтобы агенты одного типа, но с разными именами, не делили конфигурацию;
+   - для Node-based агентов сохраняет общий `NVM_DIR=/home/ubuntu/.nvm`, чтобы per-agent `HOME` не ломал доступ к установленному Node runtime;
+   - agent-specific config env задаются там, где runtime их поддерживает: `CODEX_HOME` для `codex`/`codex-glibc`/`codex-glibc-prebuilt`, `QWEN_HOME` для `qwen`, `FORGE_CONFIG` для `forgecode`, `OPENCODE_CONFIG_DIR` для `opencode`, `CLAUDE_CONFIG_DIR` для `claude`, `CLINE_DATA_DIR` для `cline`;
+   - каждый класс агента также задаёт `legacy_home_allow_paths`: относительные пути старой общей home-директории, которые wrapper может скопировать при первом создании per-agent home;
    - agent-specific default env задаются в соответствующем классе агента и применяются перед пользовательским `agents.<name>.env`;
+   - пользовательский `agents.<name>.env` применяется последним и может переопределить автоматические значения.
    - сейчас это используется как минимум для `forgecode -> FORGE_TRACKER=false`, `aider -> AIDER_CHECK_UPDATE=false`, `opencode -> OPENCODE_DISABLE_AUTOUPDATE=true`, `claude -> DISABLE_AUTOUPDATER=1`, `cline -> CLINE_NO_AUTO_UPDATE=1`;
 7. проверяет effective `allowed_agents`;
 8. если mount-контекст найден и этот mount реально зарегистрирован в Multipass:
@@ -789,7 +795,11 @@ Behavior:
 11. если не передан `--disable-backups`, запускает фоновый `backup-repeated` и пишет лог в `backup.log`;
    - если blocking snapshot уже был сделан в этом запуске (из-за пустой backup-цепочки или effective `first_backup=true`), фоновый процесс стартует с `--skip-first`, чтобы не запускать немедленный повторный цикл;
    - если передан `--disable-backups`, фоновый `backup-repeated` не стартует, но initial/pre-run snapshot по правилам выше всё равно может быть выполнен;
-12. запускает агента через один `multipass exec`, который внутри VM вызывает bundled wrapper `/usr/bin/agsekit-run_agent.sh`: wrapper проверяет наличие runtime-бинарника, при необходимости загружает `nvm`, выставляет env, подключает `proxychains`/`http_proxy` и затем делает `exec` агентного процесса;
+12. запускает агента через один `multipass exec`, который внутри VM вызывает bundled wrapper `/usr/bin/agsekit-run_agent.sh`:
+   - если wrapper поддерживает `--allow-home-path`, CLI передаёт ему allowlist из класса агента;
+   - если wrapper отсутствует или старый и не поддерживает `--allow-home-path`, запуск агента прерывается с сообщением выполнить `agsekit create-vms` с тем же `--config`, чтобы обновить VM-side wrapper через `vm_packages.yml` во всех настроенных VM;
+   - новый wrapper, если целевой `$HOME` под `/home/ubuntu/.agent-homes/` ещё не существует, копирует из `/home/ubuntu` только переданные allowlisted relative paths, затем создаёт per-agent home/config каталоги;
+   - wrapper проверяет наличие runtime-бинарника, при необходимости загружает `nvm`, выставляет env, подключает `proxychains`/`http_proxy` и затем делает `exec` агентного процесса;
 13. по завершении агента останавливает backup-процесс.
 
 Инвариант CLI:

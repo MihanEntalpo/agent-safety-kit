@@ -187,7 +187,7 @@ def run_in_vm(
     agent_cls = get_agent_class_for_runtime_binary(agent_command[0])
     effective_proxychains = resolve_proxychains(vm, proxychains)
 
-    wrapper_command: List[str] = [
+    wrapper_command_base: List[str] = [
         RUN_AGENT_RUNNER_PATH,
         "--workdir",
         str(workdir),
@@ -195,7 +195,10 @@ def run_in_vm(
         agent_command[0],
     ]
     if agent_cls.needs_nvm():
-        wrapper_command.append("--load-nvm")
+        wrapper_command_base.append("--load-nvm")
+    wrapper_command: List[str] = list(wrapper_command_base)
+    for allow_path in agent_cls.migration_allow_paths():
+        wrapper_command.extend(["--allow-home-path", allow_path])
     for key, value in env_vars.items():
         wrapper_command.extend(["--env", f"{key}={value}"])
     if effective_proxychains:
@@ -206,24 +209,14 @@ def run_in_vm(
     wrapper_command.append("--")
     wrapper_command.extend(agent_command)
 
-    fallback_shell_command = build_shell_command(workdir, agent_command, env_vars)
-    if http_proxy is not None:
-        effective_pool = http_proxy_port_pool or HttpProxyPortPoolConfig()
-        fallback_shell_command = _http_proxy_wrapped_shell_command(
-            fallback_shell_command,
-            http_proxy,
-            effective_pool,
-        )
-    if effective_proxychains:
-        fallback_shell_command = (
-            f"bash {shlex.quote(PROXYCHAINS_RUNNER_PATH)} --proxy {shlex.quote(effective_proxychains)} -- "
-            f"bash -lc {shlex.quote(fallback_shell_command)}"
-        )
+    outdated_runner_message = tr("agents.vm_runner_outdated", vm_name=vm.name)
 
     remote_command = (
         f"if [ -x {shlex.quote(RUN_AGENT_RUNNER_PATH)} ]; then "
+        f"if grep -q -- '--allow-home-path' {shlex.quote(RUN_AGENT_RUNNER_PATH)}; then "
         f"exec {shlex.join(wrapper_command)}; "
-        f"else {fallback_shell_command}; fi"
+        f"else echo {shlex.quote(outdated_runner_message)} >&2; exit 2; fi; "
+        f"else echo {shlex.quote(outdated_runner_message)} >&2; exit 2; fi"
     )
     command = [multipass_command(), "exec", vm.name, "--", "bash", "-lc", remote_command]
     debug_log_command(command, enabled=debug)

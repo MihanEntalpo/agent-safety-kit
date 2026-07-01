@@ -50,6 +50,7 @@
   "agents.mount_not_found": "Mount with path {path} was not found{suffix}.",
   "agents.mount_not_found_multiple": "Multiple mounts match this path. Specify the VM with --vm.",
   "agents.mount_not_found_vm_suffix": " for VM {vm_name}",
+  "agents.vm_runner_outdated": "The agsekit run wrapper inside VM `{vm_name}` is outdated. Run `agsekit create-vms` with the same --config you use for this project to refresh all configured VMs, then retry.",
   "agents.vm_missing": "VM `{vm_name}` is not defined in the configuration.",
   "agents.vm_not_determined": "Unable to determine the VM to run the agent.",
   "ansible.hidden_output_tail_label": "Last hidden Ansible lines:\n{output}",

@@ -56,7 +56,11 @@ agsekit run [--vm <vm_name>] [--config <path>] [--workdir <path>] [--proxychains
 
 ## Runtime helper'ы
 
-После mount-проверок `run` запускает агента через один bundled VM-side wrapper script. Этот wrapper проверяет наличие бинарника агента, при необходимости подготавливает `nvm`, применяет runtime env, при необходимости включает `proxychains` или `http_proxy`, и затем запускает самого агента.
+После mount-проверок `run` запускает агента через один bundled VM-side wrapper script. Этот wrapper создаёт profile-specific home/config каталоги, проверяет наличие бинарника агента, при необходимости подготавливает `nvm`, применяет runtime env, при необходимости включает `proxychains` или `http_proxy`, и затем запускает самого агента.
+
+Каждый профиль агента получает отдельный home внутри VM по пути `/home/ubuntu/.agent-homes/<agent_name>`. Благодаря этому профили вроде `qwen-local` и `qwen-cloud` могут использовать один runtime binary `type: qwen`, но хранить auth, config, cache и state отдельно.
+
+Если такого profile home ещё нет, VM-side wrapper перед созданием остальных runtime-директорий копирует из `/home/ubuntu` только legacy paths из allowlist класса агента. Если в VM всё ещё старый wrapper без этой поддержки, `run` останавливается и просит обновить все настроенные VM командой `agsekit create-vms` с тем же `--config`.
 
 `run` также умеет:
 

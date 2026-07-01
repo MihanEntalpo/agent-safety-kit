@@ -1,4 +1,6 @@
 from pathlib import Path
+import os
+import subprocess
 import sys
 
 import pytest
@@ -8,6 +10,7 @@ if str(ROOT) not in sys.path:
     sys.path.insert(0, str(ROOT))
 
 import agsekit_cli.agents as agents
+from agsekit_cli.agents_modules.base import AGENT_HOMES_ROOT
 from agsekit_cli.config import AGENT_RUNTIME_BINARIES, AgentConfig, PortForwardingRule, VmConfig
 
 
@@ -48,11 +51,16 @@ def test_run_in_vm_uses_vm_side_wrapper(monkeypatch):
     assert args[3:6] == ["--", "bash", "-lc"]
     remote_command = args[6]
     assert agents.RUN_AGENT_RUNNER_PATH in remote_command
+    assert "agsekit create-vms" in remote_command
+    assert "else echo" in remote_command
     assert f"--workdir {workdir}" in remote_command
     assert "--binary qwen" in remote_command
+    assert "grep -q -- '--allow-home-path'" in remote_command
     assert "--load-nvm" in remote_command
+    assert "--allow-home-path .qwen" in remote_command
     assert "--env TOKEN=abc" in remote_command
-    assert "exec qwen --flag" in remote_command
+    assert "-- qwen --flag" in remote_command
+    assert "mkdir -p" not in remote_command
 
 
 @pytest.mark.parametrize("binary", sorted(set(AGENT_RUNTIME_BINARIES.values())))
@@ -91,7 +99,7 @@ def test_run_in_vm_wraps_with_proxychains(monkeypatch, binary: str):
     remote_command = args[6]
     assert agents.RUN_AGENT_RUNNER_PATH in remote_command
     assert "--proxychains socks5://127.0.0.1:1080" in remote_command
-    assert f"exec {binary}" in remote_command
+    assert f"-- {binary}" in remote_command
 
     calls.clear()
     agents.run_in_vm(vm_config, workdir, [binary], env_vars, proxychains="")
@@ -177,10 +185,10 @@ def test_build_agent_env_merges_agent_defaults_with_configured_env():
 
     env = agents.build_agent_env(agent)
 
-    assert env == {
-        "TOKEN": "abc",
-        "FORGE_TRACKER": "true",
-    }
+    assert env["HOME"] == f"{AGENT_HOMES_ROOT}/forgecode-main"
+    assert env["FORGE_CONFIG"] == f"{AGENT_HOMES_ROOT}/forgecode-main/forge"
+    assert env["TOKEN"] == "abc"
+    assert env["FORGE_TRACKER"] == "true"
 
 
 def test_build_agent_env_sets_auto_update_env_defaults():
@@ -266,3 +274,102 @@ def test_run_in_vm_passes_http_proxy_upstream_settings(monkeypatch):
     assert "--http-proxy-listen 127.0.0.1:8118" in remote_command
     assert "--http-proxy-pool-start 21000" in remote_command
     assert "--http-proxy-pool-end 21010" in remote_command
+
+
+def test_run_agent_wrapper_migrates_allowed_paths_from_legacy_home(tmp_path):
+    legacy_home = tmp_path / "legacy-home"
+    target_home = legacy_home / ".agent-homes" / "qwen-local"
+    workdir = tmp_path / "project"
+    bin_dir = tmp_path / "bin"
+    legacy_qwen = legacy_home / ".qwen"
+
+    legacy_qwen.mkdir(parents=True)
+    (legacy_qwen / "settings.json").write_text("{}", encoding="utf-8")
+    workdir.mkdir()
+    bin_dir.mkdir()
+    qwen_binary = bin_dir / "qwen"
+    qwen_binary.write_text("#!/usr/bin/env bash\nexit 0\n", encoding="utf-8")
+    qwen_binary.chmod(0o755)
+
+    env = os.environ.copy()
+    env["HOME"] = str(legacy_home)
+    env["PATH"] = f"{bin_dir}{os.pathsep}{env.get('PATH', '')}"
+
+    script_path = ROOT / "agsekit_cli" / "run_agent.sh"
+    result = subprocess.run(
+        [
+            "bash",
+            str(script_path),
+            "--workdir",
+            str(workdir),
+            "--binary",
+            "qwen",
+            "--allow-home-path",
+            ".qwen",
+            "--allow-home-path",
+            "/absolute-is-ignored",
+            "--allow-home-path",
+            "../traversal-is-ignored",
+            "--env",
+            f"HOME={target_home}",
+            "--",
+            "qwen",
+        ],
+        check=False,
+        env=env,
+        capture_output=True,
+        text=True,
+    )
+
+    assert result.returncode == 0, result.stderr
+    assert (target_home / ".qwen" / "settings.json").read_text(encoding="utf-8") == "{}"
+    assert (target_home / ".agsekit-migrated-from-legacy-home").exists()
+    assert not (target_home / "absolute-is-ignored").exists()
+    assert not (legacy_home.parent / "traversal-is-ignored").exists()
+
+
+def test_run_agent_wrapper_does_not_migrate_when_target_home_exists(tmp_path):
+    legacy_home = tmp_path / "legacy-home"
+    target_home = legacy_home / ".agent-homes" / "qwen-local"
+    workdir = tmp_path / "project"
+    bin_dir = tmp_path / "bin"
+
+    (legacy_home / ".qwen").mkdir(parents=True)
+    (legacy_home / ".qwen" / "settings.json").write_text("legacy", encoding="utf-8")
+    (target_home / ".qwen").mkdir(parents=True)
+    (target_home / ".qwen" / "settings.json").write_text("existing", encoding="utf-8")
+    workdir.mkdir()
+    bin_dir.mkdir()
+    qwen_binary = bin_dir / "qwen"
+    qwen_binary.write_text("#!/usr/bin/env bash\nexit 0\n", encoding="utf-8")
+    qwen_binary.chmod(0o755)
+
+    env = os.environ.copy()
+    env["HOME"] = str(legacy_home)
+    env["PATH"] = f"{bin_dir}{os.pathsep}{env.get('PATH', '')}"
+
+    script_path = ROOT / "agsekit_cli" / "run_agent.sh"
+    result = subprocess.run(
+        [
+            "bash",
+            str(script_path),
+            "--workdir",
+            str(workdir),
+            "--binary",
+            "qwen",
+            "--allow-home-path",
+            ".qwen",
+            "--env",
+            f"HOME={target_home}",
+            "--",
+            "qwen",
+        ],
+        check=False,
+        env=env,
+        capture_output=True,
+        text=True,
+    )
+
+    assert result.returncode == 0, result.stderr
+    assert (target_home / ".qwen" / "settings.json").read_text(encoding="utf-8") == "existing"
+    assert not (target_home / ".agsekit-migrated-from-legacy-home").exists()

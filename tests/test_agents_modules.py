@@ -12,6 +12,7 @@ from agsekit_cli.agents_modules import (
     build_agent_module,
     get_agent_class,
 )
+from agsekit_cli.agents_modules.base import AGENT_HOMES_ROOT
 from agsekit_cli.config import AgentConfig
 
 
@@ -40,10 +41,31 @@ def test_agent_default_env_is_applied_and_user_env_can_override_it():
 
     module = build_agent_module(agent)
 
-    assert module.build_env() == {
-        "TOKEN": "abc",
-        "FORGE_TRACKER": "true",
-    }
+    env = module.build_env()
+
+    assert env["HOME"] == f"{AGENT_HOMES_ROOT}/main"
+    assert env["XDG_CONFIG_HOME"] == f"{AGENT_HOMES_ROOT}/main/.config"
+    assert env["FORGE_CONFIG"] == f"{AGENT_HOMES_ROOT}/main/forge"
+    assert env["TOKEN"] == "abc"
+    assert env["FORGE_TRACKER"] == "true"
+
+
+def test_agent_home_env_uses_agent_name_and_can_be_overridden():
+    agent = AgentConfig(
+        name="qwen/cloud",
+        type="qwen",
+        version="0.15.11",
+        env={"HOME": "/custom/home", "XDG_CONFIG_HOME": "/custom/config"},
+        vm_name=None,
+    )
+
+    env = build_agent_module(agent).build_env()
+
+    assert env["HOME"] == "/custom/home"
+    assert env["XDG_CONFIG_HOME"] == "/custom/config"
+    assert env["QWEN_HOME"] == f"{AGENT_HOMES_ROOT}/qwen%2Fcloud/.qwen"
+    assert env["XDG_DATA_HOME"] == f"{AGENT_HOMES_ROOT}/qwen%2Fcloud/.local/share"
+    assert env["NVM_DIR"] == "/home/ubuntu/.nvm"
 
 
 def test_agents_with_built_in_default_envs_expose_them():
@@ -68,7 +90,7 @@ def test_node_agent_class_builds_shell_command_with_nvm():
         {"TOKEN": "abc"},
     )
 
-    assert command.startswith("export NVM_DIR=")
+    assert "export NVM_DIR=" in command
     assert "export TOKEN=abc" in command
     assert "cd /home/ubuntu/project" in command
     assert "exec qwen --help" in command
@@ -79,3 +101,10 @@ def test_non_node_agent_class_does_not_require_nvm():
     assert get_agent_class("forgecode").needs_nvm() is False
     assert get_agent_class("codex").needs_nvm() is True
     assert get_agent_class("claude").needs_nvm() is True
+
+
+def test_agent_classes_expose_legacy_home_migration_allow_paths():
+    assert get_agent_class("qwen").migration_allow_paths() == (".qwen",)
+    assert get_agent_class("codex").migration_allow_paths() == (".codex",)
+    assert ".claude" in get_agent_class("claude").migration_allow_paths()
+    assert ".aider.conf.yml" in get_agent_class("aider").migration_allow_paths()

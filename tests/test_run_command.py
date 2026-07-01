@@ -14,6 +14,7 @@ if str(ROOT) not in sys.path:
     sys.path.insert(0, str(ROOT))
 
 import agsekit_cli.commands.run as run_module
+from agsekit_cli.agents_modules.base import AGENT_HOMES_ROOT
 from agsekit_cli.config import AGENT_RUNTIME_BINARIES
 from agsekit_cli.commands.run import run_command
 from agsekit_cli.mounts import normalize_path
@@ -263,10 +264,10 @@ def test_run_command_for_forgecode_adds_default_tracker_env(monkeypatch, tmp_pat
 
     assert result.exit_code == 0
     assert calls["command"] == ["forge"]
-    assert calls["env"] == {
-        "TOKEN": "abc",
-        "FORGE_TRACKER": "false",
-    }
+    assert calls["env"]["HOME"] == f"{AGENT_HOMES_ROOT}/qwen"
+    assert calls["env"]["FORGE_CONFIG"] == f"{AGENT_HOMES_ROOT}/qwen/forge"
+    assert calls["env"]["TOKEN"] == "abc"
+    assert calls["env"]["FORGE_TRACKER"] == "false"
 
 
 def test_run_command_for_aider_adds_default_update_env(monkeypatch, tmp_path):
@@ -293,10 +294,10 @@ def test_run_command_for_aider_adds_default_update_env(monkeypatch, tmp_path):
 
     assert result.exit_code == 0
     assert calls["command"] == ["aider"]
-    assert calls["env"] == {
-        "TOKEN": "abc",
-        "AIDER_CHECK_UPDATE": "false",
-    }
+    assert calls["env"]["HOME"] == f"{AGENT_HOMES_ROOT}/qwen"
+    assert calls["env"]["XDG_CONFIG_HOME"] == f"{AGENT_HOMES_ROOT}/qwen/.config"
+    assert calls["env"]["TOKEN"] == "abc"
+    assert calls["env"]["AIDER_CHECK_UPDATE"] == "false"
 
 
 def test_run_command_reports_missing_workdir(monkeypatch, tmp_path):

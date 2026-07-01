@@ -50,6 +50,7 @@
   "agents.mount_not_found": "Монтирование с путем {path} не найдено{suffix}.",
   "agents.mount_not_found_multiple": "Найдено несколько монтирований с таким путем. Уточните ВМ через --vm.",
   "agents.mount_not_found_vm_suffix": " для ВМ {vm_name}",
+  "agents.vm_runner_outdated": "Wrapper запуска agsekit внутри ВМ `{vm_name}` устарел. Выполните `agsekit create-vms` с тем же --config, который используется для этого проекта, чтобы обновить все настроенные ВМ, затем повторите запуск.",
   "agents.vm_missing": "ВМ `{vm_name}` отсутствует в конфигурации.",
   "agents.vm_not_determined": "Не удалось определить ВМ для запуска агента.",
   "ansible.hidden_output_tail_label": "Последние скрытые строки Ansible:\n{output}",

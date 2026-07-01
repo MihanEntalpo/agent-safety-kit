@@ -56,7 +56,11 @@ but the corresponding path inside the VM is empty. This usually indicates a Mult
 
 ## Runtime Helpers
 
-After mount checks, `run` starts the agent through one bundled VM-side wrapper script. This wrapper checks that the agent binary exists, prepares `nvm` when needed, applies runtime env, optionally enables `proxychains` or `http_proxy`, and then starts the agent.
+After mount checks, `run` starts the agent through one bundled VM-side wrapper script. This wrapper creates the profile-specific home/config directories, checks that the agent binary exists, prepares `nvm` when needed, applies runtime env, optionally enables `proxychains` or `http_proxy`, and then starts the agent.
+
+Every agent profile gets a separate home under `/home/ubuntu/.agent-homes/<agent_name>` inside the VM. This lets profiles such as `qwen-local` and `qwen-cloud` share the same `type: qwen` runtime binary while keeping auth, config, cache, and state files separate.
+
+If that profile home does not exist yet, the VM-side wrapper copies only the agent class allowlisted legacy paths from `/home/ubuntu` before creating the remaining runtime directories. If the VM still has an older wrapper without this support, `run` stops and asks you to refresh all configured VMs with `agsekit create-vms` using the same `--config`.
 
 `run` can also:
 

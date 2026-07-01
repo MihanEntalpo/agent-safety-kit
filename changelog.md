@@ -1,5 +1,12 @@
 # Agent-Safety-Kit versions history
 
+## 1.7.2 - Per-agent runtime homes
+
+* Added isolated runtime homes for agent profiles: `agsekit run` now starts each configured agent profile with its own `HOME`, `XDG_*`, and supported agent-specific config directory environment variables under `/home/ubuntu/.agent-homes/<agent_name>`, so profiles like `qwen-local` and `qwen-cloud` can share the same agent type without sharing auth, config, cache, or state
+* Added first-run bootstrap for new per-agent homes: the VM-side run wrapper now accepts agent-class allowlisted legacy home paths and copies only those paths from `/home/ubuntu` when the target per-agent home does not exist yet
+* Changed `agsekit run` to fail fast when a VM still has an outdated run wrapper without per-agent home migration support, with a prompt to refresh all configured VMs through `agsekit create-vms`
+* Kept Node-based agents on the shared VM-level `NVM_DIR=/home/ubuntu/.nvm`, so profile-specific homes do not require separate Node.js installations
+
 ## 1.7.1 - TUI command generation validation
 
 * Fixed interactive TUI command generation for `mount` and `umount`: the preview and execution now use the real positional `SOURCE_DIR` argument instead of a nonexistent `--source-dir` flag

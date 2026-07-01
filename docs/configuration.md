@@ -310,6 +310,8 @@ Behavior:
 * `agents.<agent_name>`
   * Configuration of a specific agent
   * The same agent type can be described by several profiles with different settings
+  * At runtime every profile gets a separate home inside the VM: `/home/ubuntu/.agent-homes/<agent_name>`
+  * This keeps config/auth/cache/state separate even when several profiles use the same `type`
 * `agents.<agent_name>.type`
   * Agent type
   * See [Supported agents](agents.md)
@@ -322,6 +324,7 @@ Behavior:
 * `agents.<agent_name>.env`
   * Environment variables that will be passed to the agent process
   * Values are converted to strings; `null` turns into an empty string
+  * These values are applied after agsekit's automatic `HOME`, `XDG_*`, and agent-specific config variables, so they can override them
 * `agents.<agent_name>.default-args`
   * Command-line arguments that agsekit adds when starting the agent
   * See [run](commands/run.md)
