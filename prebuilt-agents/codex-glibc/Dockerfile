@@ -3,6 +3,8 @@ FROM ubuntu:24.04
 ENV DEBIAN_FRONTEND=noninteractive
 ENV CARGO_HOME=/opt/cargo
 ENV RUSTUP_HOME=/opt/rustup
+ARG RUST_TOOLCHAIN_VERSION
+ENV RUST_TOOLCHAIN_VERSION=${RUST_TOOLCHAIN_VERSION}
 ENV PATH=/opt/cargo/bin:/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin
 ENV HOME=/tmp
 
@@ -22,7 +24,8 @@ RUN mkdir -p /opt/cargo /opt/rustup /work \
     && chmod -R 0777 /opt/cargo /opt/rustup /work
 
 RUN curl --proto '=https' --tlsv1.2 -fL https://sh.rustup.rs -o /tmp/rustup-init.sh \
-    && /bin/sh /tmp/rustup-init.sh -y --no-modify-path \
+    && test -n "${RUST_TOOLCHAIN_VERSION}" \
+    && /bin/sh /tmp/rustup-init.sh -y --default-toolchain "${RUST_TOOLCHAIN_VERSION}" --no-modify-path \
     && rm -f /tmp/rustup-init.sh
 
 WORKDIR /work

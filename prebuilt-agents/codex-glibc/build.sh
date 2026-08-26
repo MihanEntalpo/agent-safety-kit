@@ -5,12 +5,20 @@ SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 BUILD_DIR="${SCRIPT_DIR}/builds"
 IMAGE_NAME="agsekit-codex-glibc-builder"
 DRY_RUN="${DRY_RUN:-0}"
+TOOLCHAIN_FILE="${SCRIPT_DIR}/../../agsekit_cli/codex_rust_toolchain_version.txt"
+RUST_TOOLCHAIN_VERSION="$(tr -d '[:space:]' < "${TOOLCHAIN_FILE}")"
+
+if [[ -z "${RUST_TOOLCHAIN_VERSION}" ]]; then
+  echo "Rust toolchain version file is empty: ${TOOLCHAIN_FILE}" >&2
+  exit 1
+fi
 
 mkdir -p "${BUILD_DIR}"
 
 echo "[build.sh] Using build directory: ${BUILD_DIR}"
 echo "[build.sh] Docker image name: ${IMAGE_NAME}"
 echo "[build.sh] DRY_RUN: ${DRY_RUN}"
+echo "[build.sh] Rust toolchain: ${RUST_TOOLCHAIN_VERSION}"
 
 if [[ -z "${CODEX_REF:-}" ]]; then
   echo "[build.sh] Resolving latest rust-v* tag from https://github.com/openai/codex.git"
@@ -45,18 +53,19 @@ echo "[build.sh] Using OUTPUT_INFO_NAME: ${OUTPUT_INFO_NAME:-${OUTPUT_BASENAME:-
 
 echo "[build.sh] Building Docker image..."
 if [[ "${DRY_RUN}" == "1" ]]; then
-  echo "[build.sh] DRY_RUN: docker build -t \"${IMAGE_NAME}\" -f \"${SCRIPT_DIR}/Dockerfile\" \"${SCRIPT_DIR}\""
+  echo "[build.sh] DRY_RUN: docker build --build-arg RUST_TOOLCHAIN_VERSION=\"${RUST_TOOLCHAIN_VERSION}\" -t \"${IMAGE_NAME}\" -f \"${SCRIPT_DIR}/Dockerfile\" \"${SCRIPT_DIR}\""
 else
-  docker build -t "${IMAGE_NAME}" -f "${SCRIPT_DIR}/Dockerfile" "${SCRIPT_DIR}"
+  docker build --build-arg "RUST_TOOLCHAIN_VERSION=${RUST_TOOLCHAIN_VERSION}" -t "${IMAGE_NAME}" -f "${SCRIPT_DIR}/Dockerfile" "${SCRIPT_DIR}"
 fi
 
 echo "[build.sh] Running build container..."
 if [[ "${DRY_RUN}" == "1" ]]; then
   echo "[build.sh] DRY_RUN: docker run --rm \\"
   echo "[build.sh]   --user \"$(id -u):$(id -g)\" \\"
-  echo "[build.sh]   -e CODEX_REPO=\"${CODEX_REPO:-https://github.com/openai/codex.git}\" \\"
-  echo "[build.sh]   -e CODEX_REF=\"${CODEX_REF}\" \\"
-  echo "[build.sh]   -e RUST_TARGET=\"${RUST_TARGET:-x86_64-unknown-linux-gnu}\" \\"
+  echo "[build.sh]   -e CODEX_REPO=\"${CODEX_REPO:-https://github.com/openai/codex.git}\" \\" 
+  echo "[build.sh]   -e CODEX_REF=\"${CODEX_REF}\" \\" 
+  echo "[build.sh]   -e RUST_TOOLCHAIN_VERSION=\"${RUST_TOOLCHAIN_VERSION}\" \\" 
+  echo "[build.sh]   -e RUST_TARGET=\"${RUST_TARGET:-x86_64-unknown-linux-gnu}\" \\" 
   echo "[build.sh]   -e OUTPUT_BASENAME=\"${OUTPUT_BASENAME:-codex-glibc-linux-amd64}\" \\"
   echo "[build.sh]   -e OUTPUT_INFO_NAME=\"${OUTPUT_INFO_NAME:-${OUTPUT_BASENAME:-codex-glibc-linux-amd64}-info.txt}\" \\"
   echo "[build.sh]   -e OUTPUT_DIR=/out \\"
@@ -67,6 +76,7 @@ else
     --user "$(id -u):$(id -g)" \
     -e CODEX_REPO="${CODEX_REPO:-https://github.com/openai/codex.git}" \
     -e CODEX_REF="${CODEX_REF}" \
+    -e RUST_TOOLCHAIN_VERSION="${RUST_TOOLCHAIN_VERSION}" \
     -e RUST_TARGET="${RUST_TARGET:-x86_64-unknown-linux-gnu}" \
     -e OUTPUT_BASENAME="${OUTPUT_BASENAME:-codex-glibc-linux-amd64}" \
     -e OUTPUT_INFO_NAME="${OUTPUT_INFO_NAME:-${OUTPUT_BASENAME:-codex-glibc-linux-amd64}-info.txt}" \

@@ -23,6 +23,7 @@
     codex_user_path: "{{ ansible_env.HOME }}/.local/bin/codex-glibc"
     codex_required_free_kb: 3145728
     codex_min_swap_kb: 1048576
+    rust_toolchain: "{{ lookup('file', playbook_dir ~ '/../../codex_rust_toolchain_version.txt') | trim }}"
   tasks:
     - name: Configure proxychains
       ansible.builtin.include_tasks: "{{ playbook_dir }}/proxychains.yml"
@@ -132,7 +133,7 @@
       when: rustup_check.rc != 0
 
     - name: Install rustup
-      ansible.builtin.command: /bin/sh /tmp/rustup-init.sh -y --no-modify-path
+      ansible.builtin.command: /bin/sh /tmp/rustup-init.sh -y --default-toolchain {{ rust_toolchain }} --no-modify-path
       environment:
         RUSTUP_INIT_SKIP_PATH_CHECK: "yes"
       when: rustup_check.rc != 0
@@ -140,6 +141,9 @@
     - name: Ensure cargo bin directory
       ansible.builtin.set_fact:
         cargo_bin: "{{ ansible_env.HOME }}/.cargo/bin"
+
+    - name: Ensure pinned Rust toolchain
+      ansible.builtin.command: "{{ cargo_bin }}/rustup toolchain install {{ rust_toolchain }} --profile minimal"
 
     - name: Resolve host target
       ansible.builtin.shell: "{{ cargo_bin }}/rustc -Vv | awk '/^host:/ {print $2}'"
@@ -154,7 +158,7 @@
         host_target: "{{ rustc_info.stdout | trim | default(ansible_architecture ~ '-unknown-linux-gnu', true) }}"
 
     - name: Add rust target
-      ansible.builtin.command: "{{ cargo_bin }}/rustup target add {{ host_target }}"
+      ansible.builtin.command: "{{ cargo_bin }}/rustup +{{ rust_toolchain }} target add {{ host_target }}"
 
     - name: Clone codex repository
       ansible.builtin.command: >-
@@ -220,7 +224,7 @@
         export CARGO_PROFILE_RELEASE_LTO=off;
         export CARGO_PROFILE_RELEASE_CODEGEN_UNITS=1;
         export CARGO_PROFILE_RELEASE_DEBUG=false;
-        cargo build --release --target {{ host_target }} --manifest-path {{ manifest_path.stdout }}"
+        cargo +{{ rust_toolchain }} build --release --target {{ host_target }} --manifest-path {{ manifest_path.stdout }}"
       changed_when: true
 
     - name: Install codex-glibc system-wide

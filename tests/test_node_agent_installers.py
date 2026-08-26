@@ -50,6 +50,29 @@ def test_codex_glibc_builders_patch_upstream_recursion_limit() -> None:
         assert "codex-exec" in content
 
 
+def test_codex_glibc_builders_pin_rust_toolchain() -> None:
+    version_file = ROOT / "agsekit_cli" / "codex_rust_toolchain_version.txt"
+    dockerfile = (ROOT / "prebuilt-agents" / "codex-glibc" / "Dockerfile").read_text(encoding="utf-8")
+    build_wrapper = (ROOT / "prebuilt-agents" / "codex-glibc" / "build.sh").read_text(encoding="utf-8")
+    builder_script = (ROOT / "prebuilt-agents" / "codex-glibc" / "build-codex-glibc.sh").read_text(encoding="utf-8")
+    agent_script = (ROOT / "agsekit_cli" / "agent_scripts" / "codex-glibc.sh").read_text(encoding="utf-8")
+    playbook = (ROOT / "agsekit_cli" / "ansible" / "agents" / "codex-glibc.yml").read_text(encoding="utf-8")
+
+    version = version_file.read_text(encoding="utf-8").strip()
+
+    assert version.count(".") == 2
+    assert all(part.isdigit() for part in version.split("."))
+    assert "ARG RUST_TOOLCHAIN_VERSION" in dockerfile
+    assert "--default-toolchain \"${RUST_TOOLCHAIN_VERSION}\"" in dockerfile
+    assert "codex_rust_toolchain_version.txt" in build_wrapper
+    assert "RUST_TOOLCHAIN_VERSION" in build_wrapper
+    assert "RUST_TOOLCHAIN_VERSION" in builder_script
+    assert "codex_rust_toolchain_version.txt" in agent_script
+    assert "RUST_TOOLCHAIN" in agent_script
+    assert "codex_rust_toolchain_version.txt" in playbook
+    assert "rust_toolchain" in playbook
+
+
 def test_node_agent_shell_installers_resolve_current_lts_version() -> None:
     scripts = [
         ROOT / "agsekit_cli" / "agent_scripts" / "codex.sh",

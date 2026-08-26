@@ -23,6 +23,8 @@ else
 fi
 cd codex
 
+RUST_TOOLCHAIN_VERSION="${RUST_TOOLCHAIN_VERSION:?RUST_TOOLCHAIN_VERSION is required}"
+
 # Recent upstream Codex releases can exceed rustc's default query-depth limit
 # while compiling codex-exec. Apply this only to the temporary checkout.
 CODEX_EXEC_LIB=""
@@ -83,7 +85,7 @@ CARGO_TARGET_DIR="/work/codex-build/target"
 mkdir -p "${CARGO_TARGET_DIR}"
 
 BUILD_COMMAND=(
-  cargo build --release
+  cargo +"${RUST_TOOLCHAIN_VERSION}" build --release
   --target "${RUST_TARGET}"
   --manifest-path "${MANIFEST_PATH}"
 )
@@ -93,6 +95,8 @@ export CARGO_BUILD_JOBS=1
 export CARGO_PROFILE_RELEASE_LTO=off
 export CARGO_PROFILE_RELEASE_CODEGEN_UNITS=1
 export CARGO_PROFILE_RELEASE_DEBUG=false
+
+rustup toolchain install "${RUST_TOOLCHAIN_VERSION}" --profile minimal
 
 "${BUILD_COMMAND[@]}"
 

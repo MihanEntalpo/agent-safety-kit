@@ -35,6 +35,7 @@ include = ["agsekit_cli", "agsekit_cli.*"]
 
 [tool.setuptools.package-data]
 agsekit_cli = [
+  "codex_rust_toolchain_version.txt",
   "agent_scripts/*.sh",
   "agent_scripts/proxychains_common.sh",
   "ansible/*.yml",
