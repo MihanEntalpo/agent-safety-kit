@@ -350,14 +350,27 @@ def _run_install_targets(
         agent_cls = get_agent_class(agent.type)
         playbook_path = _playbook_for(agent)
         installed_version = _installed_agent_version(agent, target_vm, debug=debug)
-        if installed_version == agent.version:
+        if agent.version is None and installed_version is not None:
+            click.echo(
+                tr(
+                    "install_agents.version_unpinned",
+                    agent_name=agent.name,
+                    agent_type=agent.type,
+                    vm_name=target_vm.name,
+                    current_version=installed_version,
+                )
+            )
+            if overall_task is not None:
+                progress.advance(overall_task)
+            continue
+        if agent.version is not None and installed_version == agent.version:
             click.echo(
                 tr(
                     "install_agents.version_ok",
                     agent_name=agent.name,
                     agent_type=agent.type,
                     vm_name=target_vm.name,
-                    version=agent.version,
+                    version=agent.version or "latest",
                 )
             )
             if overall_task is not None:
@@ -371,7 +384,7 @@ def _run_install_targets(
                     agent_name=agent.name,
                     agent_type=agent.type,
                     vm_name=target_vm.name,
-                    version=agent.version,
+                    version=agent.version or "latest",
                 )
             )
         else:
@@ -382,7 +395,7 @@ def _run_install_targets(
                     agent_type=agent.type,
                     vm_name=target_vm.name,
                     current_version=installed_version,
-                    required_version=agent.version,
+                    required_version=agent.version or "latest",
                 )
             )
         if debug:
@@ -392,7 +405,7 @@ def _run_install_targets(
                     agent_name=agent.name,
                     agent_type=agent.type,
                     vm_name=target_vm.name,
-                    version=agent.version,
+                    version=agent.version or "latest",
                     script=playbook_path.name,
                 )
             )

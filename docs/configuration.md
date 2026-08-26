@@ -110,8 +110,8 @@ agents:
   qwen:
     # Agent type - one of supported: qwen, codex, claude, cline, aider, forgecode, opencode, codex-glibc, codex-glibc-prebuilt
     type: qwen
-    # Optional exact version; if omitted, agsekit uses its pinned default version for qwen
-    version: 0.15.11
+    # Optional: omit for upstream latest, use stable for agsekit's tested version, or set an exact semver
+    version: stable
     # Environment variables for the agent
     env:
       # Here, for example, a self-hosted model is configured.
@@ -316,9 +316,10 @@ Behavior:
   * Supported values: `aider`, `qwen`, `forgecode`, `codex`, `opencode`, `codex-glibc`, `codex-glibc-prebuilt`, `claude`, `cline`
   * Required parameter
 * `agents.<agent_name>.version`
-  * Exact agent version to install
-  * If omitted, agsekit uses its pinned default version for this agent type
-  * This pinning is intentional and acts as a safety rail against unnoticed upstream/supply-chain changes
+  * Optional version policy for installation
+  * If omitted, the agent is installed from the upstream latest channel and versions are not pinned
+  * `stable` selects the tested version stored in agsekit's agent registry
+  * A semver string such as `1.2.3` pins the agent to that exact version
 * `agents.<agent_name>.env`
   * Environment variables that will be passed to the agent process
   * Values are converted to strings; `null` turns into an empty string

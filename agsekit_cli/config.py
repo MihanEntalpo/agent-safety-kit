@@ -72,7 +72,8 @@ class VmConfig:
 class AgentConfig:
     name: str
     type: str
-    version: str
+    # None means that the installer should use the upstream latest version.
+    version: Optional[str]
     env: Dict[str, str]
     default_args: List[str] = field(default_factory=list)
     vm_name: Optional[str] = None
@@ -699,11 +700,13 @@ def _normalize_default_args(value: Any) -> List[str]:
     return normalized
 
 
-def _normalize_agent_version(value: Any, *, agent_type: str) -> str:
+def _normalize_agent_version(value: Any, *, agent_type: str) -> Optional[str]:
     if value is None:
-        return default_agent_version(agent_type)
+        return None
     if not isinstance(value, str) or not value.strip():
         raise ConfigError(tr("config.agent_version_invalid", agent_type=agent_type))
+    if value.strip().lower() == "stable":
+        return default_agent_version(agent_type)
     try:
         return get_agent_class(agent_type).normalize_version(value)
     except ValueError:

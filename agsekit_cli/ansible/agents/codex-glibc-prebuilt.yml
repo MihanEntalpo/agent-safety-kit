@@ -53,7 +53,7 @@
               ~ ' -m agsekit_cli.prebuilt resolve-codex-glibc-prebuilt --arch '
               ~ (codex_prebuilt_arch | quote)
               ~ ' --tag '
-              ~ ('codex-glibc-rust-v' ~ requested_agent_version | quote)
+              ~ (('--tag ' ~ ('codex-glibc-rust-v' ~ requested_agent_version)) if requested_agent_version else '')
             ) | from_json
           }}
 

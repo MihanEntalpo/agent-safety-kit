@@ -155,7 +155,7 @@ Details: [docs/architecture.md](docs/architecture.md)
 - Automatic incremental backups with hardlink snapshots.
 - Several virtual machines with binding of specific agents to specific VMs, for example to separate NDA projects, work, and hobbies across different environments and models.
 - Installation of supported agent CLIs into target VMs through `install-agents`.
-- Pinned default agent versions with optional per-agent overrides to reduce supply-chain drift from upstream releases.
+- Optional per-agent version pinning: omit `version` for upstream latest, use `stable` for agsekit's tested version, or set an exact version.
 - `proxychains` support for installation and runtime.
 - VM-level and agent-level `http_proxy` support.
 - Persistent SSH port forwarding through `agsekit portforward`.

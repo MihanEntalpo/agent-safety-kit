@@ -37,7 +37,7 @@ def test_claude_installer_tasks_run_via_proxychains_prefix():
     verify_task = next(item for item in tasks if item["name"] == "Verify Claude CLI after installation")
 
     assert install_task["ansible.builtin.command"].startswith("{{ proxychains_prefix }}bash -lc ")
-    assert "@anthropic-ai/claude-code@{{ requested_agent_version }}" in install_task["ansible.builtin.command"]
+    assert "@anthropic-ai/claude-code@{{ requested_agent_version or 'latest' }}" in install_task["ansible.builtin.command"]
     assert "environment" not in install_task
     assert "claude --version" in verify_task["ansible.builtin.command"]
 
@@ -50,7 +50,7 @@ def test_cline_installer_tasks_run_via_proxychains_prefix():
     uninstall_task = next(item for item in tasks if item["name"] == "Remove existing cline CLI before reinstall")
 
     assert install_task["ansible.builtin.command"].startswith("{{ proxychains_prefix }}bash -lc ")
-    assert "npm install -g cline@{{ requested_agent_version }}" in install_task["ansible.builtin.command"]
+    assert "npm install -g cline@{{ requested_agent_version or 'latest' }}" in install_task["ansible.builtin.command"]
     assert "environment" not in install_task
     assert "npm uninstall -g cline" in uninstall_task["ansible.builtin.command"]
 
@@ -64,7 +64,7 @@ def test_opencode_installer_tasks_run_via_proxychains_prefix():
     verify_task = next(item for item in tasks if item["name"] == "Verify OpenCode CLI after installation")
 
     assert install_task["ansible.builtin.command"].startswith("{{ proxychains_prefix }}bash -lc ")
-    assert "npm install -g opencode-ai@{{ requested_agent_version }}" in install_task["ansible.builtin.command"]
+    assert "npm install -g opencode-ai@{{ requested_agent_version or 'latest' }}" in install_task["ansible.builtin.command"]
     assert "environment" not in install_task
     assert "npm uninstall -g opencode-ai" in uninstall_task["ansible.builtin.command"]
     assert "opencode --version" in verify_task["ansible.builtin.command"]
@@ -80,7 +80,7 @@ def test_forgecode_installer_tasks_run_via_proxychains_prefix():
     verify_task = next(item for item in tasks if item["name"] == "Verify CodeForge CLI after installation")
 
     assert download_task["ansible.builtin.command"].startswith("{{ proxychains_prefix }}curl ")
-    assert run_task["ansible.builtin.command"] == "{{ proxychains_prefix }}bash /tmp/forgecode-install.sh {{ requested_agent_version }}"
+    assert run_task["ansible.builtin.command"] == "{{ proxychains_prefix }}bash /tmp/forgecode-install.sh{{ (' ' ~ requested_agent_version) if requested_agent_version else '' }}"
     assert "environment" not in download_task
     assert "environment" not in run_task
     assert publish_task["ansible.builtin.shell"].strip().startswith("set -euo pipefail")
@@ -103,7 +103,7 @@ def test_aider_installer_tasks_run_via_proxychains_prefix():
     assert "python3 -m pip install --user --break-system-packages uv" in uv_task["ansible.builtin.command"]
     assert run_task["ansible.builtin.command"].startswith("{{ proxychains_prefix }}bash -lc ")
     assert "$HOME/.local/bin/uv tool install --python 3.12" in run_task["ansible.builtin.command"]
-    assert "aider-chat=={{ requested_agent_version }}" in run_task["ansible.builtin.command"]
+    assert "aider-chat{{ ('==' ~ requested_agent_version) if requested_agent_version else '' }}" in run_task["ansible.builtin.command"]
     assert "environment" not in run_task
     assert '"$HOME/.local/bin/uv" tool uninstall aider' in uninstall_task["ansible.builtin.shell"]
     assert publish_task["ansible.builtin.shell"].strip().startswith("set -euo pipefail")

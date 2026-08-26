@@ -1,5 +1,11 @@
 # Agent-Safety-Kit versions history
 
+## 1.7.2 - Flexible agent version policies
+
+* Changed agent version handling: versions are no longer pinned by default, so an omitted `agents.<name>.version` uses the upstream latest release without reinstalling an already installed agent
+* Added `version: stable`, which selects the tested version defined in agsekit's agent registry
+* Kept support for exact semver pins through `agents.<name>.version`
+
 ## 1.7.1 - TUI command generation validation
 
 * Fixed interactive TUI command generation for `mount` and `umount`: the preview and execution now use the real positional `SOURCE_DIR` argument instead of a nonexistent `--source-dir` flag

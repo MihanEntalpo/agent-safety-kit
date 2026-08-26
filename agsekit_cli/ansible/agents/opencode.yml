@@ -100,7 +100,7 @@
 
     - name: Install OpenCode CLI
       ansible.builtin.command: >-
-        {{ proxychains_prefix }}bash -lc ". {{ nvm_dir }}/nvm.sh && nvm use --silent default >/dev/null && npm install -g opencode-ai@{{ requested_agent_version }}"
+        {{ proxychains_prefix }}bash -lc ". {{ nvm_dir }}/nvm.sh && nvm use --silent default >/dev/null && npm install -g opencode-ai@{{ requested_agent_version or 'latest' }}"
       changed_when: true
 
     - name: Verify OpenCode CLI after installation

@@ -14,7 +14,7 @@ Install one or more configured agent runtimes into one or more VMs.
 
 Before running the installer playbook, `agsekit` makes sure the VM contains the host SSH key. The key bootstrap is done through Multipass. On Linux and macOS the installer itself runs through Ansible over SSH using `global.ssh_keys_folder`; on native Windows PowerShell it runs inside the target VM against `localhost` through a VM-local control node.
 
-Agent versions come from `agents.<name>.version`. If the field is omitted, `agsekit` installs the pinned default version for that agent type.
+Agent versions come from `agents.<name>.version`. If the field is omitted, `agsekit` installs the upstream latest version without pinning. Use `stable` for agsekit's tested version or a semver string for an exact pin.
 
 ## Commands
 
@@ -47,7 +47,7 @@ agsekit install-agents claude --debug
 
 ## Notes
 
-Before running a playbook, `agsekit` asks an existing agent binary for its version. If it already matches the requested version, the install step is skipped. If the binary exists but the version differs, `agsekit` reinstalls that agent to reach the version declared in the config.
+Before running a playbook, `agsekit` asks an existing agent binary for its version. For a pinned version, a match skips installation and a mismatch triggers reinstall. Without a pin, any existing binary is kept and only a missing agent is installed.
 
 For Node-based agents (`codex`, `qwen`, `opencode`, `claude`, `cline`), if `node` is missing, the installer resolves the current Node.js LTS through `nvm version-remote --lts` and installs that exact version. If Node.js is already present, the installer keeps the existing version and does not auto-upgrade it just because a newer LTS appeared.
 

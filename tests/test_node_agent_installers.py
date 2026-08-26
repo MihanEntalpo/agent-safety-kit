@@ -21,7 +21,7 @@ def test_node_agent_playbooks_resolve_current_lts_version() -> None:
         assert 'nvm alias default "$resolved_version"' in content, playbook.name
         assert "ansible.builtin.command: node -v" not in content, playbook.name
         assert 'node_version: "24"' not in content, playbook.name
-        assert "@latest" not in content, playbook.name
+        assert "requested_agent_version or 'latest'" in content, playbook.name
 
 
 def test_agent_playbooks_do_not_define_hardcoded_default_versions() -> None:

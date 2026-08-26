@@ -100,7 +100,7 @@
 
     - name: Install qwen-code CLI
       ansible.builtin.command: >-
-        {{ proxychains_prefix }}bash -lc ". {{ nvm_dir }}/nvm.sh && nvm use --silent default >/dev/null && npm install -g @qwen-code/qwen-code@{{ requested_agent_version }}"
+        {{ proxychains_prefix }}bash -lc ". {{ nvm_dir }}/nvm.sh && nvm use --silent default >/dev/null && npm install -g @qwen-code/qwen-code@{{ requested_agent_version or 'latest' }}"
       changed_when: true
 
     - name: Verify qwen-code CLI after installation
