@@ -25,7 +25,7 @@ def test_load_agents_config_defaults(tmp_path):
     agent = agents["qwen"]
 
     assert agent.type == "qwen"
-    assert agent.version == "0.15.11"
+    assert agent.version is None
     assert agent.env == {"TOKEN": "123"}
     assert agent.vm_name is None
     assert agent.vm_names is None
@@ -69,6 +69,14 @@ def test_load_agents_config_accepts_explicit_version():
     agent = load_agents_config(config)["qwen"]
 
     assert agent.version == "0.15.10"
+
+
+def test_load_agents_config_resolves_stable_version():
+    config = {"agents": {"qwen": {"type": "qwen", "version": "stable"}}}
+
+    agent = load_agents_config(config)["qwen"]
+
+    assert agent.version == "0.15.11"
 
 
 def test_load_agents_config_accepts_multi_vms_from_string():

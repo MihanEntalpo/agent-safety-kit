@@ -35,7 +35,7 @@
 
     - name: Run CodeForge installer
       ansible.builtin.command: >-
-        {{ proxychains_prefix }}bash /tmp/forgecode-install.sh {{ requested_agent_version }}
+        {{ proxychains_prefix }}bash /tmp/forgecode-install.sh{{ (' ' ~ requested_agent_version) if requested_agent_version else '' }}
       changed_when: true
 
     - name: Publish Forge binary into VM PATH

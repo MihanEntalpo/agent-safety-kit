@@ -10,7 +10,6 @@ import yaml
 pexpect = pytest.importorskip("pexpect")
 
 from agsekit_cli.agents_modules import SUPPORTED_AGENT_TYPES
-from agsekit_cli.config import default_agent_version
 from agsekit_cli.vm_bundle_definitions import BUNDLE_DEFINITIONS
 
 ROOT = Path(__file__).resolve().parent.parent
@@ -193,7 +192,7 @@ class TestConfigGenCommand:
 
         config = yaml.safe_load(config_path.read_text(encoding="utf-8"))
         assert config["agents"]["qwen"]["vms"] == ["agent-ubuntu"]
-        assert config["agents"]["qwen"]["version"] == default_agent_version("qwen")
+        assert "version" not in config["agents"]["qwen"]
         assert config["vms"]["agent-ubuntu"]["allowed_agents"] == ["qwen"]
         assert "allowed_agents" not in config["vms"]["vm-2"]
 
@@ -256,7 +255,7 @@ class TestConfigGenCommand:
         wizard.finish()
 
         agent = yaml.safe_load(config_path.read_text(encoding="utf-8"))["agents"]["qwen"]
-        assert agent["version"] == default_agent_version("qwen")
+        assert "version" not in agent
         assert agent["env"] == {"OPENAI_API_KEY": "abc", "EMPTY": ""}
         assert agent["default-args"] == [
             "--model",

@@ -1,5 +1,11 @@
 # Agent-Safety-Kit versions history
 
+## 1.7.3 - Flexible agent version policies
+
+* Changed agent version handling: versions are no longer pinned by default, so an omitted `agents.<name>.version` uses the upstream latest release without reinstalling an already installed agent
+* Added `version: stable`, which selects the tested version defined in agsekit's agent registry
+* Kept support for exact semver pins through `agents.<name>.version`
+
 ## 1.7.2 - Per-agent runtime homes
 
 * Added isolated runtime homes for agent profiles: `agsekit run` now starts each configured agent profile with its own `HOME`, `XDG_*`, and supported agent-specific config directory environment variables under `/home/ubuntu/.agent-homes/<agent_name>`, so profiles like `qwen-local` and `qwen-cloud` can share the same agent type without sharing auth, config, cache, or state

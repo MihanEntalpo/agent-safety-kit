@@ -261,14 +261,15 @@ Behavior:
 - `type` (обязателен) — тип агента: `aider`, `qwen`, `forgecode`, `codex`, `opencode`, `codex-glibc`, `codex-glibc-prebuilt`, `claude`, `cline`.
   - поддерживаемые типы и runtime-бинарники задаются registry классов в `agsekit_cli/agents_modules/`.
   - runtime-бинарники сейчас такие: `aider -> aider`, `qwen -> qwen`, `forgecode -> forge`, `codex -> codex`, `opencode -> opencode`, `codex-glibc -> codex-glibc`, `codex-glibc-prebuilt -> codex-glibc-prebuilt`, `claude -> claude`, `cline -> cline`.
-  - для каждого типа в registry также хранится pinned default version; `cline` намеренно pinned на `2.17.0`, а не на latest upstream.
+  - для каждого типа в registry хранится stable-версия; она используется только если профиль явно задаёт `version: stable`.
   - `aider` — установка через официальный aider installer; runtime-бинарник `aider`.
   - `forgecode` — установка через официальный Forge installer; по умолчанию при `run` получает `FORGE_TRACKER=false`, чтобы отключить телеметрию.
   - `codex-glibc` — установка/сборка codex из исходников с установкой бинарника `codex-glibc`.
   - `codex-glibc-prebuilt` — установка заранее собранного `codex-glibc` (glibc-compatible) из GitHub Releases проекта; по умолчанию берётся release tag, соответствующий requested/default version в формате `codex-glibc-rust-v<version>`, источник можно переопределить через `AGSEKIT_CODEX_GLIBC_PREBUILT_REPO`, `AGSEKIT_CODEX_GLIBC_PREBUILT_TAG`, `AGSEKIT_CODEX_GLIBC_PREBUILT_ASSET`; если имя ассета не задано явно, оно определяется по архитектуре VM (`codex-glibc-linux-amd64.gz` для `x86_64`, `codex-glibc-linux-arm64.gz` для `aarch64`/`arm64`); бинарник устанавливается отдельно под именем `codex-glibc-prebuilt` и может сосуществовать с `codex-glibc`.
-- `version` (optional) — точная версия агента для установки.
-  - если поле не задано, используется pinned default version этого agent type;
-  - pinned defaults намеренно зафиксированы на проверенных рабочих значениях как защита от незаметных upstream/supply-chain изменений.
+- `version` (optional) — политика версии агента при установке.
+  - если поле не задано, версия не фиксируется и installer использует upstream latest;
+  - `stable` выбирает проверенную stable-версию этого agent type из registry;
+  - semver-строка фиксирует агента на точной версии.
 - `env` (optional) — mapping переменных окружения, передаваемых агенту при запуске.
   - значение приводится к строке (`null` -> пустая строка).
   - пользовательские значения применяются после встроенных runtime defaults, поэтому могут переопределить автоматические `HOME`, `XDG_*` и agent-specific переменные.
@@ -436,7 +437,7 @@ Behavior:
   - показывает navigable список поддерживаемых agent types плюс `Cancel`;
   - `Cancel` на первом же выборе позволяет сохранить конфиг без секции `agents`;
   - `name` по умолчанию берётся из runtime binary агента, а для `codex-glibc` и `codex-glibc-prebuilt` default name = `codex`;
-  - после выбора типа мастер спрашивает `version`; default value = pinned default version этого типа;
+  - после выбора типа мастер спрашивает `version`; пустое значение оставляет версию незафиксированной, `stable` выбирает проверенную версию, semver фиксирует точную версию;
   - имена агентов внутри одного прогона тоже должны быть уникальными: если base name уже занят, мастер предлагает `name-2`, `name-3`, ...; ручной ввод дубликата печатает ошибку и повторно спрашивает имя;
   - optional `env` вводится построчно как `KEY=VALUE` до пустой строки;
   - optional `default-args` вводятся одной строкой и сохраняются как список токенов, разделённых пробелами;
@@ -711,7 +712,7 @@ Behavior:
 - выбирает агента(ов) и VM(ы);
 - если `--all-vms` не задан и позиционный `<vm>` не передан, целевые VM берутся из `agents.<name>.vm + agents.<name>.vms` (если оба поля пустые — во все VM из секции `vms`);
 - определяет playbook по `agents.<name>.type`;
-- определяет required agent version по `agents.<name>.version`, а если поле не задано — по pinned default version;
+- определяет политику версии по `agents.<name>.version`: отсутствие поля означает upstream latest без pin, `stable` означает registry stable-версию, semver — точный pin;
 - перед installer playbook идемпотентно проверяет SSH key bootstrap через Multipass-host helpers;
 - в рамках одного запуска `install-agents` кэширует результат SSH-подготовки по VM: после первого успешного bootstrap следующие installer playbook'и для той же VM повторно используют уже подготовленный доступ;
 - на Linux и macOS запускает Ansible installer через общий host-side runner и стандартный Ansible SSH transport;
@@ -725,9 +726,10 @@ Behavior:
 - при `--debug` Rich progress тоже отключается, чтобы вывод установки оставался обычным потоковым логом;
 - поддерживает proxychains override на один запуск (`--proxychains`).
 - перед installer playbook пытается спросить у уже установленного runtime-бинарника его версию;
-  - если версия уже совпадает с required version, target пропускается;
-  - если бинарник найден, но версия отличается, агент переустанавливается до требуемой версии с явным сообщением;
-  - если указанная версия не существует upstream, команда падает явной ошибкой и не делает fallback на `latest`;
+  - для pinned-версии совпадение с required version пропускает target;
+  - для pinned-версии несовпадение переустанавливает агент до требуемой версии;
+  - без pin уже установленный бинарник сохраняется, а установка выполняется только если бинарник отсутствует;
+  - если указанная pinned-версия не существует upstream, команда падает явной ошибкой и не делает fallback на `latest`;
 - при запуске без аргументов в интерактивном TTY запрашивает выбор агента и цели установки;
 - при запуске без аргументов в non-interactive режиме требует явный выбор агента (ошибка `agent_required`).
 - при успешном standalone-запуске печатает явное итоговое сообщение:

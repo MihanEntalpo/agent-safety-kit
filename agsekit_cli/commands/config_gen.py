@@ -17,7 +17,6 @@ from ..config import (
     DEFAULT_STATE_FILE_PATH,
     DEFAULT_VERSION_CHECK_INTERVAL_SEC,
     agent_runtime_binary,
-    default_agent_version,
     resolve_config_path,
 )
 from ..interactive import is_interactive_terminal
@@ -256,14 +255,14 @@ def _prompt_default_args() -> List[str]:
     return raw.split()
 
 
-def _prompt_agent_version(agent_type: str) -> str:
-    default_version = default_agent_version(agent_type)
+def _prompt_agent_version(agent_type: str) -> Optional[str]:
     value = ask_text(
         tr("config_gen.agent_version"),
-        default=default_version,
+        default="",
         validate=lambda _value: True,
     )
-    return value or default_version
+    cleaned = value.strip()
+    return cleaned or None
 
 
 def _validate_non_empty_selection(values: List[object]) -> object:
@@ -319,7 +318,9 @@ def _prompt_agents(vm_names: List[str]) -> Dict[str, Dict[str, object]]:
         proxychains_defined, proxychains_value = _prompt_override_proxy(tr("config_gen.agent_proxychains"))
         http_proxy_defined, http_proxy_value = _prompt_override_proxy(tr("config_gen.agent_http_proxy"))
 
-        agent_entry: Dict[str, object] = {"type": agent_type, "version": version}
+        agent_entry: Dict[str, object] = {"type": agent_type}
+        if version is not None:
+            agent_entry["version"] = version
         if env_vars:
             agent_entry["env"] = env_vars
         if default_args:

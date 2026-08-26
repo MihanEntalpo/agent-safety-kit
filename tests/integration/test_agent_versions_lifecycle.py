@@ -174,6 +174,8 @@ def _write_agents_config(
         }
         if versions and agent_type in versions:
             entry["version"] = versions[agent_type]
+        else:
+            entry["version"] = "stable"
         payload["agents"][agent_type] = entry
     write_config(config_path, payload)
 

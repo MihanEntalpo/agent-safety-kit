@@ -28,13 +28,11 @@ Agents are essentially binaries from various vendors, such as claude-code, codex
 
 The `install-agents` command selects the Ansible playbook for the required type and installs the corresponding runtime into the target VM.
 
-By default, every agent type is pinned to a known-good tested version. You can override it per profile through `agents.<name>.version` when you explicitly need a different upstream release. 
-
-The default pinning is intentional: it reduces accidental breakage and narrows supply-chain drift from newly published releases.
+Agent versions are not pinned by default. Set `agents.<name>.version` to `stable` to use agsekit's known-good tested version, or set an exact semver version when reproducibility is required.
 
 Main patterns:
 
-- exact npm CLI versions for `codex`, `qwen`, `opencode`, `claude`, and `cline`
+- latest or exact npm CLI versions for `codex`, `qwen`, `opencode`, `claude`, and `cline`
 - exact Python package version for `aider`
 - exact release version for `forgecode`
 - local build from source for `codex-glibc`

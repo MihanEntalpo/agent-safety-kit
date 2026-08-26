@@ -14,7 +14,7 @@
 
 Перед запуском installer playbook `agsekit` проверяет, что в VM добавлен host SSH key. Bootstrap ключа выполняется через Multipass. На Linux и macOS сам installer запускается через Ansible по SSH с ключом из `global.ssh_keys_folder`, а на native Windows PowerShell он запускается внутри целевой ВМ против `localhost` через VM-local control node.
 
-Версия агента берётся из `agents.<name>.version`. Если поле не задано, `agsekit` ставит зафиксированную версию по умолчанию для данного типа агента.
+Версия агента берётся из `agents.<name>.version`. Если поле не задано, `agsekit` ставит последнюю upstream-версию без фиксации. Значение `stable` выбирает проверенную версию agsekit, а semver-строка фиксирует точную версию.
 
 ## Команды
 
@@ -55,7 +55,7 @@ agsekit install-agents claude --debug
 
 Для `codex-glibc-prebuilt` agsekit резолвит точный GitHub release tag, соответствующий запрошенной версии. Для `codex-glibc` перед сборкой клонируется точный matching Git tag.
 
-Если запрошенной версии upstream не существует, установка завершается явной ошибкой, а не молча скатывается на `latest`.
+Для зафиксированной версии, которой нет в upstream, установка завершается явной ошибкой, а не молча скатывается на `latest`.
 
 Для `codex`, `codex-glibc` и `codex-glibc-prebuilt` installer также настраивает внутри VM `logrotate` для `~/.codex/log/codex-tui.log` с политикой `size 100M`, `rotate 10`, `compress`, `delaycompress`, `missingok`, `notifempty` и `copytruncate`.
 

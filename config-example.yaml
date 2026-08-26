@@ -43,6 +43,7 @@ mounts:
 agents:
   qwen: # agent name; add as many as you need
     type: qwen # agent type: aider, qwen, forgecode (uses the forge binary and forces FORGE_TRACKER=false), codex, opencode, codex-glibc, codex-glibc-prebuilt (uses the codex-glibc-prebuilt binary), claude, or cline
+    # version is optional: omit it for upstream latest, use stable for agsekit's tested version, or set an exact semver
     proxychains: "" # optional agent proxy URL (scheme://host:port); if this field is present, it overrides the VM proxychains setting even when empty
     http_proxy: # optional HTTP proxy for agsekit run; overrides VM-level http_proxy
       upstream: socks5://127.0.0.1:8181
