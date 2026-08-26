@@ -64,6 +64,7 @@ def test_codex_glibc_builders_pin_rust_toolchain() -> None:
     assert all(part.isdigit() for part in version.split("."))
     assert "ARG RUST_TOOLCHAIN_VERSION" in dockerfile
     assert "--default-toolchain \"${RUST_TOOLCHAIN_VERSION}\"" in dockerfile
+    assert "chmod -R a+rwX /opt/cargo /opt/rustup" in dockerfile
     assert "codex_rust_toolchain_version.txt" in build_wrapper
     assert "RUST_TOOLCHAIN_VERSION" in build_wrapper
     assert "RUST_TOOLCHAIN_VERSION" in builder_script

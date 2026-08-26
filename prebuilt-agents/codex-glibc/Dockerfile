@@ -26,6 +26,7 @@ RUN mkdir -p /opt/cargo /opt/rustup /work \
 RUN curl --proto '=https' --tlsv1.2 -fL https://sh.rustup.rs -o /tmp/rustup-init.sh \
     && test -n "${RUST_TOOLCHAIN_VERSION}" \
     && /bin/sh /tmp/rustup-init.sh -y --default-toolchain "${RUST_TOOLCHAIN_VERSION}" --no-modify-path \
+    && chmod -R a+rwX /opt/cargo /opt/rustup \
     && rm -f /tmp/rustup-init.sh
 
 WORKDIR /work
