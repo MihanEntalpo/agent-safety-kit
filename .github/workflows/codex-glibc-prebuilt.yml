@@ -4,6 +4,12 @@ on:
   schedule:
     - cron: "17 4 * * *"
   workflow_dispatch:
+    inputs:
+      publish:
+        description: "Publish the built assets as a GitHub Release"
+        required: false
+        type: boolean
+        default: false
 
 permissions:
   contents: write
@@ -133,7 +139,9 @@ jobs:
     needs:
       - resolve
       - build
-    if: needs.resolve.outputs.complete != 'true'
+    if: >-
+      needs.resolve.outputs.complete != 'true' &&
+      (github.event_name != 'workflow_dispatch' || inputs.publish == true)
     runs-on: ubuntu-24.04
     steps:
       - name: Download workflow artifacts

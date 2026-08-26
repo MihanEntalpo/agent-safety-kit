@@ -201,6 +201,16 @@
       args:
         executable: /bin/bash
 
+    - name: Raise rustc query recursion limit for codex-exec
+      ansible.builtin.shell: >-
+        set -euo pipefail;
+        codex_exec_lib="$(dirname "{{ manifest_path.stdout }}")/src/lib.rs";
+        if [ -f "$codex_exec_lib" ] && ! grep -qF '#![recursion_limit = "256"]' "$codex_exec_lib"; then
+          sed -i '1i#![recursion_limit = "256"]' "$codex_exec_lib";
+        fi
+      args:
+        executable: /bin/bash
+
     - name: Build codex-glibc
       ansible.builtin.command: >-
         {{ proxychains_prefix }}bash -lc "export PATH={{ cargo_bin }}:$PATH;

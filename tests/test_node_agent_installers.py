@@ -38,6 +38,18 @@ def test_agent_playbooks_do_not_define_hardcoded_default_versions() -> None:
         assert 'requested_agent_version: "{{ agent_version }}"' in content, playbook.name
 
 
+def test_codex_glibc_builders_patch_upstream_recursion_limit() -> None:
+    builder_script = (
+        ROOT / "prebuilt-agents" / "codex-glibc" / "build-codex-glibc.sh"
+    ).read_text(encoding="utf-8")
+    agent_script = (ROOT / "agsekit_cli" / "agent_scripts" / "codex-glibc.sh").read_text(encoding="utf-8")
+    playbook = (ROOT / "agsekit_cli" / "ansible" / "agents" / "codex-glibc.yml").read_text(encoding="utf-8")
+
+    for content in (builder_script, agent_script, playbook):
+        assert '#![recursion_limit = "256"]' in content
+        assert "codex-exec" in content
+
+
 def test_node_agent_shell_installers_resolve_current_lts_version() -> None:
     scripts = [
         ROOT / "agsekit_cli" / "agent_scripts" / "codex.sh",

@@ -128,6 +128,24 @@ BUILD_ROOT="$(mktemp -d -t codex-src-XXXXXX)"
 echo "Cloning codex repository..."
 run_with_proxychains git clone --depth 1 https://github.com/openai/codex.git "$BUILD_ROOT/codex"
 
+# Recent upstream Codex releases can exceed rustc's default query-depth limit
+# while compiling codex-exec. Apply this only to the temporary checkout.
+CODEX_EXEC_LIB=""
+while IFS= read -r manifest; do
+  if grep -q '^name = "codex-exec"' "$manifest"; then
+    candidate="$(dirname "$manifest")/src/lib.rs"
+    if [ -f "$candidate" ]; then
+      CODEX_EXEC_LIB="$candidate"
+      break
+    fi
+  fi
+done < <(find "$BUILD_ROOT/codex" -type f -name Cargo.toml -print)
+
+if [ -n "$CODEX_EXEC_LIB" ] && ! grep -qF '#![recursion_limit = "256"]' "$CODEX_EXEC_LIB"; then
+  sed -i '1i#![recursion_limit = "256"]' "$CODEX_EXEC_LIB"
+  echo "Applied rustc recursion limit workaround to $CODEX_EXEC_LIB"
+fi
+
 MANIFEST_PATH="$(
   python3 - "$BUILD_ROOT/codex" <<'PYCODE'
 import pathlib

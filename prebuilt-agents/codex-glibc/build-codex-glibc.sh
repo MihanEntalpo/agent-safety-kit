@@ -23,6 +23,24 @@ else
 fi
 cd codex
 
+# Recent upstream Codex releases can exceed rustc's default query-depth limit
+# while compiling codex-exec. Apply this only to the temporary checkout.
+CODEX_EXEC_LIB=""
+while IFS= read -r manifest; do
+  if grep -q '^name = "codex-exec"' "${manifest}"; then
+    candidate="$(dirname "${manifest}")/src/lib.rs"
+    if [[ -f "${candidate}" ]]; then
+      CODEX_EXEC_LIB="${candidate}"
+      break
+    fi
+  fi
+done < <(find . -type f -name Cargo.toml -print)
+
+if [[ -n "${CODEX_EXEC_LIB}" ]] && ! grep -qF '#![recursion_limit = "256"]' "${CODEX_EXEC_LIB}"; then
+  sed -i '1i#![recursion_limit = "256"]' "${CODEX_EXEC_LIB}"
+  echo "Applied rustc recursion limit workaround to ${CODEX_EXEC_LIB}"
+fi
+
 CODEX_COMMIT="$(git rev-parse HEAD)"
 BUILD_DATE="$(date -u +"%Y-%m-%dT%H:%M:%SZ")"
 
