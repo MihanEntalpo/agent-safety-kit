@@ -174,7 +174,7 @@ def test_run_prepare_suspends_progress_during_multipass_install(monkeypatch):
     assert calls == ["suspend", "enter", "install:True", "ssh-keygen:True", "rsync:True", "exit"]
 
 
-def test_choose_prepare_prefers_arch_over_debian(monkeypatch):
+def test_choose_prepare_uses_ubuntu_os_release_when_both_package_managers_exist(monkeypatch):
     def fake_which(binary: str):
         if binary == "pacman":
             return "/usr/bin/pacman"
@@ -183,8 +183,13 @@ def test_choose_prepare_prefers_arch_over_debian(monkeypatch):
         return None
 
     monkeypatch.setattr(prepare_strategies.shutil, "which", fake_which)
+    monkeypatch.setattr(
+        prepare_strategies,
+        "read_os_release",
+        lambda: {"ID": "ubuntu", "ID_LIKE": "debian"},
+    )
 
-    assert isinstance(prepare_module.choose_prepare(), prepare_strategies.PrepareLinuxArch)
+    assert isinstance(prepare_module.choose_prepare(), prepare_strategies.PrepareLinuxDeb)
 
 
 def test_choose_prepare_uses_debian_when_pacman_absent(monkeypatch):
@@ -196,8 +201,100 @@ def test_choose_prepare_uses_debian_when_pacman_absent(monkeypatch):
         return None
 
     monkeypatch.setattr(prepare_strategies.shutil, "which", fake_which)
+    monkeypatch.setattr(prepare_strategies, "read_os_release", lambda: {})
 
     assert isinstance(prepare_module.choose_prepare(), prepare_strategies.PrepareLinuxDeb)
+
+
+def test_choose_prepare_uses_arch_when_apt_get_absent(monkeypatch):
+    monkeypatch.setattr(prepare_strategies.PrepareBase, "is_wsl", staticmethod(lambda: False))
+    monkeypatch.setattr(prepare_strategies.platform, "system", lambda: "Linux")
+    monkeypatch.setattr(prepare_strategies, "read_os_release", lambda: {})
+    monkeypatch.setattr(
+        prepare_strategies.shutil,
+        "which",
+        lambda binary: "/usr/bin/pacman" if binary == "pacman" else None,
+    )
+
+    assert isinstance(prepare_module.choose_prepare(), prepare_strategies.PrepareLinuxArch)
+
+
+@pytest.mark.parametrize(
+    ("os_release", "expected_type"),
+    [
+        ({"ID": "debian"}, prepare_strategies.PrepareLinuxDeb),
+        ({"ID": "ubuntu", "ID_LIKE": "arch"}, prepare_strategies.PrepareLinuxDeb),
+        ({"ID": "linuxmint", "ID_LIKE": "ubuntu debian"}, prepare_strategies.PrepareLinuxDeb),
+        ({"ID": "arch"}, prepare_strategies.PrepareLinuxArch),
+        ({"ID": "manjaro", "ID_LIKE": "arch"}, prepare_strategies.PrepareLinuxArch),
+    ],
+)
+def test_choose_prepare_uses_os_release_family(monkeypatch, os_release, expected_type):
+    monkeypatch.setattr(prepare_strategies.PrepareBase, "is_wsl", staticmethod(lambda: False))
+    monkeypatch.setattr(prepare_strategies.platform, "system", lambda: "Linux")
+    monkeypatch.setattr(prepare_strategies, "read_os_release", lambda: os_release)
+    monkeypatch.setattr(prepare_strategies.shutil, "which", lambda _binary: None)
+
+    assert isinstance(prepare_module.choose_prepare(), expected_type)
+
+
+def test_choose_prepare_rejects_unknown_linux_with_both_package_managers(monkeypatch):
+    monkeypatch.setattr(prepare_strategies.PrepareBase, "is_wsl", staticmethod(lambda: False))
+    monkeypatch.setattr(prepare_strategies.platform, "system", lambda: "Linux")
+    monkeypatch.setattr(prepare_strategies, "read_os_release", lambda: {"ID": "custom"})
+    monkeypatch.setattr(
+        prepare_strategies.shutil,
+        "which",
+        lambda binary: "/usr/bin/{0}".format(binary) if binary in {"apt-get", "pacman"} else None,
+    )
+
+    with pytest.raises(prepare_module.click.ClickException) as exc_info:
+        prepare_module.choose_prepare()
+
+    assert "could not be determined unambiguously" in str(exc_info.value)
+
+
+def test_choose_prepare_rejects_conflicting_id_like(monkeypatch):
+    monkeypatch.setattr(prepare_strategies.PrepareBase, "is_wsl", staticmethod(lambda: False))
+    monkeypatch.setattr(prepare_strategies.platform, "system", lambda: "Linux")
+    monkeypatch.setattr(
+        prepare_strategies,
+        "read_os_release",
+        lambda: {"ID": "custom", "ID_LIKE": "debian arch"},
+    )
+
+    with pytest.raises(prepare_module.click.ClickException) as exc_info:
+        prepare_module.choose_prepare()
+
+    assert "could not be determined unambiguously" in str(exc_info.value)
+
+
+def test_read_os_release_uses_fallback_file_and_skips_malformed_values(tmp_path):
+    missing_path = tmp_path / "missing-os-release"
+    fallback_path = tmp_path / "os-release"
+    fallback_path.write_text(
+        '# comment\nID="ubuntu"\nID_LIKE="debian ubuntu"\nBROKEN="unterminated\n',
+        encoding="utf-8",
+    )
+
+    assert prepare_strategies.read_os_release([missing_path, fallback_path]) == {
+        "ID": "ubuntu",
+        "ID_LIKE": "debian ubuntu",
+    }
+
+
+def test_debian_package_install_reports_missing_apt_get(monkeypatch):
+    monkeypatch.setattr(
+        prepare_strategies.PrepareLinuxDeb,
+        "package_installed",
+        staticmethod(lambda _package: False),
+    )
+    monkeypatch.setattr(prepare_strategies.shutil, "which", lambda _binary: None)
+
+    with pytest.raises(prepare_module.click.ClickException) as exc_info:
+        prepare_strategies.PrepareLinuxDeb().install_packages_if_missing(["rsync"])
+
+    assert "apt-get" in str(exc_info.value)
 
 
 def test_install_multipass_does_not_try_to_install_inside_wsl(monkeypatch):
@@ -488,7 +585,11 @@ def test_install_multipass_debian_installs_only_missing_host_packages(monkeypatc
     commands: list[list[str]] = []
 
     monkeypatch.setattr(prepare_strategies.PrepareLinuxDeb, "package_installed", staticmethod(lambda package: package != "snapd"))
-    monkeypatch.setattr(prepare_strategies.shutil, "which", lambda binary: "/usr/bin/snap" if binary == "snap" else None)
+    monkeypatch.setattr(
+        prepare_strategies.shutil,
+        "which",
+        lambda binary: "/usr/bin/{0}".format(binary) if binary in {"apt-get", "snap"} else None,
+    )
 
     def fake_run(command, check, env=None):
         del env

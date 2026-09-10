@@ -1,5 +1,11 @@
 # Agent-Safety-Kit versions history
 
+## 1.7.3 - Reliable Linux distribution detection
+
+* Changed Linux host preparation to detect Debian-based and Arch-based distributions from `ID` / `ID_LIKE` in `os-release`, with an unambiguous package-manager fallback when distribution metadata is unavailable
+* Fixed Ubuntu hosts with an unrelated `pacman` executable in `PATH` being incorrectly routed through the Arch Linux Multipass installation flow
+* Added direct errors for conflicting Linux-family metadata and for a missing package manager after a distribution family has been selected
+
 ## 1.7.2 - Flexible agent version policies
 
 * Changed agent version handling: versions are no longer pinned by default, so an omitted `agents.<name>.version` uses the upstream latest release without reinstalling an already installed agent

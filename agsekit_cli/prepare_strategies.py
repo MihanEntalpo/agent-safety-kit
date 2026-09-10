@@ -2,11 +2,12 @@ from __future__ import annotations
 
 import os
 import platform
+import shlex
 import shutil
 import subprocess
 import tempfile
 from pathlib import Path
-from typing import Optional
+from typing import Iterable, Optional
 
 import click
 
@@ -23,6 +24,73 @@ WINDOWS_MSYS2_PACKAGE_BINARIES = {
     "rsync": "rsync",
     "openssh": "ssh-keygen",
 }
+
+LINUX_FAMILY_DEBIAN = "debian"
+LINUX_FAMILY_ARCH = "arch"
+LINUX_FAMILY_AMBIGUOUS = "ambiguous"
+OS_RELEASE_PATHS = (Path("/etc/os-release"), Path("/usr/lib/os-release"))
+DEBIAN_FAMILY_IDS = {"debian", "ubuntu"}
+ARCH_FAMILY_IDS = {"arch", "archlinux"}
+
+
+def read_os_release(paths: Iterable[Path] = OS_RELEASE_PATHS) -> dict[str, str]:
+    """Read os-release data without executing its shell-like contents."""
+    contents = None
+    for path in paths:
+        try:
+            contents = path.read_text(encoding="utf-8")
+        except (OSError, UnicodeError):
+            continue
+        break
+
+    if contents is None:
+        return {}
+
+    values: dict[str, str] = {}
+    for raw_line in contents.splitlines():
+        line = raw_line.strip()
+        if not line or line.startswith("#") or "=" not in line:
+            continue
+
+        key, raw_value = line.split("=", 1)
+        key = key.strip()
+        if not key or not key.replace("_", "").isalnum():
+            continue
+
+        try:
+            parsed = shlex.split(raw_value, comments=True, posix=True)
+        except ValueError:
+            continue
+        if len(parsed) == 1:
+            values[key] = parsed[0]
+        elif not parsed and not raw_value.strip():
+            values[key] = ""
+
+    return values
+
+
+def detect_linux_family(os_release: Optional[dict[str, str]] = None) -> Optional[str]:
+    """Return a supported Linux family based on ID and ID_LIKE."""
+    release = read_os_release() if os_release is None else os_release
+    distro_id = release.get("ID", "").strip().lower()
+    distro_like = {item.lower() for item in release.get("ID_LIKE", "").split()}
+
+    if distro_id in DEBIAN_FAMILY_IDS:
+        return LINUX_FAMILY_DEBIAN
+    if distro_id in ARCH_FAMILY_IDS:
+        return LINUX_FAMILY_ARCH
+
+    matching_families = set()
+    if distro_like & DEBIAN_FAMILY_IDS:
+        matching_families.add(LINUX_FAMILY_DEBIAN)
+    if distro_like & ARCH_FAMILY_IDS:
+        matching_families.add(LINUX_FAMILY_ARCH)
+
+    if len(matching_families) == 1:
+        return matching_families.pop()
+    if len(matching_families) > 1:
+        return LINUX_FAMILY_AMBIGUOUS
+    return None
 
 
 class PrepareBase:
@@ -123,6 +191,11 @@ class PrepareLinuxDeb(PrepareBase):
             self.echo(tr("prepare.host_packages_already_installed"))
             return
 
+        if shutil.which("apt-get") is None:
+            raise click.ClickException(
+                tr("prepare.package_manager_missing", family="Debian-based", manager="apt-get")
+            )
+
         self.echo(tr("prepare.installing_host_packages", packages=", ".join(missing)))
 
         env = {**os.environ, "DEBIAN_FRONTEND": "noninteractive"}
@@ -174,6 +247,11 @@ class PrepareLinuxArch(PrepareBase):
         if not missing:
             self.echo(tr("prepare.host_packages_already_installed"))
             return
+
+        if shutil.which("pacman") is None:
+            raise click.ClickException(
+                tr("prepare.package_manager_missing", family="Arch-based", manager="pacman")
+            )
 
         self.echo(tr("prepare.installing_host_packages", packages=", ".join(missing)))
         subprocess.run(["sudo", "pacman", "-S", "--needed", "--noconfirm"] + missing, check=True)
@@ -448,8 +526,23 @@ def choose_prepare(*, quiet: bool = False) -> PrepareBase:
         return PrepareWin(quiet=quiet)
     if system == "Darwin":
         return PrepareMacBrew(quiet=quiet)
-    if shutil.which("pacman") is not None:
-        return PrepareLinuxArch(quiet=quiet)
-    if shutil.which("apt-get") is not None:
+    if system != "Linux":
+        return PrepareBase(quiet=quiet)
+
+    family = detect_linux_family()
+    if family == LINUX_FAMILY_DEBIAN:
         return PrepareLinuxDeb(quiet=quiet)
+    if family == LINUX_FAMILY_ARCH:
+        return PrepareLinuxArch(quiet=quiet)
+    if family == LINUX_FAMILY_AMBIGUOUS:
+        raise click.ClickException(tr("prepare.linux_distro_ambiguous"))
+
+    has_apt = shutil.which("apt-get") is not None
+    has_pacman = shutil.which("pacman") is not None
+    if has_apt and not has_pacman:
+        return PrepareLinuxDeb(quiet=quiet)
+    if has_pacman and not has_apt:
+        return PrepareLinuxArch(quiet=quiet)
+    if has_apt and has_pacman:
+        raise click.ClickException(tr("prepare.linux_distro_ambiguous"))
     return PrepareBase(quiet=quiet)

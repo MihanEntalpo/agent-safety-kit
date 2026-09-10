@@ -357,11 +357,14 @@ Behavior:
 5. Если `multipass` уже доступен, установку Multipass, `snapd` и связанных host-пакетов не выполняет.
 6. Если `multipass` отсутствует:
    - на native Windows печатает ссылку на скачивание Multipass for Windows и предлагает открыть её, но не устанавливает Multipass автоматически;
+   - на Linux сначала определяет семейство дистрибутива по `ID` и `ID_LIKE` из `/etc/os-release` с fallback на `/usr/lib/os-release`; точный `ID` поддерживаемого базового семейства имеет приоритет над `ID_LIKE`;
+   - если `os-release` не определяет известное семейство, использует наличие package manager как fallback только при наличии ровно одного из `apt-get` и `pacman`; конфликтующие `ID_LIKE` или наличие обоих package manager на неизвестном Linux завершаются явной ошибкой о неоднозначности;
    - на Debian-based (`apt-get`) проверяет host-пакеты (`snapd`, `qemu-kvm`, `libvirt-daemon-system`, `libvirt-clients`, `bridge-utils`) и ставит только отсутствующие, после чего ставит Multipass через `snap`;
    - на Arch Linux (`pacman`) ставит Multipass через AUR helper (`yay` или `aura`) вместе с `libvirt`, `dnsmasq`, `qemu-base`;
+   - выбранная Linux strategy при необходимости установки отдельно проверяет наличие родного package manager и не переключается на strategy другого семейства;
    - на macOS (`Darwin` + `brew`) ставит Multipass через Homebrew cask; на macOS 13+ используется текущая cask `multipass`, а на macOS <13 используется зафиксированная legacy cask Multipass `1.14.1`;
    - если `prepare`/`up` запущен с Rich progress и установка host-зависимостей требует интерактивный ввод (например, подтверждение установки MSYS2 на Windows или `sudo` внутри Homebrew installer), progress временно приостанавливается, чтобы prompt и ввод работали в обычном терминальном режиме;
-   - если нет ни `apt-get`, ни `pacman`, ни поддерживаемого `brew` на macOS, завершает `prepare` ошибкой о неподдерживаемом host package manager.
+   - если Linux family и единственный подходящий package manager определить не удалось либо нет поддерживаемого `brew` на macOS, завершает `prepare` ошибкой о неподдерживаемом или неоднозначном host package manager.
 7. Проверяет наличие `ssh-keygen`; на поддерживаемом Linux ставит только отсутствующий OpenSSH client package (`openssh-client` на Debian-based, `openssh` на Arch Linux), если `ssh-keygen` не найден.
 8. Проверяет наличие `rsync`; если он не найден, ставит `rsync` через пакетный менеджер на поддерживаемом Linux или через `brew install rsync` на macOS.
 9. При запуске внешних host-утилит (`multipass`, `rsync`, `ssh`, `ssh-keygen`) сначала использует имя команды из `PATH`, а на native Windows при отсутствии в `PATH` использует стандартные пути установки Multipass и MSYS2.
@@ -372,7 +375,7 @@ Behavior:
 14. На native Windows `prepare` остаётся host-side командой, но provisioning больше не блокируется: `create-vm`, `create-vms`, `install-agents` и `up` используют guest-side Ansible control node внутри целевой Ubuntu VM, поэтому upstream-ограничение Windows control node на хосте больше не мешает этим командам.
 
 Архитектура реализации:
-- `agsekit_cli/prepare_strategies.py` определяет host-platform через `choose_prepare()` и выбирает strategy-класс: `PrepareWin`, `PrepareMacBrew`, `PrepareLinuxDeb`, `PrepareLinuxArch` или базовый fallback `PrepareBase`;
+- `agsekit_cli/prepare_strategies.py` определяет host-platform через `choose_prepare()` и выбирает strategy-класс: `PrepareWin`, `PrepareMacBrew`, `PrepareLinuxDeb`, `PrepareLinuxArch` или базовый fallback `PrepareBase`; Linux family detection отделён от проверки доступности package manager и безопасно разбирает `os-release` как данные, не исполняя файл через shell;
 - `agsekit_cli/commands/prepare.py` остаётся CLI-обвязкой и вызывает единый `prepare_host()`, а платформенные отличия установки Multipass, `rsync`, `ssh-keygen`/MSYS2 инкапсулированы в соответствующем классе.
 
 #### `agsekit up [--config <path>] [--debug] [--prepare/--no-prepare] [--create-vms/--no-create-vms] [--install-agents/--no-install-agents]`
