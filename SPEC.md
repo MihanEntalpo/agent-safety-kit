@@ -48,7 +48,7 @@
 - монтирование директорий и запуск агентов внутри VM;
 - snapshot-like резервные копии на хосте;
 - установку базовых пакетов/агентов через Ansible;
-- управление локальным daemon-сервисом port-forwarding через `systemd` на Linux и `launchd` на macOS;
+- управление общим локальным daemon-контуром фоновых сервисов через `systemd` на Linux и `launchd` на macOS; port-forwarding является одной из функций этого контура;
 
 Инструмент не делает:
 - не обеспечивает криптографическую защиту данных и не заменяет полноценный секрет-менеджмент;
@@ -109,8 +109,8 @@
 - `agsekit_cli/state.py`
   - загрузка и санитизация внутреннего `state.yaml`;
   - pydantic-модель runtime-state;
-  - запись состояния обратно на диск при изменениях;
-  - фоновая periodic-проверка новых версий.
+  - межпроцессная файловая блокировка, перечитывание актуального state перед изменением и атомарная запись;
+  - фоновая periodic-проверка новой версии agsekit и суточное обновление latest-версий уникальных типов агентов из конфига.
 - `agsekit_cli/versioning.py`
   - определение текущей версии CLI;
   - сравнение версий;
@@ -151,7 +151,8 @@
 - `agsekit_cli/agents_modules/*`
   - базовый `BaseAgent` и отдельные классы по типам агентов (`AiderAgent`, `QwenAgent`, `ForgecodeAgent`, `CodexAgent`, ...);
   - единый registry поддерживаемых agent types;
-  - agent-specific логика `needs_nvm`, `build_shell_command`, `build_env` и другие runtime-особенности.
+  - agent-specific логика `needs_nvm`, `build_shell_command`, `build_env`, `check_latest_version` и другие runtime-особенности;
+  - каждый класс агента самостоятельно определяет latest устанавливаемую версию через соответствующий npm/PyPI/GitHub source.
 - `agsekit_cli/commands/*`
   - user-facing команды Click.
 - `agsekit_cli/ansible/*`
@@ -180,18 +181,18 @@
   - используется в `daemon install` и `up` только на Linux;
   - текущий systemd unit по-прежнему читает `~/.config/agsekit/systemd.env`, поэтому при кастомном каталоге CLI создаёт compatibility symlink из стандартного пути на фактический env-файл.
 - `portforward_config_check_interval_sec` (optional, default `10`, >0) — интервал перечитывания YAML-конфига командой `portforward`.
-  - применяется и при ручном запуске `agsekit portforward`, и в daemon-режиме, потому что backend запускает ту же CLI-команду.
+  - применяется и при ручном запуске `agsekit portforward`, и к управляемому daemon worker, потому что текущий backend запускает ту же CLI-команду.
 - `http_proxy_port_pool.start` / `http_proxy_port_pool.end` (optional, defaults `48000..49000`) — диапазон auto-port для временного локального HTTP proxy helper внутри VM.
   - используется только в `run`, когда effective `http_proxy` задан в upstream-режиме и `listen` явно не указан.
 - `state_file` (optional, default `~/.config/agsekit/state.yaml`) — путь к внутреннему state-файлу `agsekit`.
   - этот файл генерируется только самим `agsekit`;
   - в начале файла всегда пишется предупреждающий комментарий на английском;
   - при старте CLI state считывается, валидируется и санитизируется: неизвестные поля удаляются, отсутствующие поля заполняются дефолтами, некорректные значения заменяются дефолтными.
-- `check_new_version` (optional, default `true`) — включать ли периодическую проверку новых версий `agsekit` через `pip`.
-  - используется в `run` и в daemon-managed background portforward backend;
+- `check_new_version` (optional, default `true`) — включать ли периодическую проверку новой версии `agsekit` через `pip` и latest-версий типов агентов из конфига.
+  - используется в `run` и в общем фоновом daemon backend;
   - если выключено, фоновые проверки новой версии не запускаются.
-- `check_new_version_interval_sec` (optional, default `600`, >0) — период фоновой проверки новых версий `agsekit`.
-  - применяется в `run` и в daemon-managed background portforward backend.
+- `check_new_version_interval_sec` (optional, default `600`, >0) — период запуска фоновой команды проверки; запрос latest-версии каждого агента имеет собственный фиксированный TTL 24 часа, поэтому более частые запуски используют state-кэш.
+  - применяется в `run` и в общем фоновом daemon backend.
 
 ### 6.3.1 Внутренний `state.yaml`
 
@@ -200,11 +201,16 @@
 Текущая структура:
 - `current_version` — версия реально запущенного `agsekit`; обновляется при старте CLI и после `pip-upgrade`.
 - `last_Version` — последняя известная актуальная версия, найденная через `pip`; обновляется командой `check-new-version` и фоновыми periodic-проверками.
+- `agent_versions.<type>.latest_version` — последняя успешно найденная устанавливаемая версия типа агента.
+- `agent_versions.<type>.updated_at` — UTC timestamp последнего успешного обновления этой версии.
+
+За один запуск проверяются только уникальные типы агентов, присутствующие в выбранном конфиге; ранее закэшированные записи от других конфигов в общем state-файле сохраняются. Проверка не подключается к VM и не читает установленные там версии. Для `codex-glibc-prebuilt` asset-aware resolver выбирает релиз для текущей архитектуры хоста, а в state сохраняется одна результирующая версия без вложенного словаря архитектур.
 
 Behavior:
 - файл создаётся автоматически при первом запуске;
 - все записи в нём происходят только из `agsekit`;
-- при любом изменении state сериализуется обратно в YAML;
+- операции read-modify-write защищены отдельным lock-файлом `<state_file>.lock`, перед изменением state перечитывается с диска, а итоговый YAML записывается через temporary file + atomic replace;
+- при любом фактическом изменении state сериализуется обратно в YAML;
 - alias persisted field `last_Version` сохраняется именно в таком виде для совместимости текущего формата.
 
 ### 6.4 Секция `vms`
@@ -264,8 +270,8 @@ Behavior:
   - для каждого типа в registry хранится stable-версия; она используется только если профиль явно задаёт `version: stable`.
   - `aider` — установка через официальный aider installer; runtime-бинарник `aider`.
   - `forgecode` — установка через официальный Forge installer; по умолчанию при `run` получает `FORGE_TRACKER=false`, чтобы отключить телеметрию.
-  - `codex-glibc` — установка/сборка codex из исходников с установкой бинарника `codex-glibc`.
-  - `codex-glibc-prebuilt` — установка заранее собранного `codex-glibc` (glibc-compatible) из GitHub Releases проекта; по умолчанию берётся release tag, соответствующий requested/default version в формате `codex-glibc-rust-v<version>`, источник можно переопределить через `AGSEKIT_CODEX_GLIBC_PREBUILT_REPO`, `AGSEKIT_CODEX_GLIBC_PREBUILT_TAG`, `AGSEKIT_CODEX_GLIBC_PREBUILT_ASSET`; если имя ассета не задано явно, оно определяется по архитектуре VM (`codex-glibc-linux-amd64.gz` для `x86_64`, `codex-glibc-linux-arm64.gz` для `aarch64`/`arm64`); бинарник устанавливается отдельно под именем `codex-glibc-prebuilt` и может сосуществовать с `codex-glibc`.
+  - `codex-glibc` — установка/сборка codex из исходников с установкой бинарника `codex-glibc`; после проверки версии рядом устанавливается официальный `codex-code-mode-host` той же версии из upstream GitHub Release, если этот asset существует (старые версии без helper продолжают поддерживаться).
+  - `codex-glibc-prebuilt` — установка заранее собранного `codex-glibc` (glibc-compatible) из GitHub Releases проекта; по умолчанию берётся release tag, соответствующий requested/default version в формате `codex-glibc-rust-v<version>`, источник можно переопределить через `AGSEKIT_CODEX_GLIBC_PREBUILT_REPO`, `AGSEKIT_CODEX_GLIBC_PREBUILT_TAG`, `AGSEKIT_CODEX_GLIBC_PREBUILT_ASSET`; если имя ассета не задано явно, оно определяется по архитектуре VM (`codex-glibc-linux-amd64.gz` для `x86_64`, `codex-glibc-linux-arm64.gz` для `aarch64`/`arm64`); бинарник устанавливается отдельно под именем `codex-glibc-prebuilt` и может сосуществовать с `codex-glibc`, а рядом с ним устанавливается официальный version-matched `codex-code-mode-host`, если он опубликован для этой версии.
 - `version` (optional) — политика версии агента при установке.
   - если поле не задано, версия не фиксируется и installer использует upstream latest;
   - `stable` выбирает проверенную stable-версию этого agent type из registry;
@@ -706,7 +712,7 @@ Behavior:
 
 ### 8.7 Установка и запуск агентов
 
-#### `agsekit install-agents [--debug]`
+#### `agsekit install-agents [--upgrade [--force-check-versions]] [--debug]`
 Зачем:
 - установить agent CLI в VM через поддерживаемый playbook.
 
@@ -715,6 +721,13 @@ Behavior:
 - если `--all-vms` не задан и позиционный `<vm>` не передан, целевые VM берутся из `agents.<name>.vm + agents.<name>.vms` (если оба поля пустые — во все VM из секции `vms`);
 - определяет playbook по `agents.<name>.type`;
 - определяет политику версии по `agents.<name>.version`: отсутствие поля означает upstream latest без pin, `stable` означает registry stable-версию, semver — точный pin;
+- при `--upgrade` заменяет effective required version на `agent_versions.<type>.latest_version` из `state.yaml`, не выполняет сетевую проверку и не изменяет YAML-конфиг;
+  - до начала установок валидирует наличие cached latest для всех выбранных типов;
+  - при отсутствии записи завершает команду с предложением сначала выполнить `agsekit check-new-version`;
+- `--force-check-versions` допустим только вместе с `--upgrade`:
+  - игнорирует суточный TTL и перед установкой синхронно вызывает `check_latest_version` для уникальных типов выбранных targets;
+  - сохраняет новые version/timestamp в state и использует их как required versions;
+  - если хотя бы одна принудительная проверка завершилась ошибкой, не начинает установку и не использует старое cached-значение этого типа;
 - перед installer playbook идемпотентно проверяет SSH key bootstrap через Multipass-host helpers;
 - в рамках одного запуска `install-agents` кэширует результат SSH-подготовки по VM: после первого успешного bootstrap следующие installer playbook'и для той же VM повторно используют уже подготовленный доступ;
 - на Linux и macOS запускает Ansible installer через общий host-side runner и стандартный Ansible SSH transport;
@@ -732,6 +745,7 @@ Behavior:
   - для pinned-версии несовпадение переустанавливает агент до требуемой версии;
   - без pin уже установленный бинарник сохраняется, а установка выполняется только если бинарник отсутствует;
   - если указанная pinned-версия не существует upstream, команда падает явной ошибкой и не делает fallback на `latest`;
+  - в режиме `--upgrade` сравнение и переустановка используют cached latest как required version;
 - при запуске без аргументов в интерактивном TTY запрашивает выбор агента и цели установки;
 - при запуске без аргументов в non-interactive режиме требует явный выбор агента (ошибка `agent_required`).
 - при успешном standalone-запуске печатает явное итоговое сообщение:
@@ -822,7 +836,7 @@ Behavior:
   - если у ВМ раньше не было ни одного правила, а потом появились, поднимает SSH-туннель для этой ВМ;
   - если у ВМ были правила, но после изменения конфига не осталось ни одного, останавливает SSH-туннель для этой ВМ;
 - если в текущем валидном конфиге правил `port-forwarding` нет вообще, команда не завершается, а остаётся в режиме ожидания изменений конфига.
-- для запуска дочерних `ssh`-процессов пытается переиспользовать путь текущего запущенного `agsekit` (через `sys.argv[0]`), а если это невозможно, падает назад на `PATH` и затем на `sys.executable -m agsekit_cli.cli`; это нужно, чтобы `portforward` и daemon backend не зависели от наличия `~/.local/bin` в окружении.
+- для запуска дочерних `ssh`-процессов пытается переиспользовать путь текущего запущенного `agsekit` (через `sys.argv[0]`), а если это невозможно, падает назад на `PATH` и затем на `sys.executable -m agsekit_cli.cli`; это нужно, чтобы worker `portforward` общего daemon backend не зависел от наличия `~/.local/bin` в окружении.
 - при ошибке туннеля сообщает, что `remote`-проброс на порты ниже 1024 внутри VM может быть причиной (из-за ограничения sshd).
 
 #### `agsekit daemon install/uninstall/status`
@@ -848,6 +862,7 @@ Behavior:
 
 Важно по отношению к философии проекта:
 - daemon-контур отвечает за host-level background services; текущие backends регистрируют сервис, который поддерживает `portforward`.
+- имена существующих systemd unit и launchd label содержат `portforward` только как legacy identifier для обратной совместимости и не определяют архитектурную область ответственности daemon.
 
 ## 9. Внутренние алгоритмы, критичные для поведения
 
@@ -958,9 +973,9 @@ Dependency resolution выполняется кодом до запуска play
 - `cline.yml`: установка Node через nvm (с резолвом текущей LTS через `nvm version-remote --lts`, только если `node` ещё отсутствует) + exact npm version `cline@<version>`.
 - Node-based installer playbooks проверяют наличие `node` сначала в текущем `PATH`, а затем через `nvm use --silent default`, чтобы установленный через `nvm` Node считался уже готовым даже в non-login shell'е Ansible.
 - `claude.yml`: установка Node через nvm (с резолвом текущей LTS через `nvm version-remote --lts`, только если `node` ещё отсутствует) + exact npm version `@anthropic-ai/claude-code@<version>`.
-- `codex-glibc.yml`: установка `bubblewrap`, сборка из исходников `openai/codex` по точному Git tag `rust-v<version>`, использование Rust toolchain из общего файла `agsekit_cli/codex_rust_toolchain_version.txt`, локальное повышение rustc query recursion limit для upstream crate `codex-exec`, управление swap при нехватке памяти, установка бинарника `codex-glibc`, post-build проверка.
+- `codex-glibc.yml`: установка `bubblewrap`, сборка из исходников `openai/codex` по точному Git tag `rust-v<version>`, использование Rust toolchain из общего файла `agsekit_cli/codex_rust_toolchain_version.txt`, локальное повышение rustc query recursion limit для upstream crate `codex-exec`, управление swap при нехватке памяти, установка бинарника `codex-glibc`, post-build проверка и установка рядом официального `codex-code-mode-host` той же версии.
   - дополнительно ставится тот же `logrotate`-конфиг для `~/.codex/log/codex-tui.log`.
-- `codex-glibc-prebuilt.yml`: установка `bubblewrap`, разрешение подходящего GitHub Release проекта с выбором ассета по архитектуре целевой VM (`amd64`/`arm64`) и по точному release tag `codex-glibc-rust-v<version>`, затем установка опубликованного `codex-glibc` бинарника под именем `codex-glibc-prebuilt` без сборки в VM; release metadata резолвится controller-side через `ansible_playbook_python -m agsekit_cli.prebuilt ...` внутри `lookup('pipe', ...)`, чтобы этот шаг не наследовал remote SSH vars из playbook extra vars.
+- `codex-glibc-prebuilt.yml`: установка `bubblewrap`, разрешение подходящего GitHub Release проекта с выбором ассета по архитектуре целевой VM (`amd64`/`arm64`) и по точному release tag `codex-glibc-rust-v<version>`, затем установка опубликованного `codex-glibc` бинарника под именем `codex-glibc-prebuilt` без сборки в VM и официального version-matched `codex-code-mode-host` рядом с ним; release metadata резолвится controller-side через `ansible_playbook_python -m agsekit_cli.prebuilt ...` внутри `lookup('pipe', ...)`, чтобы этот шаг не наследовал remote SSH vars из playbook extra vars.
   - дополнительно ставится тот же `logrotate`-конфиг для `~/.codex/log/codex-tui.log`.
 
 ## 11. Локализация
@@ -996,7 +1011,7 @@ Dependency resolution выполняется кодом до запуска play
 ## 13. Ограничения и текущие особенности
 
 - Нельзя in-place менять `cpu/ram/disk` у уже созданной VM (только детект mismatch).
-- `shell` не включает автоматически порт-форвардинг; для постоянных туннелей используется `portforward`/`daemon`.
+- `shell` не включает автоматически порт-форвардинг; постоянные туннели создаёт worker `portforward`, который можно запускать вручную или под управлением общего daemon.
 - Источником истины для текущего поведения являются код и тесты.
 
 ## 14. Влияние на развитие проекта

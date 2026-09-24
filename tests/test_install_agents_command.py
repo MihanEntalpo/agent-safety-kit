@@ -1,6 +1,7 @@
 import json
 import sys
 from pathlib import Path
+from types import SimpleNamespace
 from typing import Dict, Optional
 
 import pytest
@@ -33,6 +34,7 @@ def _write_config(
     agent_proxychains: Optional[Dict[str, str]] = None,
     agent_vm: Optional[Dict[str, str]] = None,
     agent_vms: Optional[Dict[str, object]] = None,
+    agent_versions: Optional[Dict[str, str]] = None,
 ) -> None:
     defined_vm_names = vm_names if vm_names else ["agent"]
     vm_entries: list[str] = []
@@ -44,6 +46,7 @@ def _write_config(
     proxychains_by_agent = agent_proxychains or {}
     vm_by_agent = agent_vm or {}
     vms_by_agent = agent_vms or {}
+    versions_by_agent = agent_versions or {}
     agent_entries = []
     for name, agent_type in agents:
         proxychains_line = ""
@@ -51,8 +54,9 @@ def _write_config(
             proxychains_line = f"    proxychains: {json.dumps(proxychains_by_agent[name])}\n"
         vm_line = f"    vm: {json.dumps(vm_by_agent[name])}\n" if name in vm_by_agent else ""
         vms_line = f"    vms: {json.dumps(vms_by_agent[name])}\n" if name in vms_by_agent else ""
+        version_line = f"    version: {json.dumps(versions_by_agent[name])}\n" if name in versions_by_agent else ""
         agent_entries.append(
-            f"  {name}:\n    type: {agent_type}\n{vm_line}{vms_line}{proxychains_line}    env:\n      TOKEN: abc"
+            f"  {name}:\n    type: {agent_type}\n{vm_line}{vms_line}{version_line}{proxychains_line}    env:\n      TOKEN: abc"
         )
     joined_agent_entries = "\n".join(agent_entries)
 
@@ -92,7 +96,7 @@ def test_install_agents_defaults_to_single_agent(monkeypatch, tmp_path):
 
 def test_install_agents_skips_reinstall_when_required_version_is_already_installed(monkeypatch, tmp_path):
     config_path = tmp_path / "config.yaml"
-    _write_config(config_path, [("qwen", "qwen")])
+    _write_config(config_path, [("qwen", "qwen")], agent_versions={"qwen": "0.15.11"})
     calls = []
 
     monkeypatch.setattr(install_agents_module, "_installed_agent_version", lambda *_args, **_kwargs: "0.15.11")
@@ -108,7 +112,7 @@ def test_install_agents_skips_reinstall_when_required_version_is_already_install
 
 def test_install_agents_reinstalls_when_version_mismatch(monkeypatch, tmp_path):
     config_path = tmp_path / "config.yaml"
-    _write_config(config_path, [("qwen", "qwen")])
+    _write_config(config_path, [("qwen", "qwen")], agent_versions={"qwen": "0.15.11"})
     calls = []
 
     monkeypatch.setattr(install_agents_module, "_installed_agent_version", lambda *_args, **_kwargs: "0.15.10")
@@ -130,6 +134,119 @@ def test_install_agents_reinstalls_when_version_mismatch(monkeypatch, tmp_path):
         )
     ]
     assert "has version 0.15.10, expected 0.15.11" in result.output
+
+
+def test_install_agents_upgrade_uses_cached_latest_version(monkeypatch, tmp_path):
+    config_path = tmp_path / "config.yaml"
+    _write_config(config_path, [("qwen", "qwen")])
+    calls = []
+    cached = SimpleNamespace(latest_version="0.99.0", updated_at="2026-09-21T12:00:00Z")
+    manager = SimpleNamespace(get_agent_version=lambda agent_type: cached if agent_type == "qwen" else None)
+    monkeypatch.setattr(install_agents_module, "initialize_state", lambda _path: manager)
+    monkeypatch.setattr(install_agents_module, "_installed_agent_version", lambda *_args, **_kwargs: "0.15.10")
+
+    def fake_run_install_playbook(vm, playbook_path: Path, proxychains=None, **kwargs) -> None:
+        calls.append(kwargs.get("extra_vars_overrides"))
+
+    monkeypatch.setattr(install_agents_module, "_run_install_playbook", fake_run_install_playbook)
+
+    result = _invoke_command(
+        CliRunner(),
+        install_agents_command,
+        ["--config", str(config_path), "--upgrade"],
+    )
+
+    assert result.exit_code == 0
+    assert calls == [{"agent_version": "0.99.0", "force_reinstall": True}]
+
+
+def test_install_agents_upgrade_requires_cached_latest_version(monkeypatch, tmp_path):
+    config_path = tmp_path / "config.yaml"
+    _write_config(config_path, [("qwen", "qwen")])
+    manager = SimpleNamespace(get_agent_version=lambda _agent_type: None)
+    monkeypatch.setattr(install_agents_module, "initialize_state", lambda _path: manager)
+
+    result = _invoke_command(
+        CliRunner(),
+        install_agents_command,
+        ["--config", str(config_path), "--upgrade"],
+    )
+
+    assert result.exit_code != 0
+    assert "Run `agsekit check-new-version` first" in result.output
+
+
+def test_install_agents_force_check_versions_refreshes_selected_types(monkeypatch, tmp_path):
+    config_path = tmp_path / "config.yaml"
+    _write_config(config_path, [("qwen-one", "qwen"), ("qwen-two", "qwen")])
+    cached = SimpleNamespace(latest_version="0.99.0", updated_at="2026-09-21T12:00:00Z")
+    manager = SimpleNamespace(get_agent_version=lambda agent_type: cached if agent_type == "qwen" else None)
+    refresh_calls = []
+    install_calls = []
+    monkeypatch.setattr(install_agents_module, "initialize_state", lambda _path: manager)
+    monkeypatch.setattr(
+        install_agents_module,
+        "refresh_agent_versions",
+        lambda agent_types, *, force: refresh_calls.append((agent_types, force)) or {},
+    )
+    monkeypatch.setattr(
+        install_agents_module,
+        "_run_install_playbook",
+        lambda *_args, **kwargs: install_calls.append(kwargs["extra_vars_overrides"]),
+    )
+
+    result = _invoke_command(
+        CliRunner(),
+        install_agents_command,
+        ["--config", str(config_path), "--all-agents", "--upgrade", "--force-check-versions"],
+    )
+
+    assert result.exit_code == 0
+    assert refresh_calls == [({"qwen"}, True)]
+    assert [call["agent_version"] for call in install_calls] == ["0.99.0", "0.99.0"]
+
+
+def test_install_agents_force_check_versions_requires_upgrade(tmp_path):
+    config_path = tmp_path / "config.yaml"
+    _write_config(config_path, [("qwen", "qwen")])
+
+    result = _invoke_command(
+        CliRunner(),
+        install_agents_command,
+        ["--config", str(config_path), "--force-check-versions"],
+    )
+
+    assert result.exit_code != 0
+    assert "can only be used together with --upgrade" in result.output
+
+
+def test_install_agents_force_check_versions_does_not_fall_back_to_stale_cache(monkeypatch, tmp_path):
+    config_path = tmp_path / "config.yaml"
+    _write_config(config_path, [("qwen", "qwen")])
+    cached = SimpleNamespace(latest_version="0.99.0", updated_at="2026-09-21T12:00:00Z")
+    manager = SimpleNamespace(get_agent_version=lambda _agent_type: cached)
+    install_calls = []
+    monkeypatch.setattr(install_agents_module, "initialize_state", lambda _path: manager)
+    monkeypatch.setattr(
+        install_agents_module,
+        "refresh_agent_versions",
+        lambda _agent_types, *, force: {"qwen": "registry unavailable"},
+    )
+    monkeypatch.setattr(
+        install_agents_module,
+        "_run_install_playbook",
+        lambda *args, **kwargs: install_calls.append((args, kwargs)),
+    )
+
+    result = _invoke_command(
+        CliRunner(),
+        install_agents_command,
+        ["--config", str(config_path), "--upgrade", "--force-check-versions"],
+    )
+
+    assert result.exit_code != 0
+    assert "qwen: registry unavailable" in result.output
+    assert install_calls == []
 
 
 def test_install_agents_passes_configured_ssh_keys_folder(monkeypatch, tmp_path):
@@ -710,7 +827,11 @@ def test_log_failed_command_halts_progress_before_printing(capsys):
 
 def test_install_agents_reuses_node_setup_per_vm_within_one_run(monkeypatch, tmp_path):
     config_path = tmp_path / "config.yaml"
-    _write_config(config_path, [("codex_main", "codex"), ("qwen_main", "qwen")])
+    _write_config(
+        config_path,
+        [("codex_main", "codex"), ("qwen_main", "qwen")],
+        agent_versions={"codex_main": "0.130.0", "qwen_main": "0.15.11"},
+    )
 
     calls = []
 

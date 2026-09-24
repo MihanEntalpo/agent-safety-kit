@@ -23,7 +23,7 @@ global:
   systemd_env_folder: null
   # Override the generated internal state file, default ~/.config/agsekit/state.yaml
   state_file: null
-  # How often the port forwarding daemon checks configuration, by default every 10 seconds
+  # How often the portforward worker reloads configuration, by default every 10 seconds
   portforward_config_check_interval_sec: 10
   # Whether agsekit should periodically check for new versions through pip
   check_new_version: true
@@ -154,19 +154,19 @@ agents:
 * `global.state_file`
   * Specifies the path to agsekit's generated internal state file
   * The file is not meant to be edited by hand; agsekit writes it automatically and keeps a warning comment at the top
-  * The state currently stores the running version (`current_version`) and the latest known version discovered through `pip` (`last_Version`)
+  * The state stores the running/latest agsekit versions and the latest installable versions of configured agent types with their UTC refresh timestamps
   * Default: `~/.config/agsekit/state.yaml`
 * `global.portforward_config_check_interval_sec`
   * How often the configuration should be reread so that when the port list changes, SSH tunnels are changed
-  * The `agsekit portforward` command and the daemon started through `agsekit daemon start` perform port forwarding, and when the configuration changes, dynamically update ports
+  * The `agsekit portforward` command performs port forwarding and dynamically updates tunnels when the configuration changes; the agsekit daemon currently manages this command as one of its background workers
   * See [Port Forwarding](networking.md#port-forwarding) and [portforward](commands/networking.md)
 * `global.check_new_version`
-  * Enables or disables periodic `pip`-based checks for newer agsekit versions
-  * Used by `agsekit run` and by the daemon-managed background portforward process
+  * Enables or disables periodic checks for newer agsekit and configured-agent versions
+  * Used by `agsekit run` and by the agsekit background daemon
   * Default: `true`
 * `global.check_new_version_interval_sec`
-  * How often agsekit should check for a newer version in background loops
-  * Used by `agsekit run` and by the daemon-managed background portforward process
+  * How often agsekit should launch the background checker; each successfully refreshed agent type has a separate fixed 24-hour cache lifetime
+  * Used by `agsekit run` and by the agsekit background daemon
   * Default: `600`
 * `global.http_proxy_port_pool`
   * Port range from which a port is selected when launching a proxy server
@@ -182,6 +182,8 @@ Current fields:
 
 - `current_version` — the version of the currently running agsekit CLI
 - `last_Version` — the latest version last discovered through `agsekit check-new-version` or a background check
+- `agent_versions.<type>.latest_version` — the latest installable version found for a unique agent type present in the config
+- `agent_versions.<type>.updated_at` — the UTC timestamp of that successful refresh
 
 Behavior:
 
@@ -189,7 +191,8 @@ Behavior:
 - agsekit sanitizes it on load through a Pydantic model;
 - unknown keys are removed;
 - missing or invalid values are replaced with defaults;
-- every state change is immediately written back to YAML.
+- state read-modify-write operations use an inter-process lock file;
+- changes are written through an atomic file replacement, preserving updates made by concurrent agsekit processes.
 * `vms`
   * Set of virtual machines; there can be any number of virtual machines, but at least one
 * `vms.<vm_name>`

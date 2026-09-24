@@ -19,8 +19,8 @@ Agent versions come from `agents.<name>.version`. If the field is omitted, `agse
 ## Commands
 
 ```bash
-agsekit install-agents <agent_name> [<vm>|--all-vms] [--config <path>] [--proxychains <value>] [--debug]
-agsekit install-agents --all-agents [--all-vms] [--config <path>] [--proxychains <value>] [--debug]
+agsekit install-agents <agent_name> [<vm>|--all-vms] [--upgrade [--force-check-versions]] [--config <path>] [--proxychains <value>] [--debug]
+agsekit install-agents --all-agents [--all-vms] [--upgrade [--force-check-versions]] [--config <path>] [--proxychains <value>] [--debug]
 ```
 
 ## Target Selection Rules
@@ -42,6 +42,8 @@ By default, install-agents uses proxychains from the VM configuration, which can
 agsekit install-agents qwen
 agsekit install-agents qwen agent-ubuntu
 agsekit install-agents --all-agents --all-vms
+agsekit install-agents --all-agents --upgrade
+agsekit install-agents codex --upgrade --force-check-versions
 agsekit install-agents claude --debug
 ```
 
@@ -49,11 +51,17 @@ agsekit install-agents claude --debug
 
 Before running a playbook, `agsekit` asks an existing agent binary for its version. For a pinned version, a match skips installation and a mismatch triggers reinstall. Without a pin, any existing binary is kept and only a missing agent is installed.
 
+With `--upgrade`, the configured pin is temporarily replaced by the latest version cached for that agent type in `state.yaml`. The command does not contact npm, PyPI, or GitHub itself; run `agsekit check-new-version` first if the cache has not been populated. A matching installed version is skipped, while an older or otherwise different version is reinstalled. The YAML config is not modified.
+
+`--force-check-versions` can only be used together with `--upgrade`. It bypasses the 24-hour cache for the selected unique agent types, queries their upstream sources immediately, writes successful results to `state.yaml`, and then installs those freshly resolved versions. If any selected type cannot be refreshed, installation stops instead of falling back to its stale cached value.
+
 For Node-based agents (`codex`, `qwen`, `opencode`, `claude`, `cline`), if `node` is missing, the installer resolves the current Node.js LTS through `nvm version-remote --lts` and installs that exact version. If Node.js is already present, the installer keeps the existing version and does not auto-upgrade it just because a newer LTS appeared.
 
 For the same Node-based agents, the installer checks for an existing Node.js both in the current `PATH` and through `nvm use --silent default`, so a Node version that is already installed through `nvm` does not trigger a redundant reinstall just because Ansible is running in a non-login shell. When multiple Node-based agents are installed into the same VM in one `install-agents` run, `agsekit` remembers after the first successful installer that `nvm` and Node.js are already ready in that VM and passes flags to later installer playbooks so they skip repeated `nvm`/Node preparation.
 
 For `codex-glibc-prebuilt`, agsekit resolves the exact GitHub release tag that corresponds to the requested version. For `codex-glibc`, it clones the exact matching Git tag before building.
+
+Both `codex-glibc` installers also download the version-matched official `codex-code-mode-host` release asset, when that Codex release provides one, and install it beside the main binary. New Codex versions require this helper for Code Mode tool and filesystem operations; the upstream MUSL build can be used unchanged and does not need the glibc/proxy rebuild applied to the main binary. Older releases without this asset remain installable.
 
 If the requested version does not exist upstream, installation fails explicitly instead of silently falling back to `latest`.
 

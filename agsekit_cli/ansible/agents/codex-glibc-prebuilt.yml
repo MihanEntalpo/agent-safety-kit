@@ -52,8 +52,7 @@
               (ansible_playbook_python | quote)
               ~ ' -m agsekit_cli.prebuilt resolve-codex-glibc-prebuilt --arch '
               ~ (codex_prebuilt_arch | quote)
-              ~ ' --tag '
-              ~ (('--tag ' ~ ('codex-glibc-rust-v' ~ requested_agent_version)) if requested_agent_version else '')
+              ~ ((' --tag ' ~ ('codex-glibc-rust-v' ~ requested_agent_version)) if requested_agent_version else '')
             ) | from_json
           }}
 
@@ -149,3 +148,6 @@
       ansible.builtin.command: "{{ codex_install_path }} --version"
       register: codex_version_check
       changed_when: false
+
+    - name: Install version-matched Codex Code Mode host
+      ansible.builtin.include_tasks: "{{ playbook_dir }}/codex_code_mode_host.yml"

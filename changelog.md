@@ -1,5 +1,13 @@
 # Agent-Safety-Kit versions history
 
+## 1.7.4 - Cached agent version discovery and upgrades
+
+* Fixed `codex-glibc` and `codex-glibc-prebuilt` installations to provision the official version-matched `codex-code-mode-host` helper beside the main binary when the upstream release provides it, restoring Code Mode tool and filesystem operations in Codex versions that require the helper while retaining support for older releases
+* Added daily latest-version discovery for the unique configured agent types, persisted with UTC refresh timestamps in the generated state file and protected by an inter-process file lock with atomic writes
+* Added `install-agents --upgrade`, which upgrades selected agents to the latest versions cached in `state.yaml` without making registry requests during installation
+* Added `install-agents --upgrade --force-check-versions` to bypass the daily agent-version cache, refresh selected agent types from upstream immediately, and stop instead of using stale versions when a forced refresh fails
+* Fixed invalid YAML syntax in the Claude installer playbook
+
 ## 1.7.3 - Reliable Linux distribution detection
 
 * Changed Linux host preparation to detect Debian-based and Arch-based distributions from `ID` / `ID_LIKE` in `os-release`, with an unambiguous package-manager fallback when distribution metadata is unavailable

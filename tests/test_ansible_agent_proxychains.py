@@ -131,9 +131,40 @@ def test_codex_glibc_prebuilt_installer_tasks_run_via_proxychains_prefix():
     assert "lookup(" in resolve_fact
     assert "'pipe'" in resolve_fact
     assert "agsekit_cli.prebuilt resolve-codex-glibc-prebuilt --arch" in resolve_fact
-    assert "--tag" in resolve_fact
+    assert "(' --tag ' ~" in resolve_fact
     assert "ansible_playbook_python" in resolve_fact
     assert "codex_prebuilt_arch" in resolve_fact
     assert download_task["ansible.builtin.command"].startswith("{{ proxychains_prefix }}curl ")
     assert "environment" not in download_task
     assert verify_task["ansible.builtin.command"] == "{{ codex_install_path }} --version"
+
+
+def test_codex_glibc_installers_install_version_matched_code_mode_host():
+    helper_tasks = _load_yaml(Path("agsekit_cli/ansible/agents/codex_code_mode_host.yml"))
+    download_task = next(
+        item for item in helper_tasks if item["name"] == "Download version-matched Codex Code Mode host"
+    )
+    install_task = next(
+        item for item in helper_tasks if item["name"] == "Install Codex Code Mode host beside Codex binary"
+    )
+    verify_task = next(item for item in helper_tasks if item["name"] == "Verify Codex Code Mode host works")
+
+    download_command = download_task["ansible.builtin.command"]
+    assert download_command.startswith("{{ proxychains_prefix }}curl ")
+    assert "releases/download/rust-v{{ codex_code_mode_host_version }}" in download_command
+    assert "codex-code-mode-host-{{ codex_code_mode_host_target }}.tar.gz" in download_command
+    assert "%{http_code}" in download_command
+    assert download_task["failed_when"] == [
+        "codex_code_mode_host_download.rc != 0",
+        'codex_code_mode_host_download.stdout | trim != "404"',
+    ]
+    assert "codex-code-mode-host" in install_task["ansible.builtin.shell"]
+    assert install_task["when"] == "codex_code_mode_host_download.rc == 0"
+    assert verify_task["ansible.builtin.command"] == "{{ codex_code_mode_host_path }} --help"
+    assert verify_task["when"] == "codex_code_mode_host_download.rc == 0"
+
+    for playbook_name in ("codex-glibc.yml", "codex-glibc-prebuilt.yml"):
+        playbook = _load_yaml(Path("agsekit_cli/ansible/agents") / playbook_name)
+        tasks = playbook[1]["tasks"]
+        include_task = next(item for item in tasks if item["name"] == "Install version-matched Codex Code Mode host")
+        assert include_task["ansible.builtin.include_tasks"] == "{{ playbook_dir }}/codex_code_mode_host.yml"

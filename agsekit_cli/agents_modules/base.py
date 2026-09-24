@@ -34,6 +34,12 @@ class BaseAgent:
         return bool(cls._needs_nvm)
 
     @classmethod
+    def check_latest_version(cls, *, architecture: Optional[str] = None, timeout: float = 30.0) -> str:
+        del architecture
+        del timeout
+        raise NotImplementedError(f"Latest-version lookup is not implemented for {cls.type_name}")
+
+    @classmethod
     def playbook_name(cls) -> str:
         if cls.installer_playbook:
             return cls.installer_playbook

@@ -47,8 +47,8 @@ def test_daemon_install_command_is_quiet_without_debug(monkeypatch, tmp_path):
     assert result.exit_code == 0
     assert backend.calls == [("install", config_path, Path.cwd(), False)]
     assert result.output.splitlines() == [
-        "Installing/updating portforward daemon...",
-        "Portforward daemon installed successfully.",
+        "Installing/updating agsekit daemon...",
+        "Agsekit daemon installed successfully.",
     ]
 
 

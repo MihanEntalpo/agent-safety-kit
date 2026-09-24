@@ -29,7 +29,7 @@ def test_agent_playbooks_do_not_define_hardcoded_default_versions() -> None:
     agent_playbooks = sorted(
         playbook
         for playbook in agents_dir.glob("*.yml")
-        if playbook.name not in {"proxychains.yml", "codex_logrotate.yml"}
+        if playbook.name not in {"proxychains.yml", "codex_logrotate.yml", "codex_code_mode_host.yml"}
     )
 
     for playbook in agent_playbooks:

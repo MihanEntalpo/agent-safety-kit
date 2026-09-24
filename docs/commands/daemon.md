@@ -12,7 +12,7 @@
 
 ## Purpose
 
-Manage background services, including the service that keeps `agsekit portforward` running.
+Manage the agsekit background daemon and the workers it runs. Port forwarding is currently one daemon function rather than the daemon's identity.
 
 Platform backend:
 
@@ -56,9 +56,11 @@ On macOS:
   - `~/Library/Logs/agsekit/daemon.stderr.log`
 - bootstraps and starts the `launchd` job
 
-In both cases, the daemon stores the absolute path to the current `agsekit` CLI, and `portforward` reuses that same installation for child `ssh` tunnel processes instead of depending on `PATH`.
+In both cases, the daemon stores the absolute path to the current `agsekit` CLI. Its current portforward worker reuses that same installation for child `ssh` tunnel processes instead of depending on `PATH`.
 
-The daemon backend explicitly enables the periodic new-version checker for its managed `portforward` process: when `global.check_new_version` is enabled, that daemon-managed process periodically launches `agsekit check-new-version` using `global.check_new_version_interval_sec`.
+The daemon backend also enables the periodic new-version checker: when `global.check_new_version` is enabled, the background service periodically launches `agsekit check-new-version` using `global.check_new_version_interval_sec`. The command also refreshes due cached versions for the unique configured agent types; each successfully refreshed agent entry has a 24-hour TTL.
+
+The existing systemd unit and launchd label retain their legacy `portforward` names for compatibility. Those identifiers do not limit the daemon to port forwarding.
 
 ## `status`
 

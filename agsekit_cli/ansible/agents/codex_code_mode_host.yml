@@ -1,0 +1,52 @@
+---
+- name: Extract installed Codex version for Code Mode host
+  ansible.builtin.set_fact:
+    codex_code_mode_host_version: >-
+      {{ codex_version_check.stdout | regex_search('[0-9]+\.[0-9]+\.[0-9]+(?:[-+][0-9A-Za-z.-]+)?') }}
+
+- name: Fail when installed Codex version cannot be determined
+  ansible.builtin.fail:
+    msg: >-
+      Could not determine the installed Codex version from: {{ codex_version_check.stdout }}
+  when: not codex_code_mode_host_version
+
+- name: Determine Codex Code Mode host release target
+  ansible.builtin.set_fact:
+    codex_code_mode_host_target: >-
+      {{ 'aarch64-unknown-linux-musl' if ansible_architecture in ['aarch64', 'arm64'] else 'x86_64-unknown-linux-musl' }}
+    codex_code_mode_host_path: "{{ codex_install_path | dirname }}/codex-code-mode-host"
+
+- name: Remove previous Codex Code Mode host download
+  ansible.builtin.file:
+    path: /tmp/codex-code-mode-host.tar.gz
+    state: absent
+
+- name: Download version-matched Codex Code Mode host
+  ansible.builtin.command: >-
+    {{ proxychains_prefix }}curl -fsSL --write-out %{http_code}
+    "https://github.com/openai/codex/releases/download/rust-v{{ codex_code_mode_host_version }}/codex-code-mode-host-{{ codex_code_mode_host_target }}.tar.gz"
+    -o /tmp/codex-code-mode-host.tar.gz
+  register: codex_code_mode_host_download
+  changed_when: codex_code_mode_host_download.rc == 0
+  failed_when:
+    - codex_code_mode_host_download.rc != 0
+    - codex_code_mode_host_download.stdout | trim != "404"
+
+- name: Install Codex Code Mode host beside Codex binary
+  ansible.builtin.shell: |
+    set -euo pipefail
+    rm -rf /tmp/codex-code-mode-host-extract
+    mkdir -p /tmp/codex-code-mode-host-extract
+    tar -xzf /tmp/codex-code-mode-host.tar.gz -C /tmp/codex-code-mode-host-extract
+    helper="/tmp/codex-code-mode-host-extract/codex-code-mode-host-{{ codex_code_mode_host_target }}"
+    test -f "$helper"
+    {{ 'sudo ' if codex_install_mode == 'system' else '' }}install -m 0755 "$helper" "{{ codex_code_mode_host_path }}"
+    rm -rf /tmp/codex-code-mode-host-extract /tmp/codex-code-mode-host.tar.gz
+  args:
+    executable: /bin/bash
+  when: codex_code_mode_host_download.rc == 0
+
+- name: Verify Codex Code Mode host works
+  ansible.builtin.command: "{{ codex_code_mode_host_path }} --help"
+  changed_when: false
+  when: codex_code_mode_host_download.rc == 0

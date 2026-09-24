@@ -263,6 +263,9 @@
       register: codex_version_check
       changed_when: false
 
+    - name: Install version-matched Codex Code Mode host
+      ansible.builtin.include_tasks: "{{ playbook_dir }}/codex_code_mode_host.yml"
+
     - name: Cleanup rust and cargo toolchains used for build
       ansible.builtin.shell: |
         set -euo pipefail

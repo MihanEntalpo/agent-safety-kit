@@ -34,6 +34,7 @@ from ..interactive import is_interactive_terminal
 from ..i18n import tr
 from ..progress import ProgressManager
 from ..provision_handlers import PreparedVmSsh, choose_provision_handler
+from ..state import initialize_state, refresh_agent_versions
 from ..vm import MultipassError, ensure_multipass_available, resolve_proxychains
 from ..vm_prepare import _ensure_vm_ssh_access, _fetch_vm_ips, ensure_host_ssh_keypair, vm_ssh_ansible_vars
 from . import debug_option, non_interactive_option
@@ -246,6 +247,8 @@ def run_install_agents(
     debug: bool,
     interactive: bool,
     progress: Optional[ProgressManager] = None,
+    upgrade: bool = False,
+    force_check_versions: bool = False,
 ) -> None:
     with debug_scope(debug):
         if not progress:
@@ -253,6 +256,8 @@ def run_install_agents(
 
         if all_agents and agent_name:
             raise click.ClickException(tr("install_agents.agent_conflict"))
+        if force_check_versions and not upgrade:
+            raise click.ClickException(tr("install_agents.force_check_requires_upgrade"))
 
         resolved_path = resolve_config_path(Path(config_path) if config_path else None)
         try:
@@ -307,6 +312,31 @@ def run_install_agents(
                             raise click.ClickException(tr("install_agents.vm_missing", vm_name=target_vm_name))
                         targets.append((agent.name, vms_config[target_vm_name]))
 
+        upgrade_versions: Dict[str, str] = {}
+        if upgrade:
+            state_manager = initialize_state(resolved_path)
+            selected_agent_types = {
+                find_agent(agents_config, target_agent_name).type
+                for target_agent_name, _target_vm in targets
+            }
+            if force_check_versions:
+                errors = refresh_agent_versions(selected_agent_types, force=True)
+                if errors:
+                    details = "; ".join(
+                        f"{agent_type}: {message}" for agent_type, message in sorted(errors.items())
+                    )
+                    raise click.ClickException(
+                        tr("install_agents.force_check_failed", errors=details)
+                    )
+            for target_agent_name in dict.fromkeys(name for name, _vm in targets):
+                target_agent = find_agent(agents_config, target_agent_name)
+                cached = state_manager.get_agent_version(target_agent.type)
+                if cached is None:
+                    raise click.ClickException(
+                        tr("install_agents.upgrade_version_missing", agent_type=target_agent.type)
+                    )
+                upgrade_versions[target_agent.type] = cached.latest_version
+
         if progress is None:
             with ProgressManager(debug=debug) as owned_progress:
                 _run_install_targets(
@@ -317,6 +347,7 @@ def run_install_agents(
                     debug=debug,
                     progress=owned_progress,
                     show_overall_task=True,
+                    upgrade_versions=upgrade_versions,
                 )
             _emit_install_success(targets)
             return
@@ -329,6 +360,7 @@ def run_install_agents(
             debug=debug,
             progress=progress,
             show_overall_task=False,
+            upgrade_versions=upgrade_versions,
         )
 
 
@@ -341,6 +373,7 @@ def _run_install_targets(
     debug: bool,
     progress: ProgressManager,
     show_overall_task: bool,
+    upgrade_versions: Optional[Dict[str, str]] = None,
 ) -> None:
     overall_task = progress.add_task(tr("progress.install_agents_title"), total=len(targets)) if show_overall_task else None
     node_ready_vms: set[str] = set()
@@ -349,8 +382,9 @@ def _run_install_targets(
         agent = find_agent(agents_config, target_agent_name)
         agent_cls = get_agent_class(agent.type)
         playbook_path = _playbook_for(agent)
+        requested_version = upgrade_versions.get(agent.type) if upgrade_versions else agent.version
         installed_version = _installed_agent_version(agent, target_vm, debug=debug)
-        if agent.version is None and installed_version is not None:
+        if requested_version is None and installed_version is not None:
             click.echo(
                 tr(
                     "install_agents.version_unpinned",
@@ -363,14 +397,14 @@ def _run_install_targets(
             if overall_task is not None:
                 progress.advance(overall_task)
             continue
-        if agent.version is not None and installed_version == agent.version:
+        if requested_version is not None and installed_version == requested_version:
             click.echo(
                 tr(
                     "install_agents.version_ok",
                     agent_name=agent.name,
                     agent_type=agent.type,
                     vm_name=target_vm.name,
-                    version=agent.version or "latest",
+                    version=requested_version or "latest",
                 )
             )
             if overall_task is not None:
@@ -384,7 +418,7 @@ def _run_install_targets(
                     agent_name=agent.name,
                     agent_type=agent.type,
                     vm_name=target_vm.name,
-                    version=agent.version or "latest",
+                    version=requested_version or "latest",
                 )
             )
         else:
@@ -395,7 +429,7 @@ def _run_install_targets(
                     agent_type=agent.type,
                     vm_name=target_vm.name,
                     current_version=installed_version,
-                    required_version=agent.version or "latest",
+                    required_version=requested_version or "latest",
                 )
             )
         if debug:
@@ -405,7 +439,7 @@ def _run_install_targets(
                     agent_name=agent.name,
                     agent_type=agent.type,
                     vm_name=target_vm.name,
-                    version=agent.version or "latest",
+                    version=requested_version or "latest",
                     script=playbook_path.name,
                 )
             )
@@ -422,7 +456,7 @@ def _run_install_targets(
             if overall_task is not None:
                 progress.update(overall_task, description=install_label)
             extra_vars_overrides: Dict[str, object] = {
-                "agent_version": agent.version,
+                "agent_version": requested_version,
                 "force_reinstall": force_reinstall,
             }
             if agent_cls.needs_nvm() and target_vm.name in node_ready_vms:
@@ -467,6 +501,12 @@ def _run_install_targets(
 @click.argument("vm", required=False)
 @click.option("--all-vms", is_flag=True, help=tr("install_agents.option_all_vms"))
 @click.option("--all-agents", is_flag=True, help=tr("install_agents.option_all_agents"))
+@click.option("--upgrade", is_flag=True, help=tr("install_agents.option_upgrade"))
+@click.option(
+    "--force-check-versions",
+    is_flag=True,
+    help=tr("install_agents.option_force_check_versions"),
+)
 @click.option(
     "config_path",
     "--config",
@@ -487,6 +527,8 @@ def install_agents_command(
     vm: Optional[str],
     all_vms: bool,
     all_agents: bool,
+    upgrade: bool,
+    force_check_versions: bool,
     config_path: Optional[str],
     proxychains: Optional[str],
     debug: bool,
@@ -503,4 +545,6 @@ def install_agents_command(
         proxychains=proxychains,
         debug=debug,
         interactive=interactive,
+        upgrade=upgrade,
+        force_check_versions=force_check_versions,
     )

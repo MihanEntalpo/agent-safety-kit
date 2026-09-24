@@ -77,7 +77,7 @@ def run_daemon_status() -> None:
 
 @click.group(name="daemon", help=tr("daemon.group_help"))
 def daemon_group() -> None:
-    """Commands for managing the portforward daemon."""
+    """Commands for managing the agsekit background daemon."""
 
 
 @daemon_group.command(name="install", help=tr("daemon.install_help"))

@@ -30,6 +30,8 @@ The `install-agents` command selects the Ansible playbook for the required type 
 
 Agent versions are not pinned by default. Set `agents.<name>.version` to `stable` to use agsekit's known-good tested version, or set an exact semver version when reproducibility is required.
 
+Each agent type also knows how to query its latest installable upstream version. The daily version check runs only for the unique agent types present in the config and caches the result with its refresh timestamp in `state.yaml`. It does not inspect VMs. `install-agents --upgrade` uses this cache to upgrade selected agents without registry lookups during installation.
+
 Main patterns:
 
 - latest or exact npm CLI versions for `codex`, `qwen`, `opencode`, `claude`, and `cline`
@@ -59,6 +61,8 @@ Unfortunately, every agent is configured in its own way, so you need to look in 
 - `codex-glibc` and `codex-glibc-prebuilt` are separate binaries and can coexist with `codex`.
 - the release source for `codex-glibc-prebuilt` can be overridden through host environment variables.
 - when `install-agents` sees an already installed binary with a different version, it reinstalls that agent to reach the requested version from the config.
+- `install-agents --upgrade` temporarily uses the cached latest version instead of the configured pin and does not rewrite the config.
+- adding `--force-check-versions` to `--upgrade` refreshes selected types from upstream immediately and refuses stale-cache fallback when a refresh fails.
 
 ## See Also
 
