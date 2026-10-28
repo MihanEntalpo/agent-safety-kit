@@ -13,6 +13,7 @@ vms: # virtual machine settings (you can define multiple VMs)
     cpu: 2      # number of vCPUs
     ram: 4G     # amount of RAM
     disk: 20G   # disk size
+    old_default_mounts: false # true restores /home/ubuntu/<folder> suggestions during interactive mount creation
     allowed_agents: aider, qwen, forgecode, codex, opencode, claude, cline # optional: also accepts a list like [qwen, codex]; if omitted, all agents are allowed for this VM
     proxychains: "" # set a proxy URL (scheme://host:port); agsekit will generate a temporary proxychains.conf and wrap Multipass commands
     http_proxy: "" # optional shorthand for VM-local privoxy upstream (for example socks5://127.0.0.1:8181); for direct mode use a mapping with url:

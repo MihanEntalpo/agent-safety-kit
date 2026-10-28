@@ -12,7 +12,7 @@ import sys
 import time
 import uuid
 from pathlib import Path
-from typing import Callable, Optional
+from typing import Callable, Iterator, Optional
 
 import pytest
 import yaml
@@ -21,6 +21,7 @@ import yaml
 pytestmark = pytest.mark.host_integration
 
 REPO_ROOT = Path(__file__).resolve().parents[2]
+PROJECT_ROOT = Path.home() / ".agsekit-it-proxychains-projects"
 
 
 def _clean_env(overrides: Optional[dict[str, str]] = None) -> dict[str, str]:
@@ -122,6 +123,8 @@ def _write_config(
     vm_proxychains_url: Optional[str],
     agent_proxychains_url: Optional[str] = None,
 ) -> None:
+    project_source = PROJECT_ROOT / config_path.stem
+    project_source.mkdir(parents=True, exist_ok=True)
     vm_entry: dict[str, object] = {
         "cpu": 1,
         "ram": "1G",
@@ -146,7 +149,7 @@ def _write_config(
         "vms": {vm_name: vm_entry},
         "mounts": [
             {
-                "source": str(REPO_ROOT),
+                "source": str(project_source),
                 "vm": vm_name,
             }
         ],
@@ -306,11 +309,12 @@ def _run_agent(config_path: Path, cli_proxychains_url: Optional[str] = None) -> 
     if cli_proxychains_url is not None:
         args.extend(["--proxychains", cli_proxychains_url])
     args.append("qwen")
-    return _run_cli(args, check=False)
+    return _run_cli(args, check=False, cwd=PROJECT_ROOT / config_path.stem)
 
 
 @pytest.fixture(scope="module", autouse=True)
-def ensure_multipass_ready() -> None:
+def ensure_multipass_ready() -> Iterator[None]:
+    shutil.rmtree(PROJECT_ROOT, ignore_errors=True)
     _require_host_tools()
     if shutil.which("multipass") is None:
         _run_cli(["prepare", "--non-interactive"], check=True)
@@ -318,6 +322,8 @@ def ensure_multipass_ready() -> None:
     _skip_if_multipass_unusable(check)
     if check.returncode != 0:
         pytest.skip(check.stderr or check.stdout or "multipass is not ready")
+    yield
+    shutil.rmtree(PROJECT_ROOT, ignore_errors=True)
 
 
 def test_run_proxychains_priority_vm_agent_cli(tmp_path: Path) -> None:

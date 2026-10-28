@@ -8,7 +8,7 @@ import sys
 import time
 import uuid
 from pathlib import Path
-from typing import Dict, Optional
+from typing import Dict, Iterator, Optional
 
 import pytest
 import yaml
@@ -19,6 +19,7 @@ from agsekit_cli.config import AGENT_RUNTIME_BINARIES
 pytestmark = pytest.mark.host_integration
 
 REPO_ROOT = Path(__file__).resolve().parents[2]
+PROJECT_ROOT = Path.home() / ".agsekit-it-agent-types-projects"
 
 
 def _clean_env(overrides: Optional[Dict[str, str]] = None) -> Dict[str, str]:
@@ -169,7 +170,13 @@ test "${FORGE_TRACKER:-}" = "false"
     )
 
 
-def _write_config(config_path: Path, vm_name: str, agent_name: str, agent_type: str) -> None:
+def _project_source(config_path: Path) -> Path:
+    return PROJECT_ROOT / config_path.stem
+
+
+def _write_config(config_path: Path, vm_name: str, agent_name: str, agent_type: str) -> Path:
+    project_source = _project_source(config_path)
+    project_source.mkdir(parents=True, exist_ok=True)
     payload = {
         "vms": {
             vm_name: {
@@ -180,7 +187,7 @@ def _write_config(config_path: Path, vm_name: str, agent_name: str, agent_type: 
         },
         "mounts": [
             {
-                "source": str(REPO_ROOT),
+                "source": str(project_source),
                 "vm": vm_name,
             }
         ],
@@ -192,10 +199,12 @@ def _write_config(config_path: Path, vm_name: str, agent_name: str, agent_type: 
         },
     }
     config_path.write_text(yaml.safe_dump(payload, sort_keys=False), encoding="utf-8")
+    return project_source
 
 
 @pytest.fixture(scope="module", autouse=True)
-def ensure_multipass_ready() -> None:
+def ensure_multipass_ready() -> Iterator[None]:
+    shutil.rmtree(PROJECT_ROOT, ignore_errors=True)
     _require_host_tools()
     if shutil.which("multipass") is None:
         _run_cli(["prepare", "--non-interactive"], check=True)
@@ -203,6 +212,8 @@ def ensure_multipass_ready() -> None:
     _skip_if_multipass_unusable(check)
     if check.returncode != 0:
         pytest.skip(check.stderr or check.stdout or "multipass is not ready")
+    yield
+    shutil.rmtree(PROJECT_ROOT, ignore_errors=True)
 
 
 @pytest.fixture(scope="module")
@@ -238,7 +249,7 @@ def test_run_supported_agent_types(
     runtime_binary: str,
 ) -> None:
     config_path = tmp_path / f"config-{agent_type}.yaml"
-    _write_config(config_path, run_test_vm, agent_name, agent_type)
+    project_source = _write_config(config_path, run_test_vm, agent_name, agent_type)
 
     _install_dummy_agent_binary(run_test_vm, runtime_binary)
 
@@ -254,13 +265,14 @@ def test_run_supported_agent_types(
             agent_name,
         ],
         check=False,
+        cwd=project_source,
     )
     assert run_generic.returncode == 0, f"stdout={run_generic.stdout}\nstderr={run_generic.stderr}"
 
 
 def test_forgecode_disables_tracker_env(run_test_vm: str, tmp_path: Path) -> None:
     config_path = tmp_path / "config-forgecode.yaml"
-    _write_config(config_path, run_test_vm, "forgecode-main", "forgecode")
+    project_source = _write_config(config_path, run_test_vm, "forgecode-main", "forgecode")
 
     _install_dummy_forgecode_binary(run_test_vm)
 
@@ -275,6 +287,7 @@ def test_forgecode_disables_tracker_env(run_test_vm: str, tmp_path: Path) -> Non
             "forgecode-main",
         ],
         check=False,
+        cwd=project_source,
     )
 
     assert result.returncode == 0, f"stdout={result.stdout}\nstderr={result.stderr}"

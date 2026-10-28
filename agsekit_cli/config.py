@@ -66,6 +66,7 @@ class VmConfig:
     http_proxy: Optional["HttpProxyConfig"] = None
     allowed_agents: Optional[List[str]] = None
     install: List[str] = field(default_factory=list)
+    old_default_mounts: bool = False
 
 
 @dataclass
@@ -596,6 +597,10 @@ def load_vms_config(config: Dict[str, Any]) -> Dict[str, VmConfig]:
                 http_proxy=_normalize_http_proxy(raw_entry.get("http_proxy"), "vms.{vm_name}.http_proxy".format(vm_name=vm_name)),
                 allowed_agents=allowed_agents,
                 install=install_bundles,
+                old_default_mounts=_require_bool(
+                    raw_entry.get("old_default_mounts", False),
+                    f"vms.{vm_name}.old_default_mounts",
+                ),
             )
         except ValueError as exc:
             _raise_with_context(

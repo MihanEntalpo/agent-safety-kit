@@ -3,11 +3,12 @@ from __future__ import annotations
 import base64
 import json
 import shlex
+import shutil
 import signal
 import socket
 import subprocess
 from pathlib import Path
-from typing import Any, Dict, Optional
+from typing import Any, Dict, Iterator, Optional
 
 import pytest
 
@@ -36,6 +37,11 @@ PROXY_ENV_OVERRIDES = {
     "NO_PROXY": "",
     "no_proxy": "",
 }
+PROJECT_ROOT = Path.home() / ".agsekit-it-http-proxy-projects"
+
+
+def _project_source(config_path: Path) -> Path:
+    return PROJECT_ROOT / config_path.stem
 
 
 def _pick_free_port() -> int:
@@ -260,6 +266,8 @@ def _write_http_proxy_config(
     global_http_proxy_port_pool: Optional[Dict[str, int]] = None,
     socks_port: Optional[int] = None,
 ) -> None:
+    project_source = _project_source(config_path)
+    project_source.mkdir(parents=True, exist_ok=True)
     vm_entry: Dict[str, Any] = {
         "cpu": 1,
         "ram": "1G",
@@ -291,7 +299,7 @@ def _write_http_proxy_config(
         },
         "mounts": [
             {
-                "source": str(REPO_ROOT),
+                "source": str(project_source),
                 "vm": vm_name,
             }
         ],
@@ -307,9 +315,12 @@ def _write_http_proxy_config(
 
 
 @pytest.fixture(scope="module", autouse=True)
-def ensure_multipass_ready() -> None:
+def ensure_multipass_ready() -> Iterator[None]:
+    shutil.rmtree(PROJECT_ROOT, ignore_errors=True)
     require_host_tools()
     run_cli(["prepare", "--non-interactive"], check=True, env_overrides=PROXY_ENV_OVERRIDES)
+    yield
+    shutil.rmtree(PROJECT_ROOT, ignore_errors=True)
 
 
 @pytest.fixture(scope="module")
@@ -406,6 +417,7 @@ def test_run_with_direct_http_proxy_url(http_proxy_env) -> None:
     result = run_cli(
         ["run", "--config", str(config_path), "--disable-backups", "--auto-mount", "--non-interactive", "aider-http"],
         check=True,
+        cwd=_project_source(config_path),
         env_overrides=PROXY_ENV_OVERRIDES,
     )
     assert proxy_url in (result.stdout or "")
@@ -454,6 +466,7 @@ def test_run_with_upstream_http_proxy_uses_auto_pool_port(http_proxy_env) -> Non
         result = run_cli(
             ["run", "--config", str(config_path), "--disable-backups", "--auto-mount", "--non-interactive", "aider-http"],
             check=True,
+            cwd=_project_source(config_path),
             env_overrides=PROXY_ENV_OVERRIDES,
         )
         assert "http://127.0.0.1:{port}".format(port=pool_port) in (result.stdout or "")
@@ -493,6 +506,7 @@ def test_run_http_proxy_cli_override_wins_over_config(http_proxy_env) -> None:
             "aider-http",
         ],
         check=True,
+        cwd=_project_source(config_path),
         env_overrides=PROXY_ENV_OVERRIDES,
     )
     assert expected_proxy in (result.stdout or "")
@@ -545,6 +559,7 @@ def test_run_with_upstream_http_proxy_respects_explicit_listen(http_proxy_env) -
         result = run_cli(
             ["run", "--config", str(config_path), "--disable-backups", "--auto-mount", "--non-interactive", "aider-http"],
             check=True,
+            cwd=_project_source(config_path),
             env_overrides=PROXY_ENV_OVERRIDES,
         )
         assert "http://{listen}".format(listen=listen_addr) in (result.stdout or "")
@@ -567,6 +582,7 @@ def test_run_rejects_effective_http_proxy_with_effective_proxychains(http_proxy_
     result = run_cli(
         ["run", "--config", str(config_path), "--disable-backups", "--auto-mount", "--non-interactive", "aider-http"],
         check=False,
+        cwd=_project_source(config_path),
         env_overrides=PROXY_ENV_OVERRIDES,
     )
     assert result.returncode != 0

@@ -211,6 +211,11 @@ Behavior:
 * `vms.<vm_name>.cloud-init`
   * Full `cloud-init` configuration passed to `multipass launch` [create-vm / create-vms](commands/create-vm.md)
   * Can be omitted if no additional initial VM setup is needed
+* `vms.<vm_name>.old_default_mounts`
+  * Boolean compatibility switch for interactive mount creation
+  * `false` makes `addmount` and `config-gen` suggest the absolute host `source` path unchanged as `target`
+  * `true` restores the legacy `/home/ubuntu/<source_name>` suggestion for this VM
+  * Default: `false`
 * `vms.<vm_name>.proxychains`
   * Proxy URL for launching agents through `proxychains` in this VM, see [Proxychains](networking.md#proxychains)
   * Supported schemes are `http`, `https`, `socks4`, `socks5`
@@ -278,6 +283,8 @@ Behavior:
 * `mounts[].target`
   * Path inside the VM where `source` is mounted
   * If not specified, `/home/ubuntu/<source_name>` is used
+  * Interactive `addmount` and `config-gen` suggest the absolute `source` path itself, unless the selected VM has `old_default_mounts: true`
+  * Before mounting, agsekit creates missing path components in the VM as `ubuntu:ubuntu` with mode `0755`
 * `mounts[].allowed_agents`
   * List of agents allowed to work with this folder
   * See [run](commands/run.md)

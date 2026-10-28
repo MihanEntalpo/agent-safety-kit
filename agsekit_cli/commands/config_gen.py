@@ -201,6 +201,7 @@ def _prompt_vms() -> Dict[str, Dict[str, object]]:
         install = _prompt_bundle_selection()
         proxychains = _prompt_optional_proxy(tr("config_gen.vm_proxychains"))
         http_proxy = _prompt_optional_proxy(tr("config_gen.vm_http_proxy"))
+        old_default_mounts = ask_confirm(tr("config_gen.vm_old_default_mounts"), default=False)
         port_forwarding = _prompt_port_forwarding()
 
         vm_entry: Dict[str, object] = {
@@ -214,6 +215,8 @@ def _prompt_vms() -> Dict[str, Dict[str, object]]:
             vm_entry["proxychains"] = proxychains
         if http_proxy:
             vm_entry["http_proxy"] = http_proxy
+        if old_default_mounts:
+            vm_entry["old_default_mounts"] = True
         if port_forwarding:
             vm_entry["port-forwarding"] = port_forwarding
         vms[name] = vm_entry
@@ -378,22 +381,28 @@ def _prompt_mount_allowed_agents(agent_names: List[str]) -> Optional[List[str]]:
     return [str(item) for item in selected]
 
 
-def _prompt_mounts(vm_names: List[str], agent_names: List[str]) -> List[Dict[str, object]]:
+def _prompt_mounts(vms: Dict[str, Dict[str, object]], agent_names: List[str]) -> List[Dict[str, object]]:
     mounts: List[Dict[str, object]] = []
     if not ask_confirm(tr("config_gen.mounts_enable"), default=False):
         return mounts
 
     while True:
         source_raw = ask_path(tr("config_gen.mount_source"), default="", validate=_validate_non_empty)
-        source = Path(source_raw).expanduser()
+        source = Path(source_raw).expanduser().resolve()
         mount_name = _default_mount_name(source)
-        target = ask_text(tr("config_gen.mount_target"), default=f"/home/ubuntu/{mount_name}", validate=_validate_non_empty)
-        default_backup = source.parent / f"backups-{mount_name}"
-        backup = ask_path(tr("config_gen.mount_backup"), default=str(default_backup))
 
+        vm_names = list(vms.keys())
         vm_name = vm_names[0]
         if len(vm_names) > 1:
             vm_name = ask_choice(tr("config_gen.mount_vm"), choices=vm_names, default=vm_names[0])
+
+        if bool(vms[vm_name].get("old_default_mounts", False)):
+            default_target = f"/home/ubuntu/{mount_name}"
+        else:
+            default_target = str(source)
+        target = ask_text(tr("config_gen.mount_target"), default=default_target, validate=_validate_non_empty)
+        default_backup = source.parent / f"backups-{mount_name}"
+        backup = ask_path(tr("config_gen.mount_backup"), default=str(default_backup))
 
         allowed_agents = _prompt_mount_allowed_agents(agent_names)
 
@@ -503,7 +512,7 @@ def config_gen_command(config_path: Optional[str], overwrite: bool, non_interact
     vms = _prompt_vms()
     agents = _prompt_agents(list(vms.keys()))
     _apply_vm_allowed_agents(vms, agents)
-    mounts = _prompt_mounts(list(vms.keys()), list(agents.keys()))
+    mounts = _prompt_mounts(vms, list(agents.keys()))
     global_config: Optional[Dict[str, object]] = None
     if ask_confirm(tr("config_gen.global_customize"), default=False):
         global_config = _prompt_global()

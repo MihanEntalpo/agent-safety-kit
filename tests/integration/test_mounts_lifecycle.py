@@ -12,6 +12,7 @@ from typing import Optional
 
 import pytest
 import yaml
+import pexpect
 
 
 pytestmark = pytest.mark.host_integration
@@ -107,18 +108,86 @@ def _launch_vm(name: str) -> None:
         raise RuntimeError(result.stderr.strip() or result.stdout.strip() or "multipass launch failed")
 
 
-def _write_config(config_path: Path, vm_name: str, mounts: list[dict[str, object]]) -> None:
+def _write_config(
+    config_path: Path,
+    vm_name: str,
+    mounts: list[dict[str, object]],
+    *,
+    old_default_mounts: bool = False,
+) -> None:
+    vm_config: dict[str, object] = {
+        "cpu": 1,
+        "ram": "1G",
+        "disk": "5G",
+    }
+    if old_default_mounts:
+        vm_config["old_default_mounts"] = True
     payload = {
-        "vms": {
-            vm_name: {
-                "cpu": 1,
-                "ram": "1G",
-                "disk": "5G",
-            }
-        },
+        "vms": {vm_name: vm_config},
         "mounts": mounts,
     }
     config_path.write_text(yaml.safe_dump(payload, sort_keys=False), encoding="utf-8")
+
+
+def _run_interactive_addmount(source: Path, config_path: Path) -> str:
+    env = _clean_env({"AGSEKIT_LANG": "en", "TERM": "xterm-256color", "PYTHONUNBUFFERED": "1"})
+    child = pexpect.spawn(
+        sys.executable,
+        [
+            str(REPO_ROOT / "agsekit"),
+            "addmount",
+            str(source),
+            "--max-backups",
+            "11",
+            "--backup-clean-method",
+            "thin",
+            "--mount",
+            "-y",
+            "--config",
+            str(config_path),
+            "--debug",
+        ],
+        cwd=str(REPO_ROOT),
+        env=env,
+        encoding="utf-8",
+        timeout=90,
+    )
+    transcript = ""
+    try:
+        for prompt in (
+            "Backup directory",
+            "Mount path inside the VM",
+            "Backup interval in minutes",
+        ):
+            child.expect_exact(prompt)
+            transcript += child.before + child.after
+            child.sendline("")
+        child.expect_exact("Create a default .backupignore file in the source directory?")
+        transcript += child.before + child.after
+        child.sendline("n")
+        child.expect(pexpect.EOF)
+        transcript += child.before
+    finally:
+        child.close()
+    assert child.exitstatus == 0, transcript
+    return transcript
+
+
+def _guest_stat(vm_name: str, paths: list[Path]) -> list[str]:
+    result = _run(
+        [
+            "multipass",
+            "exec",
+            vm_name,
+            "--",
+            "stat",
+            "-c",
+            "%U:%G:%a:%n",
+            *[str(path) for path in paths],
+        ],
+        check=True,
+    )
+    return [line.strip() for line in result.stdout.splitlines() if line.strip()]
 
 
 def _marker_exists_in_vm(vm_name: str, target: Path, marker_name: str) -> bool:
@@ -196,6 +265,74 @@ def test_mount_single_source_is_visible_inside_vm(mount_test_vm: str, host_mount
 
     assert result.returncode == 0
     _wait_for_marker(mount_test_vm, target, marker_name, expected=True)
+
+
+@pytest.mark.parametrize(
+    ("old_default_mounts", "expected_target_factory"),
+    [
+        (False, lambda source: source),
+        (True, lambda source: Path("/home/ubuntu") / source.name),
+    ],
+    ids=["same-absolute-path", "legacy-home-ubuntu-path"],
+)
+def test_interactive_addmount_uses_vm_default_target_on_real_vm(
+    mount_test_vm: str,
+    host_mount_root: Path,
+    tmp_path: Path,
+    old_default_mounts: bool,
+    expected_target_factory,
+) -> None:
+    source = host_mount_root / _random_name("source-interactive-default")
+    source.mkdir()
+    marker_name = "interactive-default.txt"
+    (source / marker_name).write_text("interactive", encoding="utf-8")
+    config_path = tmp_path / f"config-{old_default_mounts}.yaml"
+    _write_config(config_path, mount_test_vm, [], old_default_mounts=old_default_mounts)
+    expected_target = expected_target_factory(source).resolve()
+
+    try:
+        _run_interactive_addmount(source, config_path)
+
+        updated = yaml.safe_load(config_path.read_text(encoding="utf-8"))
+        mounts = updated.get("mounts") or []
+        assert len(mounts) == 1
+        assert Path(mounts[0]["target"]).resolve() == expected_target
+        _wait_for_marker(mount_test_vm, expected_target, marker_name, expected=True)
+    finally:
+        _run_cli(
+            ["umount", str(source), "--config", str(config_path), "--non-interactive"],
+            check=False,
+        )
+
+
+def test_mount_creates_every_missing_guest_target_component_for_ubuntu(
+    mount_test_vm: str, host_mount_root: Path, tmp_path: Path
+) -> None:
+    source = host_mount_root / _random_name("source-deep-target")
+    source.mkdir()
+    marker_name = "deep-target.txt"
+    (source / marker_name).write_text("deep", encoding="utf-8")
+    root = Path("/home") / _random_name("it-mount-owner")
+    target = root / "work" / "project"
+    created_paths = [root, root / "work", target]
+    config_path = tmp_path / "config-deep-target.yaml"
+    _write_config(
+        config_path,
+        mount_test_vm,
+        [{"source": str(source), "target": str(target), "vm": mount_test_vm}],
+    )
+
+    try:
+        _run_cli(["mount", str(source), "--config", str(config_path), "--non-interactive", "--debug"])
+        _wait_for_marker(mount_test_vm, target, marker_name, expected=True)
+    finally:
+        _run_cli(
+            ["umount", str(source), "--config", str(config_path), "--non-interactive"],
+            check=False,
+        )
+
+    stats = _guest_stat(mount_test_vm, created_paths)
+    assert stats == [f"ubuntu:ubuntu:755:{path}" for path in created_paths]
 
 
 def test_mount_all_mounts_every_entry(mount_test_vm: str, host_mount_root: Path, tmp_path: Path) -> None:

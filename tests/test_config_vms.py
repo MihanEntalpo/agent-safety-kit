@@ -10,6 +10,43 @@ if str(ROOT) not in sys.path:
 from agsekit_cli.config import ConfigError, load_vms_config
 
 
+def test_load_vms_config_old_default_mounts_defaults_to_false():
+    config = {"vms": {"agent": {"cpu": 2, "ram": "2G", "disk": "10G"}}}
+
+    assert load_vms_config(config)["agent"].old_default_mounts is False
+
+
+def test_load_vms_config_accepts_old_default_mounts():
+    config = {
+        "vms": {
+            "agent": {
+                "cpu": 2,
+                "ram": "2G",
+                "disk": "10G",
+                "old_default_mounts": True,
+            }
+        }
+    }
+
+    assert load_vms_config(config)["agent"].old_default_mounts is True
+
+
+def test_load_vms_config_rejects_non_boolean_old_default_mounts():
+    config = {
+        "vms": {
+            "agent": {
+                "cpu": 2,
+                "ram": "2G",
+                "disk": "10G",
+                "old_default_mounts": "true",
+            }
+        }
+    }
+
+    with pytest.raises(ConfigError, match="old_default_mounts"):
+        load_vms_config(config)
+
+
 def test_load_vms_config_parses_port_forwarding():
     config = {
         "vms": {

@@ -122,6 +122,51 @@ def test_addmount_uses_single_vm_by_default(tmp_path):
     assert mount_entry["vm"] == "single-vm"
 
 
+def test_addmount_interactive_target_defaults_to_absolute_source(monkeypatch, tmp_path):
+    source = (tmp_path / "project").resolve()
+    seen_defaults: list[str] = []
+
+    def fake_ask_text(*_args, **kwargs):
+        seen_defaults.append(kwargs["default"])
+        return kwargs["default"]
+
+    monkeypatch.setattr(addmount_commands, "ask_text", fake_ask_text)
+
+    target, vm_name = addmount_commands._resolve_target_and_vm(
+        source_dir=source,
+        target_dir=None,
+        raw_vm_name=None,
+        interactive=True,
+        vms={"agent": object()},
+        existing_mounts=[],
+    )
+
+    assert seen_defaults == [str(source)]
+    assert target == source
+    assert vm_name == "agent"
+
+
+def test_addmount_interactive_honors_vm_old_default_mounts(monkeypatch, tmp_path):
+    source = (tmp_path / "project").resolve()
+
+    class Vm:
+        old_default_mounts = True
+
+    monkeypatch.setattr(addmount_commands, "ask_text", lambda *_args, **kwargs: kwargs["default"])
+
+    target, vm_name = addmount_commands._resolve_target_and_vm(
+        source_dir=source,
+        target_dir=None,
+        raw_vm_name=None,
+        interactive=True,
+        vms={"legacy": Vm()},
+        existing_mounts=[],
+    )
+
+    assert target == Path("/home/ubuntu") / source.name
+    assert vm_name == "legacy"
+
+
 def test_addmount_mount_now_prompt_defaults_to_yes(monkeypatch, tmp_path):
     source = tmp_path / "source"
     target = tmp_path / "target"

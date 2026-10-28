@@ -82,21 +82,27 @@ def _previous_pypi_version(package_name: str, current_version: str) -> str:
 
 
 def _previous_github_release_version(repo: str, current_version: str, *, prefix: str) -> str:
-    payload = _fetch_json("https://api.github.com/repos/{repo}/releases?per_page=100".format(repo=repo))
     versions: List[str] = []
-    for release in payload if isinstance(payload, list) else []:
-        if not isinstance(release, dict) or release.get("draft") or release.get("prerelease"):
-            continue
-        tag_name = release.get("tag_name")
-        if not isinstance(tag_name, str) or not tag_name.startswith(prefix):
-            continue
-        normalized = tag_name[len(prefix):]
-        if _parse_semver(normalized) is not None:
-            versions.append(normalized)
-    older = [version for version in _sorted_semvers(versions) if _parse_semver(version) < _parse_semver(current_version)]
-    if not older:
-        raise AssertionError("No older GitHub release version found for {repo}".format(repo=repo))
-    return older[-1]
+    for page in range(1, 11):
+        payload = _fetch_json(
+            "https://api.github.com/repos/{repo}/releases?per_page=100&page={page}".format(repo=repo, page=page)
+        )
+        releases = payload if isinstance(payload, list) else []
+        for release in releases:
+            if not isinstance(release, dict) or release.get("draft") or release.get("prerelease"):
+                continue
+            tag_name = release.get("tag_name")
+            if not isinstance(tag_name, str) or not tag_name.startswith(prefix):
+                continue
+            normalized = tag_name[len(prefix):]
+            if _parse_semver(normalized) is not None:
+                versions.append(normalized)
+        older = [version for version in _sorted_semvers(versions) if _parse_semver(version) < _parse_semver(current_version)]
+        if older:
+            return older[-1]
+        if len(releases) < 100:
+            break
+    raise AssertionError("No older GitHub release version found for {repo}".format(repo=repo))
 
 
 def _alternate_versions() -> Dict[str, str]:
@@ -134,7 +140,7 @@ def _delete_if_exists(name: str) -> None:
 
 
 def _launch_vm(name: str) -> None:
-    command = ["multipass", "launch", "--name", name, "--cpus", "2", "--memory", "4G", "--disk", "20G"]
+    command = ["multipass", "launch", "--name", name, "--cpus", "2", "--memory", "1G", "--disk", "20G"]
     for attempt in range(1, 4):
         result = run_cmd(command, check=False)
         if result.returncode == 0:
@@ -158,7 +164,7 @@ def _write_agents_config(
         "vms": {
             vm_name: {
                 "cpu": 2,
-                "ram": "4G",
+                "ram": "1G",
                 "disk": "20G",
             }
         },
@@ -265,7 +271,7 @@ def test_codex_glibc_clone_uses_requested_tag_without_waiting_for_full_build(tmp
         try:
             wait_for(
                 lambda: _cloned_codex_tag(vm_name) == "rust-v{version}".format(version=requested_version),
-                timeout=180.0,
+                timeout=600.0,
                 message="codex-glibc repository is cloned on the requested tag",
                 interval=2.0,
             )

@@ -24,7 +24,7 @@ Important behavior:
 
 Wizard flow:
 
-1. Configure the first VM: name, CPU, RAM, disk, install bundles, optional proxy settings, optional port-forwarding.
+1. Configure the first VM: name, CPU, RAM, disk, install bundles, optional proxy settings, the optional legacy mount-default switch, and optional port-forwarding.
 2. Optionally add more VMs.
 3. Configure agents:
    - choose an agent type from a TUI list
@@ -36,9 +36,9 @@ Wizard flow:
    - optionally override `proxychains` and `http_proxy`
 4. Optionally configure mounts:
    - `source`
-   - `target`
-   - `backup`
    - target VM
+   - `target` (defaults to the same absolute path as `source`, or `/home/ubuntu/<source_name>` when the selected VM enables `old_default_mounts`)
+   - `backup`
    - optional allowed-agent restrictions
    - optional default `.backupignore`
 5. Optionally override global settings.

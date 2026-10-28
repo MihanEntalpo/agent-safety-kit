@@ -211,6 +211,11 @@ agents:
 * `vms.<vm_name>.cloud-init`
   * Полноценная конфигурация `cloud-init`, которая передаётся в `multipass launch` [create-vm / create-vms](commands/create-vm.md)
   * Можно не указывать, если дополнительная начальная настройка ВМ не нужна
+* `vms.<vm_name>.old_default_mounts`
+  * Булевый переключатель совместимости для интерактивного создания mount'ов
+  * `false` заставляет `addmount` и `config-gen` предлагать неизменённый абсолютный путь `source` на хосте как `target`
+  * `true` возвращает для этой VM старое предложение `/home/ubuntu/<source_name>`
+  * По умолчанию: `false`
 * `vms.<vm_name>.proxychains`
   * URL прокси для запуска агентов через `proxychains` в этой ВМ, см. [Proxychains](networking.md#proxychains)
   * Поддерживаются схемы `http`, `https`, `socks4`, `socks5`
@@ -278,6 +283,8 @@ agents:
 * `mounts[].target`
   * Путь внутри ВМ, куда монтируется `source`
   * Если не указан, используется `/home/ubuntu/<source_name>`
+  * Интерактивные `addmount` и `config-gen` предлагают сам абсолютный путь `source`, если для выбранной VM не задано `old_default_mounts: true`
+  * Перед монтированием agsekit создаёт отсутствующие компоненты пути в VM от имени `ubuntu:ubuntu` с режимом `0755`
 * `mounts[].allowed_agents`
   * Список агентов, которым разрешено работать с этой папкой
   * См. [run](commands/run.md)

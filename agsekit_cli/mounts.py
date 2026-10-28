@@ -23,6 +23,28 @@ RegisteredMount = Tuple[Optional[Path], Optional[Path]]
 # across Multipass versions and output shapes.
 _MOUNT_SOURCE_KEYS = ("source", "source_path", "source path", "host_path", "host path", "local_path", "local path")
 _MOUNT_TARGET_KEYS = ("mount_path", "mount path", "target", "target_path", "target path", "destination", "path")
+_PREPARE_MOUNT_TARGET_SCRIPT = r"""
+set -e
+target=$1
+case "$target" in
+  /*) ;;
+  *) printf 'Mount target must be an absolute path: %s\n' "$target" >&2; exit 2 ;;
+esac
+
+current=
+while IFS= read -r component; do
+  [ -n "$component" ] || continue
+  current="$current/$component"
+  if [ -e "$current" ]; then
+    if [ ! -d "$current" ]; then
+      printf 'Mount target component is not a directory: %s\n' "$current" >&2
+      exit 2
+    fi
+  else
+    sudo install -d -m 0755 -o ubuntu -g ubuntu -- "$current"
+  fi
+done < <(printf '%s\n' "${target#/}" | tr '/' '\n')
+""".strip()
 
 
 def normalize_path(path: Path) -> Path:
@@ -217,7 +239,25 @@ def _run_multipass(command: list[str], error_message: str, *, allow_already_moun
         raise MultipassError(stderr or error_message)
 
 
+def ensure_guest_mount_target(mount: MountConfig) -> None:
+    _run_multipass(
+        [
+            multipass_command(),
+            "exec",
+            mount.vm_name,
+            "--",
+            "bash",
+            "-lc",
+            _PREPARE_MOUNT_TARGET_SCRIPT,
+            "agsekit-prepare-mount-target",
+            str(mount.target),
+        ],
+        tr("mounts.target_prepare_failed", vm_name=mount.vm_name, target=mount.target),
+    )
+
+
 def mount_directory(mount: MountConfig) -> None:
+    ensure_guest_mount_target(mount)
     _run_multipass(
         [multipass_command(), "mount", str(mount.source), f"{mount.vm_name}:{mount.target}"],
         tr("mounts.mount_failed", source=mount.source, vm_name=mount.vm_name, target=mount.target),

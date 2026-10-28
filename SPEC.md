@@ -235,6 +235,7 @@ Behavior:
   - `type=remote`: открыть порт в VM и пробросить на хост (`ssh -R vm:host`).
   - `type=socks5`: поднять SOCKS5-порт в VM (`ssh -D vm`).
 - `install` (optional) — список install bundles (`python`, `nodejs`, `nodejs:20`, `docker`, ...), которые выполняются на этапе `create-vm/create-vms`.
+- `old_default_mounts` (optional, bool, default `false`) — переключатель совместимости для интерактивного создания mount'ов: при `false` default target совпадает с абсолютным `source`, при `true` используется старый `/home/ubuntu/<basename(source)>`.
 - `allowed_agents` (optional) — список имён агентов из секции `agents` или строка имён, разделённых запятыми.
   - если поле задано, `run` в этой VM разрешён только для перечисленных агентов в случаях, когда mount-ограничение не задано;
   - если поле отсутствует, для VM ограничение не применяется (разрешены все агенты, если не ограничены mount-ом).
@@ -435,6 +436,7 @@ Behavior:
   - `install` как multi-select checkbox по доступным bundle names без версий;
   - optional `proxychains`;
   - optional `http_proxy`;
+  - `old_default_mounts` через yes/no prompt с default `No`; значение `true` сохраняется в VM-блок, `false` не записывается;
   - optional `port-forwarding`, где пользователь может выбрать `local`, `remote`, `socks5` или `Cancel`; после каждого добавленного правила мастер спрашивает, нужно ли добавить ещё одно правило, и сохраняет список правил в `vms.<name>.port-forwarding`.
 - имена VM внутри одного прогона должны быть уникальными:
   - default name для первой VM — `agent-ubuntu`;
@@ -453,7 +455,7 @@ Behavior:
   - optional `proxychains` и `http_proxy` можно переопределить на уровне агента; пустой ввод означает «не переопределять», а буквальное `""` записывается как явная пустая строка в YAML.
 - после агентной секции, если VM больше одной, автоматически синтезирует `vms.<name>.allowed_agents` из agent-to-VM assignments: VM получают списки только тех агентов, которые явно назначены именно им.
 - затем спрашивает, нужно ли настраивать mounts; default `No`.
-  - каждый mount собирает `source`, `target` (default `/home/ubuntu/<basename(source)>`), `backup` (default `<source_parent>/backups-<basename(source)>`);
+  - каждый mount собирает `source`, `target` (интерактивный default — тот же абсолютный путь, что и `source`; для VM с `old_default_mounts: true` — `/home/ubuntu/<basename(source)>`), `backup` (default `<source_parent>/backups-<basename(source)>`);
   - если VM одна, `mount.vm` выбирается автоматически; если VM несколько, пользователь выбирает одну VM из списка;
   - если агенты уже заданы, `allowed_agents` выбираются checkbox-списком с дополнительным пунктом `No restrictions`; сочетать `No restrictions` с конкретными агентами нельзя;
   - при согласии пользователя создаётся default `.backupignore` в source directory, если файл ещё не существует.
@@ -614,6 +616,7 @@ Behavior:
 Особенности:
 - поддержка выбора по точному и относительному пути;
 - поддержка выбора по подпути внутри source;
+- перед `multipass mount` проверяет весь target-путь внутри VM, создаёт каждый отсутствующий компонент через `sudo` с владельцем `ubuntu:ubuntu` и режимом `0755`, не меняя существующие директории; существующий компонент не-директория считается ошибкой;
 - при already mounted выдает информативное сообщение и не падает.
 
 #### `agsekit umount [source_dir] [--all] [--debug]`
@@ -627,7 +630,7 @@ Behavior:
 - сначала загружает текущий YAML-конфиг и валидирует секции `vms`, `mounts`, `agents`, чтобы интерактивные вопросы сразу опирались на актуальные VM и агентные имена;
 - запрашивает/вычисляет default значения для:
   - `source`;
-  - `target`;
+  - `target` (в интерактивном режиме предлагает тот же абсолютный путь, что и `source`; для выбранной VM с `old_default_mounts: true` предлагает `/home/ubuntu/<basename(source)>`; non-interactive fallback также остаётся старым);
   - `backup`;
   - `interval`;
   - `max_backups`;

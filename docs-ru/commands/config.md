@@ -24,7 +24,7 @@
 
 Порядок мастера:
 
-1. Настройка первой VM: имя, CPU, RAM, диск, install bundles, optional proxy settings, optional port-forwarding.
+1. Настройка первой VM: имя, CPU, RAM, диск, install bundles, optional proxy settings, optional переключатель старого default для mount'ов и optional port-forwarding.
 2. При необходимости добавление дополнительных VM.
 3. Настройка агентов:
    - выбор типа агента из TUI-списка
@@ -36,9 +36,9 @@
    - при необходимости override для `proxychains` и `http_proxy`
 4. При необходимости настройка mount'ов:
    - `source`
-   - `target`
-   - `backup`
    - целевая VM
+   - `target` (по умолчанию совпадает с абсолютным путём `source`, либо имеет вид `/home/ubuntu/<имя source>`, если в выбранной VM включён `old_default_mounts`)
+   - `backup`
    - optional restrictions по агентам
    - optional default `.backupignore`
 5. При необходимости override глобальных настроек.

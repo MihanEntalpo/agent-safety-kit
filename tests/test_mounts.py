@@ -61,21 +61,44 @@ def test_mount_directory_uses_default_mount_command(monkeypatch):
         backup_clean_method="thin",
     )
 
-    call: dict[str, object] = {}
+    calls: list[dict[str, object]] = []
 
     def fake_run_multipass(command, error_message, allow_already_mounted=False):
-        call["command"] = command
-        call["error_message"] = error_message
-        call["allow_already_mounted"] = allow_already_mounted
+        calls.append(
+            {
+                "command": command,
+                "error_message": error_message,
+                "allow_already_mounted": allow_already_mounted,
+            }
+        )
 
     monkeypatch.setattr(mounts_module, "_run_multipass", fake_run_multipass)
 
     mounts_module.mount_directory(mount)
 
-    assert call["command"] == [
+    assert calls[0]["command"][:6] == [
+        "multipass",
+        "exec",
+        mount.vm_name,
+        "--",
+        "bash",
+        "-lc",
+    ]
+    assert "sudo install -d -m 0755 -o ubuntu -g ubuntu" in calls[0]["command"][6]
+    assert calls[0]["command"][-2:] == ["agsekit-prepare-mount-target", str(mount.target)]
+    assert calls[0]["allow_already_mounted"] is False
+    assert calls[1]["command"] == [
         "multipass",
         "mount",
         str(mount.source),
         f"{mount.vm_name}:{mount.target}",
     ]
-    assert call["allow_already_mounted"] is True
+    assert calls[1]["allow_already_mounted"] is True
+
+
+def test_guest_mount_target_script_preserves_existing_components_and_owns_new_ones():
+    script = mounts_module._PREPARE_MOUNT_TARGET_SCRIPT
+
+    assert "if [ -e \"$current\" ]" in script
+    assert "if [ ! -d \"$current\" ]" in script
+    assert "sudo install -d -m 0755 -o ubuntu -g ubuntu -- \"$current\"" in script

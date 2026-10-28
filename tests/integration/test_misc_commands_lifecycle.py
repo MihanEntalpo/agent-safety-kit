@@ -63,6 +63,8 @@ def test_config_example_and_gen(tmp_path: Path) -> None:
     child.sendline("")
     child.expect_exact("VM HTTP proxy URL")
     child.sendline("")
+    child.expect_exact("Use legacy /home/ubuntu/<folder> defaults for mounts in this VM?")
+    child.send("n")
     child.expect_exact("Configure port-forwarding for this VM?")
     child.send("n")
     child.expect_exact("Add another VM?")

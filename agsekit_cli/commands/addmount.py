@@ -200,8 +200,16 @@ def _resolve_target_and_vm(
     can_retry_vm = interactive and raw_vm_name is None and len(vm_names) > 1
 
     while True:
+        if chosen_vm is None:
+            chosen_vm = _resolve_vm_name(None, vms, interactive)
+
         if chosen_target is None:
-            default_target = default_mount_target(source_dir)
+            use_old_default = bool(getattr(vms[chosen_vm], "old_default_mounts", False))
+            default_target = (
+                default_mount_target(source_dir)
+                if not interactive or use_old_default
+                else source_dir
+            )
             if interactive:
                 target_prompt = ask_text(
                     tr("addmount.target_prompt"),
@@ -214,15 +222,14 @@ def _resolve_target_and_vm(
         else:
             chosen_target = chosen_target.expanduser().resolve()
 
-        if chosen_vm is None:
-            chosen_vm = _resolve_vm_name(None, vms, interactive)
-
         if _has_source_conflict(existing_mounts, source_dir, chosen_vm):
             message = tr("addmount.mount_exists", source=source_dir, vm_name=chosen_vm)
             if not can_retry_vm:
                 raise click.ClickException(message)
             click.echo(message)
             chosen_vm = None
+            if can_retry_target:
+                chosen_target = None
             continue
 
         if _has_target_conflict(existing_mounts, chosen_target, chosen_vm):

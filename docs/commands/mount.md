@@ -100,7 +100,7 @@ agsekit addmount [SOURCE_DIR] [TARGET_DIR] [BACKUP_DIR] [INTERVAL] [--vm <vm_nam
 Positional arguments:
 
 - `SOURCE_DIR` - host folder to add to `mounts[].source`. In interactive mode, if not specified, the wizard asks for it explicitly. In non-interactive mode it is required.
-- `TARGET_DIR` - path inside the VM for `mounts[].target`. If not specified, `/home/ubuntu/<SOURCE_DIR name>` is used.
+- `TARGET_DIR` - path inside the VM for `mounts[].target`. If omitted in interactive mode, the wizard suggests the absolute `SOURCE_DIR` path unchanged, or `/home/ubuntu/<SOURCE_DIR name>` when the selected VM has `old_default_mounts: true`; non-interactive mode keeps the legacy fallback.
 - `BACKUP_DIR` - folder on the host for `mounts[].backup`. If not specified, `<SOURCE_DIR parent>/backups-<SOURCE_DIR name>` is used.
 - `INTERVAL` - value of `mounts[].interval`, backup interval in minutes. If not specified, the default is `5`; in interactive mode a prompt asks for it.
 
@@ -130,12 +130,15 @@ What is written to the config:
 Interactive behavior is intentionally close to the mount step in `config-gen`:
 
 - asks for `source`, `target`, `backup`, target VM, `interval`, `max_backups`, and `backup_clean_method`
+- suggests the absolute host `source` path as the default `target`, so pressing Enter keeps the same project path inside the VM; `vms.<name>.old_default_mounts: true` restores `/home/ubuntu/<source_name>` for the selected VM
 - when agents are configured, shows a checkbox list with `No restrictions` and the configured agent names
 - offers to create a default `.backupignore` file in the source directory
 
 Before writing, the command shows a summary, checks that there is no such `source + vm` yet, checks that the same `target + vm` is not already used by another mount entry, creates a timestamp backup of the YAML file next to the config, and saves the file while preserving comments.
 
 If `--mount` was not passed, but the command is running interactively, after saving there will be a question: `Mount the folder immediately? [Y/n]`. The default answer is yes.
+
+Before every `multipass mount`, agsekit prepares the target path inside the VM. It creates every missing path component through `sudo` with owner and group `ubuntu` and mode `0755`; existing directories and their ownership are left unchanged. Mounting stops with an error if an existing component is not a directory.
 
 ## `removemount`
 

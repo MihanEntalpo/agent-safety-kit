@@ -225,6 +225,7 @@ class TestConfigGenCommand:
         wizard.checkbox("Select install bundles for this VM", toggles=[], ready_text=BUNDLE_ORDER[-1])
         wizard.text("Proxychains proxy URL", "")
         wizard.text("VM HTTP proxy URL", "")
+        wizard.confirm("Use legacy /home/ubuntu/<folder> defaults for mounts in this VM?", False)
         wizard.confirm("Configure port-forwarding for this VM?", False)
         wizard.confirm("Add another VM?", False)
         _cancel_agents(wizard)
@@ -389,7 +390,7 @@ class TestConfigGenCommand:
         mount = config["mounts"][0]
         assert mount == {
             "source": str(source_dir),
-            "target": f"/home/ubuntu/{source_dir.name}",
+            "target": str(source_dir),
             "backup": str(source_dir.parent / f"backups-{source_dir.name}"),
             "vm": "agent-ubuntu",
         }
@@ -405,16 +406,16 @@ class TestConfigGenCommand:
         wizard = self._spawn(config_path)
 
         _fill_vm_minimal(wizard, add_more=True)
-        _fill_vm_minimal(wizard, name="vm-2")
+        _fill_vm_minimal(wizard, name="vm-2", old_default_mounts=True)
         _add_agent(wizard, agent_type="qwen", name="qwen", vm_toggles=[])
         wizard.confirm("Add another agent?", True)
         _add_agent(wizard, agent_type="codex", name="codex", vm_toggles=[])
         wizard.confirm("Add another agent?", False)
         wizard.confirm("Do you want to configure mounts?", True)
         wizard.text("Source directory path", str(source_dir))
+        wizard.text("Which VM should be used for this mount?", "vm-2")
         wizard.text("Directory inside VM", "")
         wizard.text("Backup directory", "")
-        wizard.text("Which VM should be used for this mount?", "vm-2")
         wizard.checkbox("Allowed agents for this mount", toggles=[0, 1])
         wizard.confirm("Create a default .backupignore file in the source directory?", False)
         wizard.confirm("Add another mount?", False)
@@ -425,7 +426,9 @@ class TestConfigGenCommand:
         config = yaml.safe_load(config_path.read_text(encoding="utf-8"))
         mount = config["mounts"][0]
         assert mount["vm"] == "vm-2"
+        assert mount["target"] == f"/home/ubuntu/{source_dir.name}"
         assert mount["allowed_agents"] == ["qwen"]
+        assert config["vms"]["vm-2"]["old_default_mounts"] is True
         assert not (source_dir / ".backupignore").exists()
 
     def test_existing_backupignore_is_preserved(self, tmp_path: Path) -> None:
@@ -551,6 +554,7 @@ def _fill_vm_minimal(
     proxychains: str = "",
     http_proxy: str = "",
     port_forwarding: object = None,
+    old_default_mounts: bool = False,
     add_more: bool = False,
 ) -> None:
     bundle_names = bundle_names or []
@@ -566,6 +570,7 @@ def _fill_vm_minimal(
     )
     wizard.text("Proxychains proxy URL", proxychains)
     wizard.text("VM HTTP proxy URL", http_proxy)
+    wizard.confirm("Use legacy /home/ubuntu/<folder> defaults for mounts in this VM?", old_default_mounts)
     if port_forwarding is None:
         wizard.confirm("Configure port-forwarding for this VM?", False)
     else:
