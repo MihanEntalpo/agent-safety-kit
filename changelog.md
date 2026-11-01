@@ -1,6 +1,6 @@
 # Agent-Safety-Kit versions history
 
-## Unreleased
+## 1.7.5 - Same path mounts, default backup folders root
 
 * Changed interactive mount creation in `addmount` and `config-gen` to suggest the absolute host source path unchanged as the default path inside the VM, with a per-VM `old_default_mounts: true` compatibility switch for the previous `/home/ubuntu/<folder>` default
 * Changed mounting to create every missing guest target-path component through `sudo` as `ubuntu:ubuntu` with mode `0755` before calling `multipass mount`, while leaving existing directories unchanged
