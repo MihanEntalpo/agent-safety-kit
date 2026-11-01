@@ -23,6 +23,8 @@ global:
   systemd_env_folder: null
   # Override the generated internal state file, default ~/.config/agsekit/state.yaml
   state_file: null
+  # Shared root for generated backups-<folder> directories; null keeps them next to the source
+  backups_root_folder: null
   # How often the portforward worker reloads configuration, by default every 10 seconds
   portforward_config_check_interval_sec: 10
   # Whether agsekit should periodically check for new versions through pip
@@ -44,6 +46,8 @@ vms:
     ram: 4G
     # Disk size
     disk: 20G
+    # Backup root for mounts assigned to this VM; inherits the global setting when omitted
+    backups_root_folder: /home/user/backups-personal
     # Here you can set a full cloud-init configuration for multipass
     cloud-init: {}
     # Enable proxychains for all agents running in this VM and configure it to the specified address
@@ -85,7 +89,7 @@ vms:
 mounts:
   # source is the path to the folder in the main system
   - source: /home/user/work/work-project-1
-    # Backup folder in the main OS; if not specified, it will be set to {folder path}/backups-{folder name}
+    # Explicit backup folder; when omitted, VM root, global root, then the source parent are tried in order
     backup: /home/user/work/backups-work-project-1
     # Where the folder is mounted inside the VM
     target: /home/ubuntu/work-project-1
@@ -156,6 +160,10 @@ agents:
   * The file is not meant to be edited by hand; agsekit writes it automatically and keeps a warning comment at the top
   * The state stores the running/latest agsekit versions and the latest installable versions of configured agent types with their UTC refresh timestamps
   * Default: `~/.config/agsekit/state.yaml`
+* `global.backups_root_folder`
+  * Optional host-side root directory for generated backup folders
+  * When set, the default is `<backups_root_folder>/backups-<source_name>`
+  * When `null` or omitted, the legacy `<source_parent>/backups-<source_name>` default is used
 * `global.portforward_config_check_interval_sec`
   * How often the configuration should be reread so that when the port list changes, SSH tunnels are changed
   * The `agsekit portforward` command performs port forwarding and dynamically updates tunnels when the configuration changes; the agsekit daemon currently manages this command as one of its background workers
@@ -216,6 +224,10 @@ Behavior:
   * `false` makes `addmount` and `config-gen` suggest the absolute host `source` path unchanged as `target`
   * `true` restores the legacy `/home/ubuntu/<source_name>` suggestion for this VM
   * Default: `false`
+* `vms.<vm_name>.backups_root_folder`
+  * Optional root directory for backups of mounts assigned to this VM
+  * Overrides `global.backups_root_folder` when set; `null` or omission inherits the global value
+  * An explicit `mounts[].backup` always takes precedence
 * `vms.<vm_name>.proxychains`
   * Proxy URL for launching agents through `proxychains` in this VM, see [Proxychains](networking.md#proxychains)
   * Supported schemes are `http`, `https`, `socks4`, `socks5`
@@ -279,7 +291,8 @@ Behavior:
 * `mounts[].backup`
   * Folder on the host where snapshots are placed
   * See [Backups](backups.md)
-  * If not specified, `<source_parent>/backups-<source_name>` is used
+  * An explicit value takes precedence over all defaults
+  * Otherwise the parent is selected from `vms.<vm_name>.backups_root_folder`, then `global.backups_root_folder`, then `source_parent`; the folder name is always `backups-<source_name>`
 * `mounts[].target`
   * Path inside the VM where `source` is mounted
   * If not specified, `/home/ubuntu/<source_name>` is used

@@ -20,11 +20,11 @@
 - Дополнительные VM опциональны
 - Агенты опциональны
 - Mount'ы опциональны
-- Глобальные переопределения опциональны и спрашиваются только в самом конце
+- Глобальные переопределения опциональны и спрашиваются перед mounts, чтобы влиять на их defaults
 
 Порядок мастера:
 
-1. Настройка первой VM: имя, CPU, RAM, диск, install bundles, optional proxy settings, optional переключатель старого default для mount'ов и optional port-forwarding.
+1. Настройка первой VM: имя, CPU, RAM, диск, install bundles, optional proxy settings, optional переключатель старого default для mount'ов, optional `backups_root_folder` и optional port-forwarding.
 2. При необходимости добавление дополнительных VM.
 3. Настройка агентов:
    - выбор типа агента из TUI-списка
@@ -34,14 +34,14 @@
    - при необходимости ввод `default-args`
    - если VM больше одной, назначение агента на одну или несколько VM
    - при необходимости override для `proxychains` и `http_proxy`
-4. При необходимости настройка mount'ов:
+4. При необходимости override глобальных настроек.
+5. При необходимости настройка mount'ов:
    - `source`
    - целевая VM
    - `target` (по умолчанию совпадает с абсолютным путём `source`, либо имеет вид `/home/ubuntu/<имя source>`, если в выбранной VM включён `old_default_mounts`)
-   - `backup`
+   - `backup` (default parent: backup root выбранной VM, global backup root, затем родитель `source`)
    - optional restrictions по агентам
    - optional default `.backupignore`
-5. При необходимости override глобальных настроек.
 6. Выбор пути сохранения и запись YAML.
 
 Сейчас в глобальных override настраиваются:
@@ -49,6 +49,7 @@
 - `ssh_keys_folder`
 - `systemd_env_folder`
 - `state_file`
+- `backups_root_folder`
 - `portforward_config_check_interval_sec`
 - `check_new_version`
 - `check_new_version_interval_sec`

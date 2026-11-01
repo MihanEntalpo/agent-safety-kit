@@ -46,8 +46,8 @@ class TestConfigGenCommand:
 
         _fill_vm_minimal(wizard)
         _cancel_agents(wizard)
-        wizard.confirm("Do you want to configure mounts?", False)
         wizard.confirm("Customize global agsekit settings?", False)
+        wizard.confirm("Do you want to configure mounts?", False)
         wizard.text("Where should the config be saved?", "")
         wizard.finish()
 
@@ -74,8 +74,8 @@ class TestConfigGenCommand:
             port_forwarding=("local", "127.0.0.1:80", "127.0.0.1:8080"),
         )
         _cancel_agents(wizard)
-        wizard.confirm("Do you want to configure mounts?", False)
         wizard.confirm("Customize global agsekit settings?", False)
+        wizard.confirm("Do you want to configure mounts?", False)
         wizard.text("Where should the config be saved?", "")
         wizard.finish()
 
@@ -97,8 +97,8 @@ class TestConfigGenCommand:
 
         _fill_vm_minimal(wizard, port_forwarding="cancel")
         _cancel_agents(wizard)
-        wizard.confirm("Do you want to configure mounts?", False)
         wizard.confirm("Customize global agsekit settings?", False)
+        wizard.confirm("Do you want to configure mounts?", False)
         wizard.text("Where should the config be saved?", "")
         wizard.finish()
 
@@ -114,8 +114,8 @@ class TestConfigGenCommand:
             port_forwarding=("remote", "127.0.0.1:18881", "127.0.0.1:28881"),
         )
         _cancel_agents(wizard)
-        wizard.confirm("Do you want to configure mounts?", False)
         wizard.confirm("Customize global agsekit settings?", False)
+        wizard.confirm("Do you want to configure mounts?", False)
         wizard.text("Where should the config be saved?", "")
         wizard.finish()
 
@@ -134,8 +134,8 @@ class TestConfigGenCommand:
 
         _fill_vm_minimal(wizard, port_forwarding=("socks5", "127.0.0.1:11800"))
         _cancel_agents(wizard)
-        wizard.confirm("Do you want to configure mounts?", False)
         wizard.confirm("Customize global agsekit settings?", False)
+        wizard.confirm("Do you want to configure mounts?", False)
         wizard.text("Where should the config be saved?", "")
         wizard.finish()
 
@@ -154,8 +154,8 @@ class TestConfigGenCommand:
             ],
         )
         _cancel_agents(wizard)
-        wizard.confirm("Do you want to configure mounts?", False)
         wizard.confirm("Customize global agsekit settings?", False)
+        wizard.confirm("Do you want to configure mounts?", False)
         wizard.text("Where should the config be saved?", "")
         wizard.finish()
 
@@ -185,8 +185,8 @@ class TestConfigGenCommand:
             vm_toggles=[1],
         )
         wizard.confirm("Add another agent?", False)
-        wizard.confirm("Do you want to configure mounts?", False)
         wizard.confirm("Customize global agsekit settings?", False)
+        wizard.confirm("Do you want to configure mounts?", False)
         wizard.text("Where should the config be saved?", "")
         wizard.finish()
 
@@ -203,8 +203,8 @@ class TestConfigGenCommand:
         _fill_vm_minimal(wizard, add_more=True)
         _fill_vm_minimal(wizard)
         _cancel_agents(wizard)
-        wizard.confirm("Do you want to configure mounts?", False)
         wizard.confirm("Customize global agsekit settings?", False)
+        wizard.confirm("Do you want to configure mounts?", False)
         wizard.text("Where should the config be saved?", "")
         wizard.finish()
 
@@ -226,11 +226,12 @@ class TestConfigGenCommand:
         wizard.text("Proxychains proxy URL", "")
         wizard.text("VM HTTP proxy URL", "")
         wizard.confirm("Use legacy /home/ubuntu/<folder> defaults for mounts in this VM?", False)
+        wizard.text("Backups root folder for this VM", "")
         wizard.confirm("Configure port-forwarding for this VM?", False)
         wizard.confirm("Add another VM?", False)
         _cancel_agents(wizard)
-        wizard.confirm("Do you want to configure mounts?", False)
         wizard.confirm("Customize global agsekit settings?", False)
+        wizard.confirm("Do you want to configure mounts?", False)
         wizard.text("Where should the config be saved?", "")
         wizard.finish()
 
@@ -250,8 +251,8 @@ class TestConfigGenCommand:
             default_args="--model gpt-5 --dangerously-bypass-approvals-and-sandbox",
         )
         wizard.confirm("Add another agent?", False)
-        wizard.confirm("Do you want to configure mounts?", False)
         wizard.confirm("Customize global agsekit settings?", False)
+        wizard.confirm("Do you want to configure mounts?", False)
         wizard.text("Where should the config be saved?", "")
         wizard.finish()
 
@@ -297,8 +298,8 @@ class TestConfigGenCommand:
             http_proxy="http://127.0.0.1:9001",
         )
         wizard.confirm("Add another agent?", False)
-        wizard.confirm("Do you want to configure mounts?", False)
         wizard.confirm("Customize global agsekit settings?", False)
+        wizard.confirm("Do you want to configure mounts?", False)
         wizard.text("Where should the config be saved?", "")
         wizard.finish()
 
@@ -318,8 +319,8 @@ class TestConfigGenCommand:
         _add_agent(wizard, agent_type="qwen", name="qwen")
         wizard.confirm("Add another agent?", True)
         _cancel_agents(wizard)
-        wizard.confirm("Do you want to configure mounts?", False)
         wizard.confirm("Customize global agsekit settings?", False)
+        wizard.confirm("Do you want to configure mounts?", False)
         wizard.text("Where should the config be saved?", "")
         wizard.finish()
 
@@ -335,8 +336,8 @@ class TestConfigGenCommand:
         wizard.confirm("Add another agent?", True)
         _add_agent(wizard, agent_type="codex", name="")
         wizard.confirm("Add another agent?", False)
-        wizard.confirm("Do you want to configure mounts?", False)
         wizard.confirm("Customize global agsekit settings?", False)
+        wizard.confirm("Do you want to configure mounts?", False)
         wizard.text("Where should the config be saved?", "")
         wizard.finish()
 
@@ -360,8 +361,8 @@ class TestConfigGenCommand:
         wizard.text("Agent proxychains URL", "")
         wizard.text("Agent HTTP proxy override", "")
         wizard.confirm("Add another agent?", False)
-        wizard.confirm("Do you want to configure mounts?", False)
         wizard.confirm("Customize global agsekit settings?", False)
+        wizard.confirm("Do you want to configure mounts?", False)
         wizard.text("Where should the config be saved?", "")
         wizard.finish()
 
@@ -376,13 +377,13 @@ class TestConfigGenCommand:
 
         _fill_vm_minimal(wizard)
         _cancel_agents(wizard)
+        wizard.confirm("Customize global agsekit settings?", False)
         wizard.confirm("Do you want to configure mounts?", True)
         wizard.text("Source directory path", str(source_dir))
         wizard.text("Directory inside VM", "")
         wizard.text("Backup directory", "")
         wizard.confirm("Create a default .backupignore file in the source directory?", True)
         wizard.confirm("Add another mount?", False)
-        wizard.confirm("Customize global agsekit settings?", False)
         wizard.text("Where should the config be saved?", "")
         wizard.finish()
 
@@ -402,15 +403,22 @@ class TestConfigGenCommand:
     def test_mount_with_multi_vm_and_restricted_agents(self, tmp_path: Path) -> None:
         config_path = tmp_path / "config.yaml"
         source_dir = tmp_path / "worktree"
+        vm_backup_root = tmp_path / "vm-backups"
         source_dir.mkdir()
         wizard = self._spawn(config_path)
 
         _fill_vm_minimal(wizard, add_more=True)
-        _fill_vm_minimal(wizard, name="vm-2", old_default_mounts=True)
+        _fill_vm_minimal(
+            wizard,
+            name="vm-2",
+            old_default_mounts=True,
+            backups_root_folder=str(vm_backup_root),
+        )
         _add_agent(wizard, agent_type="qwen", name="qwen", vm_toggles=[])
         wizard.confirm("Add another agent?", True)
         _add_agent(wizard, agent_type="codex", name="codex", vm_toggles=[])
         wizard.confirm("Add another agent?", False)
+        wizard.confirm("Customize global agsekit settings?", False)
         wizard.confirm("Do you want to configure mounts?", True)
         wizard.text("Source directory path", str(source_dir))
         wizard.text("Which VM should be used for this mount?", "vm-2")
@@ -419,7 +427,6 @@ class TestConfigGenCommand:
         wizard.checkbox("Allowed agents for this mount", toggles=[0, 1])
         wizard.confirm("Create a default .backupignore file in the source directory?", False)
         wizard.confirm("Add another mount?", False)
-        wizard.confirm("Customize global agsekit settings?", False)
         wizard.text("Where should the config be saved?", "")
         wizard.finish()
 
@@ -427,6 +434,7 @@ class TestConfigGenCommand:
         mount = config["mounts"][0]
         assert mount["vm"] == "vm-2"
         assert mount["target"] == f"/home/ubuntu/{source_dir.name}"
+        assert mount["backup"] == str(vm_backup_root / f"backups-{source_dir.name}")
         assert mount["allowed_agents"] == ["qwen"]
         assert config["vms"]["vm-2"]["old_default_mounts"] is True
         assert not (source_dir / ".backupignore").exists()
@@ -441,13 +449,13 @@ class TestConfigGenCommand:
 
         _fill_vm_minimal(wizard)
         _cancel_agents(wizard)
+        wizard.confirm("Customize global agsekit settings?", False)
         wizard.confirm("Do you want to configure mounts?", True)
         wizard.text("Source directory path", str(source_dir))
         wizard.text("Directory inside VM", "")
         wizard.text("Backup directory", "")
         wizard.confirm("Create a default .backupignore file in the source directory?", True)
         wizard.confirm("Add another mount?", False)
-        wizard.confirm("Customize global agsekit settings?", False)
         wizard.text("Where should the config be saved?", "")
         wizard.finish()
 
@@ -458,20 +466,22 @@ class TestConfigGenCommand:
         ssh_dir = tmp_path / "ssh"
         env_dir = tmp_path / "env"
         state_file = tmp_path / "state.yaml"
+        backups_root = tmp_path / "backups"
         wizard = self._spawn(config_path)
 
         _fill_vm_minimal(wizard)
         _cancel_agents(wizard)
-        wizard.confirm("Do you want to configure mounts?", False)
         wizard.confirm("Customize global agsekit settings?", True)
         wizard.text("SSH keys folder override", str(ssh_dir))
         wizard.text("systemd.env folder override", str(env_dir))
         wizard.text("State file override", str(state_file), clear_default=True)
+        wizard.text("Default backups root folder", str(backups_root))
         wizard.text("How often should portforward reload the config", "21", clear_default=True)
         wizard.confirm("Enable periodic new-version checks?", False)
         wizard.text("How often should agsekit check for new versions", "900", clear_default=True)
         wizard.text("HTTP proxy auto-port pool start", "48100", clear_default=True)
         wizard.text("HTTP proxy auto-port pool end", "48200", clear_default=True)
+        wizard.confirm("Do you want to configure mounts?", False)
         wizard.text("Where should the config be saved?", "")
         wizard.finish()
 
@@ -480,6 +490,7 @@ class TestConfigGenCommand:
             "ssh_keys_folder": str(ssh_dir),
             "systemd_env_folder": str(env_dir),
             "state_file": str(state_file),
+            "backups_root_folder": str(backups_root),
             "portforward_config_check_interval_sec": 21,
             "check_new_version": False,
             "check_new_version_interval_sec": 900,
@@ -493,8 +504,8 @@ class TestConfigGenCommand:
 
         _fill_vm_minimal(wizard)
         _cancel_agents(wizard)
-        wizard.confirm("Do you want to configure mounts?", False)
         wizard.confirm("Customize global agsekit settings?", False)
+        wizard.confirm("Do you want to configure mounts?", False)
         wizard.text("Where should the config be saved?", "")
         output = wizard.finish()
 
@@ -555,6 +566,7 @@ def _fill_vm_minimal(
     http_proxy: str = "",
     port_forwarding: object = None,
     old_default_mounts: bool = False,
+    backups_root_folder: str = "",
     add_more: bool = False,
 ) -> None:
     bundle_names = bundle_names or []
@@ -571,6 +583,7 @@ def _fill_vm_minimal(
     wizard.text("Proxychains proxy URL", proxychains)
     wizard.text("VM HTTP proxy URL", http_proxy)
     wizard.confirm("Use legacy /home/ubuntu/<folder> defaults for mounts in this VM?", old_default_mounts)
+    wizard.text("Backups root folder for this VM", backups_root_folder)
     if port_forwarding is None:
         wizard.confirm("Configure port-forwarding for this VM?", False)
     else:

@@ -14,6 +14,39 @@ def test_load_vms_config_old_default_mounts_defaults_to_false():
     config = {"vms": {"agent": {"cpu": 2, "ram": "2G", "disk": "10G"}}}
 
     assert load_vms_config(config)["agent"].old_default_mounts is False
+    assert load_vms_config(config)["agent"].backups_root_folder is None
+
+
+def test_load_vms_config_accepts_backups_root_folder(tmp_path):
+    root = tmp_path / "backups"
+    config = {
+        "vms": {
+            "agent": {
+                "cpu": 1,
+                "ram": "1G",
+                "disk": "5G",
+                "backups_root_folder": str(root),
+            }
+        }
+    }
+
+    assert load_vms_config(config)["agent"].backups_root_folder == root.resolve()
+
+
+def test_load_vms_config_rejects_non_path_backups_root_folder():
+    config = {
+        "vms": {
+            "agent": {
+                "cpu": 1,
+                "ram": "1G",
+                "disk": "5G",
+                "backups_root_folder": False,
+            }
+        }
+    }
+
+    with pytest.raises(ConfigError, match="backups_root_folder"):
+        load_vms_config(config)
 
 
 def test_load_vms_config_accepts_old_default_mounts():

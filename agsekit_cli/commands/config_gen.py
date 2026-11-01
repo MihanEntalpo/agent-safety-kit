@@ -202,6 +202,7 @@ def _prompt_vms() -> Dict[str, Dict[str, object]]:
         proxychains = _prompt_optional_proxy(tr("config_gen.vm_proxychains"))
         http_proxy = _prompt_optional_proxy(tr("config_gen.vm_http_proxy"))
         old_default_mounts = ask_confirm(tr("config_gen.vm_old_default_mounts"), default=False)
+        backups_root_folder = _prompt_optional_path(tr("config_gen.vm_backups_root_folder"))
         port_forwarding = _prompt_port_forwarding()
 
         vm_entry: Dict[str, object] = {
@@ -217,6 +218,8 @@ def _prompt_vms() -> Dict[str, Dict[str, object]]:
             vm_entry["http_proxy"] = http_proxy
         if old_default_mounts:
             vm_entry["old_default_mounts"] = True
+        if backups_root_folder:
+            vm_entry["backups_root_folder"] = backups_root_folder
         if port_forwarding:
             vm_entry["port-forwarding"] = port_forwarding
         vms[name] = vm_entry
@@ -381,7 +384,11 @@ def _prompt_mount_allowed_agents(agent_names: List[str]) -> Optional[List[str]]:
     return [str(item) for item in selected]
 
 
-def _prompt_mounts(vms: Dict[str, Dict[str, object]], agent_names: List[str]) -> List[Dict[str, object]]:
+def _prompt_mounts(
+    vms: Dict[str, Dict[str, object]],
+    agent_names: List[str],
+    global_config: Dict[str, object],
+) -> List[Dict[str, object]]:
     mounts: List[Dict[str, object]] = []
     if not ask_confirm(tr("config_gen.mounts_enable"), default=False):
         return mounts
@@ -401,7 +408,15 @@ def _prompt_mounts(vms: Dict[str, Dict[str, object]], agent_names: List[str]) ->
         else:
             default_target = str(source)
         target = ask_text(tr("config_gen.mount_target"), default=default_target, validate=_validate_non_empty)
-        default_backup = source.parent / f"backups-{mount_name}"
+        backups_root_folder = vms[vm_name].get("backups_root_folder") or global_config.get(
+            "backups_root_folder"
+        )
+        backup_parent = (
+            Path(str(backups_root_folder)).expanduser().resolve()
+            if backups_root_folder
+            else source.parent
+        )
+        default_backup = backup_parent / f"backups-{mount_name}"
         backup = ask_path(tr("config_gen.mount_backup"), default=str(default_backup))
 
         allowed_agents = _prompt_mount_allowed_agents(agent_names)
@@ -435,12 +450,15 @@ def _prompt_global() -> Dict[str, object]:
         tr("config_gen.global_state_file"),
         default=str(DEFAULT_STATE_FILE_PATH),
     )
+    backups_root_folder = _prompt_optional_path(tr("config_gen.global_backups_root_folder"))
     if ssh_keys_folder:
         global_config["ssh_keys_folder"] = ssh_keys_folder
     if systemd_env_folder:
         global_config["systemd_env_folder"] = systemd_env_folder
     if state_file and Path(state_file).expanduser() != DEFAULT_STATE_FILE_PATH:
         global_config["state_file"] = state_file
+    if backups_root_folder:
+        global_config["backups_root_folder"] = backups_root_folder
 
     global_config["portforward_config_check_interval_sec"] = _prompt_positive_int(
         tr("config_gen.global_portforward_interval"),
@@ -512,10 +530,10 @@ def config_gen_command(config_path: Optional[str], overwrite: bool, non_interact
     vms = _prompt_vms()
     agents = _prompt_agents(list(vms.keys()))
     _apply_vm_allowed_agents(vms, agents)
-    mounts = _prompt_mounts(vms, list(agents.keys()))
-    global_config: Optional[Dict[str, object]] = None
+    global_config: Dict[str, object] = {}
     if ask_confirm(tr("config_gen.global_customize"), default=False):
         global_config = _prompt_global()
+    mounts = _prompt_mounts(vms, list(agents.keys()), global_config)
 
     destination = Path(ask_path(tr("config_gen.destination_prompt"), default=str(resolved_default_path))).expanduser()
     if destination.exists() and not overwrite:

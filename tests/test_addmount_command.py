@@ -122,6 +122,64 @@ def test_addmount_uses_single_vm_by_default(tmp_path):
     assert mount_entry["vm"] == "single-vm"
 
 
+def test_addmount_uses_vm_backup_root_before_global_root(tmp_path):
+    source = tmp_path / "project"
+    target = tmp_path / "target"
+    global_root = tmp_path / "global-backups"
+    vm_root = tmp_path / "vm-backups"
+    config_path = tmp_path / "config.yaml"
+    config_path.write_text(
+        yaml.safe_dump(
+            {
+                "global": {"backups_root_folder": str(global_root)},
+                "vms": {
+                    "agent": {
+                        "cpu": 1,
+                        "ram": "1G",
+                        "disk": "5G",
+                        "backups_root_folder": str(vm_root),
+                    }
+                },
+            },
+            sort_keys=False,
+        ),
+        encoding="utf-8",
+    )
+
+    result = CliRunner().invoke(
+        addmount_commands.addmount_command,
+        [str(source), str(target), "--config", str(config_path), "-y", "--non-interactive"],
+    )
+
+    assert result.exit_code == 0
+    assert _read_mount_entry(config_path)["backup"] == str(vm_root.resolve() / "backups-project")
+
+
+def test_addmount_uses_global_backup_root_when_vm_does_not_override(tmp_path):
+    source = tmp_path / "project"
+    target = tmp_path / "target"
+    global_root = tmp_path / "global-backups"
+    config_path = tmp_path / "config.yaml"
+    config_path.write_text(
+        yaml.safe_dump(
+            {
+                "global": {"backups_root_folder": str(global_root)},
+                "vms": {"agent": {"cpu": 1, "ram": "1G", "disk": "5G"}},
+            },
+            sort_keys=False,
+        ),
+        encoding="utf-8",
+    )
+
+    result = CliRunner().invoke(
+        addmount_commands.addmount_command,
+        [str(source), str(target), "--config", str(config_path), "-y", "--non-interactive"],
+    )
+
+    assert result.exit_code == 0
+    assert _read_mount_entry(config_path)["backup"] == str(global_root.resolve() / "backups-project")
+
+
 def test_addmount_interactive_target_defaults_to_absolute_source(monkeypatch, tmp_path):
     source = (tmp_path / "project").resolve()
     seen_defaults: list[str] = []

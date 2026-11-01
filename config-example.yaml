@@ -2,6 +2,7 @@ global: # global agsekit settings
   ssh_keys_folder: null # if set, overrides the folder with SSH keys used to connect to VMs; default: ~/.config/agsekit/ssh
   systemd_env_folder: null # if set, overrides the folder where agsekit writes systemd.env; default: ~/.config/agsekit
   state_file: null # if set, overrides the agsekit internal state file path; default: ~/.config/agsekit/state.yaml
+  backups_root_folder: null # default parent for backups-<folder>; null keeps backups next to the source
   portforward_config_check_interval_sec: 10 # how often portforward reloads the config and reconciles tunnels
   check_new_version: true # whether agsekit should periodically check PyPI for a newer version
   check_new_version_interval_sec: 600 # how often agsekit should check PyPI for a newer version
@@ -14,6 +15,7 @@ vms: # virtual machine settings (you can define multiple VMs)
     ram: 4G     # amount of RAM
     disk: 20G   # disk size
     old_default_mounts: false # true restores /home/ubuntu/<folder> suggestions during interactive mount creation
+    backups_root_folder: null # overrides global.backups_root_folder for mounts assigned to this VM
     allowed_agents: aider, qwen, forgecode, codex, opencode, claude, cline # optional: also accepts a list like [qwen, codex]; if omitted, all agents are allowed for this VM
     proxychains: "" # set a proxy URL (scheme://host:port); agsekit will generate a temporary proxychains.conf and wrap Multipass commands
     http_proxy: "" # optional shorthand for VM-local privoxy upstream (for example socks5://127.0.0.1:8181); for direct mode use a mapping with url:

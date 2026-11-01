@@ -29,6 +29,50 @@ def test_load_mounts_config_applies_defaults(tmp_path):
     assert entry.vm_name == "agent"
 
 
+def test_mount_default_backup_uses_global_root(tmp_path):
+    source = tmp_path / "projects" / "project"
+    root = tmp_path / "all-backups"
+    config = {
+        "global": {"backups_root_folder": str(root)},
+        "vms": {"agent": {"cpu": 1, "ram": "1G", "disk": "5G"}},
+        "mounts": [{"source": str(source)}],
+    }
+
+    assert load_mounts_config(config)[0].backup == root.resolve() / "backups-project"
+
+
+def test_mount_default_backup_vm_root_overrides_global_root(tmp_path):
+    source = tmp_path / "projects" / "project"
+    global_root = tmp_path / "global-backups"
+    vm_root = tmp_path / "vm-backups"
+    config = {
+        "global": {"backups_root_folder": str(global_root)},
+        "vms": {
+            "agent": {
+                "cpu": 1,
+                "ram": "1G",
+                "disk": "5G",
+                "backups_root_folder": str(vm_root),
+            }
+        },
+        "mounts": [{"source": str(source)}],
+    }
+
+    assert load_mounts_config(config)[0].backup == vm_root.resolve() / "backups-project"
+
+
+def test_explicit_mount_backup_overrides_configured_roots(tmp_path):
+    source = tmp_path / "project"
+    explicit = tmp_path / "explicit"
+    config = {
+        "global": {"backups_root_folder": str(tmp_path / "global")},
+        "vms": {"agent": {"cpu": 1, "ram": "1G", "disk": "5G"}},
+        "mounts": [{"source": str(source), "backup": str(explicit)}],
+    }
+
+    assert load_mounts_config(config)[0].backup == explicit.resolve()
+
+
 @pytest.mark.parametrize("invalid_value", [0, -1, "abc"])
 def test_load_mounts_config_validates_interval(invalid_value):
     config = {

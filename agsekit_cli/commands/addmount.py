@@ -18,6 +18,7 @@ from ..config import (
     default_mount_backup,
     default_mount_target,
     load_agents_config,
+    load_global_config,
     load_mounts_config,
     load_vms_config,
     resolve_config_path,
@@ -351,6 +352,7 @@ def addmount_command(
 
         try:
             vms = load_vms_config(config_data)
+            global_config = load_global_config(config_data)
         except ConfigError as exc:
             raise click.ClickException(str(exc))
 
@@ -375,15 +377,6 @@ def addmount_command(
 
         source_dir = normalize_path(source_dir)
 
-        if backup_dir is None:
-            default_backup = default_mount_backup(source_dir)
-            if interactive:
-                backup_prompt = ask_path(tr("addmount.backup_prompt"), default=str(default_backup))
-                backup_dir = Path(backup_prompt).expanduser()
-            else:
-                backup_dir = default_backup
-
-        backup_dir = backup_dir.expanduser().resolve()
         target_dir, selected_vm = _resolve_target_and_vm(
             source_dir=source_dir,
             target_dir=target_dir,
@@ -392,6 +385,17 @@ def addmount_command(
             vms=vms,
             existing_mounts=existing_mounts,
         )
+
+        if backup_dir is None:
+            backups_root_folder = vms[selected_vm].backups_root_folder or global_config.backups_root_folder
+            default_backup = default_mount_backup(source_dir, backups_root_folder)
+            if interactive:
+                backup_prompt = ask_path(tr("addmount.backup_prompt"), default=str(default_backup))
+                backup_dir = Path(backup_prompt).expanduser()
+            else:
+                backup_dir = default_backup
+
+        backup_dir = backup_dir.expanduser().resolve()
 
         if interval is None and interactive:
             interval_minutes = _prompt_positive_int(

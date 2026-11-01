@@ -100,7 +100,7 @@ agsekit addmount [SOURCE_DIR] [TARGET_DIR] [BACKUP_DIR] [INTERVAL] [--vm <vm_nam
 
 - `SOURCE_DIR` - папка на хосте, которую нужно добавить в `mounts[].source`. В интерактивном режиме, если не указана, мастер спрашивает её явно. В non-interactive режиме обязательна.
 - `TARGET_DIR` - путь внутри VM для `mounts[].target`. Если он не указан в интерактивном режиме, мастер предлагает неизменённый абсолютный путь `SOURCE_DIR`, либо `/home/ubuntu/<имя SOURCE_DIR>` для выбранной VM с `old_default_mounts: true`; в non-interactive режиме сохраняется старый fallback.
-- `BACKUP_DIR` - папка на хосте для `mounts[].backup`. Если не указана, используется `<родитель SOURCE_DIR>/backups-<имя SOURCE_DIR>`.
+- `BACKUP_DIR` - папка на хосте для `mounts[].backup`. Если не указана, родитель берётся из `backups_root_folder` выбранной VM, затем из `global.backups_root_folder`, затем рядом с `SOURCE_DIR`; имя создаётся как `backups-<имя SOURCE_DIR>`.
 - `INTERVAL` - значение `mounts[].interval`, интервал бэкапов в минутах. Если не указан, по умолчанию `5`; в интерактивном режиме спрашивается prompt.
 
 Опции:
@@ -130,6 +130,7 @@ agsekit addmount [SOURCE_DIR] [TARGET_DIR] [BACKUP_DIR] [INTERVAL] [--vm <vm_nam
 
 - спрашиваются `source`, `target`, `backup`, целевая VM, `interval`, `max_backups` и `backup_clean_method`
 - в качестве default `target` предлагается абсолютный путь `source` на хосте, поэтому нажатие Enter сохраняет внутри VM тот же путь к проекту; `vms.<name>.old_default_mounts: true` возвращает для выбранной VM вариант `/home/ubuntu/<имя source>`
+- default `backup` предлагается с учётом `vms.<name>.backups_root_folder`, затем `global.backups_root_folder`, затем каталога рядом с `source`
 - если агенты настроены, показывается checkbox-список с пунктом `Без ограничений` и именами доступных агентов
 - предлагается создать дефолтный `.backupignore` в исходной директории
 

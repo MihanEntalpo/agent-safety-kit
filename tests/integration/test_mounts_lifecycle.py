@@ -114,6 +114,8 @@ def _write_config(
     mounts: list[dict[str, object]],
     *,
     old_default_mounts: bool = False,
+    global_backups_root_folder: Optional[Path] = None,
+    vm_backups_root_folder: Optional[Path] = None,
 ) -> None:
     vm_config: dict[str, object] = {
         "cpu": 1,
@@ -122,10 +124,14 @@ def _write_config(
     }
     if old_default_mounts:
         vm_config["old_default_mounts"] = True
+    if vm_backups_root_folder is not None:
+        vm_config["backups_root_folder"] = str(vm_backups_root_folder)
     payload = {
         "vms": {vm_name: vm_config},
         "mounts": mounts,
     }
+    if global_backups_root_folder is not None:
+        payload["global"] = {"backups_root_folder": str(global_backups_root_folder)}
     config_path.write_text(yaml.safe_dump(payload, sort_keys=False), encoding="utf-8")
 
 
@@ -155,8 +161,8 @@ def _run_interactive_addmount(source: Path, config_path: Path) -> str:
     transcript = ""
     try:
         for prompt in (
-            "Backup directory",
             "Mount path inside the VM",
+            "Backup directory",
             "Backup interval in minutes",
         ):
             child.expect_exact(prompt)
@@ -333,6 +339,40 @@ def test_mount_creates_every_missing_guest_target_component_for_ubuntu(
 
     stats = _guest_stat(mount_test_vm, created_paths)
     assert stats == [f"ubuntu:ubuntu:755:{path}" for path in created_paths]
+
+
+@pytest.mark.parametrize("vm_override", [False, True], ids=["global-root", "vm-root-override"])
+def test_interactive_addmount_uses_configured_backup_root_on_real_vm(
+    mount_test_vm: str,
+    host_mount_root: Path,
+    tmp_path: Path,
+    vm_override: bool,
+) -> None:
+    source = host_mount_root / _random_name("source-backup-root")
+    source.mkdir()
+    global_root = host_mount_root / _random_name("global-backups")
+    vm_root = host_mount_root / _random_name("vm-backups")
+    config_path = tmp_path / f"config-backup-root-{vm_override}.yaml"
+    _write_config(
+        config_path,
+        mount_test_vm,
+        [],
+        global_backups_root_folder=global_root,
+        vm_backups_root_folder=vm_root if vm_override else None,
+    )
+    expected_root = vm_root if vm_override else global_root
+
+    try:
+        _run_interactive_addmount(source, config_path)
+
+        updated = yaml.safe_load(config_path.read_text(encoding="utf-8"))
+        mount = updated["mounts"][0]
+        assert Path(mount["backup"]) == expected_root / f"backups-{source.name}"
+    finally:
+        _run_cli(
+            ["umount", str(source), "--config", str(config_path), "--non-interactive"],
+            check=False,
+        )
 
 
 def test_mount_all_mounts_every_entry(mount_test_vm: str, host_mount_root: Path, tmp_path: Path) -> None:

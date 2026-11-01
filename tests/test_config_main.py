@@ -27,12 +27,14 @@ def test_load_global_config_returns_defaults_when_section_missing():
     assert global_config.check_new_version_interval_sec == DEFAULT_VERSION_CHECK_INTERVAL_SEC
     assert global_config.http_proxy_port_pool.start == DEFAULT_HTTP_PROXY_PORT_POOL_START
     assert global_config.http_proxy_port_pool.end == DEFAULT_HTTP_PROXY_PORT_POOL_END
+    assert global_config.backups_root_folder is None
 
 
 def test_load_global_config_applies_overrides(tmp_path):
     ssh_keys_folder = tmp_path / "custom-ssh"
     systemd_env_folder = tmp_path / "custom-systemd"
     state_file = tmp_path / "state.yaml"
+    backups_root_folder = tmp_path / "backups"
     config = {
         "global": {
             "ssh_keys_folder": str(ssh_keys_folder),
@@ -42,6 +44,7 @@ def test_load_global_config_applies_overrides(tmp_path):
             "check_new_version": False,
             "check_new_version_interval_sec": 900,
             "http_proxy_port_pool": {"start": 48100, "end": 48200},
+            "backups_root_folder": str(backups_root_folder),
         }
     }
 
@@ -55,6 +58,12 @@ def test_load_global_config_applies_overrides(tmp_path):
     assert global_config.check_new_version_interval_sec == 900
     assert global_config.http_proxy_port_pool.start == 48100
     assert global_config.http_proxy_port_pool.end == 48200
+    assert global_config.backups_root_folder == backups_root_folder.resolve()
+
+
+def test_load_global_config_rejects_non_path_backups_root_folder():
+    with pytest.raises(ConfigError, match="backups_root_folder"):
+        load_global_config({"global": {"backups_root_folder": 42}})
 
 
 def test_load_global_config_rejects_non_mapping_global():

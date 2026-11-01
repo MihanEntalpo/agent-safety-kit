@@ -193,6 +193,7 @@
   - если выключено, фоновые проверки новой версии не запускаются.
 - `check_new_version_interval_sec` (optional, default `600`, >0) — период запуска фоновой команды проверки; запрос latest-версии каждого агента имеет собственный фиксированный TTL 24 часа, поэтому более частые запуски используют state-кэш.
   - применяется в `run` и в общем фоновом daemon backend.
+- `backups_root_folder` (optional path, default `null`) — общий корневой каталог для автоматически вычисляемых путей backup: `<backups_root_folder>/backups-<basename(source)>`; при `null` используется прежний `<source_parent>/backups-<basename(source)>`.
 
 ### 6.3.1 Внутренний `state.yaml`
 
@@ -236,6 +237,7 @@ Behavior:
   - `type=socks5`: поднять SOCKS5-порт в VM (`ssh -D vm`).
 - `install` (optional) — список install bundles (`python`, `nodejs`, `nodejs:20`, `docker`, ...), которые выполняются на этапе `create-vm/create-vms`.
 - `old_default_mounts` (optional, bool, default `false`) — переключатель совместимости для интерактивного создания mount'ов: при `false` default target совпадает с абсолютным `source`, при `true` используется старый `/home/ubuntu/<basename(source)>`.
+- `backups_root_folder` (optional path, default `null`) — корневой каталог для автоматически вычисляемых backup-путей mount'ов этой VM; переопределяет `global.backups_root_folder`, а при отсутствии наследует его.
 - `allowed_agents` (optional) — список имён агентов из секции `agents` или строка имён, разделённых запятыми.
   - если поле задано, `run` в этой VM разрешён только для перечисленных агентов в случаях, когда mount-ограничение не задано;
   - если поле отсутствует, для VM ограничение не применяется (разрешены все агенты, если не ограничены mount-ом).
@@ -244,7 +246,7 @@ Behavior:
 Поля mount entry:
 - `source` (обязателен) — адрес монтируемой папки в хостовой файловой системе.
 - `target` (optional, default `/home/ubuntu/<basename(source)>`) — адрес монтирования внутри VM.
-- `backup` (optional, default `<source_parent>/backups-<basename(source)>`) — адрес папки резервных копий в хостовой файловой системе.
+- `backup` (optional) — адрес папки резервных копий в хостовой файловой системе; явное значение имеет наивысший приоритет, иначе используется `<vms.<vm>.backups_root_folder>/backups-<basename(source)>`, затем глобальный root, затем прежний `<source_parent>/backups-<basename(source)>`.
 - `interval` (optional, default `5`, >0) — интервал инкрементальных резервных копий, в минутах.
 - `max_backups` (optional, default `100`, >0) — максимальное количество снапшотов; после достижения лимита включается чистка старых.
 - `backup_clean_method` (optional, default `thin`, одно из `tail|thin`) — метод очистки:
@@ -437,6 +439,7 @@ Behavior:
   - optional `proxychains`;
   - optional `http_proxy`;
   - `old_default_mounts` через yes/no prompt с default `No`; значение `true` сохраняется в VM-блок, `false` не записывается;
+  - optional `backups_root_folder` для переопределения общего корня backup-папок этой VM;
   - optional `port-forwarding`, где пользователь может выбрать `local`, `remote`, `socks5` или `Cancel`; после каждого добавленного правила мастер спрашивает, нужно ли добавить ещё одно правило, и сохраняет список правил в `vms.<name>.port-forwarding`.
 - имена VM внутри одного прогона должны быть уникальными:
   - default name для первой VM — `agent-ubuntu`;
@@ -454,13 +457,13 @@ Behavior:
   - если VM больше одной, агенту предлагается checkbox-выбор целевых VM, по умолчанию отмечены все и требуется оставить хотя бы одну;
   - optional `proxychains` и `http_proxy` можно переопределить на уровне агента; пустой ввод означает «не переопределять», а буквальное `""` записывается как явная пустая строка в YAML.
 - после агентной секции, если VM больше одной, автоматически синтезирует `vms.<name>.allowed_agents` из agent-to-VM assignments: VM получают списки только тех агентов, которые явно назначены именно им.
+- после агентов спрашивает, нужно ли переопределять `global`; default `No`.
+  - при согласии собирает `global.ssh_keys_folder`, `global.systemd_env_folder`, `global.state_file`, `global.backups_root_folder`, `global.portforward_config_check_interval_sec`, version-check settings и `global.http_proxy_port_pool.start/end`.
 - затем спрашивает, нужно ли настраивать mounts; default `No`.
-  - каждый mount собирает `source`, `target` (интерактивный default — тот же абсолютный путь, что и `source`; для VM с `old_default_mounts: true` — `/home/ubuntu/<basename(source)>`), `backup` (default `<source_parent>/backups-<basename(source)>`);
+  - каждый mount собирает `source`, `target` (интерактивный default — тот же абсолютный путь, что и `source`; для VM с `old_default_mounts: true` — `/home/ubuntu/<basename(source)>`), `backup` (default root выбирается сначала из VM, затем из `global`, затем рядом с `source`);
   - если VM одна, `mount.vm` выбирается автоматически; если VM несколько, пользователь выбирает одну VM из списка;
   - если агенты уже заданы, `allowed_agents` выбираются checkbox-списком с дополнительным пунктом `No restrictions`; сочетать `No restrictions` с конкретными агентами нельзя;
   - при согласии пользователя создаётся default `.backupignore` в source directory, если файл ещё не существует.
-- в самом конце спрашивает, нужно ли переопределять `global`; default `No`.
-  - при согласии собирает `global.ssh_keys_folder`, `global.systemd_env_folder`, `global.portforward_config_check_interval_sec`, `global.http_proxy_port_pool.start/end`.
 - после всех секций спрашивает путь сохранения;
 - без `--overwrite` не перезаписывает существующий файл.
 
@@ -631,7 +634,7 @@ Behavior:
 - запрашивает/вычисляет default значения для:
   - `source`;
   - `target` (в интерактивном режиме предлагает тот же абсолютный путь, что и `source`; для выбранной VM с `old_default_mounts: true` предлагает `/home/ubuntu/<basename(source)>`; non-interactive fallback также остаётся старым);
-  - `backup`;
+  - `backup` (если не задан явно, использует root выбранной VM, затем global root, затем каталог рядом с `source`);
   - `interval`;
   - `max_backups`;
   - `backup_clean_method`;

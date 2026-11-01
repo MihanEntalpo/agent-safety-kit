@@ -101,7 +101,7 @@ Positional arguments:
 
 - `SOURCE_DIR` - host folder to add to `mounts[].source`. In interactive mode, if not specified, the wizard asks for it explicitly. In non-interactive mode it is required.
 - `TARGET_DIR` - path inside the VM for `mounts[].target`. If omitted in interactive mode, the wizard suggests the absolute `SOURCE_DIR` path unchanged, or `/home/ubuntu/<SOURCE_DIR name>` when the selected VM has `old_default_mounts: true`; non-interactive mode keeps the legacy fallback.
-- `BACKUP_DIR` - folder on the host for `mounts[].backup`. If not specified, `<SOURCE_DIR parent>/backups-<SOURCE_DIR name>` is used.
+- `BACKUP_DIR` - folder on the host for `mounts[].backup`. If omitted, the parent comes from the selected VM's `backups_root_folder`, then `global.backups_root_folder`, then `SOURCE_DIR`'s parent; the generated name is `backups-<SOURCE_DIR name>`.
 - `INTERVAL` - value of `mounts[].interval`, backup interval in minutes. If not specified, the default is `5`; in interactive mode a prompt asks for it.
 
 Options:
@@ -131,6 +131,7 @@ Interactive behavior is intentionally close to the mount step in `config-gen`:
 
 - asks for `source`, `target`, `backup`, target VM, `interval`, `max_backups`, and `backup_clean_method`
 - suggests the absolute host `source` path as the default `target`, so pressing Enter keeps the same project path inside the VM; `vms.<name>.old_default_mounts: true` restores `/home/ubuntu/<source_name>` for the selected VM
+- suggests the default `backup` using `vms.<name>.backups_root_folder`, then `global.backups_root_folder`, then the directory next to `source`
 - when agents are configured, shows a checkbox list with `No restrictions` and the configured agent names
 - offers to create a default `.backupignore` file in the source directory
 

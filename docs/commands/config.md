@@ -20,11 +20,11 @@ Important behavior:
 - Additional VMs are optional
 - Agents are optional
 - Mounts are optional
-- Global overrides are optional and are asked only at the end
+- Global overrides are optional and are asked before mounts so their defaults can affect mount creation
 
 Wizard flow:
 
-1. Configure the first VM: name, CPU, RAM, disk, install bundles, optional proxy settings, the optional legacy mount-default switch, and optional port-forwarding.
+1. Configure the first VM: name, CPU, RAM, disk, install bundles, optional proxy settings, the optional legacy mount-default switch, optional `backups_root_folder`, and optional port-forwarding.
 2. Optionally add more VMs.
 3. Configure agents:
    - choose an agent type from a TUI list
@@ -34,14 +34,14 @@ Wizard flow:
    - optionally add `default-args`
    - when more than one VM exists, assign the agent to one or more VMs
    - optionally override `proxychains` and `http_proxy`
-4. Optionally configure mounts:
+4. Optionally override global settings.
+5. Optionally configure mounts:
    - `source`
    - target VM
    - `target` (defaults to the same absolute path as `source`, or `/home/ubuntu/<source_name>` when the selected VM enables `old_default_mounts`)
-   - `backup`
+   - `backup` (default parent: VM backup root, global backup root, then the source parent)
    - optional allowed-agent restrictions
    - optional default `.backupignore`
-5. Optionally override global settings.
 6. Choose the destination path and save the YAML.
 
 Global overrides currently include:
@@ -49,6 +49,7 @@ Global overrides currently include:
 - `ssh_keys_folder`
 - `systemd_env_folder`
 - `state_file`
+- `backups_root_folder`
 - `portforward_config_check_interval_sec`
 - `check_new_version`
 - `check_new_version_interval_sec`

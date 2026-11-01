@@ -67,6 +67,7 @@ class VmConfig:
     allowed_agents: Optional[List[str]] = None
     install: List[str] = field(default_factory=list)
     old_default_mounts: bool = False
+    backups_root_folder: Optional[Path] = None
 
 
 @dataclass
@@ -113,6 +114,7 @@ class GlobalConfig:
     check_new_version: bool = DEFAULT_VERSION_CHECK_ENABLED
     check_new_version_interval_sec: int = DEFAULT_VERSION_CHECK_INTERVAL_SEC
     http_proxy_port_pool: HttpProxyPortPoolConfig = HttpProxyPortPoolConfig()
+    backups_root_folder: Optional[Path] = None
 
 
 class ConfigError(RuntimeError):
@@ -267,6 +269,7 @@ def load_global_config(config: Dict[str, Any]) -> GlobalConfig:
     check_new_version_raw = raw_global.get("check_new_version")
     check_new_version_interval_raw = raw_global.get("check_new_version_interval_sec")
     http_proxy_port_pool_raw = raw_global.get("http_proxy_port_pool")
+    backups_root_folder_raw = raw_global.get("backups_root_folder")
 
     ssh_keys_folder = (
         DEFAULT_SSH_KEYS_DIR
@@ -308,6 +311,11 @@ def load_global_config(config: Dict[str, Any]) -> GlobalConfig:
         http_proxy_port_pool_raw,
         "global.http_proxy_port_pool",
     )
+    backups_root_folder = (
+        None
+        if backups_root_folder_raw is None
+        else _ensure_path(backups_root_folder_raw, "global.backups_root_folder")
+    )
 
     return GlobalConfig(
         ssh_keys_folder=ssh_keys_folder,
@@ -317,6 +325,7 @@ def load_global_config(config: Dict[str, Any]) -> GlobalConfig:
         check_new_version=check_new_version,
         check_new_version_interval_sec=check_new_version_interval_sec,
         http_proxy_port_pool=http_proxy_port_pool,
+        backups_root_folder=backups_root_folder,
     )
 
 
@@ -601,6 +610,14 @@ def load_vms_config(config: Dict[str, Any]) -> Dict[str, VmConfig]:
                     raw_entry.get("old_default_mounts", False),
                     f"vms.{vm_name}.old_default_mounts",
                 ),
+                backups_root_folder=(
+                    None
+                    if raw_entry.get("backups_root_folder") is None
+                    else _ensure_path(
+                        raw_entry.get("backups_root_folder"),
+                        f"vms.{vm_name}.backups_root_folder",
+                    )
+                ),
             )
         except ValueError as exc:
             _raise_with_context(
@@ -636,16 +653,17 @@ def _default_target(source: Path) -> Path:
     return Path("/home/ubuntu") / source.name
 
 
-def _default_backup(source: Path) -> Path:
-    return source.parent / f"backups-{source.name}"
+def _default_backup(source: Path, backups_root_folder: Optional[Path] = None) -> Path:
+    root = backups_root_folder if backups_root_folder is not None else source.parent
+    return root / f"backups-{source.name}"
 
 
 def default_mount_target(source: Path) -> Path:
     return _default_target(source)
 
 
-def default_mount_backup(source: Path) -> Path:
-    return _default_backup(source)
+def default_mount_backup(source: Path, backups_root_folder: Optional[Path] = None) -> Path:
+    return _default_backup(source, backups_root_folder)
 
 
 def _default_vm_name(config: Dict[str, Any]) -> Optional[str]:
@@ -999,6 +1017,8 @@ def load_mounts_config(config: Dict[str, Any]) -> List[MountConfig]:
 
     raw_agents = config.get("agents")
     known_agents = {str(name) for name in raw_agents.keys()} if isinstance(raw_agents, dict) else set()
+    global_config = load_global_config(config)
+    vm_configs = load_vms_config(config)
 
     mounts: List[MountConfig] = []
     for index, entry in enumerate(raw_mounts):
@@ -1017,7 +1037,15 @@ def load_mounts_config(config: Dict[str, Any]) -> List[MountConfig]:
                 raise ConfigError(tr("config.mount_entry_missing_vm", index=index + 1))
 
             target = _ensure_path(target_raw, f"mounts[{index}].target") if target_raw else _default_target(source)
-            backup = _ensure_path(backup_raw, f"mounts[{index}].backup") if backup_raw else _default_backup(source)
+            vm_config = vm_configs.get(str(vm_name))
+            if vm_config is None:
+                raise ConfigError(tr("config.mount_entry_missing_vm", index=index + 1))
+            backups_root_folder = vm_config.backups_root_folder or global_config.backups_root_folder
+            backup = (
+                _ensure_path(backup_raw, f"mounts[{index}].backup")
+                if backup_raw
+                else _default_backup(source, backups_root_folder)
+            )
             interval_minutes = _normalize_interval(entry.get("interval"))
             max_backups = _normalize_max_backups(entry.get("max_backups"), index + 1)
             backup_clean_method = _normalize_backup_clean_method(entry.get("backup_clean_method"), index + 1)
