@@ -36,7 +36,8 @@
 
 Основные паттерны:
 
-- последние или точные npm-версии для `codex`, `qwen`, `opencode`, `claude` и `cline`
+- официальные standalone package releases для `codex`
+- последние или точные npm-версии для `qwen`, `opencode`, `claude` и `cline`
 - точная версия Python-пакета для `aider`
 - точная release-версия для `forgecode`
 - локальная сборка из исходников для `codex-glibc`
@@ -60,6 +61,8 @@
 
 - некоторые агенты получают встроенные default env-переменные до применения пользовательского `agents.<name>.env` из конфига; при необходимости пользовательский конфиг всё ещё может их переопределить
 - сейчас встроенные default env такие: `forgecode -> FORGE_TRACKER=false`, `aider -> AIDER_CHECK_UPDATE=false`, `opencode -> OPENCODE_DISABLE_AUTOUPDATE=true`, `claude -> DISABLE_AUTOUPDATER=1`, `cline -> CLINE_NO_AUTO_UPDATE=1`
+- `codex` устанавливается официальным standalone installer OpenAI. Полученный canonical package содержит Code Mode host, метаданные и ресурсы для shared app-server daemon, поэтому для обычного запуска больше не нужен `--no-daemon`.
+- Для SOCKS upstream используйте с `codex` настройку `http_proxy: socks5://host:port`. agsekit запускает временный Privoxy bridge и выставляет HTTP, HTTPS и WebSocket proxy variables, которые использует официальный package и daemon.
 - `codex-glibc` и `codex-glibc-prebuilt` это отдельные бинарники и могут сосуществовать с `codex`.
 - источник релизов для `codex-glibc-prebuilt` можно переопределить через host environment variables.
 - если `install-agents` видит уже установленный бинарник с другой версией, агент переустанавливается до версии, указанной в конфиге.

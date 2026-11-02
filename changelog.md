@@ -1,5 +1,10 @@
 # Agent-Safety-Kit versions history
 
+## 1.7.6 - Added official stand-alone codex installer
+
+* Changed the `codex` agent installer and latest-version lookup from the npm wrapper to OpenAI's official standalone package and GitHub releases, including the package manifest, Code Mode host, bundled sandbox resources, ripgrep, optional exec server, and app-server daemon support
+* Changed the HTTP proxy runner to export HTTP, HTTPS, WebSocket, and fallback proxy variables with loopback exclusions, and to manage the Codex app-server daemon within the proxy session, allowing the official package to use a SOCKS upstream through agsekit's Privoxy bridge without retaining a stale proxy endpoint
+
 ## 1.7.5 - Same path mounts, default backup folders root
 
 * Changed interactive mount creation in `addmount` and `config-gen` to suggest the absolute host source path unchanged as the default path inside the VM, with a per-VM `old_default_mounts: true` compatibility switch for the previous `/home/ubuntu/<folder>` default

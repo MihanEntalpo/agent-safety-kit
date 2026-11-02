@@ -78,8 +78,39 @@ fi
 temp_dir=""
 privoxy_pid=""
 privoxy_config_path=""
+managed_codex_command=""
+
+export_proxy_environment() {
+  local proxy_url="$1"
+  local loopback_no_proxy="localhost,127.0.0.1,::1"
+
+  export HTTP_PROXY="$proxy_url"
+  export http_proxy="$proxy_url"
+  export HTTPS_PROXY="$proxy_url"
+  export https_proxy="$proxy_url"
+  export ALL_PROXY="$proxy_url"
+  export all_proxy="$proxy_url"
+  export WS_PROXY="$proxy_url"
+  export ws_proxy="$proxy_url"
+  export WSS_PROXY="$proxy_url"
+  export wss_proxy="$proxy_url"
+
+  if [[ -n "${NO_PROXY:-}" ]]; then
+    export NO_PROXY="$loopback_no_proxy,$NO_PROXY"
+  else
+    export NO_PROXY="$loopback_no_proxy"
+  fi
+  if [[ -n "${no_proxy:-}" ]]; then
+    export no_proxy="$loopback_no_proxy,$no_proxy"
+  else
+    export no_proxy="$loopback_no_proxy"
+  fi
+}
 
 cleanup() {
+  if [[ -n "$managed_codex_command" ]]; then
+    "$managed_codex_command" app-server daemon stop >/dev/null 2>&1 || true
+  fi
   if [[ -n "$privoxy_pid" ]] && kill -0 "$privoxy_pid" >/dev/null 2>&1; then
     kill "$privoxy_pid" >/dev/null 2>&1 || true
     wait "$privoxy_pid" >/dev/null 2>&1 || true
@@ -93,11 +124,20 @@ cleanup() {
   fi
 }
 
+prepare_managed_daemon() {
+  local command_path="$1"
+
+  if [[ "$(basename -- "$command_path")" == "codex" ]]; then
+    "$command_path" app-server daemon restart >/dev/null
+    managed_codex_command="$command_path"
+  fi
+}
+
 trap cleanup EXIT INT TERM
 
 if [[ -n "$direct_url" ]]; then
-  export HTTP_PROXY="$direct_url"
-  export http_proxy="$direct_url"
+  export_proxy_environment "$direct_url"
+  prepare_managed_daemon "$1"
   "$@"
   exit $?
 fi
@@ -302,8 +342,8 @@ if ! wait_for_port "$listen_addr"; then
   exit 1
 fi
 
-export HTTP_PROXY="http://$client_host:$listen_port"
-export http_proxy="http://$client_host:$listen_port"
+export_proxy_environment "http://$client_host:$listen_port"
 
+prepare_managed_daemon "$1"
 "$@"
 exit $?

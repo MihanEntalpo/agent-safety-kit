@@ -20,7 +20,6 @@ from agsekit_cli.agents_modules.qwen import QwenAgent
     ("agent_class", "module_name", "function_name", "package_name"),
     [
         (AiderAgent, "agsekit_cli.agents_modules.aider", "latest_pypi_version", "aider-chat"),
-        (CodexAgent, "agsekit_cli.agents_modules.codex", "latest_npm_version", "@openai/codex"),
         (QwenAgent, "agsekit_cli.agents_modules.qwen", "latest_npm_version", "@qwen-code/qwen-code"),
         (OpencodeAgent, "agsekit_cli.agents_modules.opencode", "latest_npm_version", "opencode-ai"),
         (ClaudeAgent, "agsekit_cli.agents_modules.claude", "latest_npm_version", "@anthropic-ai/claude-code"),
@@ -46,6 +45,7 @@ def test_registry_agent_classes_check_their_own_latest_version(
     ("agent_class", "module_name", "repo", "prefix"),
     [
         (ForgecodeAgent, "agsekit_cli.agents_modules.forgecode", "tailcallhq/forgecode", "v"),
+        (CodexAgent, "agsekit_cli.agents_modules.codex", "openai/codex", "rust-v"),
         (CodexGlibcAgent, "agsekit_cli.agents_modules.codex_glibc", "openai/codex", "rust-v"),
     ],
 )

@@ -176,7 +176,7 @@ nohup autossh -M 10984 -N -o "PubkeyAuthentication=yes" -o "PasswordAuthenticati
 
 Положить его в файл ~/autossh.sh, сделать исполняемым, и добавить в автозагрузку системы любым удобным для вас способом.
 
-**2. Настройка проброса порта и proxychains**
+**2. Настройка проброса порта и proxy bridge**
 
 В конфигурации agsekit:
 
@@ -193,13 +193,13 @@ vms:
 
 agents:
   codex:
-    type: codex-glibc-prebuilt # используем этот тип, так как он поддерживает proxychains
-    # Настраиваем proxychains на порт который ведёт на socks5-прокси хоста
-    proxychains: socks5://127.0.0.1:8087
+    type: codex
+    # Преобразуем проброшенный SOCKS5 proxy хоста в HTTP proxy для официального Codex
+    http_proxy: socks5://127.0.0.1:8087
     
   claude:
     type: claude
-    # Настраиваем http-proxy на запуск временного proxify со случайным портом, и прокидыванием траффика на socks5-прокси хоста
+    # Запускаем временный Privoxy на свободном порту и направляем трафик в SOCKS5 proxy хоста
     http_proxy: socks5://127.0.0.1:8087
 ```
 

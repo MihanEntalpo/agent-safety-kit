@@ -273,6 +273,7 @@ Behavior:
   - для каждого типа в registry хранится stable-версия; она используется только если профиль явно задаёт `version: stable`.
   - `aider` — установка через официальный aider installer; runtime-бинарник `aider`.
   - `forgecode` — установка через официальный Forge installer; по умолчанию при `run` получает `FORGE_TRACKER=false`, чтобы отключить телеметрию.
+  - `codex` — установка официального standalone package через OpenAI installer; package layout содержит manifest, `codex-code-mode-host`, `rg`, sandbox resources и доступные для версии дополнительные executable, поэтому CLI может штатно установить и запускать shared app-server daemon без `--no-daemon`.
   - `codex-glibc` — установка/сборка codex из исходников с установкой бинарника `codex-glibc`; после проверки версии рядом устанавливается официальный `codex-code-mode-host` той же версии из upstream GitHub Release, если этот asset существует (старые версии без helper продолжают поддерживаться).
   - `codex-glibc-prebuilt` — установка заранее собранного `codex-glibc` (glibc-compatible) из GitHub Releases проекта; по умолчанию берётся release tag, соответствующий requested/default version в формате `codex-glibc-rust-v<version>`, источник можно переопределить через `AGSEKIT_CODEX_GLIBC_PREBUILT_REPO`, `AGSEKIT_CODEX_GLIBC_PREBUILT_TAG`, `AGSEKIT_CODEX_GLIBC_PREBUILT_ASSET`; если имя ассета не задано явно, оно определяется по архитектуре VM (`codex-glibc-linux-amd64.gz` для `x86_64`, `codex-glibc-linux-arm64.gz` для `aarch64`/`arm64`); бинарник устанавливается отдельно под именем `codex-glibc-prebuilt` и может сосуществовать с `codex-glibc`, а рядом с ним устанавливается официальный version-matched `codex-code-mode-host`, если он опубликован для этой версии.
 - `version` (optional) — политика версии агента при установке.
@@ -757,7 +758,7 @@ Behavior:
 - при успешном standalone-запуске печатает явное итоговое сообщение:
   - для одного target: что агент готов к работе в выбранной ВМ;
   - для нескольких target: общее сообщение об успешной установке.
-- для Node-based agent installers (`codex`, `qwen`, `opencode`, `claude`, `cline`) при отсутствии `node` сначала резолвит через `nvm version-remote --lts` текущую LTS-версию Node.js и ставит именно её как exact version; при повторных прогонах, если `node` уже найден, installer не обновляет Node даже если в nvm уже появилась более новая LTS.
+- для Node-based agent installers (`qwen`, `opencode`, `claude`, `cline`) при отсутствии `node` сначала резолвит через `nvm version-remote --lts` текущую LTS-версию Node.js и ставит именно её как exact version; при повторных прогонах, если `node` уже найден, installer не обновляет Node даже если в nvm уже появилась более новая LTS.
 - если в одном запуске `install-agents` несколько Node-based агентов ставятся в одну и ту же VM, после первого успешного Node-based installer run CLI запоминает эту VM в локальном in-memory cache и передаёт в следующие playbook extra vars `skip_nvm_install=true` и `skip_node_install=true`, чтобы повторно не делать `nvm`/Node bootstrap.
 - для Node-based agent installers проверка наличия `node` не ограничивается голым системным `PATH`: installer сначала пробует `command -v node`, а если бинарник не найден, явно загружает `{{ ansible_env.HOME }}/.nvm/nvm.sh`, делает `nvm use --silent default` и повторяет `node -v`; это предотвращает ложную переустановку Node, когда он уже установлен через `nvm`, но не виден не-login shell'у Ansible.
 
@@ -971,7 +972,7 @@ Dependency resolution выполняется кодом до запуска play
 
 ### 10.3 Agent installers
 - `aider.yml`: установка точной версии `aider-chat==<version>` через `uv tool install --python 3.12 ...` с последующей проверкой бинарника `aider`; это повторяет актуальный upstream aider-install workflow и не зависит от unsupported system Python `3.13+`; сетевые шаги выполняются через `proxychains_prefix`.
-- `codex.yml`: установка `bubblewrap`, Node через nvm (с резолвом текущей LTS через `nvm version-remote --lts`, только если `node` ещё отсутствует) + exact npm version `@openai/codex@<version>`.
+- `codex.yml`: установка `bubblewrap` и официального standalone package выбранной версии через `https://chatgpt.com/codex/install.sh`; installer удаляет старый npm-managed `@openai/codex`, проверяет полный canonical package layout (`codex-package.json`, `codex`, `codex-code-mode-host`, `rg`, bundled `bwrap`) и использует `~/.local/bin/codex` как runtime-команду.
   - дополнительно ставится `logrotate` и конфиг `/etc/logrotate.d/codex-tui`, который ограничивает `~/.codex/log/codex-tui.log` политикой `size 100M`, `rotate 10`, `compress`, `delaycompress`, `missingok`, `notifempty`, `copytruncate`.
 - `qwen.yml`: установка Node через nvm (с резолвом текущей LTS через `nvm version-remote --lts`, только если `node` ещё отсутствует) + exact npm version `@qwen-code/qwen-code@<version>`.
 - `forgecode.yml`: установка через официальный Forge install script с exact version argument и последующей проверкой бинарника `forge`; сетевые шаги выполняются через `proxychains_prefix`.
@@ -983,6 +984,7 @@ Dependency resolution выполняется кодом до запуска play
   - дополнительно ставится тот же `logrotate`-конфиг для `~/.codex/log/codex-tui.log`.
 - `codex-glibc-prebuilt.yml`: установка `bubblewrap`, разрешение подходящего GitHub Release проекта с выбором ассета по архитектуре целевой VM (`amd64`/`arm64`) и по точному release tag `codex-glibc-rust-v<version>`, затем установка опубликованного `codex-glibc` бинарника под именем `codex-glibc-prebuilt` без сборки в VM и официального version-matched `codex-code-mode-host` рядом с ним; release metadata резолвится controller-side через `ansible_playbook_python -m agsekit_cli.prebuilt ...` внутри `lookup('pipe', ...)`, чтобы этот шаг не наследовал remote SSH vars из playbook extra vars.
   - дополнительно ставится тот же `logrotate`-конфиг для `~/.codex/log/codex-tui.log`.
+- HTTP proxy runner выставляет парные upper/lowercase `HTTP_PROXY`, `HTTPS_PROXY`, `ALL_PROXY`, `WS_PROXY` и `WSS_PROXY`, а также добавляет loopback-адреса в `NO_PROXY`; в upstream mode временный Privoxy преобразует настроенный SOCKS4/SOCKS5 upstream в HTTP proxy, совместимый с официальным Codex и его daemon. При запуске `codex` runner перезапускает shared app-server daemon после настройки proxy environment и останавливает его перед удалением временного bridge, чтобы daemon не сохранял адрес уже завершённого proxy.
 
 ## 11. Локализация
 

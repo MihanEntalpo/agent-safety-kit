@@ -129,9 +129,11 @@ agents:
     type: qwen
     vm: agents-personal
   codex:
-    # codex-glibc-prebuilt - это собранный вручную агент codex, поддерживающий работу через proxychains
-    type: codex-glibc-prebuilt
-    version: 0.130.0
+    # Официальный standalone package Codex с поддержкой Code Mode и shared daemon
+    type: codex
+    version: 0.166.0
+    # SOCKS upstream преобразуется во временный HTTP proxy через Privoxy
+    http_proxy: socks5://127.0.0.1:18881
     # Агенту можно передать аргуметы командной строки по умолчанию
     default-args:
       - "--sandbox=danger-full-access"  

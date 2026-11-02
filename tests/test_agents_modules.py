@@ -77,5 +77,5 @@ def test_node_agent_class_builds_shell_command_with_nvm():
 def test_non_node_agent_class_does_not_require_nvm():
     assert get_agent_class("aider").needs_nvm() is False
     assert get_agent_class("forgecode").needs_nvm() is False
-    assert get_agent_class("codex").needs_nvm() is True
+    assert get_agent_class("codex").needs_nvm() is False
     assert get_agent_class("claude").needs_nvm() is True

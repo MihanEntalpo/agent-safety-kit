@@ -829,8 +829,8 @@ def test_install_agents_reuses_node_setup_per_vm_within_one_run(monkeypatch, tmp
     config_path = tmp_path / "config.yaml"
     _write_config(
         config_path,
-        [("codex_main", "codex"), ("qwen_main", "qwen")],
-        agent_versions={"codex_main": "0.130.0", "qwen_main": "0.15.11"},
+        [("qwen_main", "qwen"), ("opencode_main", "opencode")],
+        agent_versions={"qwen_main": "0.15.11", "opencode_main": "1.0.0"},
     )
 
     calls = []
@@ -845,13 +845,13 @@ def test_install_agents_reuses_node_setup_per_vm_within_one_run(monkeypatch, tmp
 
     assert result.exit_code == 0
     assert calls == [
-        ("agent", "codex.yml", None, {"agent_version": "0.130.0", "force_reinstall": False}),
+        ("agent", "qwen.yml", None, {"agent_version": "0.15.11", "force_reinstall": False}),
         (
             "agent",
-            "qwen.yml",
+            "opencode.yml",
             None,
             {
-                "agent_version": "0.15.11",
+                "agent_version": "1.0.0",
                 "force_reinstall": False,
                 "skip_nvm_install": True,
                 "skip_node_install": True,

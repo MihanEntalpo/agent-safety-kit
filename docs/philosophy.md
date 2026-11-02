@@ -36,8 +36,8 @@ The project is aimed at:
 
 Principle:
 
-Installing and using an agent safely should be almost as simple as  
-`npm install codex` / `npm install qwen-code` / `npm install claude-code`,  
+Installing and using an agent safely should be almost as simple as
+the official Codex installer / `npm install qwen-code` / `npm install claude-code`,
 but significantly more reliable than the default execution approach.
 
 ---

@@ -73,7 +73,7 @@ agents:
       url: http://127.0.0.1:8080
 ```
 
-You pass a ready HTTP proxy URL, and `agsekit` simply sets `HTTP_PROXY` and `http_proxy` in the agent environment.
+You pass a ready HTTP proxy URL, and `agsekit` exports upper- and lowercase HTTP, HTTPS, WebSocket, and fallback proxy variables in the agent environment. Loopback addresses are added to `NO_PROXY` so local agent services remain reachable.
 
 ### Upstream Mode
 
@@ -119,6 +119,8 @@ By default, an entry like `http_proxy: socks5://127.0.0.1:5000` is a short form 
 ```
 
 The `--http-proxy` flag uses exactly this upstream mode.
+
+This is the recommended mode for the official `codex` agent when the available upstream is SOCKS. Current official Codex packages do not consistently handle a SOCKS-only `ALL_PROXY`, and their statically linked Linux binaries cannot be intercepted reliably by `proxychains4`. The Privoxy bridge gives Codex and its shared app-server daemon an HTTP proxy while keeping the external upstream SOCKS. agsekit restarts the Codex daemon after setting the proxy environment and stops it before removing the temporary bridge, so the daemon does not retain an endpoint that is no longer running.
 
 ## Mutual Exclusion
 

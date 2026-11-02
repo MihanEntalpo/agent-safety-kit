@@ -55,13 +55,15 @@ With `--upgrade`, the configured pin is temporarily replaced by the latest versi
 
 `--force-check-versions` can only be used together with `--upgrade`. It bypasses the 24-hour cache for the selected unique agent types, queries their upstream sources immediately, writes successful results to `state.yaml`, and then installs those freshly resolved versions. If any selected type cannot be refreshed, installation stops instead of falling back to its stale cached value.
 
-For Node-based agents (`codex`, `qwen`, `opencode`, `claude`, `cline`), if `node` is missing, the installer resolves the current Node.js LTS through `nvm version-remote --lts` and installs that exact version. If Node.js is already present, the installer keeps the existing version and does not auto-upgrade it just because a newer LTS appeared.
+The `codex` type uses OpenAI's official standalone installer and does not require Node.js. It installs the complete canonical package instead of only the npm wrapper or individual binaries, which provides the Code Mode host, bundled runtime resources, and shared app-server daemon support.
+
+For Node-based agents (`qwen`, `opencode`, `claude`, `cline`), if `node` is missing, the installer resolves the current Node.js LTS through `nvm version-remote --lts` and installs that exact version. If Node.js is already present, the installer keeps the existing version and does not auto-upgrade it just because a newer LTS appeared.
 
 For the same Node-based agents, the installer checks for an existing Node.js both in the current `PATH` and through `nvm use --silent default`, so a Node version that is already installed through `nvm` does not trigger a redundant reinstall just because Ansible is running in a non-login shell. When multiple Node-based agents are installed into the same VM in one `install-agents` run, `agsekit` remembers after the first successful installer that `nvm` and Node.js are already ready in that VM and passes flags to later installer playbooks so they skip repeated `nvm`/Node preparation.
 
 For `codex-glibc-prebuilt`, agsekit resolves the exact GitHub release tag that corresponds to the requested version. For `codex-glibc`, it clones the exact matching Git tag before building.
 
-Both `codex-glibc` installers also download the version-matched official `codex-code-mode-host` release asset, when that Codex release provides one, and install it beside the main binary. New Codex versions require this helper for Code Mode tool and filesystem operations; the upstream MUSL build can be used unchanged and does not need the glibc/proxy rebuild applied to the main binary. Older releases without this asset remain installable.
+Both `codex-glibc` installers also download the version-matched official `codex-code-mode-host` release asset, when that Codex release provides one, and install it beside the main binary. These legacy types still lack OpenAI's complete managed package layout. Prefer `type: codex` for daemon support; when the upstream is SOCKS, configure it through `http_proxy` so agsekit converts it to an HTTP proxy with Privoxy.
 
 If the requested version does not exist upstream, installation fails explicitly instead of silently falling back to `latest`.
 

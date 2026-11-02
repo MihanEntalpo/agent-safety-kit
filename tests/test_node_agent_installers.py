@@ -7,7 +7,6 @@ ROOT = Path(__file__).resolve().parents[1]
 def test_node_agent_playbooks_resolve_current_lts_version() -> None:
     playbooks = [
         ROOT / "agsekit_cli" / "ansible" / "agents" / "cline.yml",
-        ROOT / "agsekit_cli" / "ansible" / "agents" / "codex.yml",
         ROOT / "agsekit_cli" / "ansible" / "agents" / "opencode.yml",
         ROOT / "agsekit_cli" / "ansible" / "agents" / "qwen.yml",
     ]
@@ -76,7 +75,6 @@ def test_codex_glibc_builders_pin_rust_toolchain() -> None:
 
 def test_node_agent_shell_installers_resolve_current_lts_version() -> None:
     scripts = [
-        ROOT / "agsekit_cli" / "agent_scripts" / "codex.sh",
         ROOT / "agsekit_cli" / "agent_scripts" / "qwen.sh",
     ]
 

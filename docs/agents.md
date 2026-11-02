@@ -34,7 +34,8 @@ Each agent type also knows how to query its latest installable upstream version.
 
 Main patterns:
 
-- latest or exact npm CLI versions for `codex`, `qwen`, `opencode`, `claude`, and `cline`
+- official standalone package releases for `codex`
+- latest or exact npm CLI versions for `qwen`, `opencode`, `claude`, and `cline`
 - exact Python package version for `aider`
 - exact release version for `forgecode`
 - local build from source for `codex-glibc`
@@ -58,6 +59,8 @@ Unfortunately, every agent is configured in its own way, so you need to look in 
 
 - some agents receive built-in default environment variables at runtime before `agents.<name>.env` from the config is applied; user config can still override them if needed
 - current built-in defaults are: `forgecode -> FORGE_TRACKER=false`, `aider -> AIDER_CHECK_UPDATE=false`, `opencode -> OPENCODE_DISABLE_AUTOUPDATE=true`, `claude -> DISABLE_AUTOUPDATER=1`, `cline -> CLINE_NO_AUTO_UPDATE=1`
+- `codex` is installed with OpenAI's official standalone installer. The resulting canonical package includes the Code Mode host and the metadata and resources required by the shared app-server daemon, so normal runs do not require `--no-daemon`.
+- For a SOCKS upstream, use `http_proxy: socks5://host:port` with `codex`. agsekit starts a temporary Privoxy bridge and exports the HTTP, HTTPS, and WebSocket proxy variables used by the official package and daemon.
 - `codex-glibc` and `codex-glibc-prebuilt` are separate binaries and can coexist with `codex`.
 - the release source for `codex-glibc-prebuilt` can be overridden through host environment variables.
 - when `install-agents` sees an already installed binary with a different version, it reinstalls that agent to reach the requested version from the config.

@@ -76,7 +76,7 @@ agents:
 ```
 
 
-Вы передаёте готовый URL HTTP proxy, а `agsekit` просто выставляет `HTTP_PROXY` и `http_proxy` в окружении агента.
+Вы передаёте готовый URL HTTP proxy, а `agsekit` выставляет в окружении агента upper- и lowercase переменные для HTTP, HTTPS, WebSocket и fallback proxy. Loopback-адреса добавляются в `NO_PROXY`, чтобы локальные сервисы агента оставались доступными.
 
 ### Upstream Mode
 
@@ -121,6 +121,8 @@ agents:
 ```
 
 Флаг `--http-proxy` использует именно этот upstream-режим.
+
+Это рекомендуемый режим для официального агента `codex`, когда доступный upstream использует SOCKS. Актуальные официальные packages Codex не во всех сетевых путях поддерживают один только SOCKS `ALL_PROXY`, а их статически слинкованные Linux-бинарники нельзя надёжно перехватить через `proxychains4`. Privoxy bridge предоставляет Codex и его shared app-server daemon HTTP proxy, сохраняя внешний SOCKS upstream. agsekit перезапускает daemon Codex после настройки proxy environment и останавливает его перед удалением временного bridge, поэтому daemon не сохраняет адрес уже завершённого proxy.
 
 ## Взаимное исключение
 

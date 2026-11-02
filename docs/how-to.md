@@ -174,7 +174,7 @@ nohup autossh -M 10984 -N -o "PubkeyAuthentication=yes" -o "PasswordAuthenticati
 
 Put it in `~/autossh.sh`, make it executable, and add it to system autostart in any convenient way.
 
-**2. Configure port forwarding and proxychains**
+**2. Configure port forwarding and the proxy bridge**
 
 In the agsekit configuration:
 
@@ -191,13 +191,13 @@ vms:
 
 agents:
   codex:
-    type: codex-glibc-prebuilt # use this type because it supports proxychains
-    # Configure proxychains to the port that leads to the host socks5-proxy
-    proxychains: socks5://127.0.0.1:8087
+    type: codex
+    # Convert the forwarded host SOCKS5 proxy to the HTTP proxy used by official Codex
+    http_proxy: socks5://127.0.0.1:8087
 
   claude:
     type: claude
-    # Configure http-proxy to launch temporary proxify on a random port and forward traffic to the host socks5-proxy
+    # Start a temporary Privoxy on a free port and forward traffic to the host SOCKS5 proxy
     http_proxy: socks5://127.0.0.1:8087
 ```
 
