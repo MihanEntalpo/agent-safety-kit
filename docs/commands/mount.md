@@ -127,7 +127,7 @@ What is written to the config:
 - `backup_clean_method`
 - `allowed_agents`, if it was specified or selected interactively
 
-Interactive behavior is intentionally close to the mount step in `config-gen`:
+Interactive behavior is intentionally close to the mount step in `config gen`:
 
 - asks for `source`, `target`, `backup`, target VM, `interval`, `max_backups`, and `backup_clean_method`
 - suggests the absolute host `source` path as the default `target`, so pressing Enter keeps the same project path inside the VM; `vms.<name>.old_default_mounts: true` restores `/home/ubuntu/<source_name>` for the selected VM

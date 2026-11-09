@@ -230,7 +230,7 @@ agents:
   * Можно не указывать, если дополнительная начальная настройка ВМ не нужна
 * `vms.<vm_name>.old_default_mounts`
   * Булевый переключатель совместимости для интерактивного создания mount'ов
-  * `false` заставляет `addmount` и `config-gen` предлагать неизменённый абсолютный путь `source` на хосте как `target`
+  * `false` заставляет `addmount` и `config gen` предлагать неизменённый абсолютный путь `source` на хосте как `target`
   * `true` возвращает для этой VM старое предложение `/home/ubuntu/<source_name>`
   * По умолчанию: `false`
 * `vms.<vm_name>.backups_root_folder`
@@ -305,7 +305,7 @@ agents:
 * `mounts[].target`
   * Путь внутри ВМ, куда монтируется `source`
   * Если не указан, используется `/home/ubuntu/<source_name>`
-  * Интерактивные `addmount` и `config-gen` предлагают сам абсолютный путь `source`, если для выбранной VM не задано `old_default_mounts: true`
+  * Интерактивные `addmount` и `config gen` предлагают сам абсолютный путь `source`, если для выбранной VM не задано `old_default_mounts: true`
   * Перед монтированием agsekit создаёт отсутствующие компоненты пути в VM от имени `ubuntu:ubuntu` с режимом `0755`
 * `mounts[].allowed_agents`
   * Список агентов, которым разрешено работать с этой папкой

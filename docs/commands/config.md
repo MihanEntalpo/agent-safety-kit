@@ -1,8 +1,8 @@
-# `config-example` / `config-gen`
+# `config example` / `config gen` / `config edit`
 
 These commands help you create an `agsekit` YAML config.
 
-## `agsekit config-example [destination]`
+## `agsekit config example [destination]`
 
 Copies the bundled example config to a target path.
 
@@ -10,7 +10,7 @@ Copies the bundled example config to a target path.
 - If the default file already exists, the command leaves it unchanged
 - Useful when you want to edit YAML manually from a known starting point
 
-## `agsekit config-gen [--config <path>] [--overwrite]`
+## `agsekit config gen [--config <path>] [--overwrite]`
 
 Runs an interactive config wizard and writes the result as YAML.
 
@@ -66,6 +66,14 @@ Notes:
 - Entering literal `""` for an agent proxy override writes an explicit empty string to YAML; pressing Enter leaves the value inherited.
 - When an agent is assigned to specific VMs, the wizard also fills `vms.<name>.allowed_agents` so those VM restrictions stay consistent with the agent assignments.
 - Without `--overwrite`, the command does not replace an existing file.
+
+The former top-level commands `agsekit config-example` and `agsekit config-gen` remain available as deprecated aliases. Use `agsekit config example` and `agsekit config gen` in new scripts and documentation.
+
+## `agsekit config edit [--config <path>] [--non-interactive]`
+
+Opens the host-side configuration file resolved by `--config`, `CONFIG_PATH`, or the default `~/.config/agsekit/config.yaml`. If its parent directory does not yet exist, the command creates it so the editor can create the file.
+
+`EDITOR` is used when it is set and names an executable available on `PATH`; values with editor arguments, such as `EDITOR="code --wait"`, are supported. Without `EDITOR`, interactive mode offers the installed editors from `vim`, `vi`, `nano`, and `pico`. If none is available—or when prompts are disabled with `--non-interactive`—the command explains that `EDITOR` must be set. The editor always runs on the host, never in a VM.
 
 ## See Also
 

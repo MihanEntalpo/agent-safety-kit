@@ -126,7 +126,7 @@ agsekit addmount [SOURCE_DIR] [TARGET_DIR] [BACKUP_DIR] [INTERVAL] [--vm <vm_nam
 - `backup_clean_method`
 - `allowed_agents`, если он был задан или выбран интерактивно
 
-Интерактивное поведение теперь намеренно похоже на шаг добавления mount в `config-gen`:
+Интерактивное поведение теперь намеренно похоже на шаг добавления mount в `config gen`:
 
 - спрашиваются `source`, `target`, `backup`, целевая VM, `interval`, `max_backups` и `backup_clean_method`
 - в качестве default `target` предлагается абсолютный путь `source` на хосте, поэтому нажатие Enter сохраняет внутри VM тот же путь к проекту; `vms.<name>.old_default_mounts: true` возвращает для выбранной VM вариант `/home/ubuntu/<имя source>`

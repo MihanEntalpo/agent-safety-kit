@@ -514,7 +514,7 @@ def _apply_vm_allowed_agents(vms: Dict[str, Dict[str, object]], agents: Dict[str
             vms[vm_name]["allowed_agents"] = names
 
 
-@click.command(name="config-gen", help=tr("config_gen.command_help"))
+@click.command(name="gen", help=tr("config_gen.command_help"))
 @non_interactive_option
 @click.option(
     "config_path",
@@ -567,3 +567,25 @@ def config_gen_command(config_path: Optional[str], overwrite: bool, non_interact
         encoding="utf-8",
     )
     click.echo(tr("config_gen.saved", path=destination))
+
+
+@click.command(name="config-gen", help=tr("config_gen.legacy_command_help"))
+@non_interactive_option
+@click.option(
+    "config_path",
+    "--config",
+    type=click.Path(dir_okay=False, exists=False, path_type=str),
+    envvar="CONFIG_PATH",
+    default=None,
+    help=tr("config_gen.option_config_path"),
+)
+@click.option(
+    "--overwrite",
+    is_flag=True,
+    help=tr("config_gen.option_overwrite"),
+)
+def config_gen_legacy_command(config_path: Optional[str], overwrite: bool, non_interactive: bool) -> None:
+    """Deprecated top-level alias for ``config gen``."""
+
+    click.echo(click.style(tr("config.deprecated_alias", old="config-gen", new="config gen"), fg="yellow"))
+    config_gen_command.callback(config_path, overwrite, non_interactive)

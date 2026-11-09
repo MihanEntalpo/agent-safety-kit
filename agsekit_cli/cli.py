@@ -10,8 +10,9 @@ from .commands.backup_once import backup_once_command
 from .commands.backup_clean import backup_clean_command
 from .commands.backup_repeated import backup_repeated_all_command, backup_repeated_command, backup_repeated_mount_command
 from .commands import non_interactive_option
-from .commands.config_gen import config_gen_command
-from .commands.config_example import config_example_command
+from .commands.config_gen import config_gen_command, config_gen_legacy_command
+from .commands.config_example import config_example_command, config_example_legacy_command
+from .commands.config_edit import config_edit_command
 from .commands.create_vm import create_vm_command, create_vms_command
 from .commands.addmount import addmount_command
 from .commands.removemount import removemount_command
@@ -113,6 +114,16 @@ def cli(non_interactive: bool) -> None:
     del non_interactive
 
 
+@click.group(name="config", help=tr("config_group.command_help"))
+def config_group() -> None:
+    """Configuration-file commands."""
+
+
+config_group.add_command(config_edit_command)
+config_group.add_command(config_example_command)
+config_group.add_command(config_gen_command)
+
+
 def main() -> None:
     set_language()
     for command in (
@@ -138,8 +149,9 @@ def main() -> None:
         shell_command,
         ssh_command,
         portforward_command,
-        config_gen_command,
-        config_example_command,
+        config_gen_legacy_command,
+        config_example_legacy_command,
+        config_group,
         pip_upgrade_command,
         check_new_version_command,
         version_command,

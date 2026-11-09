@@ -24,10 +24,10 @@ pytestmark = pytest.mark.host_integration
 pexpect = pytest.importorskip("pexpect")
 
 
-@pytest.mark.skipif(os.name == "nt", reason="pexpect-based config-gen smoke test requires a POSIX PTY")
+@pytest.mark.skipif(os.name == "nt", reason="pexpect-based config gen smoke test requires a POSIX PTY")
 def test_config_example_and_gen(tmp_path: Path) -> None:
     example_path = tmp_path / "config-example.yaml"
-    run_cli(["config-example", str(example_path)], check=True, cwd=tmp_path)
+    run_cli(["config", "example", str(example_path)], check=True, cwd=tmp_path)
     assert example_path.exists()
 
     generated_path = tmp_path / "config-gen.yaml"
@@ -42,7 +42,7 @@ def test_config_example_and_gen(tmp_path: Path) -> None:
     )
     child = pexpect.spawn(
         sys.executable,
-        [str(REPO_ROOT / "agsekit"), "config-gen", "--config", str(generated_path), "--overwrite"],
+        [str(REPO_ROOT / "agsekit"), "config", "gen", "--config", str(generated_path), "--overwrite"],
         cwd=str(tmp_path),
         env=env,
         encoding="utf-8",

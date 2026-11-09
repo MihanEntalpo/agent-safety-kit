@@ -318,8 +318,9 @@ Behavior:
 - `check-new-version`
 - `backup-once`
 - `backup-repeated`
-- `config-example`
-- `config-gen`
+- `config example`
+- `config gen`
+- `config edit`
 - `pip-upgrade`
 - `version`
 - `list-bundles`
@@ -413,7 +414,7 @@ Behavior:
    - `--no-install-agents`.
 4. Если все три этапа отключены, завершает команду ошибкой.
 5. Если включены `create-vms` и/или `install-agents`, но конфиг не найден:
-   - при отсутствии явного `--config` и `$CONFIG_PATH` завершает команду явной ошибкой без интерактивного TUI и подсказывает либо создать конфиг через `config-gen`/`config-example`, либо указать путь к существующему файлу через `--config`;
+   - при отсутствии явного `--config` и `$CONFIG_PATH` завершает команду явной ошибкой без интерактивного TUI и подсказывает либо создать конфиг через `config gen`/`config example`, либо указать путь к существующему файлу через `--config`;
    - при явном `--config` или `$CONFIG_PATH` возвращает обычную ошибку `Config file not found: ...`.
 6. В обычном режиме показывает общий `rich` progress по выбранным этапам и вложенный прогресс текущего внутреннего шага (`prepare`, `create-vms`, `install-agents`) под ним.
 7. При `--debug` отключает Rich progress и оставляет только обычный подробный вывод внутренних команд и внешних процессов.
@@ -426,7 +427,7 @@ Behavior:
 
 ### 8.2 Создание конфигов
 
-#### `agsekit config-example [destination]`
+#### `agsekit config example [destination]`
 Зачем:
 - быстро получить рабочий шаблон YAML-конфига на базе примера.
 
@@ -435,7 +436,7 @@ Behavior:
 - default path: `~/.config/agsekit/config.yaml`;
 - если default already exists — пропускает копирование.
 
-#### `agsekit config-gen [--config <path>] [--overwrite]`
+#### `agsekit config gen [--config <path>] [--overwrite]`
 Зачем:
 - создать конфиг через мастер, без ручного редактирования YAML на старте.
 
@@ -468,12 +469,29 @@ Behavior:
 - после агентов спрашивает, нужно ли переопределять `global`; default `No`.
   - при согласии собирает `global.ssh_keys_folder`, `global.systemd_env_folder`, `global.state_file`, `global.backups_root_folder`, `global.portforward_config_check_interval_sec`, version-check settings и `global.http_proxy_port_pool.start/end`.
 - затем спрашивает, нужно ли настраивать mounts; default `No`.
+
+Устаревшие алиасы:
+- `agsekit config-example` перенаправляет на `agsekit config example`;
+- `agsekit config-gen` перенаправляет на `agsekit config gen`;
+- оба алиаса остаются рабочими, но печатают предупреждение об устаревании.
+
   - каждый mount собирает `source`, `target` (интерактивный default — тот же абсолютный путь, что и `source`; для VM с `old_default_mounts: true` — `/home/ubuntu/<basename(source)>`), `backup` (default root выбирается сначала из VM, затем из `global`, затем рядом с `source`);
   - если VM одна, `mount.vm` выбирается автоматически; если VM несколько, пользователь выбирает одну VM из списка;
   - если агенты уже заданы, `allowed_agents` выбираются checkbox-списком с дополнительным пунктом `No restrictions`; сочетать `No restrictions` с конкретными агентами нельзя;
   - при согласии пользователя создаётся default `.backupignore` в source directory, если файл ещё не существует.
 - после всех секций спрашивает путь сохранения;
 - без `--overwrite` не перезаписывает существующий файл.
+
+#### `agsekit config edit [--config <path>] [--non-interactive]`
+Зачем:
+- быстро открыть пользовательский YAML-конфиг на хосте без ручного поиска его пути.
+
+Что делает:
+- резолвит путь в стандартном порядке: `--config`, `CONFIG_PATH`, `~/.config/agsekit/config.yaml`;
+- запускает этот файл в `EDITOR`, если переменная задана и executable доступен на host `PATH`; аргументы в значении `EDITOR` разбираются как argv;
+- если `EDITOR` отсутствует, в интерактивном режиме предлагает только установленные `vim`, `vi`, `nano` и `pico`;
+- при отсутствии подходящего редактора или в non-interactive режиме без `EDITOR` сообщает, что нужно задать `EDITOR`;
+- создаёт отсутствующий родительский каталог целевого пути, но не запускает редактор в VM.
 
 #### `agsekit pip-upgrade`
 Зачем:
@@ -780,7 +798,7 @@ Behavior:
 1. определяет агента и VM;
    - при выборе VM действует порядок: `--vm` override -> VM выбранного mount -> первая VM из `agents.<name>.vm + agents.<name>.vms` -> первая VM из секции `vms`;
 2. определяет mount-контекст:
-   - опции команды (`--vm`, `--config`, `--workdir`, `--proxychains`, `--http-proxy`, `--disable-backups`, `--first-backup`, `--no-first-backup`, `--auto-mount`, `--skip-default-args`, `--debug`) должны быть указаны до `<agent_name>`;
+   - опции команды (`--vm`, `--mount-target`, `--config`, `--workdir`, `--proxychains`, `--http-proxy`, `--disable-backups`, `--first-backup`, `--no-first-backup`, `--auto-mount`, `--skip-default-args`, `--debug`) должны быть указаны до `<agent_name>`;
    - всё, что стоит после `<agent_name>`, передаётся агенту как `agent_args`, даже если токены выглядят как флаги `agsekit`;
    - host working directory определяется как `--workdir`, если он задан, иначе как текущая директория (`cwd`);
    - если выбранная рабочая директория не существует, в интерактивном режиме спрашивает `Папка проекта не найдена, вы хотите запустить агента во временной папке? [y/N]` / `Project folder was not found. Run the agent in a temporary folder? [y/N]`;
@@ -789,6 +807,8 @@ Behavior:
    - при отказе завершает `run` без старта агента;
    - в non-interactive режиме отсутствующая рабочая директория или директория вне mounts остаётся ошибкой;
    - если выбранная рабочая директория существует, по ней ищет mount;
+   - если для директории найдено несколько наиболее специфичных mount, до выбора фильтрует их по доступности запрошенного агента с precedence `mount.allowed_agents` -> `vm.allowed_agents` -> unrestricted; единственный оставшийся кандидат выбирается автоматически, а при нескольких в интерактивном режиме показывается selectable список `VM: target` и в non-interactive режиме выводится перечень точных сочетаний `--vm <name> --mount-target <path>`;
+   - `--vm` фильтрует кандидатов по VM, а `--mount-target` — по пути target внутри VM; оба параметра позволяют разрешить случай, когда один source примонтирован в несколько VM или в несколько target одной VM;
    - если подходящий mount не найден и интерактивный fallback не подтверждён — завершает команду с ошибкой;
    - если mount найден, но сейчас не зарегистрирован в Multipass, в интерактивном режиме спрашивает `Папка {source} сейчас не примонтирована. Примонтировать? [Y/n]` / `Folder {source} is not mounted right now. Mount it? [Y/n]`;
    - если передан `--auto-mount`, команда выполняет mount автоматически и не задаёт этот вопрос даже в интерактивном режиме;

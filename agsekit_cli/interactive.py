@@ -195,7 +195,7 @@ def build_backup_clean(session: InteractiveSession) -> List[str]:
 
 
 def build_config_example(session: InteractiveSession) -> List[str]:
-    return ["config-example"]
+    return ["config", "example"]
 
 
 def build_pip_upgrade(_: InteractiveSession) -> List[str]:
@@ -358,7 +358,11 @@ def build_run(session: InteractiveSession) -> List[str]:
 
 
 def build_config_gen(_: InteractiveSession) -> List[str]:
-    return ["config-gen"]
+    return ["config", "gen"]
+
+
+def build_config_edit(session: InteractiveSession) -> List[str]:
+    return ["config", "edit", *session.config_option()]
 
 
 def build_prepare(_: InteractiveSession) -> List[str]:
@@ -512,6 +516,7 @@ def _command_builders() -> Dict[str, CommandBuilder]:
         "backup-clean": build_backup_clean,
         "config-example": build_config_example,
         "config-gen": build_config_gen,
+        "config-edit": build_config_edit,
         "pip-upgrade": build_pip_upgrade,
         "check-new-version": build_check_new_version,
         "create-vm": build_create_vm,
@@ -581,6 +586,21 @@ def _resolve_interactive_entries(cli: click.Group) -> Dict[str, InteractiveComma
         label=tr("interactive.daemon_status_label"),
         help_text=tr("daemon.status_help"),
     )
+    entries["config-edit"] = InteractiveCommandEntry(
+        key="config-edit",
+        label="config edit",
+        help_text=tr("config_edit.command_help"),
+    )
+    entries["config-example"] = InteractiveCommandEntry(
+        key="config-example",
+        label="config example",
+        help_text=tr("config_example.command_help"),
+    )
+    entries["config-gen"] = InteractiveCommandEntry(
+        key="config-gen",
+        label="config gen",
+        help_text=tr("config_gen.command_help"),
+    )
     return entries
 
 
@@ -592,7 +612,7 @@ def _select_command(cli: click.Group, builders: Dict[str, CommandBuilder], prese
     sections = [
         (
             tr("interactive.section_init_config"),
-            ["up", "prepare", "config-example", "config-gen", "pip-upgrade", "check-new-version", "status"],
+            ["up", "prepare", "config-example", "config-gen", "config-edit", "pip-upgrade", "check-new-version", "status"],
         ),
         (
             tr("interactive.section_virtual_machines"),

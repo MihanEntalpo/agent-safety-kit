@@ -20,7 +20,7 @@ def _find_example_source() -> Optional[Path]:
     return None
 
 
-@click.command(name="config-example", help=tr("config_example.command_help"))
+@click.command(name="example", help=tr("config_example.command_help"))
 @click.argument("destination", required=False)
 def config_example_command(destination: Optional[str]) -> None:
     source_path = _find_example_source()
@@ -40,3 +40,12 @@ def config_example_command(destination: Optional[str]) -> None:
     target_path.parent.mkdir(parents=True, exist_ok=True)
     shutil.copyfile(source_path, target_path)
     click.echo(tr("config_example.copied", path=target_path))
+
+
+@click.command(name="config-example", help=tr("config_example.legacy_command_help"))
+@click.argument("destination", required=False)
+def config_example_legacy_command(destination: Optional[str]) -> None:
+    """Deprecated top-level alias for ``config example``."""
+
+    click.echo(click.style(tr("config.deprecated_alias", old="config-example", new="config example"), fg="yellow"))
+    config_example_command.callback(destination)

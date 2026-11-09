@@ -936,6 +936,260 @@ def test_run_command_uses_current_directory_mount_when_source_not_passed(monkeyp
     assert backups["source"] == source.resolve()
 
 
+def test_run_command_prompts_to_select_an_ambiguous_mount(monkeypatch, tmp_path):
+    source = tmp_path / "project"
+    source.mkdir()
+    config_path = tmp_path / "config.yaml"
+    config_path.write_text(
+        f"""
+vms:
+  agent:
+    cpu: 1
+    ram: 1G
+    disk: 5G
+mounts:
+  - source: {source}
+    target: /home/ubuntu/project-one
+    vm: agent
+    interval: 3
+    backup: {tmp_path / 'backups-one'}
+  - source: {source}
+    target: /home/ubuntu/project-two
+    vm: agent
+    interval: 3
+    backup: {tmp_path / 'backups-two'}
+agents:
+  qwen:
+    type: qwen
+    vm: agent
+""",
+        encoding="utf-8",
+    )
+
+    class DummyQuestion:
+        def __init__(self, choices):
+            self.choices = choices
+
+        def ask(self):
+            return self.choices[1].value
+
+    calls: Dict[str, object] = {}
+
+    def fake_select(message, *, choices, **_kwargs):
+        calls["selection_prompt"] = message
+        return DummyQuestion(choices)
+
+    monkeypatch.setattr(
+        run_module.questionary,
+        "select",
+        fake_select,
+    )
+    monkeypatch.setattr(run_module, "_has_existing_backup", lambda *_: True)
+    monkeypatch.setattr(
+        run_module,
+        "run_in_vm",
+        lambda _vm, workdir, *_args, **_kwargs: calls.setdefault("workdir", workdir) and 0,
+    )
+    monkeypatch.setattr(run_module, "start_backup_process", lambda *_, **__: None)
+
+    runner = CliRunner()
+    result = runner.invoke(run_command, ["--config", str(config_path), "--workdir", str(source), "qwen"])
+
+    assert result.exit_code == 0
+    assert "belongs to multiple mount points" in calls["selection_prompt"]
+    assert calls["workdir"] == Path("/home/ubuntu/project-two")
+
+
+def test_run_command_explains_how_to_select_ambiguous_mount_non_interactively(monkeypatch, tmp_path):
+    source = tmp_path / "project"
+    source.mkdir()
+    config_path = tmp_path / "config.yaml"
+    config_path.write_text(
+        f"""
+vms:
+  agent-one:
+    cpu: 1
+    ram: 1G
+    disk: 5G
+  agent-two:
+    cpu: 1
+    ram: 1G
+    disk: 5G
+mounts:
+  - source: {source}
+    target: /home/ubuntu/project
+    vm: agent-one
+    interval: 3
+    backup: {tmp_path / 'backups-one'}
+  - source: {source}
+    target: /workspace/project
+    vm: agent-two
+    interval: 3
+    backup: {tmp_path / 'backups-two'}
+agents:
+  qwen:
+    type: qwen
+""",
+        encoding="utf-8",
+    )
+
+    runner = CliRunner()
+    result = runner.invoke(
+        run_command,
+        ["--config", str(config_path), "--workdir", str(source), "--non-interactive", "qwen"],
+        env={"AGSEKIT_LANG": "en"},
+    )
+
+    assert result.exit_code != 0
+    assert "--vm agent-one --mount-target /home/ubuntu/project" in result.output
+    assert "--vm agent-two --mount-target /workspace/project" in result.output
+
+
+def test_run_command_uses_agent_allowlists_to_select_an_ambiguous_mount(monkeypatch, tmp_path):
+    source = tmp_path / "project"
+    source.mkdir()
+    config_path = tmp_path / "config.yaml"
+    config_path.write_text(
+        f"""
+vms:
+  personal:
+    cpu: 1
+    ram: 1G
+    disk: 5G
+    allowed_agents: [codex, claude]
+  work:
+    cpu: 1
+    ram: 1G
+    disk: 5G
+    allowed_agents: [opencode]
+mounts:
+  - source: {source}
+    target: /home/ubuntu/personal-codex
+    vm: personal
+    interval: 3
+    backup: {tmp_path / 'backups-codex'}
+  - source: {source}
+    target: /home/ubuntu/personal-claude
+    vm: personal
+    allowed_agents: [claude]
+    interval: 3
+    backup: {tmp_path / 'backups-claude'}
+  - source: {source}
+    target: /home/ubuntu/work
+    vm: work
+    interval: 3
+    backup: {tmp_path / 'backups-work'}
+agents:
+  codex:
+    type: codex
+  claude:
+    type: claude
+  opencode:
+    type: opencode
+""",
+        encoding="utf-8",
+    )
+
+    calls: Dict[str, object] = {}
+    monkeypatch.setattr(run_module, "_has_existing_backup", lambda *_: True)
+    monkeypatch.setattr(run_module, "backup_once", lambda *_, **__: None)
+    monkeypatch.setattr(run_module, "start_backup_process", lambda *_, **__: None)
+    monkeypatch.setattr(
+        run_module,
+        "run_in_vm",
+        lambda vm, workdir, *_args, **_kwargs: calls.update({"vm": vm.name, "workdir": workdir}) or 0,
+    )
+    monkeypatch.setattr(
+        run_module.questionary,
+        "select",
+        lambda *_args, **_kwargs: pytest.fail("a unique allowed mount must not prompt"),
+    )
+
+    result = CliRunner().invoke(
+        run_command,
+        ["--config", str(config_path), "--workdir", str(source), "--non-interactive", "codex"],
+    )
+
+    assert result.exit_code == 0
+    assert calls == {"vm": "personal", "workdir": Path("/home/ubuntu/personal-codex")}
+
+
+def test_run_command_prompts_only_for_allowed_ambiguous_mounts(monkeypatch, tmp_path):
+    source = tmp_path / "project"
+    source.mkdir()
+    config_path = tmp_path / "config.yaml"
+    config_path.write_text(
+        f"""
+vms:
+  personal:
+    cpu: 1
+    ram: 1G
+    disk: 5G
+    allowed_agents: [codex, claude]
+  work:
+    cpu: 1
+    ram: 1G
+    disk: 5G
+    allowed_agents: [opencode]
+mounts:
+  - source: {source}
+    target: /home/ubuntu/personal-codex
+    vm: personal
+    interval: 3
+    backup: {tmp_path / 'backups-codex'}
+  - source: {source}
+    target: /home/ubuntu/personal-claude
+    vm: personal
+    allowed_agents: [claude]
+    interval: 3
+    backup: {tmp_path / 'backups-claude'}
+  - source: {source}
+    target: /home/ubuntu/work
+    vm: work
+    interval: 3
+    backup: {tmp_path / 'backups-work'}
+agents:
+  codex:
+    type: codex
+  claude:
+    type: claude
+  opencode:
+    type: opencode
+""",
+        encoding="utf-8",
+    )
+
+    calls: Dict[str, object] = {}
+
+    class Question:
+        def __init__(self, choices):
+            self.choices = choices
+
+        def ask(self):
+            return self.choices[1].value
+
+    def fake_select(_message, *, choices, **_kwargs):
+        calls["choices"] = [choice.title for choice in choices]
+        return Question(choices)
+
+    monkeypatch.setattr(run_module, "_has_existing_backup", lambda *_: True)
+    monkeypatch.setattr(run_module, "backup_once", lambda *_, **__: None)
+    monkeypatch.setattr(run_module, "start_backup_process", lambda *_, **__: None)
+    monkeypatch.setattr(run_module.questionary, "select", fake_select)
+    monkeypatch.setattr(
+        run_module,
+        "run_in_vm",
+        lambda vm, workdir, *_args, **_kwargs: calls.update({"vm": vm.name, "workdir": workdir}) or 0,
+    )
+
+    result = CliRunner().invoke(run_command, ["--config", str(config_path), "--workdir", str(source), "claude"])
+
+    assert result.exit_code == 0
+    assert calls["choices"] == ["personal: /home/ubuntu/personal-codex", "personal: /home/ubuntu/personal-claude"]
+    assert calls["vm"] == "personal"
+    assert calls["workdir"] == Path("/home/ubuntu/personal-claude")
+
+
 def test_run_command_warns_when_mounted_directory_is_empty_inside_vm(monkeypatch, tmp_path):
     source = tmp_path / "project"
     source.mkdir()

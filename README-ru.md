@@ -81,15 +81,15 @@ irm https://agsekit.org/install.ps1 | iex
 Через интерактивный "мастер настройки":
 
 ```shell
-agsekit config-gen
+agsekit config gen
 ```
 
 Мастер начинает с первой VM, затем предлагает агентов, mount'ы и при необходимости глобальные переопределения.
 
 Если хотите - можно скопировать шаблон конфига и отредактировать его вручную:
 ```shell
-agsekit config-example
-nano ~/.config/agsekit/config.yaml
+agsekit config example
+agsekit config edit
 ```
 
 [Подробно про конфигурацию](./docs-ru/configuration.md)
@@ -120,6 +120,8 @@ agsekit addmount ~/project/my-project
 cd ~/project/my-project
 agsekit run claude
 ```
+
+Если одна и та же папка проекта примонтирована несколько раз, `run` предложит интерактивный выбор `VM: target`. Для автоматизации точку можно явно выбрать параметрами `--vm <name>` и при необходимости `--mount-target <path>`.
 
 Всё, можно пользоваться!
 

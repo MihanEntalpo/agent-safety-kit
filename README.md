@@ -81,7 +81,7 @@ If you want to do everything yourself, or the "lazy" way did not work:
 Through the interactive setup wizard:
 
 ```shell
-agsekit config-gen
+agsekit config gen
 ```
 
 The wizard starts with the first VM, then offers agents, mounts, and optional global overrides.
@@ -89,8 +89,8 @@ The wizard starts with the first VM, then offers agents, mounts, and optional gl
 If you want, you can copy the config template and edit it manually:
 
 ```shell
-agsekit config-example
-nano ~/.config/agsekit/config.yaml
+agsekit config example
+agsekit config edit
 ```
 
 [Detailed configuration guide](./docs/configuration.md)
@@ -121,6 +121,8 @@ Assume you configured an agent named claude:
 cd ~/project/my-project
 agsekit run claude
 ```
+
+If the same project folder is mounted more than once, `run` offers an interactive `VM: target` choice. Automation can select it explicitly with `--vm <name>` and, when needed, `--mount-target <path>`.
 
 That is it, you can use it.
 

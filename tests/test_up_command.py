@@ -147,8 +147,8 @@ def test_up_reports_helpful_error_when_default_config_missing(monkeypatch, tmp_p
     result = _invoke_command(runner, up_command, [])
 
     assert result.exit_code != 0
-    assert "config-gen" in result.output
-    assert "config-example" in result.output
+    assert "config gen" in result.output
+    assert "config example" in result.output
     assert "--config" in result.output
     assert str(missing_default) in result.output
 
@@ -275,8 +275,8 @@ def test_cli_main_keeps_direct_missing_config_commands_out_of_interactive_mode(
     assert interactive_calls == []
     assert str(missing_default) in captured.err
     if command_name == "up":
-        assert "config-gen" in captured.err
-        assert "config-example" in captured.err
+        assert "config gen" in captured.err
+        assert "config example" in captured.err
         assert "--config" in captured.err
 
 

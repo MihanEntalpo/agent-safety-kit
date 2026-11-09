@@ -7,7 +7,7 @@ When any command page lists `--debug`, debug records are prefixed with `[DEBUG]`
 ## Preparation
 
 - [prepare](prepare.md)
-- [config-example / config-gen](config.md)
+- [config example / config gen / config edit](config.md)
 - [up](up.md)
 - [doctor](doctor.md)
 - [pip-upgrade / check-new-version](pip-upgrade.md)

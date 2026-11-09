@@ -66,6 +66,21 @@ def find_mount_by_source(mounts: Iterable[MountConfig], source: Path) -> Optiona
 
 
 def find_mount_by_path(mounts: Iterable[MountConfig], source: Path) -> Optional[MountConfig]:
+    matches = find_mounts_by_path(mounts, source)
+    if not matches:
+        return None
+    if len(matches) > 1:
+        raise ConfigError(tr("mounts.source_ambiguous", source=normalize_path(source)))
+    return matches[0]
+
+
+def find_mounts_by_path(mounts: Iterable[MountConfig], source: Path) -> List[MountConfig]:
+    """Return the most-specific configured mounts containing *source*.
+
+    More than one result deliberately represents an ambiguous mount point. It
+    lets callers that have enough context ask the user to choose a VM/target.
+    """
+
     normalized = normalize_path(source)
     matches: List[MountConfig] = []
     for mount in mounts:
@@ -79,13 +94,11 @@ def find_mount_by_path(mounts: Iterable[MountConfig], source: Path) -> Optional[
         matches.append(mount)
 
     if not matches:
-        return None
+        return []
 
     matches.sort(key=lambda mount: len(mount.source.parts), reverse=True)
     longest = len(matches[0].source.parts)
-    if sum(1 for mount in matches if len(mount.source.parts) == longest) > 1:
-        raise ConfigError(tr("mounts.source_ambiguous", source=normalized))
-    return matches[0]
+    return [mount for mount in matches if len(mount.source.parts) == longest]
 
 
 def _is_already_mounted_error(stderr: str) -> bool:

@@ -40,7 +40,7 @@ irm https://agsekit.org/install.ps1 | iex
 Recommended path:
 
 ```bash
-agsekit config-gen
+agsekit config gen
 ```
 
 The wizard always starts with the first VM, then offers agents, mounts, and optional global overrides. You can skip optional sections such as bundles, agents, mounts, and global settings, but the first VM is mandatory.
@@ -48,7 +48,7 @@ The wizard always starts with the first VM, then offers agents, mounts, and opti
 Alternative:
 
 ```bash
-agsekit config-example
+agsekit config example
 ```
 
 After that, edit `~/.config/agsekit/config.yaml` or pass your own path through `--config`.

@@ -383,8 +383,8 @@ def test_build_umount_uses_positional_source(monkeypatch, tmp_path):
         ("backup-repeated-all", None),
         ("backup-repeated-mount", None),
         ("check-new-version", None),
-        ("config-example", ["config-example"]),
-        ("config-gen", ["config-gen"]),
+        ("config-example", ["config", "example"]),
+        ("config-gen", ["config", "gen"]),
         ("create-vm", None),
         ("create-vms", None),
         ("daemon-install", None),
@@ -499,11 +499,15 @@ def test_select_command_places_up_before_prepare_and_lists_daemon_actions(monkey
     def up_command():
         pass
 
-    @dummy_cli.command(name="config-example", help="config-example help")
+    @dummy_cli.group(name="config", help="config help")
+    def config_group():
+        pass
+
+    @config_group.command(name="example", help="config example help")
     def config_example_command():
         pass
 
-    @dummy_cli.command(name="config-gen", help="config-gen help")
+    @config_group.command(name="gen", help="config gen help")
     def config_gen_command():
         pass
 

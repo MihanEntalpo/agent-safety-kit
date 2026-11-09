@@ -26,7 +26,7 @@ agsekit run <agent_name>
 Со всеми аргументами:
 
 ```bash
-agsekit run [--vm <vm_name>] [--config <path>] [--workdir <path>] [--proxychains <value>] [--http-proxy <value>] [--disable-backups] [--first-backup|--no-first-backup] [--auto-mount] [--skip-default-args] [--debug] <agent_name> [<agent_args...>]
+agsekit run [--vm <vm_name>] [--mount-target <path>] [--config <path>] [--workdir <path>] [--proxychains <value>] [--http-proxy <value>] [--disable-backups] [--first-backup|--no-first-backup] [--auto-mount] [--skip-default-args] [--non-interactive] [--debug] <agent_name> [<agent_args...>]
 ```
 
 ## Важное правило разбора аргументов
@@ -43,6 +43,7 @@ agsekit run [--vm <vm_name>] [--config <path>] [--workdir <path>] [--proxychains
 - `--workdir` может указывать на другую настроенную mount path;
 - если выбранная директория существует и соответствует mount из конфига, `run` стартует в соответствующем пути внутри VM;
 - если это вложенная поддиректория, внутри VM сохраняется тот же относительный подпуть.
+- если папка входит в несколько одинаково специфичных mount, `run` сначала исключает кандидатов, в которых запрошенный агент не разрешён. Effective allowlist берётся из `mounts[].allowed_agents`, иначе из `vms.<vm>.allowed_agents`, иначе ограничений нет. Если остался один кандидат, он выбирается автоматически; иначе интерактивный режим показывает навигационный список `VM: target`. В non-interactive режиме ошибка печатает точные сочетания `--vm <name> --mount-target <path>`, которыми можно выбрать оставшийся mount. Когда `--vm` делает выбор однозначным, его достаточно; если одна VM монтирует source в несколько target, укажите также `--mount-target`.
 - если выбранная директория не существует в интерактивном терминале, `run` спрашивает, запустить ли агента во временной директории внутри VM (`/tmp/run-*`); в этом режиме host mount не используется и бэкапы не запускаются.
 - если выбранная директория существует, но не входит в настроенные mount, интерактивный режим предлагает тот же fallback на временную директорию внутри VM (`/tmp/run-*`).
 - в non-interactive режиме отсутствующая workdir, либо запуск вне настроенных mount-папок считается ошибкой.
@@ -92,6 +93,7 @@ cd /path/to/project
 agsekit run qwen
 agsekit run claude auth login
 agsekit run --vm agent-ubuntu codex --sandbox danger-full-access
+agsekit run --vm agent-ubuntu --mount-target /workspace/project codex
 agsekit run --workdir /path/to/project/subdir qwen
 agsekit run --auto-mount --proxychains socks5://127.0.0.1:1080 qwen
 agsekit run --http-proxy socks5://127.0.0.1:8181 qwen

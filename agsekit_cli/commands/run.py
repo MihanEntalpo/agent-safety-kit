@@ -9,6 +9,7 @@ from pathlib import Path
 from typing import Callable, ContextManager, Optional, Sequence
 
 import click
+import questionary
 
 from ..backup import backup_once, clean_backups, find_previous_backup
 from ..agents import (
@@ -41,7 +42,7 @@ from ..vm import resolve_proxychains as resolve_effective_proxychains
 from ..mounts import (
     MountAlreadyMountedError,
     MountConfig,
-    find_mount_by_path,
+    find_mounts_by_path,
     host_path_has_entries,
     is_mount_registered,
     load_multipass_mounts,
@@ -52,6 +53,35 @@ from ..mounts import (
 from ..progress import StatusSpinner
 from ..state import CHANGELOG_URL, get_state_manager, initialize_state, start_periodic_version_check_thread
 from . import debug_option, non_interactive_option
+
+
+def _mount_choice_label(mount: MountConfig) -> str:
+    return f"{mount.vm_name}: {mount.target}"
+
+
+def _mount_selector_args(mount: MountConfig) -> str:
+    return f"--vm {mount.vm_name} --mount-target {mount.target}"
+
+
+def _agent_is_allowed_for_mount(agent_name: str, mount: MountConfig, vms: dict) -> bool:
+    """Apply the same mount-overrides-VM allowlist precedence used at launch."""
+
+    allowed_agents = mount.allowed_agents
+    if allowed_agents is None:
+        allowed_agents = vms[mount.vm_name].allowed_agents
+    return allowed_agents is None or agent_name in allowed_agents
+
+
+def _select_mount(candidates: Sequence[MountConfig], source: Path) -> MountConfig:
+    choices = [questionary.Choice(_mount_choice_label(mount), value=mount) for mount in candidates]
+    selected = questionary.select(
+        tr("run.mount_select_prompt", path=normalize_path(source)),
+        choices=choices,
+        use_shortcuts=True,
+    ).ask()
+    if selected is None:
+        raise click.Abort()
+    return selected
 
 
 def _create_temp_vm_workdir(vm_name: str, *, debug: bool = False) -> Path:
@@ -179,6 +209,12 @@ def _apply_direct_http_proxy_env(env_vars: dict, http_proxy: HttpProxyConfig) ->
 @non_interactive_option
 @click.option("--vm", "vm_name", help=tr("run.option_vm"))
 @click.option(
+    "--mount-target",
+    type=click.Path(file_okay=False, path_type=Path),
+    default=None,
+    help=tr("run.option_mount_target"),
+)
+@click.option(
     "config_path",
     "--config",
     type=click.Path(dir_okay=False, exists=False, path_type=str),
@@ -214,6 +250,7 @@ def _apply_direct_http_proxy_env(env_vars: dict, http_proxy: HttpProxyConfig) ->
 @click.argument("agent_args", nargs=-1, type=click.UNPROCESSED)
 def run_command(
     vm_name: Optional[str],
+    mount_target: Optional[Path],
     config_path: Optional[str],
     disable_backups: bool,
     first_backup_override: Optional[bool],
@@ -275,11 +312,38 @@ def run_command(
             source_to_resolve = workdir or Path.cwd()
             use_temp_vm_workdir = False
             if source_to_resolve.is_dir():
-                candidate_mounts = [mount for mount in mounts if vm_name is None or mount.vm_name == vm_name]
-                try:
-                    mount_entry = find_mount_by_path(candidate_mounts, source_to_resolve)
-                except ConfigError as exc:
-                    raise click.ClickException(str(exc))
+                candidate_mounts = find_mounts_by_path(mounts, source_to_resolve)
+                if vm_name is not None:
+                    candidate_mounts = [mount for mount in candidate_mounts if mount.vm_name == vm_name]
+                if mount_target is not None:
+                    normalized_target = normalize_path(mount_target)
+                    candidate_mounts = [mount for mount in candidate_mounts if mount.target == normalized_target]
+
+                if len(candidate_mounts) > 1:
+                    candidate_mounts = [
+                        mount
+                        for mount in candidate_mounts
+                        if _agent_is_allowed_for_mount(agent.name, mount, vms)
+                    ]
+                    if not candidate_mounts:
+                        raise click.ClickException(
+                            tr("run.agent_not_allowed_for_matching_mounts", agent_name=agent.name)
+                        )
+
+                if len(candidate_mounts) > 1:
+                    if non_interactive:
+                        selectors = "\n".join(_mount_selector_args(mount) for mount in candidate_mounts)
+                        raise click.ClickException(
+                            tr(
+                                "run.mount_ambiguous_non_interactive",
+                                path=normalize_path(source_to_resolve),
+                                selectors=selectors,
+                            )
+                        )
+                    with status.suspend():
+                        mount_entry = _select_mount(candidate_mounts, source_to_resolve)
+                elif candidate_mounts:
+                    mount_entry = candidate_mounts[0]
                 if mount_entry is None:
                     if non_interactive:
                         suffix = tr("agents.mount_not_found_vm_suffix", vm_name=vm_name) if vm_name else ""

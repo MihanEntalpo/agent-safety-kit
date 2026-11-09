@@ -40,7 +40,7 @@ irm https://agsekit.org/install.ps1 | iex
 Рекомендуемый путь:
 
 ```bash
-agsekit config-gen
+agsekit config gen
 ```
 
 Мастер всегда начинает с настройки первой VM, затем предлагает агентов, mount'ы и при необходимости глобальные переопределения. Необязательные разделы вроде bundles, агентов, mount'ов и global-настроек можно пропускать, но первая VM обязательна.
@@ -48,7 +48,7 @@ agsekit config-gen
 Альтернатива:
 
 ```bash
-agsekit config-example
+agsekit config example
 ```
 
 После этого отредактируйте `~/.config/agsekit/config.yaml` или передавайте свой путь через `--config`.

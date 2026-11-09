@@ -17,7 +17,7 @@ ENTER = "\r"
 BUNDLE_ORDER = list(BUNDLE_DEFINITIONS)
 
 
-@pytest.mark.skipif(os.name == "nt", reason="pexpect-based config-gen tests require a POSIX PTY")
+@pytest.mark.skipif(os.name == "nt", reason="pexpect-based config gen tests require a POSIX PTY")
 class TestConfigGenCommand:
     def _spawn(self, config_path: Path, *, overwrite: bool = True) -> "_Wizard":
         env = os.environ.copy()
@@ -27,7 +27,7 @@ class TestConfigGenCommand:
         env["COLUMNS"] = "120"
         env["LINES"] = "40"
 
-        args = ["-m", "agsekit_cli.cli", "config-gen", "--config", str(config_path)]
+        args = ["-m", "agsekit_cli.cli", "config", "gen", "--config", str(config_path)]
         if overwrite:
             args.append("--overwrite")
         child = pexpect.spawn(

@@ -18,7 +18,7 @@
 ## Справка по командам
 
 - [Индекс команд](commands/README.md)
-  - [config-example / config-gen](commands/config.md)
+  - [config example / config gen / config edit](commands/config.md)
   - [prepare](commands/prepare.md)
   - [up](commands/up.md)
   - [create-vm / create-vms](commands/create-vm.md)

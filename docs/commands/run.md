@@ -26,7 +26,7 @@ agsekit run <agent_name>
 With all arguments:
 
 ```bash
-agsekit run [--vm <vm_name>] [--config <path>] [--workdir <path>] [--proxychains <value>] [--http-proxy <value>] [--disable-backups] [--first-backup|--no-first-backup] [--auto-mount] [--skip-default-args] [--debug] <agent_name> [<agent_args...>]
+agsekit run [--vm <vm_name>] [--mount-target <path>] [--config <path>] [--workdir <path>] [--proxychains <value>] [--http-proxy <value>] [--disable-backups] [--first-backup|--no-first-backup] [--auto-mount] [--skip-default-args] [--non-interactive] [--debug] <agent_name> [<agent_args...>]
 ```
 
 ## Important Argument Parsing Rule
@@ -43,6 +43,7 @@ Where you had `claude auth login`, it will now be `agsekit run claude auth login
 - `--workdir` can point to another configured mount path;
 - if the selected directory exists and matches a mount from the config, `run` starts in the corresponding path inside the VM;
 - if this is a nested subdirectory, the same relative subpath is preserved inside the VM.
+- if the directory belongs to several equally specific mounts, `run` first removes candidates that do not permit the requested agent. The effective allowlist is `mounts[].allowed_agents`, otherwise `vms.<vm>.allowed_agents`, otherwise unrestricted. A single remaining candidate is selected automatically; otherwise interactive mode shows a navigable `VM: target` list. In non-interactive mode, the error prints the exact `--vm <name> --mount-target <path>` combinations that can select a remaining mount. `--vm` alone is enough when it makes the choice unique; use `--mount-target` as well when one VM has the source mounted at several targets.
 - if the selected directory does not exist in an interactive terminal, `run` asks whether to start the agent in a temporary directory inside the VM (`/tmp/run-*`); in this mode no host mount is used and backups are not started.
 - if the selected directory exists but is not inside configured mounts, interactive mode offers the same fallback to a temporary directory inside the VM (`/tmp/run-*`).
 - in non-interactive mode, a missing workdir or launch outside configured mount folders is considered an error.
@@ -90,6 +91,7 @@ cd /path/to/project
 agsekit run qwen
 agsekit run claude auth login
 agsekit run --vm agent-ubuntu codex --sandbox danger-full-access
+agsekit run --vm agent-ubuntu --mount-target /workspace/project codex
 agsekit run --workdir /path/to/project/subdir qwen
 agsekit run --auto-mount --proxychains socks5://127.0.0.1:1080 qwen
 agsekit run --http-proxy socks5://127.0.0.1:8181 qwen

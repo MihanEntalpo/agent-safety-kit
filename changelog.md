@@ -1,5 +1,12 @@
 # Agent-Safety-Kit versions history
 
+## 1.7.8 - config edit + interactive mount point selection
+
+* Added primary `agsekit config example` and `agsekit config gen` commands; the former top-level `config-example` and `config-gen` commands remain deprecated aliases
+* Changed `agsekit run` to offer an interactive `VM: target` mount selection when the workdir matches several equally specific mounts, and added `--mount-target` for explicit non-interactive selection alongside `--vm`; non-interactive ambiguity errors now list valid selector combinations
+* Changed `agsekit run` to automatically select a unique matching mount when `mounts[].allowed_agents` or the VM allowlist excludes the requested agent from every other candidate
+* Added `agsekit config edit`, which opens the resolved host configuration in `EDITOR` or interactively selects an installed `vim`, `vi`, `nano`, or `pico`
+
 ## 1.7.7 - jcode and custom agent support
 
 * Added the `jcode` agent type with installation through the official jcode installer and a checksum-verified GitHub API asset fallback, exact/stable/latest version policies, latest-release checks, and normal runtime, proxy, status, and lifecycle integration
