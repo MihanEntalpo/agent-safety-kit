@@ -231,6 +231,8 @@ def _prompt_vms() -> Dict[str, Dict[str, object]]:
 
 
 def _default_agent_name(agent_type: str) -> str:
+    if agent_type == "custom":
+        return "custom"
     if agent_type in {"codex-glibc", "codex-glibc-prebuilt"}:
         return "codex"
     return agent_runtime_binary(agent_type)
@@ -309,7 +311,14 @@ def _prompt_agents(vm_names: List[str]) -> Dict[str, Dict[str, object]]:
             existing_names=list(agents.keys()),
             taken_message_key="config_gen.agent_name_taken",
         )
-        version = _prompt_agent_version(agent_type)
+        version = None if agent_type == "custom" else _prompt_agent_version(agent_type)
+        command = None
+        if agent_type == "custom":
+            command = ask_text(
+                tr("config_gen.agent_command"),
+                default="",
+                validate=_validate_non_empty,
+            )
         env_vars: Dict[str, str] = {}
         if ask_confirm(tr("config_gen.agent_env_enable"), default=False):
             env_vars = _prompt_env_vars()
@@ -325,6 +334,8 @@ def _prompt_agents(vm_names: List[str]) -> Dict[str, Dict[str, object]]:
         http_proxy_defined, http_proxy_value = _prompt_override_proxy(tr("config_gen.agent_http_proxy"))
 
         agent_entry: Dict[str, object] = {"type": agent_type}
+        if command is not None:
+            agent_entry["command"] = command
         if version is not None:
             agent_entry["version"] = version
         if env_vars:

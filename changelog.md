@@ -1,5 +1,10 @@
 # Agent-Safety-Kit versions history
 
+## 1.7.7 - jcode and custom agent support
+
+* Added the `jcode` agent type with installation through the official jcode installer and a checksum-verified GitHub API asset fallback, exact/stable/latest version policies, latest-release checks, and normal runtime, proxy, status, and lifecycle integration
+* Added the `custom` agent type for launching any command already available inside a VM through a required `command` setting, with string and argv-list forms, environment/default-argument support, and no installer or version policy
+
 ## 1.7.6 - Added official stand-alone codex installer
 
 * Changed the `codex` agent installer and latest-version lookup from the npm wrapper to OpenAI's official standalone package and GitHub releases, including the package manifest, Code Mode host, bundled sandbox resources, ripgrep, optional exec server, and app-server daemon support

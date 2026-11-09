@@ -112,7 +112,7 @@ mounts:
 agents:
   # Agent name can be anything, for example "superagent"; this is what is used when running `agsekit run <agent>`
   qwen:
-    # Agent type - one of supported: qwen, codex, claude, cline, aider, forgecode, opencode, codex-glibc, codex-glibc-prebuilt
+    # Agent type - one of supported: qwen, codex, claude, cline, aider, forgecode, opencode, jcode, custom, codex-glibc, codex-glibc-prebuilt
     type: qwen
     # Optional: omit for upstream latest, use stable for agsekit's tested version, or set an exact semver
     version: stable
@@ -143,8 +143,15 @@ agents:
     proxychains: ""
     # Also, the agent can set http-proxy
     http_proxy: socks5://127.0.0.1:18881
+  local-script:
+    # custom runs a command that is already installed in the VM; it has no version setting or installer
+    type: custom
+    command: [python3, -m, my_agent]
+    default-args: ["--safe"]
 
 ```
+
+For `custom`, `command` is required and accepts either a shell-like string or a YAML list of argv tokens. Shell operators are not evaluated. Runtime arguments are appended after the configured command and `default-args`.
 
 ## Detailed Description of Each Parameter:
 
@@ -338,13 +345,18 @@ Behavior:
 * `agents.<agent_name>.type`
   * Agent type
   * See [Supported agents](agents.md)
-  * Supported values: `aider`, `qwen`, `forgecode`, `codex`, `opencode`, `codex-glibc`, `codex-glibc-prebuilt`, `claude`, `cline`
+  * Supported values: `aider`, `qwen`, `forgecode`, `codex`, `opencode`, `codex-glibc`, `codex-glibc-prebuilt`, `claude`, `cline`, `jcode`, `custom`
   * Required parameter
 * `agents.<agent_name>.version`
   * Optional version policy for installation
   * If omitted, the agent is installed from the upstream latest channel and versions are not pinned
   * `stable` selects the tested version stored in agsekit's agent registry
   * A semver string such as `1.2.3` pins the agent to that exact version
+  * Not supported for `custom`
+* `agents.<agent_name>.command`
+  * Required for `custom` and rejected for other types
+  * Accepts a shell-like string parsed into argv without shell evaluation, or a YAML list of argv tokens
+  * The command must already be available inside the VM; `install-agents` does not install it
 * `agents.<agent_name>.env`
   * Environment variables that will be passed to the agent process
   * Values are converted to strings; `null` turns into an empty string

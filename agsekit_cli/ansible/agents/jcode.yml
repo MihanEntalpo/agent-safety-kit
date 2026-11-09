@@ -1,0 +1,114 @@
+---
+- name: Install jcode
+  hosts: localhost
+  connection: local
+  gather_facts: false
+  tasks:
+    - name: Register Multipass VM
+      ansible.builtin.add_host:
+        name: "{{ vm_name }}"
+        ansible_host: "{{ vm_name }}"
+        ansible_connection: agsekit_multipass
+        ansible_python_interpreter: /usr/bin/python3
+
+- name: Install jcode CLI
+  hosts: "{{ vm_name }}"
+  gather_facts: false
+  vars:
+    requested_agent_version: "{{ agent_version }}"
+    reinstall_requested: "{{ force_reinstall | default(false) | bool }}"
+  tasks:
+    - name: Configure proxychains
+      ansible.builtin.include_tasks: "{{ playbook_dir }}/proxychains.yml"
+
+    - name: Install jcode installer dependencies
+      ansible.builtin.apt:
+        update_cache: true
+        name:
+          - ca-certificates
+          - curl
+          - tar
+      become: true
+
+    - name: Download jcode installer
+      ansible.builtin.command: >-
+        {{ proxychains_prefix }}curl -fsSL https://jcode.sh/install -o /tmp/jcode-install.sh
+
+    - name: Remove existing jcode launcher before reinstall
+      ansible.builtin.file:
+        path: /home/ubuntu/.local/bin/jcode
+        state: absent
+      when: reinstall_requested
+
+    - name: Run jcode installer
+      ansible.builtin.shell: |
+        set -euo pipefail
+        export JCODE_NO_TELEMETRY=1
+        {% if requested_agent_version %}
+        export JCODE_VERSION="v{{ requested_agent_version }}"
+        {% endif %}
+        {{ proxychains_prefix }}bash /tmp/jcode-install.sh
+      args:
+        executable: /bin/bash
+      changed_when: true
+      register: jcode_install_result
+      retries: 2
+      delay: 5
+      until: jcode_install_result.rc == 0
+      failed_when: false
+
+    - name: Install jcode from checksum-verified GitHub API asset fallback
+      ansible.builtin.shell: |
+        set -euo pipefail
+        {{ proxychains_prefix }}bash -s <<'JCODE_FALLBACK'
+        set -euo pipefail
+        api_base="https://api.github.com/repos/1jehuang/jcode/releases"
+        if [ -n "{{ requested_agent_version }}" ]; then
+          release_url="$api_base/tags/v{{ requested_agent_version }}"
+        else
+          release_url="$api_base/latest"
+        fi
+        release_json=$(curl -fsSL --retry 3 --connect-timeout 10 "$release_url")
+        tag=$(printf '%s' "$release_json" | python3 -c 'import json,sys; print(json.load(sys.stdin)["tag_name"])')
+        version=${tag#v}
+        case "$(uname -m)" in
+          x86_64|amd64) artifact="jcode-linux-x86_64" ;;
+          aarch64|arm64) artifact="jcode-linux-aarch64" ;;
+          *) echo "Unsupported jcode architecture: $(uname -m)" >&2; exit 1 ;;
+        esac
+        archive="$artifact.tar.gz"
+        archive_id=$(printf '%s' "$release_json" | python3 -c 'import json,sys; name=sys.argv[1]; print(next(a["id"] for a in json.load(sys.stdin)["assets"] if a["name"] == name))' "$archive")
+        sums_id=$(printf '%s' "$release_json" | python3 -c 'import json,sys; print(next(a["id"] for a in json.load(sys.stdin)["assets"] if a["name"] == "SHA256SUMS"))')
+        asset_api="$api_base/assets"
+        work_dir=$(mktemp -d)
+        trap 'rm -rf "$work_dir"' EXIT
+        curl -fsSL --retry 3 --connect-timeout 10 -H 'Accept: application/octet-stream' "$asset_api/$archive_id" -o "$work_dir/$archive"
+        curl -fsSL --retry 3 --connect-timeout 10 -H 'Accept: application/octet-stream' "$asset_api/$sums_id" -o "$work_dir/SHA256SUMS"
+        grep -E "^[0-9a-fA-F]{64}  $archive$" "$work_dir/SHA256SUMS" > "$work_dir/selected.sha256"
+        (cd "$work_dir" && sha256sum -c selected.sha256)
+        tar xzf "$work_dir/$archive" -C "$work_dir"
+        source_binary="$work_dir/$artifact"
+        test -x "$source_binary"
+        version_dir="$HOME/.jcode/builds/versions/$version"
+        stable_dir="$HOME/.jcode/builds/stable"
+        install_dir="$HOME/.local/bin"
+        mkdir -p "$version_dir" "$stable_dir" "$install_dir"
+        install -m 0755 "$source_binary" "$version_dir/jcode"
+        find "$work_dir" -maxdepth 1 -type f \( -name "$artifact.bin" -o -name 'libssl.so*' -o -name 'libcrypto.so*' \) -exec cp -f {} "$version_dir/" \;
+        ln -sfn "$version_dir/jcode" "$stable_dir/jcode"
+        printf '%s\n' "$version" > "$HOME/.jcode/builds/stable-version"
+        ln -sfn "$stable_dir/jcode" "$install_dir/jcode"
+        JCODE_FALLBACK
+      args:
+        executable: /bin/bash
+      changed_when: true
+      when: jcode_install_result.rc != 0
+
+    - name: Verify jcode CLI after installation
+      ansible.builtin.command: /home/ubuntu/.local/bin/jcode --version
+      changed_when: false
+
+    - name: Remove jcode installer
+      ansible.builtin.file:
+        path: /tmp/jcode-install.sh
+        state: absent

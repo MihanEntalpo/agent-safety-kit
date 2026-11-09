@@ -318,6 +318,7 @@ def run_install_agents(
             selected_agent_types = {
                 find_agent(agents_config, target_agent_name).type
                 for target_agent_name, _target_vm in targets
+                if get_agent_class(find_agent(agents_config, target_agent_name).type).tracks_latest_version
             }
             if force_check_versions:
                 errors = refresh_agent_versions(selected_agent_types, force=True)
@@ -330,6 +331,8 @@ def run_install_agents(
                     )
             for target_agent_name in dict.fromkeys(name for name, _vm in targets):
                 target_agent = find_agent(agents_config, target_agent_name)
+                if not get_agent_class(target_agent.type).tracks_latest_version:
+                    continue
                 cached = state_manager.get_agent_version(target_agent.type)
                 if cached is None:
                     raise click.ClickException(
@@ -381,6 +384,17 @@ def _run_install_targets(
     for target_agent_name, target_vm in targets:
         agent = find_agent(agents_config, target_agent_name)
         agent_cls = get_agent_class(agent.type)
+        if not agent_cls.installable:
+            click.echo(
+                tr(
+                    "install_agents.custom_skipped",
+                    agent_name=agent.name,
+                    vm_name=target_vm.name,
+                )
+            )
+            if overall_task is not None:
+                progress.advance(overall_task)
+            continue
         playbook_path = _playbook_for(agent)
         requested_version = upgrade_versions.get(agent.type) if upgrade_versions else agent.version
         installed_version = _installed_agent_version(agent, target_vm, debug=debug)

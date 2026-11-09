@@ -188,3 +188,17 @@ def test_refresh_agent_versions_force_bypasses_daily_cache(tmp_path, monkeypatch
     assert errors == {}
     assert calls == [state_module.platform.machine()]
     assert manager.get_agent_version("codex").latest_version == "3.4.5"
+
+
+def test_refresh_configured_agent_versions_skips_custom(tmp_path, monkeypatch):
+    config_path = tmp_path / "config.yaml"
+    config_path.write_text(
+        "agents:\n"
+        "  local-script:\n"
+        "    type: custom\n"
+        "    command: echo ok\n",
+        encoding="utf-8",
+    )
+    monkeypatch.setattr(state_module, "refresh_agent_versions", lambda agent_types, **_kwargs: list(agent_types))
+
+    assert state_module.refresh_configured_agent_versions(config_path) == []

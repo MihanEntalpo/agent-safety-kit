@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import os
+import shlex
 from difflib import get_close_matches
 from dataclasses import dataclass, field
 from pathlib import Path
@@ -77,6 +78,7 @@ class AgentConfig:
     # None means that the installer should use the upstream latest version.
     version: Optional[str]
     env: Dict[str, str]
+    command: Optional[List[str]] = None
     default_args: List[str] = field(default_factory=list)
     vm_name: Optional[str] = None
     vm_names: Optional[List[str]] = None
@@ -724,6 +726,11 @@ def _normalize_default_args(value: Any) -> List[str]:
 
 
 def _normalize_agent_version(value: Any, *, agent_type: str) -> Optional[str]:
+    agent_cls = get_agent_class(agent_type)
+    if not agent_cls.supports_version:
+        if value is not None:
+            raise ConfigError(tr("config.agent_version_unsupported", agent_type=agent_type))
+        return None
     if value is None:
         return None
     if not isinstance(value, str) or not value.strip():
@@ -734,6 +741,29 @@ def _normalize_agent_version(value: Any, *, agent_type: str) -> Optional[str]:
         return get_agent_class(agent_type).normalize_version(value)
     except ValueError:
         raise ConfigError(tr("config.agent_version_invalid", agent_type=agent_type))
+
+
+def _normalize_agent_command(value: Any, *, agent_type: str) -> Optional[List[str]]:
+    if agent_type != "custom":
+        if value is not None:
+            raise ConfigError(tr("config.agent_command_custom_only"))
+        return None
+    if isinstance(value, str):
+        try:
+            command = shlex.split(value)
+        except ValueError as exc:
+            raise ConfigError(tr("config.agent_command_invalid", error=str(exc)))
+    elif isinstance(value, list):
+        command = []
+        for index, item in enumerate(value):
+            if not isinstance(item, str) or not item:
+                raise ConfigError(tr("config.agent_command_item_invalid", index=index))
+            command.append(item)
+    else:
+        command = []
+    if not command:
+        raise ConfigError(tr("config.agent_command_required"))
+    return command
 
 
 def _normalize_agent_vms(
@@ -826,6 +856,7 @@ def load_agents_config(config: Dict[str, Any]) -> Dict[str, AgentConfig]:
             raw_agent_type = raw_entry.get("type")
             agent_type = _normalize_agent_type(raw_agent_type)
             version = _normalize_agent_version(raw_entry.get("version"), agent_type=agent_type)
+            command = _normalize_agent_command(raw_entry.get("command"), agent_type=agent_type)
             env_vars = _normalize_env_vars(raw_entry.get("env"))
             default_args = _normalize_default_args(raw_entry.get("default-args"))
             vm_names = _normalize_agent_vms(
@@ -853,6 +884,7 @@ def load_agents_config(config: Dict[str, Any]) -> Dict[str, AgentConfig]:
                 type=agent_type,
                 version=version,
                 env=env_vars,
+                command=command,
                 default_args=default_args,
                 vm_name=vm_name,
                 vm_names=vm_names,

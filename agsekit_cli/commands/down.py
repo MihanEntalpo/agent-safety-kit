@@ -5,8 +5,7 @@ from typing import Dict, List, Optional, Tuple
 
 import click
 
-from ..agents_modules import get_agent_class
-from ..agents import configured_agent_vms
+from ..agents import configured_agent_runtime_binary, configured_agent_vms
 from ..config import (
     AgentConfig,
     ConfigError,
@@ -41,7 +40,7 @@ def _collect_running_configured_agents(vm_names: List[str], agents: Dict[str, Ag
 
         binary_to_names: Dict[str, List[str]] = {}
         for agent in vm_agents:
-            runtime_binary = get_agent_class(agent.type).runtime_binary
+            runtime_binary = Path(configured_agent_runtime_binary(agent)).name
             binary_to_names.setdefault(runtime_binary, []).append(agent.name)
 
         running_processes = _collect_running_agent_processes(vm_name, list(binary_to_names.keys()))

@@ -25,6 +25,9 @@ class BaseAgent:
     default_version = ""
     default_env: Dict[str, str] = {}
     _needs_nvm = False
+    installable = True
+    tracks_latest_version = True
+    supports_version = True
 
     def __init__(self, agent: "AgentConfig"):
         self.agent = agent
@@ -63,23 +66,25 @@ class BaseAgent:
         return cls.normalize_version(match.group(1))
 
     @classmethod
-    def build_binary_check_command(cls) -> str:
+    def build_binary_check_command(cls, runtime_binary: Optional[str] = None) -> str:
+        binary = runtime_binary or cls.runtime_binary
         parts: List[str] = [PATH_EXPORT_SNIPPET]
         if cls.needs_nvm():
             parts.insert(0, NVM_LOAD_SNIPPET)
-        parts.append(f"command -v {shlex.quote(cls.runtime_binary)} >/dev/null 2>&1")
+        parts.append(f"command -v {shlex.quote(binary)} >/dev/null 2>&1")
         return " && ".join(parts)
 
     @classmethod
-    def build_version_command(cls) -> str:
+    def build_version_command(cls, runtime_binary: Optional[str] = None) -> str:
+        binary = runtime_binary or cls.runtime_binary
         parts: List[str] = [PATH_EXPORT_SNIPPET]
         if cls.needs_nvm():
             parts.insert(0, NVM_LOAD_SNIPPET)
             parts.append("nvm use --silent default >/dev/null 2>&1 || true")
         parts.extend(
             [
-                f"command -v {shlex.quote(cls.runtime_binary)} >/dev/null 2>&1",
-                f"{shlex.quote(cls.runtime_binary)} --version 2>&1",
+                f"command -v {shlex.quote(binary)} >/dev/null 2>&1",
+                f"{shlex.quote(binary)} --version 2>&1",
             ]
         )
         return " && ".join(parts)
@@ -88,6 +93,9 @@ class BaseAgent:
         env = dict(self.default_env)
         env.update(self.agent.env)
         return env
+
+    def command_prefix(self) -> List[str]:
+        return [self.runtime_binary]
 
     @classmethod
     def build_shell_command(

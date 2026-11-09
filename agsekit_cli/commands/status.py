@@ -11,15 +11,15 @@ from typing import Dict, Iterable, List, Optional, Sequence, Tuple
 import click
 
 from . import debug_option, non_interactive_option
-from ..agents_modules import get_agent_class, get_agent_class_for_runtime_binary
+from ..agents_modules import get_agent_class_for_runtime_binary
 from ..agents import configured_agent_vms
 from ..backup import list_backup_snapshots
+from ..agents import configured_agent_runtime_binary
 from ..config import (
     AgentConfig,
     ConfigError,
     MountConfig,
     VmConfig,
-    agent_runtime_binary,
     load_agents_config,
     load_config,
     load_mounts_config,
@@ -316,7 +316,7 @@ def _render_table(headers: Sequence[str], rows: Sequence[Sequence[str]]) -> None
 
 def _check_agent_binary_installed(vm_name: str, binary: str) -> Optional[bool]:
     agent_cls = get_agent_class_for_runtime_binary(binary)
-    command = agent_cls.build_binary_check_command()
+    command = agent_cls.build_binary_check_command(binary)
 
     run_command = [multipass_command(), "exec", vm_name, "--", "bash", "-lc", command]
     debug_log_command(run_command)
@@ -560,7 +560,7 @@ def status_command(config_path: Optional[str], debug: bool, non_interactive: boo
             else:
                 vm_running = state.lower() == "running"
                 for agent in vm_agents:
-                    runtime_binary = get_agent_class(agent.type).runtime_binary
+                    runtime_binary = configured_agent_runtime_binary(agent)
                     install_state: str
                     if not vm_running:
                         install_state = click.style(tr("status.agent_unknown"), fg="bright_black")
@@ -581,8 +581,8 @@ def status_command(config_path: Optional[str], debug: bool, non_interactive: boo
 
             binary_to_names: Dict[str, List[str]] = {}
             for agent in vm_agents:
-                runtime_binary = get_agent_class(agent.type).runtime_binary
-                binary_to_names.setdefault(runtime_binary, []).append(agent.name)
+                runtime_binary = configured_agent_runtime_binary(agent)
+                binary_to_names.setdefault(Path(runtime_binary).name, []).append(agent.name)
 
             running_processes = _collect_running_agent_processes(vm_name, list(binary_to_names.keys()))
             if running_processes is None:

@@ -16,6 +16,8 @@ Before running the installer playbook, `agsekit` makes sure the VM contains the 
 
 Agent versions come from `agents.<name>.version`. If the field is omitted, `agsekit` installs the upstream latest version without pinning. Use `stable` for agsekit's tested version or a semver string for an exact pin.
 
+The `jcode` type uses the official `https://jcode.sh/install` script and supports the same latest, `stable`, and exact-version policies. The `custom` type has no installer or version; `install-agents` reports it as skipped because its configured command must already exist in the VM.
+
 ## Commands
 
 ```bash

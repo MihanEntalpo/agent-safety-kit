@@ -112,7 +112,7 @@ mounts:
 agents:
   # Имя агента может быть любым, например "superagent", именно по нему идёт обращение при запуске `agsekit run <agent>`
   qwen:
-    # Тип агента - один из поддерживаемых: qwen, codex, claude, cline, aider, forgecode, opencode, codex-glibc, codex-glibc-prebuilt
+    # Тип агента - один из поддерживаемых: qwen, codex, claude, cline, aider, forgecode, opencode, jcode, custom, codex-glibc, codex-glibc-prebuilt
     type: qwen
     # Необязательно: без поля используется последняя upstream-версия, stable — проверенная версия agsekit, также можно указать semver
     version: stable
@@ -143,8 +143,15 @@ agents:
     proxychains: ""
     # Также, в агенте можно задать http-proxy
     http_proxy: socks5://127.0.0.1:18881
+  local-script:
+    # custom запускает уже установленную в VM команду; у него нет version и installer
+    type: custom
+    command: [python3, -m, my_agent]
+    default-args: ["--safe"]
 
 ```
+
+Для `custom` поле `command` обязательно и принимает shell-подобную строку или YAML-список argv-токенов. Shell-операторы не вычисляются. Runtime-аргументы добавляются после настроенной команды и `default-args`.
 
 ## Подробное описание каждого параметра:
 
@@ -338,13 +345,18 @@ agents:
 * `agents.<agent_name>.type`
   * Тип агента
   * См. [Поддерживаемые агенты](agents.md)
-  * Поддерживаемые значения: `aider`, `qwen`, `forgecode`, `codex`, `opencode`, `codex-glibc`, `codex-glibc-prebuilt`, `claude`, `cline`
+  * Поддерживаемые значения: `aider`, `qwen`, `forgecode`, `codex`, `opencode`, `codex-glibc`, `codex-glibc-prebuilt`, `claude`, `cline`, `jcode`, `custom`
   * Обязательный параметр
 * `agents.<agent_name>.version`
   * Необязательная политика версии при установке
   * Если поле не задано, устанавливается последняя upstream-версия без фиксации
   * Значение `stable` выбирает проверенную версию из registry agsekit
   * Строка semver, например `1.2.3`, фиксирует агента на точной версии
+  * Для `custom` не поддерживается
+* `agents.<agent_name>.command`
+  * Обязателен для `custom` и запрещён для остальных типов
+  * Принимает shell-подобную строку, разбираемую в argv без shell evaluation, или YAML-список argv-токенов
+  * Команда должна уже существовать внутри VM; `install-agents` её не устанавливает
 * `agents.<agent_name>.env`
   * Переменные окружения, которые будут переданы процессу агента
   * Значения приводятся к строкам; `null` превращается в пустую строку

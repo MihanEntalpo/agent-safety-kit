@@ -58,6 +58,8 @@ but the corresponding path inside the VM is empty. This usually indicates a Mult
 
 After mount checks, `run` starts the agent through one bundled VM-side wrapper script. This wrapper checks that the agent binary exists, prepares `nvm` when needed, applies runtime env, optionally enables `proxychains` or `http_proxy`, and then starts the agent.
 
+For a `custom` profile, the wrapper uses the first token of the required `command` setting as the executable and appends the remaining configured command tokens, `default-args`, and runtime arguments in that order. The configured command is argv, not shell source, so shell operators are not evaluated.
+
 `run` can also:
 
 - automatically mount the source directory through `--auto-mount`;
@@ -91,6 +93,7 @@ agsekit run --vm agent-ubuntu codex --sandbox danger-full-access
 agsekit run --workdir /path/to/project/subdir qwen
 agsekit run --auto-mount --proxychains socks5://127.0.0.1:1080 qwen
 agsekit run --http-proxy socks5://127.0.0.1:8181 qwen
+agsekit run local-script --task check
 ```
 
 ## See Also

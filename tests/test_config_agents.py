@@ -71,6 +71,46 @@ def test_load_agents_config_accepts_explicit_version():
     assert agent.version == "0.15.10"
 
 
+def test_load_agents_config_accepts_custom_command_string():
+    config = {
+        "agents": {
+            "script": {
+                "type": "custom",
+                "command": "python3 -m example_agent --mode safe",
+            }
+        }
+    }
+
+    agent = load_agents_config(config)["script"]
+
+    assert agent.command == ["python3", "-m", "example_agent", "--mode", "safe"]
+    assert agent.version is None
+
+
+def test_load_agents_config_accepts_custom_command_list():
+    config = {"agents": {"script": {"type": "custom", "command": ["/opt/agent", "--flag"]}}}
+
+    assert load_agents_config(config)["script"].command == ["/opt/agent", "--flag"]
+
+
+@pytest.mark.parametrize("entry", [{"type": "custom"}, {"type": "custom", "command": ""}])
+def test_load_agents_config_requires_custom_command(entry):
+    with pytest.raises(ConfigError):
+        load_agents_config({"agents": {"script": entry}})
+
+
+def test_load_agents_config_rejects_version_for_custom_agent():
+    with pytest.raises(ConfigError):
+        load_agents_config(
+            {"agents": {"script": {"type": "custom", "command": "echo ok", "version": "1.0.0"}}}
+        )
+
+
+def test_load_agents_config_rejects_command_for_builtin_agent():
+    with pytest.raises(ConfigError):
+        load_agents_config({"agents": {"qwen": {"type": "qwen", "command": "other-qwen"}}})
+
+
 def test_load_agents_config_resolves_stable_version():
     config = {"agents": {"qwen": {"type": "qwen", "version": "stable"}}}
 
@@ -299,10 +339,13 @@ def test_load_agents_config_requires_type_for_unknown_agent_name():
 
 @pytest.mark.parametrize("agent_type", sorted(set(ALLOWED_AGENT_TYPES.values())))
 def test_load_agents_config_supports_allowed_agent_types(agent_type: str):
+    agent_entry = {"type": agent_type}
+    if agent_type == "custom":
+        agent_entry["command"] = "echo ok"
     config = {
         "vms": {"agent": {"cpu": 1, "ram": "1G", "disk": "5G"}},
         "agents": {
-            "main": {"type": agent_type},
+            "main": agent_entry,
         },
     }
 

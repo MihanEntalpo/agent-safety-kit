@@ -275,7 +275,11 @@ def refresh_configured_agent_versions(
     if config_path is None or not config_path.exists():
         return {}
     config = load_config(config_path)
-    agent_types = {agent.type for agent in load_agents_config(config).values()}
+    agent_types = {
+        agent.type
+        for agent in load_agents_config(config).values()
+        if getattr(get_agent_class(agent.type), "tracks_latest_version", True)
+    }
     return refresh_agent_versions(agent_types, now=now)
 
 
@@ -291,6 +295,8 @@ def refresh_agent_versions(
     architecture = platform.machine()
     errors: Dict[str, str] = {}
     for agent_type in sorted(set(agent_types)):
+        if not getattr(get_agent_class(agent_type), "tracks_latest_version", True):
+            continue
         if not force and not manager.agent_version_is_due(agent_type, now=current_time):
             continue
         try:

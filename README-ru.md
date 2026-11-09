@@ -185,6 +185,8 @@ agsekit run claude
 - [OpenCode](https://opencode.ai/)
 - [Claude Code](https://docs.claude.com/en/docs/claude-code/overview)
 - [Cline](https://cline.bot/)
+- [jcode](https://github.com/1jehuang/jcode)
+- `custom` — запуск любой заранее установленной в VM команды как агента
 - `codex-glibc` — вариант [Codex](https://openai.com/codex/), собираемый внутри VM
 - `codex-glibc-prebuilt` — вариант [Codex](https://openai.com/codex/), ставящийся из готового prebuilt-релиза
 

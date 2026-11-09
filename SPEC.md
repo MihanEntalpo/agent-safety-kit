@@ -8,7 +8,7 @@
 
 ## 1. Продукт: зачем он нужен
 
-`Agent Safety Kit` — это CLI-инструмент для безопасной работы с консольными AI-агентами (`aider`, `qwen`, `forgecode`, `codex`, `opencode`, `claude`, `cline`, `codex-glibc`, `codex-glibc-prebuilt`) через изоляцию в Multipass VM и регулярные инкрементальные бэкапы на хосте.
+`Agent Safety Kit` — это CLI-инструмент для безопасной работы с консольными AI-агентами (`aider`, `qwen`, `forgecode`, `codex`, `opencode`, `claude`, `cline`, `jcode`, `codex-glibc`, `codex-glibc-prebuilt`, любых собственных через `custom`) через изоляцию в Multipass VM и регулярные инкрементальные бэкапы на хосте.
 
 Ключевая пользовательская проблема:
 - агент может повредить проект (удалить файлы, сломать рабочую копию, внести нежелательные изменения);
@@ -205,7 +205,7 @@
 - `agent_versions.<type>.latest_version` — последняя успешно найденная устанавливаемая версия типа агента.
 - `agent_versions.<type>.updated_at` — UTC timestamp последнего успешного обновления этой версии.
 
-За один запуск проверяются только уникальные типы агентов, присутствующие в выбранном конфиге; ранее закэшированные записи от других конфигов в общем state-файле сохраняются. Проверка не подключается к VM и не читает установленные там версии. Для `codex-glibc-prebuilt` asset-aware resolver выбирает релиз для текущей архитектуры хоста, а в state сохраняется одна результирующая версия без вложенного словаря архитектур.
+За один запуск проверяются только уникальные versioned-типы агентов, присутствующие в выбранном конфиге; `custom` исключается, потому что не имеет upstream version policy. Ранее закэшированные записи от других конфигов в общем state-файле сохраняются. Проверка не подключается к VM и не читает установленные там версии. Для `codex-glibc-prebuilt` asset-aware resolver выбирает релиз для текущей архитектуры хоста, а в state сохраняется одна результирующая версия без вложенного словаря архитектур.
 
 Behavior:
 - файл создаётся автоматически при первом запуске;
@@ -267,12 +267,14 @@ Behavior:
 
 ### 6.6 Секция `agents`
 Поля:
-- `type` (обязателен) — тип агента: `aider`, `qwen`, `forgecode`, `codex`, `opencode`, `codex-glibc`, `codex-glibc-prebuilt`, `claude`, `cline`.
+- `type` (обязателен) — тип агента: `aider`, `qwen`, `forgecode`, `codex`, `opencode`, `codex-glibc`, `codex-glibc-prebuilt`, `claude`, `cline`, `jcode`, `custom`.
   - поддерживаемые типы и runtime-бинарники задаются registry классов в `agsekit_cli/agents_modules/`.
-  - runtime-бинарники сейчас такие: `aider -> aider`, `qwen -> qwen`, `forgecode -> forge`, `codex -> codex`, `opencode -> opencode`, `codex-glibc -> codex-glibc`, `codex-glibc-prebuilt -> codex-glibc-prebuilt`, `claude -> claude`, `cline -> cline`.
-  - для каждого типа в registry хранится stable-версия; она используется только если профиль явно задаёт `version: stable`.
+  - runtime-бинарники сейчас такие: `aider -> aider`, `qwen -> qwen`, `forgecode -> forge`, `codex -> codex`, `opencode -> opencode`, `codex-glibc -> codex-glibc`, `codex-glibc-prebuilt -> codex-glibc-prebuilt`, `claude -> claude`, `cline -> cline`, `jcode -> jcode`; у `custom` executable определяется первым токеном `command`.
+  - для каждого versioned-типа в registry хранится stable-версия; она используется только если профиль явно задаёт `version: stable`; `custom` версию не поддерживает.
   - `aider` — установка через официальный aider installer; runtime-бинарник `aider`.
   - `forgecode` — установка через официальный Forge installer; по умолчанию при `run` получает `FORGE_TRACKER=false`, чтобы отключить телеметрию.
+  - `jcode` — установка через официальный `https://jcode.sh/install`; exact version передаётся installer через `JCODE_VERSION`, runtime-бинарник `jcode`.
+  - `custom` — installer отсутствует; запускается команда из обязательного поля `command`, уже доступная внутри VM.
   - `codex` — установка официального standalone package через OpenAI installer; package layout содержит manifest, `codex-code-mode-host`, `rg`, sandbox resources и доступные для версии дополнительные executable, поэтому CLI может штатно установить и запускать shared app-server daemon без `--no-daemon`.
   - `codex-glibc` — установка/сборка codex из исходников с установкой бинарника `codex-glibc`; после проверки версии рядом устанавливается официальный `codex-code-mode-host` той же версии из upstream GitHub Release, если этот asset существует (старые версии без helper продолжают поддерживаться).
   - `codex-glibc-prebuilt` — установка заранее собранного `codex-glibc` (glibc-compatible) из GitHub Releases проекта; по умолчанию берётся release tag, соответствующий requested/default version в формате `codex-glibc-rust-v<version>`, источник можно переопределить через `AGSEKIT_CODEX_GLIBC_PREBUILT_REPO`, `AGSEKIT_CODEX_GLIBC_PREBUILT_TAG`, `AGSEKIT_CODEX_GLIBC_PREBUILT_ASSET`; если имя ассета не задано явно, оно определяется по архитектуре VM (`codex-glibc-linux-amd64.gz` для `x86_64`, `codex-glibc-linux-arm64.gz` для `aarch64`/`arm64`); бинарник устанавливается отдельно под именем `codex-glibc-prebuilt` и может сосуществовать с `codex-glibc`, а рядом с ним устанавливается официальный version-matched `codex-code-mode-host`, если он опубликован для этой версии.
@@ -280,6 +282,11 @@ Behavior:
   - если поле не задано, версия не фиксируется и installer использует upstream latest;
   - `stable` выбирает проверенную stable-версию этого agent type из registry;
   - semver-строка фиксирует агента на точной версии.
+  - для `custom` поле запрещено, потому что agsekit не устанавливает и не обновляет произвольную команду.
+- `command` (обязательно только для `custom`) — команда запуска в форме shell-подобной строки или YAML-списка argv-токенов.
+  - строка разбирается через `shlex`, без shell evaluation и интерпретации операторов;
+  - `default-args` и аргументы `agsekit run` добавляются после настроенных токенов;
+  - для остальных типов поле запрещено.
 - `env` (optional) — mapping переменных окружения, передаваемых агенту при запуске.
   - значение приводится к строке (`null` -> пустая строка).
 - `default-args` (optional) — список аргументов CLI по умолчанию.
@@ -451,7 +458,7 @@ Behavior:
   - показывает navigable список поддерживаемых agent types плюс `Cancel`;
   - `Cancel` на первом же выборе позволяет сохранить конфиг без секции `agents`;
   - `name` по умолчанию берётся из runtime binary агента, а для `codex-glibc` и `codex-glibc-prebuilt` default name = `codex`;
-  - после выбора типа мастер спрашивает `version`; пустое значение оставляет версию незафиксированной, `stable` выбирает проверенную версию, semver фиксирует точную версию;
+  - после выбора versioned-типа мастер спрашивает `version`; пустое значение оставляет версию незафиксированной, `stable` выбирает проверенную версию, semver фиксирует точную версию; для `custom` вместо версии запрашивается обязательная `command`;
   - имена агентов внутри одного прогона тоже должны быть уникальными: если base name уже занят, мастер предлагает `name-2`, `name-3`, ...; ручной ввод дубликата печатает ошибку и повторно спрашивает имя;
   - optional `env` вводится построчно как `KEY=VALUE` до пустой строки;
   - optional `default-args` вводятся одной строкой и сохраняются как список токенов, разделённых пробелами;
@@ -886,7 +893,8 @@ Behavior:
 
 ### 9.2.1 Маппинг `agent.type -> runtime binary`
 - `run` и `status` используют runtime-бинарник, а не буквальное значение `type`;
-- пока runtime-бинарник совпадает с `type`, но это может быть переопределено для новых агентов.
+- для встроенных versioned-типов binary задаёт registry (в частности, `forgecode -> forge`), а для `custom` используется первый токен `command`;
+- status/down сопоставляют custom-процесс по basename первого токена, а binary precheck проверяет сам первый токен.
 
 ### 9.3 Проверка ресурсов при создании VM
 Перед созданием новых VM:
@@ -976,6 +984,8 @@ Dependency resolution выполняется кодом до запуска play
   - дополнительно ставится `logrotate` и конфиг `/etc/logrotate.d/codex-tui`, который ограничивает `~/.codex/log/codex-tui.log` политикой `size 100M`, `rotate 10`, `compress`, `delaycompress`, `missingok`, `notifempty`, `copytruncate`.
 - `qwen.yml`: установка Node через nvm (с резолвом текущей LTS через `nvm version-remote --lts`, только если `node` ещё отсутствует) + exact npm version `@qwen-code/qwen-code@<version>`.
 - `forgecode.yml`: установка через официальный Forge install script с exact version argument и последующей проверкой бинарника `forge`; сетевые шаги выполняются через `proxychains_prefix`.
+- `jcode.yml`: установка через официальный `https://jcode.sh/install` с отключённой installer telemetry, optional exact `JCODE_VERSION` и ограниченными повторами; если browser download endpoint GitHub недоступен, installer скачивает тот же release asset и `SHA256SUMS` через GitHub API, обязательно проверяет SHA-256, воспроизводит canonical per-version/stable symlink layout и затем проверяет `jcode --version`; сетевые шаги используют `proxychains_prefix`.
+- `custom`: playbook отсутствует; `install-agents` явно пропускает профиль, включая `--all-agents`/`up`, а `--upgrade` и periodic latest-version checks не включают этот тип.
 - `opencode.yml`: установка Node через nvm (с резолвом текущей LTS через `nvm version-remote --lts`, только если `node` ещё отсутствует) + exact npm version `opencode-ai@<version>`.
 - `cline.yml`: установка Node через nvm (с резолвом текущей LTS через `nvm version-remote --lts`, только если `node` ещё отсутствует) + exact npm version `cline@<version>`.
 - Node-based installer playbooks проверяют наличие `node` сначала в текущем `PATH`, а затем через `nvm use --silent default`, чтобы установленный через `nvm` Node считался уже готовым даже в non-login shell'е Ansible.

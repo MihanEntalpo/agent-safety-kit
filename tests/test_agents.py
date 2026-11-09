@@ -219,6 +219,29 @@ def test_agent_command_sequence_uses_runtime_binary(agent_type: str, runtime_bin
     assert command == [runtime_binary, "--verbose", "--print"]
 
 
+def test_custom_agent_command_sequence_uses_configured_command_prefix():
+    agent = AgentConfig(
+        name="script",
+        type="custom",
+        version=None,
+        env={},
+        command=["python3", "-m", "example_agent"],
+        default_args=["--mode", "safe"],
+    )
+
+    command = agents.agent_command_sequence(agent, ["--task", "check"])
+
+    assert command == [
+        "python3",
+        "-m",
+        "example_agent",
+        "--mode",
+        "safe",
+        "--task",
+        "check",
+    ]
+
+
 
 def test_run_in_vm_passes_http_proxy_upstream_settings(monkeypatch):
     calls = {}

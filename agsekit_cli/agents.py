@@ -243,7 +243,7 @@ def ensure_agent_binary_available(
     binary = agent_command[0]
     agent_cls = get_agent_class_for_runtime_binary(binary)
     effective_proxychains = resolve_proxychains(vm, proxychains)
-    check_command = agent_cls.build_binary_check_command()
+    check_command = agent_cls.build_binary_check_command(binary)
     if effective_proxychains:
         wrapped_command = (
             f"bash {shlex.quote(PROXYCHAINS_RUNNER_PATH)} --proxy {shlex.quote(effective_proxychains)} -- "
@@ -358,11 +358,18 @@ def _merge_default_args(default_args: Sequence[str], user_args: Sequence[str]) -
 def agent_command_sequence(
     agent: AgentConfig, extra_args: Sequence[str], *, skip_default_args: bool = False
 ) -> List[str]:
-    runtime_binary = get_agent_class(agent.type).runtime_binary
+    command_prefix = build_agent_module(agent).command_prefix()
     if skip_default_args:
-        return [runtime_binary, *extra_args]
+        return [*command_prefix, *extra_args]
     merged_args = _merge_default_args(agent.default_args, extra_args)
-    return [runtime_binary, *merged_args]
+    return [*command_prefix, *merged_args]
+
+
+def configured_agent_runtime_binary(agent: AgentConfig) -> str:
+    command_prefix = build_agent_module(agent).command_prefix()
+    if not command_prefix:
+        raise ConfigError(tr("config.agent_command_required"))
+    return command_prefix[0]
 
 
 def ensure_vm_exists(vm_name: str, known_vms: Dict[str, object]) -> None:

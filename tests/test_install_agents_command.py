@@ -419,6 +419,38 @@ def test_install_agents_uses_opencode_playbook(monkeypatch, tmp_path):
     assert calls == [("agent", "opencode.yml")]
 
 
+def test_install_agents_skips_custom_agent_without_playbook(monkeypatch, tmp_path):
+    config_path = tmp_path / "config.yaml"
+    config_path.write_text(
+        "vms:\n"
+        "  agent:\n"
+        "    cpu: 1\n"
+        "    ram: 1G\n"
+        "    disk: 5G\n"
+        "agents:\n"
+        "  local-script:\n"
+        "    type: custom\n"
+        "    command: python3 -m my_agent\n",
+        encoding="utf-8",
+    )
+    calls = []
+    monkeypatch.setattr(
+        install_agents_module,
+        "_run_install_playbook",
+        lambda *args, **kwargs: calls.append((args, kwargs)),
+    )
+
+    result = _invoke_command(
+        CliRunner(),
+        install_agents_command,
+        ["local-script", "--config", str(config_path), "--upgrade"],
+    )
+
+    assert result.exit_code == 0
+    assert calls == []
+    assert "has no installer" in result.output
+
+
 def test_install_agents_uses_forgecode_playbook(monkeypatch, tmp_path):
     config_path = tmp_path / "config.yaml"
     _write_config(config_path, [("forgecode_main", "forgecode")])

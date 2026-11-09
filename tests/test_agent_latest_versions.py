@@ -12,6 +12,7 @@ from agsekit_cli.agents_modules.codex import CodexAgent
 from agsekit_cli.agents_modules.codex_glibc import CodexGlibcAgent
 from agsekit_cli.agents_modules.codex_glibc_prebuilt import CodexGlibcPrebuiltAgent
 from agsekit_cli.agents_modules.forgecode import ForgecodeAgent
+from agsekit_cli.agents_modules.jcode import JcodeAgent
 from agsekit_cli.agents_modules.opencode import OpencodeAgent
 from agsekit_cli.agents_modules.qwen import QwenAgent
 
@@ -47,6 +48,7 @@ def test_registry_agent_classes_check_their_own_latest_version(
         (ForgecodeAgent, "agsekit_cli.agents_modules.forgecode", "tailcallhq/forgecode", "v"),
         (CodexAgent, "agsekit_cli.agents_modules.codex", "openai/codex", "rust-v"),
         (CodexGlibcAgent, "agsekit_cli.agents_modules.codex_glibc", "openai/codex", "rust-v"),
+        (JcodeAgent, "agsekit_cli.agents_modules.jcode", "1jehuang/jcode", "v"),
     ],
 )
 def test_github_agent_classes_check_their_own_latest_version(

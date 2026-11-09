@@ -58,6 +58,8 @@ agsekit run [--vm <vm_name>] [--config <path>] [--workdir <path>] [--proxychains
 
 После mount-проверок `run` запускает агента через один bundled VM-side wrapper script. Этот wrapper проверяет наличие бинарника агента, при необходимости подготавливает `nvm`, применяет runtime env, при необходимости включает `proxychains` или `http_proxy`, и затем запускает самого агента.
 
+Для профиля `custom` wrapper использует первый токен обязательной настройки `command` как executable и добавляет остальные настроенные токены команды, `default-args` и runtime-аргументы именно в таком порядке. Настроенная команда является argv, а не shell source, поэтому shell-операторы не вычисляются.
+
 `run` также умеет:
 
 - автоматически монтировать исходную директорию через `--auto-mount`;
@@ -93,6 +95,7 @@ agsekit run --vm agent-ubuntu codex --sandbox danger-full-access
 agsekit run --workdir /path/to/project/subdir qwen
 agsekit run --auto-mount --proxychains socks5://127.0.0.1:1080 qwen
 agsekit run --http-proxy socks5://127.0.0.1:8181 qwen
+agsekit run local-script --task check
 ```
 
 ## См. также

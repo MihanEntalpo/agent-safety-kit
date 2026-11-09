@@ -185,6 +185,8 @@ Details: [docs/architecture.md](docs/architecture.md)
 - [OpenCode](https://opencode.ai/)
 - [Claude Code](https://docs.claude.com/en/docs/claude-code/overview)
 - [Cline](https://cline.bot/)
+- [jcode](https://github.com/1jehuang/jcode)
+- `custom` - run any preinstalled VM command as an agent
 - `codex-glibc` - a [Codex](https://openai.com/codex/) variant built inside the VM
 - `codex-glibc-prebuilt` - a [Codex](https://openai.com/codex/) variant installed from a ready prebuilt release
 

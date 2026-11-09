@@ -29,7 +29,7 @@ Wizard flow:
 3. Configure agents:
    - choose an agent type from a TUI list
    - choose a name
-   - choose an agent version; leave it empty for upstream latest, enter `stable` for the tested agsekit version, or enter an exact version
+   - choose an agent version; leave it empty for upstream latest, enter `stable` for the tested agsekit version, or enter an exact version; `custom` asks for its required command instead
    - optionally add `env`
    - optionally add `default-args`
    - when more than one VM exists, assign the agent to one or more VMs

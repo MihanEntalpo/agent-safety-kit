@@ -265,6 +265,26 @@ class TestConfigGenCommand:
             "--dangerously-bypass-approvals-and-sandbox",
         ]
 
+    def test_custom_agent_prompts_for_command_instead_of_version(self, tmp_path: Path) -> None:
+        config_path = tmp_path / "config.yaml"
+        wizard = self._spawn(config_path)
+
+        _fill_vm_minimal(wizard)
+        _add_agent(
+            wizard,
+            agent_type="custom",
+            name="local-script",
+            command="python3 -m my_agent",
+        )
+        wizard.confirm("Add another agent?", False)
+        wizard.confirm("Customize global agsekit settings?", False)
+        wizard.confirm("Do you want to configure mounts?", False)
+        wizard.text("Where should the config be saved?", "")
+        wizard.finish()
+
+        agent = yaml.safe_load(config_path.read_text(encoding="utf-8"))["agents"]["local-script"]
+        assert agent == {"type": "custom", "command": "python3 -m my_agent"}
+
     def test_agent_proxy_override_semantics(self, tmp_path: Path) -> None:
         config_path = tmp_path / "config.yaml"
         wizard = self._spawn(config_path)
@@ -612,6 +632,7 @@ def _add_agent(
     agent_type: str,
     name: str,
     version: str = "",
+    command: Optional[str] = None,
     env_lines: Optional[List[str]] = None,
     default_args: Optional[str] = None,
     vm_toggles: Optional[List[int]] = None,
@@ -622,7 +643,10 @@ def _add_agent(
     assert agent_type in agent_order
     wizard.select("Agent type", index=agent_order.index(agent_type), ready_text=agent_order[-1])
     wizard.text("Agent name", name, clear_default=bool(name))
-    wizard.text("Agent version", version)
+    if agent_type == "custom":
+        wizard.text("Command to run for the custom agent", command or "")
+    else:
+        wizard.text("Agent version", version)
     if env_lines:
         wizard.confirm("Define environment variables for this agent?", True)
         for line in env_lines:

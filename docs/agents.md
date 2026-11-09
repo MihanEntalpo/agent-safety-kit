@@ -1,6 +1,6 @@
 # Supported Agents
 
-`agsekit` manages installation and runtime launch for a fixed set of agent types.
+`agsekit` manages runtime launch for a fixed set of agent types and installs the types that define an installer.
 
 Agents are essentially binaries from various vendors, such as claude-code, codex, or cline.
 
@@ -21,6 +21,8 @@ Agents are essentially binaries from various vendors, such as claude-code, codex
 - `opencode` - [OpenCode](https://opencode.ai/)
 - `claude` - [Claude Code](https://docs.claude.com/en/docs/claude-code/overview)
 - `cline` - [Cline](https://cline.bot/)
+- `jcode` - [jcode](https://github.com/1jehuang/jcode)
+- `custom` - any command already available inside the VM
 - `codex-glibc` - a [Codex](https://openai.com/codex/) variant built inside the VM
 - `codex-glibc-prebuilt` - a [Codex](https://openai.com/codex/) variant installed from a ready prebuilt release
 
@@ -38,12 +40,17 @@ Main patterns:
 - latest or exact npm CLI versions for `qwen`, `opencode`, `claude`, and `cline`
 - exact Python package version for `aider`
 - exact release version for `forgecode`
+- the official `jcode.sh` installer for latest or exact `jcode` releases
 - local build from source for `codex-glibc`
 - exact release asset download for `codex-glibc-prebuilt`
+
+`custom` has no installer or version policy. Its required `command` setting is checked and launched at runtime; provision that command through a VM install bundle, cloud-init, or another mechanism.
 
 ## Runtime Model
 
 `agsekit run` resolves the agent profile, applies default arguments, env, mount/VM restrictions, and network settings, then launches the agent inside the VM.
+
+For `custom`, `command` may be a shell-like string or a YAML list of argv tokens. It is parsed without shell evaluation, and `default-args` plus arguments passed to `agsekit run` are appended to it.
 
 ## OpenAI-Compatible API and Other Settings
 

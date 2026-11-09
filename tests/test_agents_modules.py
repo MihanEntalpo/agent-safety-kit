@@ -16,8 +16,11 @@ from agsekit_cli.config import AgentConfig
 
 
 def test_supported_agent_types_match_runtime_mapping():
-    assert tuple(AGENT_RUNTIME_BINARIES.keys()) == SUPPORTED_AGENT_TYPES
+    assert tuple(AGENT_RUNTIME_BINARIES.keys()) == tuple(
+        agent_type for agent_type in SUPPORTED_AGENT_TYPES if agent_type != "custom"
+    )
     assert AGENT_RUNTIME_BINARIES["aider"] == "aider"
+    assert AGENT_RUNTIME_BINARIES["jcode"] == "jcode"
     assert DEFAULT_AGENT_VERSIONS["cline"] == "2.17.0"
 
 
@@ -79,3 +82,5 @@ def test_non_node_agent_class_does_not_require_nvm():
     assert get_agent_class("forgecode").needs_nvm() is False
     assert get_agent_class("codex").needs_nvm() is False
     assert get_agent_class("claude").needs_nvm() is True
+    assert get_agent_class("jcode").needs_nvm() is False
+    assert get_agent_class("custom").installable is False

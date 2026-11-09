@@ -16,7 +16,7 @@ vms: # virtual machine settings (you can define multiple VMs)
     disk: 20G   # disk size
     old_default_mounts: false # true restores /home/ubuntu/<folder> suggestions during interactive mount creation
     backups_root_folder: null # overrides global.backups_root_folder for mounts assigned to this VM
-    allowed_agents: aider, qwen, forgecode, codex, opencode, claude, cline # optional: also accepts a list like [qwen, codex]; if omitted, all agents are allowed for this VM
+    allowed_agents: aider, qwen, forgecode, codex, opencode, claude, cline, jcode, custom # optional: also accepts a list like [qwen, codex]; if omitted, all agents are allowed for this VM
     proxychains: "" # set a proxy URL (scheme://host:port); agsekit will generate a temporary proxychains.conf and wrap Multipass commands
     http_proxy: "" # optional shorthand for VM-local privoxy upstream (for example socks5://127.0.0.1:8181); for direct mode use a mapping with url:
     cloud-init: {} # optional standard cloud-init config
@@ -45,7 +45,7 @@ mounts:
     vm: agent-ubuntu # VM name; if omitted, the first VM from the config is used
 agents:
   qwen: # agent name; add as many as you need
-    type: qwen # agent type: aider, qwen, forgecode (uses the forge binary and forces FORGE_TRACKER=false), codex, opencode, codex-glibc, codex-glibc-prebuilt (uses the codex-glibc-prebuilt binary), claude, or cline
+    type: qwen # agent type: aider, qwen, forgecode, codex, opencode, jcode, custom, codex-glibc, codex-glibc-prebuilt, claude, or cline
     # version is optional: omit it for upstream latest, use stable for agsekit's tested version, or set an exact semver
     proxychains: "" # optional agent proxy URL (scheme://host:port); if this field is present, it overrides the VM proxychains setting even when empty
     http_proxy: # optional HTTP proxy for agsekit run; overrides VM-level http_proxy
@@ -65,3 +65,8 @@ agents:
     type: aider
   forgecode:
     type: forgecode
+  jcode:
+    type: jcode
+  local-script:
+    type: custom
+    command: [python3, -m, my_agent] # required for custom; string form is also accepted

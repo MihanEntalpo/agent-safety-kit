@@ -9,7 +9,9 @@ from .cline import ClineAgent
 from .codex import CodexAgent
 from .codex_glibc import CodexGlibcAgent
 from .codex_glibc_prebuilt import CodexGlibcPrebuiltAgent
+from .custom import CustomAgent
 from .forgecode import ForgecodeAgent
+from .jcode import JcodeAgent
 from .opencode import OpencodeAgent
 from .qwen import QwenAgent
 
@@ -23,17 +25,19 @@ AGENT_CLASSES: Tuple[Type[BaseAgent], ...] = (
     CodexGlibcPrebuiltAgent,
     ClaudeAgent,
     ClineAgent,
+    JcodeAgent,
+    CustomAgent,
 )
 AGENT_CLASS_BY_TYPE: Dict[str, Type[BaseAgent]] = {agent_cls.type_name: agent_cls for agent_cls in AGENT_CLASSES}
 AGENT_CLASS_BY_RUNTIME_BINARY: Dict[str, Type[BaseAgent]] = {
-    agent_cls.runtime_binary: agent_cls for agent_cls in AGENT_CLASSES
+    agent_cls.runtime_binary: agent_cls for agent_cls in AGENT_CLASSES if agent_cls.runtime_binary
 }
 SUPPORTED_AGENT_TYPES: Tuple[str, ...] = tuple(AGENT_CLASS_BY_TYPE.keys())
 AGENT_RUNTIME_BINARIES: Dict[str, str] = {
-    agent_cls.type_name: agent_cls.runtime_binary for agent_cls in AGENT_CLASSES
+    agent_cls.type_name: agent_cls.runtime_binary for agent_cls in AGENT_CLASSES if agent_cls.runtime_binary
 }
 DEFAULT_AGENT_VERSIONS: Dict[str, str] = {
-    agent_cls.type_name: agent_cls.default_version for agent_cls in AGENT_CLASSES
+    agent_cls.type_name: agent_cls.default_version for agent_cls in AGENT_CLASSES if agent_cls.supports_version
 }
 
 
@@ -42,7 +46,7 @@ def get_agent_class(agent_type: str) -> Type[BaseAgent]:
 
 
 def get_agent_class_for_runtime_binary(binary: str) -> Type[BaseAgent]:
-    return AGENT_CLASS_BY_RUNTIME_BINARY[binary]
+    return AGENT_CLASS_BY_RUNTIME_BINARY.get(binary, BaseAgent)
 
 
 def build_agent_module(agent):

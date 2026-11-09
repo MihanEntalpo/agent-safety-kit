@@ -292,3 +292,84 @@ def test_forgecode_disables_tracker_env(run_test_vm: str, tmp_path: Path) -> Non
 
     assert result.returncode == 0, f"stdout={result.stdout}\nstderr={result.stderr}"
     assert "FORGE_TRACKER=false" in result.stdout
+
+
+def test_custom_agent_runs_configured_command_with_arguments(run_test_vm: str, tmp_path: Path) -> None:
+    config_path = tmp_path / "config-custom.yaml"
+    project_source = _project_source(config_path)
+    project_source.mkdir(parents=True, exist_ok=True)
+    payload = {
+        "vms": {run_test_vm: {"cpu": 1, "ram": "1G", "disk": "5G"}},
+        "mounts": [{"source": str(project_source), "vm": run_test_vm}],
+        "agents": {
+            "custom-main": {
+                "type": "custom",
+                "command": [
+                    "python3",
+                    "-c",
+                    "import os,sys; print('custom-agent-ok', os.getcwd(), sys.argv[1:])",
+                ],
+                "vm": run_test_vm,
+            }
+        },
+    }
+    config_path.write_text(yaml.safe_dump(payload, sort_keys=False), encoding="utf-8")
+
+    result = _run_cli(
+        [
+            "run",
+            "--config",
+            str(config_path),
+            "--disable-backups",
+            "--auto-mount",
+            "--non-interactive",
+            "custom-main",
+            "extra-arg",
+        ],
+        check=False,
+        cwd=project_source,
+    )
+
+    assert result.returncode == 0, f"stdout={result.stdout}\nstderr={result.stderr}"
+    assert "custom-agent-ok" in result.stdout
+    assert "extra-arg" in result.stdout
+
+    status = _run_cli(["status", "--config", str(config_path), "--non-interactive"], check=False)
+    assert status.returncode == 0, f"stdout={status.stdout}\nstderr={status.stderr}"
+    assert "custom-main (custom): installed" in status.stdout
+
+
+def test_jcode_real_installer_and_runtime(run_test_vm: str, tmp_path: Path) -> None:
+    config_path = tmp_path / "config-jcode-real.yaml"
+    project_source = _write_config(config_path, run_test_vm, "jcode-real", "jcode")
+    payload = yaml.safe_load(config_path.read_text(encoding="utf-8"))
+    payload["agents"]["jcode-real"]["version"] = "stable"
+    config_path.write_text(yaml.safe_dump(payload, sort_keys=False), encoding="utf-8")
+    _run(
+        ["multipass", "exec", run_test_vm, "--", "sudo", "rm", "-f", "/usr/local/bin/jcode"],
+        check=True,
+    )
+
+    install = _run_cli(
+        ["install-agents", "jcode-real", "--config", str(config_path), "--non-interactive"],
+        check=False,
+    )
+    assert install.returncode == 0, f"stdout={install.stdout}\nstderr={install.stderr}"
+
+    version = _run_cli(
+        [
+            "run",
+            "--config",
+            str(config_path),
+            "--disable-backups",
+            "--auto-mount",
+            "--non-interactive",
+            "jcode-real",
+            "--version",
+        ],
+        check=False,
+        cwd=project_source,
+    )
+    assert version.returncode == 0, f"stdout={version.stdout}\nstderr={version.stderr}"
+    assert "jcode" in version.stdout.lower()
+    assert "0.99.1" in version.stdout
