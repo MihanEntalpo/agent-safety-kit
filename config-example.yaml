@@ -33,6 +33,7 @@ vms: # virtual machine settings (you can define multiple VMs)
       - python        # pyenv + latest stable Python
       - nodejs:20     # nvm + Node.js version 20
       - rust          # rustup + toolchain
+      - zram          # compressed RAM-backed swap, enabled at boot
 mounts:
   - source: /host/path/project            # source folder path on the host
     target: /home/ubuntu/project          # mount point inside the VM; if omitted, /home/ubuntu/<source_folder_name> is used

@@ -55,4 +55,9 @@ BUNDLE_DEFINITIONS: dict[str, BundleDefinition] = {
         description="Install Docker Engine and Docker Compose via Docker's apt repo.",
         playbook=ANSIBLE_BUNDLES_DIR / "docker.yml",
     ),
+    "zram": BundleDefinition(
+        name="zram",
+        description="Create compressed RAM-backed swap and enable it at boot.",
+        playbook=ANSIBLE_BUNDLES_DIR / "zram.yml",
+    ),
 }

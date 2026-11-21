@@ -235,7 +235,7 @@ Behavior:
   - `type=local`: открыть порт на хосте и пробросить в VM (`ssh -L host:vm`).
   - `type=remote`: открыть порт в VM и пробросить на хост (`ssh -R vm:host`).
   - `type=socks5`: поднять SOCKS5-порт в VM (`ssh -D vm`).
-- `install` (optional) — список install bundles (`python`, `nodejs`, `nodejs:20`, `docker`, ...), которые выполняются на этапе `create-vm/create-vms`.
+- `install` (optional) — список install bundles (`python`, `nodejs`, `nodejs:20`, `docker`, `zram`, ...), которые выполняются на этапе `create-vm/create-vms`.
 - `old_default_mounts` (optional, bool, default `false`) — переключатель совместимости для интерактивного создания mount'ов: при `false` default target совпадает с абсолютным `source`, при `true` используется старый `/home/ubuntu/<basename(source)>`.
 - `backups_root_folder` (optional path, default `null`) — корневой каталог для автоматически вычисляемых backup-путей mount'ов этой VM; переопределяет `global.backups_root_folder`, а при отсутствии наследует его.
 - `allowed_agents` (optional) — список имён агентов из секции `agents` или строка имён, разделённых запятыми.
@@ -991,12 +991,14 @@ Behavior:
 - `rust`
 - `golang`
 - `docker`
+- `zram`
 
 Dependency resolution выполняется кодом до запуска playbooks.
 
 Особенности идемпотентности:
 - `pyenv` и `python` bundles определяют наличие pyenv по маркеру `~/.pyenv/bin/pyenv` (а не по `command -v pyenv`), чтобы повторные прогоны не зависели от shell PATH.
 - `nodejs` bundle без явной версии ставит текущую LTS-версию Node.js через `nvm version-remote --lts`, фиксирует `nvm alias default` на exact resolved version и при повторных прогонах пропускает установку, если `node` уже найден; это исключает незаметное обновление до новой LTS при очередном `up`/`create-vms`.
+- `zram` bundle устанавливает `zram-tools`, сразу запускает `zramswap.service` для создания сжатого RAM-backed swap и включает сервис для автозапуска при последующих загрузках VM.
 
 ### 10.3 Agent installers
 - `aider.yml`: установка точной версии `aider-chat==<version>` через `uv tool install --python 3.12 ...` с последующей проверкой бинарника `aider`; это повторяет актуальный upstream aider-install workflow и не зависит от unsupported system Python `3.13+`; сетевые шаги выполняются через `proxychains_prefix`.

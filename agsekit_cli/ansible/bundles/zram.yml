@@ -1,0 +1,29 @@
+---
+- name: Install zram
+  hosts: localhost
+  connection: local
+  gather_facts: false
+  tasks:
+    - name: Register Multipass VM
+      ansible.builtin.add_host:
+        name: "{{ vm_name }}"
+        ansible_host: "{{ vm_name }}"
+        ansible_connection: agsekit_multipass
+        ansible_python_interpreter: /usr/bin/python3
+
+- name: Configure compressed RAM-backed swap
+  hosts: "{{ vm_name }}"
+  gather_facts: false
+  become: true
+  tasks:
+    - name: Install zram tools
+      ansible.builtin.apt:
+        update_cache: true
+        name: zram-tools
+        state: present
+
+    - name: Enable and start zram swap
+      ansible.builtin.systemd_service:
+        name: zramswap.service
+        enabled: true
+        state: started

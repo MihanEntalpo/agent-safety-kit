@@ -1,5 +1,9 @@
 # Agent-Safety-Kit versions history
 
+## 1.7.9 - zram bundle
+
+* Added the `zram` VM software bundle, which installs `zram-tools`, creates compressed RAM-backed swap immediately, and enables it at boot
+
 ## 1.7.8 - config edit + interactive mount point selection
 
 * Added primary `agsekit config example` and `agsekit config gen` commands; the former top-level `config-example` and `config-gen` commands remain deprecated aliases

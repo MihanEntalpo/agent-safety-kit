@@ -283,6 +283,7 @@ Behavior:
     * `rust` - installs rustup and Rust toolchain
     * `golang` - installs Go toolchain through apt
     * `docker` - installs Docker Engine and Docker Compose through Docker's apt repository
+    * `zram` - installs `zram-tools`, creates compressed RAM-backed swap, and enables it at boot
 * `vms.<vm_name>.allowed_agents`
   * List of agents that are allowed to run in this VM
   * See [run](commands/run.md)

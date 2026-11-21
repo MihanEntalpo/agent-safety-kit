@@ -283,6 +283,7 @@ agents:
     * `rust` - устанавливает rustup и Rust toolchain
     * `golang` - устанавливает Go toolchain через apt
     * `docker` - устанавливает Docker Engine и Docker Compose через apt-репозиторий Docker
+    * `zram` - устанавливает `zram-tools`, создаёт сжатый swap в RAM и включает его автозапуск
 * `vms.<vm_name>.allowed_agents`
   * Список агентов, которых разрешено запускать в этой ВМ
   * См. [run](commands/run.md)
