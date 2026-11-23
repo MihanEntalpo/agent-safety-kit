@@ -15,7 +15,7 @@
 ## Команда
 
 ```bash
-agsekit up [--config <path>] [--debug] [--prepare/--no-prepare] [--create-vms/--no-create-vms] [--install-agents/--no-install-agents]
+agsekit up [--config <path>] [--debug] [--force-update-vm] [--prepare/--no-prepare] [--create-vms/--no-create-vms] [--install-agents/--no-install-agents]
 ```
 
 ## Что делает
@@ -35,6 +35,7 @@ agsekit up [--config <path>] [--debug] [--prepare/--no-prepare] [--create-vms/--
 
 - Хотя бы один этап должен остаться включённым.
 - Если для workflow нужен конфиг и он не найден, команда падает.
+- Для существующих остановленных ВМ, у которых CPU или RAM отличаются от `vms`, параметры обновляются до provisioning. Работающие ВМ не меняются и показываются в отчёте в конце; `--force-update-vm` останавливает, обновляет и снова запускает их.
 
 ## Примеры
 
@@ -42,6 +43,7 @@ agsekit up [--config <path>] [--debug] [--prepare/--no-prepare] [--create-vms/--
 agsekit up
 agsekit up --debug
 agsekit up --no-prepare
+agsekit up --force-update-vm
 agsekit up --prepare --no-create-vms --no-install-agents
 ```
 

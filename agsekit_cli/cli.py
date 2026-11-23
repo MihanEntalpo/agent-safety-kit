@@ -34,6 +34,7 @@ from .commands.restart_vm import restart_vm_command
 from .commands.start_vm import start_vm_command
 from .commands.stop import stop_vm_command
 from .commands.destroy_vm import destroy_vm_command
+from .commands.update_vm import update_vm_command
 from .commands.doctor import doctor_command
 from .commands.down import down_command
 from .commands.version import version_command
@@ -63,6 +64,7 @@ COMMANDS_REQUIRING_CONFIG = {
     "start-vm",
     "stop-vm",
     "up",
+    "update-vm",
     "umount",
 }
 
@@ -83,6 +85,7 @@ COMMANDS_WITH_DIRECT_MISSING_CONFIG_ERRORS = {
     "stop-vm",
     "umount",
     "up",
+    "update-vm",
 }
 
 
@@ -161,6 +164,7 @@ def main() -> None:
         daemon_group,
         systemd_group,
         destroy_vm_command,
+        update_vm_command,
     ):
         cli.add_command(command)
 

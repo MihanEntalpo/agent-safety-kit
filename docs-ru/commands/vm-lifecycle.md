@@ -5,6 +5,7 @@
 - [`start-vm`](#start-vm)
 - [`stop-vm`](#stop-vm)
 - [`restart-vm`](#restart-vm)
+- [`update-vm`](#update-vm)
 - [`down`](#down)
 - [`destroy-vm`](#destroy-vm)
 
@@ -32,6 +33,14 @@ agsekit stop-vm <vm_name>|--all-vms [--config <path>] [--debug]
 
 ```bash
 agsekit restart-vm <vm_name>|--all-vms [--config <path>] [--debug]
+```
+
+## `update-vm`
+
+Применяет CPU и RAM из конфигурации к существующей ВМ. Остановленная ВМ обновляется сразу. Для работающей ВМ команда спрашивает разрешение на остановку и повторный запуск; для автоматизации используйте `--force`. ВМ в состоянии suspended пропускаются: сначала разбудите их через `multipass start`.
+
+```bash
+agsekit update-vm <vm_name>|--all-vms [-f|--force] [--config <path>] [--debug]
 ```
 
 ## `down`

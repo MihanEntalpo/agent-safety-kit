@@ -15,6 +15,7 @@ When any command page lists `--debug`, debug records are prefixed with `[DEBUG]`
 ## VM and Agent Preparation
 
 - [create-vm / create-vms](create-vm.md)
+- [update-vm](update-vm.md)
 - [install-agents](install-agents.md)
 
 ## Agent Runtime
@@ -34,7 +35,7 @@ When any command page lists `--debug`, debug records are prefixed with `[DEBUG]`
 
 ## VM Lifecycle
 
-- [start-vm / stop-vm / restart-vm / down / destroy-vm](vm-lifecycle.md)
+- [start-vm / stop-vm / restart-vm / update-vm / down / destroy-vm](vm-lifecycle.md)
 
 ## Backups
 

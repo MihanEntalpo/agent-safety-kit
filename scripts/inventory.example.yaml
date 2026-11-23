@@ -1,0 +1,8 @@
+all:
+  hosts:
+    agsekit_org:
+      ansible_host: agsekit.org
+      ansible_user: root
+      ansible_ssh_private_key_file: ~/.ssh/id_ed25519
+      # Public half of AGSEKIT_ORG_SSH_PRIVATE_KEY from GitHub Actions.
+      agsekit_deploy_public_key: ssh-ed25519 AAAA... github-actions@agsekit.org

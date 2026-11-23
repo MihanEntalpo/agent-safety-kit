@@ -97,6 +97,23 @@ def test_up_respects_disabled_stages(monkeypatch, tmp_path):
     assert calls == ["install-agents", "daemon"]
 
 
+def test_up_passes_resource_update_flags_to_create_stage(monkeypatch, tmp_path):
+    config_path = tmp_path / "config.yaml"
+    config_path.write_text("vms: {}\n", encoding="utf-8")
+    create_kwargs = []
+
+    monkeypatch.setattr(up_module, "run_prepare", lambda **kwargs: None)
+    monkeypatch.setattr(up_module, "run_create_vms", lambda *args, **kwargs: create_kwargs.append(kwargs))
+    monkeypatch.setattr(up_module, "run_install_agents", lambda **kwargs: None)
+    monkeypatch.setattr(up_module, "install_portforward_daemon", lambda *args, **kwargs: None)
+
+    result = _invoke_command(CliRunner(), up_command, ["--config", str(config_path), "--force-update-vm"])
+
+    assert result.exit_code == 0
+    assert create_kwargs[0]["update_existing_resources"] is True
+    assert create_kwargs[0]["force_update_running"] is True
+
+
 def test_up_requires_at_least_one_stage():
     runner = CliRunner()
     result = _invoke_command(

@@ -15,6 +15,7 @@
 ## Подготовка VM и агентов
 
 - [create-vm / create-vms](create-vm.md)
+- [update-vm](update-vm.md)
 - [install-agents](install-agents.md)
 
 ## Runtime агента
@@ -34,7 +35,7 @@
 
 ## Жизненный цикл VM
 
-- [start-vm / stop-vm / restart-vm / down / destroy-vm](vm-lifecycle.md)
+- [start-vm / stop-vm / restart-vm / update-vm / down / destroy-vm](vm-lifecycle.md)
 
 ## Бэкапы
 

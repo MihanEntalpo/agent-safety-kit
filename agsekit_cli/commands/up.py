@@ -30,6 +30,13 @@ from ..daemon_backends import install_portforward_daemon, is_daemon_supported_pl
 @click.option("--prepare/--no-prepare", "do_prepare", default=True, help=tr("up.option_prepare"))
 @click.option("--create-vms/--no-create-vms", "do_create_vms", default=True, help=tr("up.option_create_vms"))
 @click.option(
+    "--force-update-vm",
+    "--force-update-vms",
+    "force_update_vm",
+    is_flag=True,
+    help=tr("up.option_force_update_vm"),
+)
+@click.option(
     "--install-agents/--no-install-agents",
     "do_install_agents",
     default=True,
@@ -41,6 +48,7 @@ def up_command(
     debug: bool,
     do_prepare: bool,
     do_create_vms: bool,
+    force_update_vm: bool,
     do_install_agents: bool,
 ) -> None:
     """Prepare host, create VMs, and install agents without prompts."""
@@ -57,6 +65,19 @@ def up_command(
             raise click.ClickException(tr("config.file_not_found", path=resolved_config_path))
         raise click.ClickException(tr("up.default_config_missing", path=DEFAULT_CONFIG_PATH))
 
+    deferred_vm_messages: list[str] = []
+
+    def run_create_stage(progress: Union[ProgressManager, SingleTaskProgressProxy]) -> None:
+        messages = run_create_vms(
+            config_path,
+            debug=debug,
+            progress=progress,
+            update_existing_resources=True,
+            force_update_running=force_update_vm,
+        )
+        if messages:
+            deferred_vm_messages.extend(messages)
+
     stages: list[tuple[str, Callable[[Union[ProgressManager, SingleTaskProgressProxy]], None], bool]] = []
     if do_prepare:
         stages.append((tr("progress.up_stage_prepare"), lambda progress: run_prepare(debug=debug, progress=progress), False))
@@ -64,7 +85,7 @@ def up_command(
         stages.append(
             (
                 tr("progress.up_stage_create_vms"),
-                lambda progress: run_create_vms(config_path, debug=debug, progress=progress),
+                run_create_stage,
                 True,
             )
         )
@@ -105,5 +126,8 @@ def up_command(
             else:
                 stage_runner(progress)
             progress.advance(overall_task)
+
+        for message in deferred_vm_messages:
+            progress.print(message)
 
     click.echo(tr("up.success"))

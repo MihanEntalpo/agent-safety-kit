@@ -1,0 +1,146 @@
+---
+- name: Configure agsekit.org installer host
+  hosts: all
+  become: true
+  gather_facts: true
+
+  vars:
+    agsekit_domain: agsekit.org
+    agsekit_deploy_user: agsekit
+    agsekit_deploy_root: "/home/{{ agsekit_deploy_user }}/{{ agsekit_domain }}"
+    agsekit_web_root: "{{ agsekit_deploy_root }}/www"
+    agsekit_project_url: https://github.com/MihanEntalpo/agent-safety-kit
+    certbot_email: mihanentalpo@yandex.ru
+    agsekit_deploy_public_key: ""
+
+  pre_tasks:
+    - name: Require a Debian-family host
+      ansible.builtin.assert:
+        that: ansible_facts.os_family == 'Debian'
+        fail_msg: This playbook currently supports Debian and Ubuntu hosts only.
+
+  tasks:
+    - name: Install web server and ACME client
+      ansible.builtin.apt:
+        name:
+          - nginx
+          - certbot
+          - python3-certbot-nginx
+        state: present
+        update_cache: true
+        cache_valid_time: 3600
+
+    - name: Create the GitHub Actions deployment user
+      ansible.builtin.user:
+        name: "{{ agsekit_deploy_user }}"
+        system: true
+        create_home: true
+        shell: /bin/sh
+
+    - name: Create SSH directory for the deployment user
+      ansible.builtin.file:
+        path: "/home/{{ agsekit_deploy_user }}/.ssh"
+        state: directory
+        owner: "{{ agsekit_deploy_user }}"
+        group: "{{ agsekit_deploy_user }}"
+        mode: '0700'
+      when: agsekit_deploy_public_key | length > 0
+
+    - name: Authorize the GitHub Actions deployment key
+      ansible.builtin.lineinfile:
+        path: "/home/{{ agsekit_deploy_user }}/.ssh/authorized_keys"
+        line: "{{ agsekit_deploy_public_key }}"
+        create: true
+        owner: "{{ agsekit_deploy_user }}"
+        group: "{{ agsekit_deploy_user }}"
+        mode: '0600'
+      when: agsekit_deploy_public_key | length > 0
+
+    - name: Create the installer publication directory
+      ansible.builtin.file:
+        path: "{{ agsekit_web_root }}"
+        state: directory
+        owner: "{{ agsekit_deploy_user }}"
+        group: "{{ agsekit_deploy_user }}"
+        mode: '0755'
+
+    - name: Make the deployment path readable by Nginx
+      ansible.builtin.file:
+        path: "{{ item }}"
+        state: directory
+        owner: "{{ agsekit_deploy_user }}"
+        group: "{{ agsekit_deploy_user }}"
+        mode: '0755'
+      loop:
+        - "/home/{{ agsekit_deploy_user }}"
+        - "{{ agsekit_deploy_root }}"
+
+    - name: Install Nginx virtual host for the installers
+      ansible.builtin.copy:
+        dest: "/etc/nginx/sites-available/{{ agsekit_domain }}"
+        owner: root
+        group: root
+        mode: '0644'
+        content: |
+          server {
+              listen 80;
+              listen [::]:80;
+              server_name {{ agsekit_domain }};
+
+              root {{ agsekit_web_root }};
+              index index.html;
+
+              location = / {
+                  return 302 {{ agsekit_project_url }};
+              }
+
+              location / {
+                  try_files $uri =404;
+              }
+          }
+      notify: Reload nginx
+
+    - name: Enable the installer virtual host
+      ansible.builtin.file:
+        src: "/etc/nginx/sites-available/{{ agsekit_domain }}"
+        dest: "/etc/nginx/sites-enabled/{{ agsekit_domain }}"
+        state: link
+      notify: Reload nginx
+
+    - name: Disable the default Nginx virtual host
+      ansible.builtin.file:
+        path: /etc/nginx/sites-enabled/default
+        state: absent
+      notify: Reload nginx
+
+    - name: Flush Nginx changes before issuing certificate
+      ansible.builtin.meta: flush_handlers
+
+    - name: Obtain and install Let's Encrypt certificate
+      ansible.builtin.command:
+        argv:
+          - certbot
+          - --nginx
+          - --non-interactive
+          - --agree-tos
+          - --email
+          - "{{ certbot_email }}"
+          - --redirect
+          - -d
+          - "{{ agsekit_domain }}"
+      register: certbot_result
+      changed_when: >-
+        'Successfully received certificate' in certbot_result.stdout or
+        'Congratulations' in certbot_result.stdout
+
+    - name: Enable and start Nginx
+      ansible.builtin.service:
+        name: nginx
+        state: started
+        enabled: true
+
+  handlers:
+    - name: Reload nginx
+      ansible.builtin.service:
+        name: nginx
+        state: reloaded

@@ -256,6 +256,96 @@ def compare_vm(
     return "match"
 
 
+def vm_mismatch_details(
+    raw_info: str,
+    vm_config: VmConfig,
+) -> List[str]:
+    """Return resource names that differ for one existing VM.
+
+    ``compare_vm`` remains the compact public status used by older callers;
+    resize workflows need the individual fields so that a disk difference does
+    not prevent applying an independent CPU/RAM change.
+    """
+
+    comparison = compare_vm(raw_info, vm_config.name, str(vm_config.cpu), vm_config.ram, vm_config.disk)
+    status, _, details = comparison.partition(" ")
+    if status != "mismatch":
+        return []
+    return [item for item in details.split(";") if item]
+
+
+def get_vm_state(raw_info: str, name: str) -> Optional[str]:
+    """Return the normalized Multipass state for *name*, if it is listed."""
+
+    entry = load_existing_entry(raw_info, name)
+    if entry is None:
+        return None
+    state = entry.get("state")
+    return str(state).strip().lower() if state is not None else None
+
+
+def format_vm_cpu_ram(raw_info: str, name: str) -> str:
+    """Format the effective CPU/RAM values for a user-facing mismatch notice."""
+
+    entry = load_existing_entry(raw_info, name)
+    if entry is None:
+        return tr("vm.resources_unknown")
+    runtime = _fetch_runtime_info_entry(name)
+    cpus = _extract_cpu_count(entry, runtime) or "?"
+    memory = _extract_ram_bytes(entry, runtime)
+    if memory is None:
+        memory_text = "?"
+    elif memory % (1024 ** 3) == 0:
+        memory_text = f"{memory // (1024 ** 3)} GiB"
+    else:
+        memory_text = f"{memory / (1024 ** 2):.0f} MiB"
+    return f"CPU={cpus}, RAM={memory_text}"
+
+
+def _set_vm_setting(vm_name: str, key: str, value: str) -> None:
+    command = [multipass_command(), "set", f"local.{vm_name}.{key}={value}"]
+    debug_log_command(command)
+    result = run_multipass_subprocess(command, check=False, capture_output=True)
+    debug_log_result(result)
+    if result.returncode != 0:
+        details = result.stderr.strip() or result.stdout.strip()
+        raise MultipassError(tr("vm.resize_failed", vm_name=vm_name, details=details or key))
+
+
+def apply_vm_cpu_ram(vm_config: VmConfig, raw_info: str) -> List[str]:
+    """Apply only CPU/RAM differences to a stopped Multipass instance."""
+
+    details = vm_mismatch_details(raw_info, vm_config)
+    changed: List[str] = []
+    if "cpus" in details:
+        _set_vm_setting(vm_config.name, "cpus", str(vm_config.cpu))
+        changed.append("cpus")
+    if "memory" in details:
+        _set_vm_setting(vm_config.name, "memory", vm_config.ram)
+        changed.append("memory")
+    return changed
+
+
+def _stop_vm_for_resize(vm_name: str) -> None:
+    command = [multipass_command(), "stop", vm_name]
+    debug_log_command(command)
+    result = run_multipass_subprocess(command, check=False, capture_output=True)
+    debug_log_result(result)
+    if result.returncode != 0:
+        details = result.stderr.strip() or result.stdout.strip()
+        raise MultipassError(tr("vm.resize_stop_failed", vm_name=vm_name, details=details or ""))
+
+
+def _start_vm_after_resize(vm_name: str) -> None:
+    command = [multipass_command(), "start", vm_name]
+    debug_log_command(command)
+    result = run_multipass_subprocess(command, check=False, capture_output=True)
+    debug_log_result(result)
+    if result.returncode != 0:
+        details = result.stderr.strip() or result.stdout.strip()
+        raise MultipassError(tr("vm.resize_start_failed", vm_name=vm_name, details=details or ""))
+
+
 def ensure_multipass_available() -> None:
     """Fail fast with a translated error if the Multipass CLI is not installed."""
 
@@ -357,6 +447,30 @@ def ensure_resources_available(existing_info: str, planned: Iterable[VmConfig]) 
     remaining_mem = total_mem - existing_mem - planned_mem
 
     if remaining_cpus < 1 or remaining_mem < 1024 ** 3:
+        raise MultipassError(tr("vm.insufficient_resources"))
+
+
+def ensure_resize_resources_available(existing_info: str, vm_config: VmConfig) -> None:
+    """Reject a CPU/RAM increase that cannot fit beside existing instances."""
+
+    entry = load_existing_entry(existing_info, vm_config.name)
+    if entry is None:
+        return
+    runtime = _fetch_runtime_info_entry(vm_config.name)
+    current_cpus = _extract_cpu_count(entry, runtime)
+    current_mem = _extract_ram_bytes(entry, runtime)
+    expected_mem = to_bytes(vm_config.ram)
+    if current_cpus is None or current_mem is None or expected_mem is None:
+        # Multipass still validates the setting. Do not invent a capacity
+        # failure when an older driver omits resource data.
+        return
+    try:
+        cpu_increase = max(0, vm_config.cpu - int(current_cpus))
+    except ValueError:
+        return
+    mem_increase = max(0, expected_mem - current_mem)
+    allocated_cpus, allocated_mem = _sum_existing_allocations(existing_info)
+    if _system_cpu_count() - allocated_cpus - cpu_increase < 1 or _system_memory_bytes() - allocated_mem - mem_increase < 1024 ** 3:
         raise MultipassError(tr("vm.insufficient_resources"))
 
 
@@ -684,6 +798,8 @@ def create_all_vms_from_config(
     path: Optional[str],
     *,
     launch_timeout_seconds: Optional[int] = None,
+    update_existing_resources: bool = False,
+    force_update_running: bool = False,
 ) -> tuple[List[str], List[str], Dict[str, str]]:
     """Create all configured VMs and return created/mismatch status summaries."""
 
@@ -699,9 +815,48 @@ def create_all_vms_from_config(
     for vm in vms.values():
         comparison = compare_vm(existing_info, vm.name, str(vm.cpu), vm.ram, vm.disk)
         status, _, details = comparison.partition(" ")
+        resource_details = [item for item in details.split(";") if item] if status == "mismatch" else []
+        cpu_ram_mismatch = [item for item in resource_details if item in {"cpus", "memory"}]
+        deferred_running_resize = False
+
+        if status == "mismatch" and update_existing_resources and cpu_ram_mismatch:
+            state = get_vm_state(existing_info, vm.name)
+            if state == "stopped":
+                ensure_resize_resources_available(existing_info, vm)
+                apply_vm_cpu_ram(vm, existing_info)
+                existing_info = fetch_existing_info()
+                comparison = compare_vm(existing_info, vm.name, str(vm.cpu), vm.ram, vm.disk)
+                status, _, details = comparison.partition(" ")
+            elif state == "running" and force_update_running:
+                ensure_resize_resources_available(existing_info, vm)
+                _stop_vm_for_resize(vm.name)
+                try:
+                    stopped_info = fetch_existing_info()
+                    apply_vm_cpu_ram(vm, stopped_info)
+                finally:
+                    _start_vm_after_resize(vm.name)
+                existing_info = fetch_existing_info()
+                comparison = compare_vm(existing_info, vm.name, str(vm.cpu), vm.ram, vm.disk)
+                status, _, details = comparison.partition(" ")
+            elif state == "suspended":
+                mismatch_messages.append(tr("vm.resize_suspended", vm_name=vm.name))
+                statuses[vm.name] = "suspended"
+                continue
+            elif state == "running":
+                deferred_running_resize = True
+                mismatch_messages.append(
+                    tr(
+                        "vm.resize_deferred_running",
+                        vm_name=vm.name,
+                        actual=format_vm_cpu_ram(existing_info, vm.name),
+                        expected=f"CPU={vm.cpu}, RAM={vm.ram}",
+                    )
+                )
         if status == "mismatch":
-            readable = _format_mismatch_details(details)
-            mismatch_messages.append(tr("vm.mismatch_not_supported", vm_name=vm.name, details=readable))
+            remaining_details = [item for item in details.split(";") if item]
+            if not deferred_running_resize or "disk" in remaining_details:
+                readable = _format_mismatch_details(details)
+                mismatch_messages.append(tr("vm.mismatch_not_supported", vm_name=vm.name, details=readable))
         statuses[vm.name] = status
         if status == "absent":
             planned.append(vm)

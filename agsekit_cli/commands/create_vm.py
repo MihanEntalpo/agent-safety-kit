@@ -25,7 +25,9 @@ def run_create_vms(
     *,
     debug: bool,
     progress: Optional[ProgressManager] = None,
-) -> None:
+    update_existing_resources: bool = False,
+    force_update_running: bool = False,
+) -> list[str]:
     resolved_path = resolve_config_path(Path(config_path) if config_path else None)
     try:
         config = load_config(resolved_path)
@@ -38,7 +40,11 @@ def run_create_vms(
         if not progress:
             click.echo(tr("create_vm.creating_all", config_path=resolved_path))
         try:
-            messages, mismatch_messages, statuses = create_all_vms_from_config(str(resolved_path))
+            messages, mismatch_messages, statuses = create_all_vms_from_config(
+                str(resolved_path),
+                update_existing_resources=update_existing_resources,
+                force_update_running=force_update_running,
+            )
         except ConfigError as exc:
             raise click.ClickException(str(exc))
         except MultipassError as exc:
@@ -67,9 +73,9 @@ def run_create_vms(
                     progress=owned_progress,
                     show_overall_task=True,
                 )
-            return
+            return mismatch_messages
 
-        _run_create_vms_with_progress(
+        return _run_create_vms_with_progress(
             vms,
             statuses,
             mismatch_messages,
@@ -91,7 +97,7 @@ def _run_create_vms_with_progress(
     debug: bool,
     progress: ProgressManager,
     show_overall_task: bool,
-) -> None:
+) -> list[str]:
     overall_task = progress.add_task(tr("progress.create_vms_title"), total=len(vms)) if show_overall_task else None
     for vm in vms.values():
         vm_task = None
@@ -100,6 +106,8 @@ def _run_create_vms_with_progress(
                 progress.update(overall_task, description=tr("progress.create_vms_vm_stage", vm_name=vm.name))
             vm_task = progress.add_task(tr("progress.vm_title", vm_name=vm.name), total=6)
             vm_status = statuses.get(vm.name)
+            if vm_status == "suspended":
+                continue
             if vm_status == "created":
                 progress.update(vm_task, description=tr("progress.vm_step_create"))
             else:
@@ -115,8 +123,7 @@ def _run_create_vms_with_progress(
                 progress.remove_task(vm_task)
     if overall_task is not None:
         progress.remove_task(overall_task)
-    for mismatch in mismatch_messages:
-        progress.print(mismatch)
+    return mismatch_messages
 
 
 @click.command(name="create-vm", help=tr("create_vm.command_help"))

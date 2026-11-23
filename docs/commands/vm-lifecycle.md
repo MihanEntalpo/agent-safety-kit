@@ -5,6 +5,7 @@
 - [`start-vm`](#start-vm)
 - [`stop-vm`](#stop-vm)
 - [`restart-vm`](#restart-vm)
+- [`update-vm`](#update-vm)
 - [`down`](#down)
 - [`destroy-vm`](#destroy-vm)
 
@@ -32,6 +33,14 @@ Performs the stop/start sequence for selected targets.
 
 ```bash
 agsekit restart-vm <vm_name>|--all-vms [--config <path>] [--debug]
+```
+
+## `update-vm`
+
+Applies configured CPU and RAM to an existing VM. A stopped VM is updated directly. For a running VM, the command asks before stopping and restarting it; use `--force` for automation. Suspended VMs are skipped and must first be resumed with `multipass start`.
+
+```bash
+agsekit update-vm <vm_name>|--all-vms [-f|--force] [--config <path>] [--debug]
 ```
 
 ## `down`

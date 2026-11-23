@@ -1,6 +1,7 @@
 .env
 .python-version
 config.yaml
+scripts/inventory.yaml
 venv/
 __pycache__/
 build/

@@ -34,7 +34,7 @@ agsekit create-vms [--config <path>] [--debug]
 
 ## Behavior for an Existing VM
 
-If the VM already exists, `agsekit` compares real and configured resources and reports differences. Automatic resizing of an existing VM is not supported yet.
+If the VM already exists, `agsekit` compares real and configured resources and reports differences. Use [`update-vm`](update-vm.md) to apply configured CPU and RAM; `up` applies them automatically for stopped VMs.
 
 ## Examples
 

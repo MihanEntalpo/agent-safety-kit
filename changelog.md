@@ -1,5 +1,11 @@
 # Agent-Safety-Kit versions history
 
+## 1.8.0 - VM CPU/RAM reconciliation
+
+* Added `agsekit update-vm <vm>|--all-vms` to apply configured CPU and RAM to existing Multipass VMs, with confirmation before restarting a running VM and `--force` for automation
+* Changed `agsekit up` to apply CPU/RAM differences to stopped VMs before provisioning; running VMs are reported at the end or can be stopped, updated, and restarted with `--force-update-vm`
+* Added explicit handling for suspended VMs: they are skipped until resumed through Multipass
+
 ## 1.7.9 - zram bundle
 
 * Added the `zram` VM software bundle, which installs `zram-tools`, creates compressed RAM-backed swap immediately, and enables it at boot

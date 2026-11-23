@@ -15,7 +15,7 @@ Run the main bootstrap flow without interactive questions.
 ## Command
 
 ```bash
-agsekit up [--config <path>] [--debug] [--prepare/--no-prepare] [--create-vms/--no-create-vms] [--install-agents/--no-install-agents]
+agsekit up [--config <path>] [--debug] [--force-update-vm] [--prepare/--no-prepare] [--create-vms/--no-create-vms] [--install-agents/--no-install-agents]
 ```
 
 ## What It Does
@@ -35,6 +35,7 @@ By default, all 4 are launched.
 
 - At least one stage must remain enabled.
 - If the workflow needs a config and it is not found, the command fails.
+- Existing stopped VMs whose CPU or RAM differs from `vms` are updated before provisioning. Running VMs are left unchanged and reported after the workflow; use `--force-update-vm` to stop, update, and restart them.
 
 ## Examples
 
@@ -42,6 +43,7 @@ By default, all 4 are launched.
 agsekit up
 agsekit up --debug
 agsekit up --no-prepare
+agsekit up --force-update-vm
 agsekit up --prepare --no-create-vms --no-install-agents
 ```
 
